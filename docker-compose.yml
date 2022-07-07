@@ -1,0 +1,19 @@
+version: "3.9"
+
+services:
+  pagopa-ecommerce-scheduler:
+    build:
+      context: .
+    container_name: pagopa-ecommerce-ecommerce-scheduler
+    ports:
+      - "8080:8080"
+    networks:
+      - pagopa-ecommerce
+    env_file: .env.example
+
+networks:
+  pagopa-ecommerce:
+    name: pagopa-ecommerce
+    driver: bridge
+    driver_opts:
+      com.docker.network.driver.mtu: 1450
