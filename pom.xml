@@ -101,6 +101,33 @@
 					</dependency>
 				</dependencies>
 			</plugin>
+		<plugin>
+			<groupId>org.openapitools</groupId>
+				<artifactId>openapi-generator-maven-plugin</artifactId>
+				<version>6.0.1</version>
+				<executions>
+					<execution>
+						<id>node-api</id>
+						<goals>
+							<goal>generate</goal>
+						</goals>
+						<configuration>
+							<inputSpec>
+								https://raw.githubusercontent.com/pagopa/pagopa-infra/d98ae47b3dcc4cf8378ea9f0920605fc406b506d/src/api/nodopagamenti_api/nodoPerPM/v2/_swagger.json.tpl
+							</inputSpec>
+							<generatorName>java</generatorName>
+							<library>webclient</library>
+							<generateApiDocumentation>false</generateApiDocumentation>
+							<generateApiTests>false</generateApiTests>
+							<generateModelTests>false</generateModelTests>
+							<generateSupportingFiles>true</generateSupportingFiles>
+							<modelPackage>it.pagopa.generated.ecommerce.scheduler.node.v1.model</modelPackage>
+							<apiPackage>it.pagopa.generated.ecommerce.scheduler.node.v1.api</apiPackage>
+							<modelNameSuffix>dto</modelNameSuffix>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
 		</plugins>
 	</build>
 
