@@ -2,8 +2,8 @@ package it.pagopa.ecommerce.scheduler.config
 
 import io.netty.channel.ChannelOption
 import io.netty.handler.timeout.ReadTimeoutHandler
-import it.pagopa.generated.ecommerce.scheduler.node.v1.ApiClient
-import it.pagopa.generated.ecommerce.scheduler.node.v1.api.NodoApi
+import it.pagopa.generated.ecommerce.nodo.v1.ApiClient
+import it.pagopa.generated.ecommerce.nodo.v1.api.NodoApi
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
