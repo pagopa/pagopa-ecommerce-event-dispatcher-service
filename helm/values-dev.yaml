@@ -1,0 +1,117 @@
+microservice-chart:
+  namespace: "ecommerce"
+  nameOverride: ""
+  fullnameOverride: ""
+
+  image:
+    repository: pagopadcommonacr.azurecr.io/pagopaecommerceschedulerservice
+    tag: "latest" #improve
+    pullPolicy: Always
+
+  livenessProbe:
+    httpGet:
+      path: /actuator/health/liveness
+      port: 8080
+    initialDelaySeconds: 60
+    failureThreshold: 6
+    periodSeconds: 10
+
+  readinessProbe:
+    httpGet:
+      path: /actuator/health/readiness
+      port: 8080
+    initialDelaySeconds: 60
+    failureThreshold: 6
+    periodSeconds: 10
+
+  deployment:
+    create: true
+
+  service:
+    create: true
+    type: ClusterIP
+    port: 8080
+
+  ingress:
+    create: true
+    host: "weudev.ecommerce.internal.dev.platform.pagopa.it"
+    path: /pagopa-ecommerce-scheduler-service/(.*)
+
+  serviceAccount:
+    create: false
+    annotations: {}
+    name: ""
+
+  podAnnotations: {}
+
+  podSecurityContext:
+    seccompProfile:
+      type: RuntimeDefault
+
+  securityContext:
+    allowPrivilegeEscalation: false
+
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "40m"
+    limits:
+      memory: "256Mi"
+      cpu: "150m"
+
+  autoscaling:
+    minReplica: 1
+    maxReplica: 2
+    pollingInterval: 30 # seconds
+    cooldownPeriod: 300 # seconds
+    triggers:
+      - type: azure-monitor
+        metadata:
+          tenantId: 7788edaf-0346-4068-9d79-c868aed15b3d
+          subscriptionId: bbe47ad4-08b3-4925-94c5-1278e5819b86
+          resourceGroupName: pagopa-d-ecommerce-sec-rg
+          resourceURI: Microsoft.KeyVault/vaults/pagopa-d-ecommerce-kv
+          metricName: ServiceApiHit
+          # metricNamespace: Microsoft.KeyVault/vaults
+          # metricFilter: namespace eq 'default'
+          # metricAggregationInterval: "-1:1:0"
+          metricAggregationType: Count
+          targetValue: "30"
+
+  envConfig:
+    # MONGO_HOST: pagopa-d-weu-ecommerce-cosmos-account.mongo.cosmos.azure.com
+    # MONGO_USERNAME: pagopa-d-weu-ecommerce-cosmos-account
+    # MONGO_PORT: "10255"
+    # REDIS_HOST: pagopa-d-weu-ecommerce-redis.redis.cache.windows.net
+    # REDIS_PORT: "6380"
+    # NODO_URI: https://api.dev.platform.pagopa.it/nodo/node-for-psp/v1
+    # NODO_READ_TIMEOUT: "10000"
+    # NODO_CONNECTION_TIMEOUT: "10000"
+    # ECOMMERCE_TRANSACTIONS_URI: https://api.dev.platform.pagopa.it/ecommerce/transactions-service/v1
+    # ECOMMERCE_TRANSACTIONS_READ_TIMEOUT: "10000"
+    # ECOMMERCE_TRANSACTIONS_CONNECTION_TIMEOUT: "10000"
+    # ECOMMERCE_SESSIONS_URI: https://api.dev.platform.pagopa.it/ecommerce/sessions-service/v1
+    # ECOMMERCE_SESSIONS_READ_TIMEOUT: "10000"
+    # ECOMMERCE_SESSIONS_CONNECTION_TIMEOUT: "10000"
+    # ECOMMERCE_PAYMENT_INSTRUMENTS_URI: https://api.dev.platform.pagopa.it/ecommerce/payment-instruments-service/v1
+    # ECOMMERCE_PAYMENT_INSTRUMENTS_READ_TIMEOUT: "10000"
+    # ECOMMERCE_PAYMENT_INSTRUMENTS_CONNECTION_TIMEOUT: "10000"
+    # PAYMENT_TRANSACTIONS_GATEWAY_URI: http://pagopa-ecommerce-payment-instruments-service:8080
+    # PAYMENT_TRANSACTIONS_GATEWAY_READ_TIMEOUT: "10000"
+    # PAYMENT_TRANSACTIONS_GATEWAY_CONNECTION_TIMEOUT: "10000"
+
+  envSecret:
+    # MONGO_PASSWORD: mongo-ecommerce-password
+    # REDIS_PASSWORD: redis-ecommerce-password
+    # NODO_CONNECTION_STRING: nodo-connection-string
+
+  keyvault:
+    name: "pagopa-d-ecommerce-kv"
+    tenantId: "7788edaf-0346-4068-9d79-c868aed15b3d"
+
+  nodeSelector: {}
+
+  tolerations: []
+
+  affinity: {}
+
