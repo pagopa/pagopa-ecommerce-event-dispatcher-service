@@ -79,31 +79,31 @@ microservice-chart:
           targetValue: "30"
 
   envConfig:
-    MONGO_HOST: pagopa-d-weu-ecommerce-cosmos-account.mongo.cosmos.azure.com
-    MONGO_USERNAME: pagopa-d-weu-ecommerce-cosmos-account
-    MONGO_PORT: "10255"
-    REDIS_HOST: pagopa-d-weu-ecommerce-redis.redis.cache.windows.net 
-    REDIS_PORT: "6380"
-    NODO_URI: https://api.dev.platform.pagopa.it/nodo/node-for-psp/v1
-    NODO_READ_TIMEOUT: "10000"
-    NODO_CONNECTION_TIMEOUT: "10000"
-    ECOMMERCE_TRANSACTIONS_URI: https://api.dev.platform.pagopa.it/ecommerce/transactions-service/v1
-    ECOMMERCE_TRANSACTIONS_READ_TIMEOUT: "10000"
-    ECOMMERCE_TRANSACTIONS_CONNECTION_TIMEOUT: "10000"
-    ECOMMERCE_SESSIONS_URI: https://api.dev.platform.pagopa.it/ecommerce/sessions-service/v1
-    ECOMMERCE_SESSIONS_READ_TIMEOUT: "10000"
-    ECOMMERCE_SESSIONS_CONNECTION_TIMEOUT: "10000"
-    ECOMMERCE_PAYMENT_INSTRUMENTS_URI: https://api.dev.platform.pagopa.it/ecommerce/payment-instruments-service/v1
-    ECOMMERCE_PAYMENT_INSTRUMENTS_READ_TIMEOUT: "10000"
-    ECOMMERCE_PAYMENT_INSTRUMENTS_CONNECTION_TIMEOUT: "10000"
-    PAYMENT_TRANSACTIONS_GATEWAY_URI: http://pagopa-ecommerce-payment-instruments-service:8080
-    PAYMENT_TRANSACTIONS_GATEWAY_READ_TIMEOUT: "10000"
-    PAYMENT_TRANSACTIONS_GATEWAY_CONNECTION_TIMEOUT: "10000"
+    # MONGO_HOST: pagopa-d-weu-ecommerce-cosmos-account.mongo.cosmos.azure.com
+    # MONGO_USERNAME: pagopa-d-weu-ecommerce-cosmos-account
+    # MONGO_PORT: "10255"
+    # REDIS_HOST: pagopa-d-weu-ecommerce-redis.redis.cache.windows.net
+    # REDIS_PORT: "6380"
+    # NODO_URI: https://api.dev.platform.pagopa.it/nodo/node-for-psp/v1
+    # NODO_READ_TIMEOUT: "10000"
+    # NODO_CONNECTION_TIMEOUT: "10000"
+    # ECOMMERCE_TRANSACTIONS_URI: https://api.dev.platform.pagopa.it/ecommerce/transactions-service/v1
+    # ECOMMERCE_TRANSACTIONS_READ_TIMEOUT: "10000"
+    # ECOMMERCE_TRANSACTIONS_CONNECTION_TIMEOUT: "10000"
+    # ECOMMERCE_SESSIONS_URI: https://api.dev.platform.pagopa.it/ecommerce/sessions-service/v1
+    # ECOMMERCE_SESSIONS_READ_TIMEOUT: "10000"
+    # ECOMMERCE_SESSIONS_CONNECTION_TIMEOUT: "10000"
+    # ECOMMERCE_PAYMENT_INSTRUMENTS_URI: https://api.dev.platform.pagopa.it/ecommerce/payment-instruments-service/v1
+    # ECOMMERCE_PAYMENT_INSTRUMENTS_READ_TIMEOUT: "10000"
+    # ECOMMERCE_PAYMENT_INSTRUMENTS_CONNECTION_TIMEOUT: "10000"
+    # PAYMENT_TRANSACTIONS_GATEWAY_URI: http://pagopa-ecommerce-payment-instruments-service:8080
+    # PAYMENT_TRANSACTIONS_GATEWAY_READ_TIMEOUT: "10000"
+    # PAYMENT_TRANSACTIONS_GATEWAY_CONNECTION_TIMEOUT: "10000"
 
   envSecret:
-    MONGO_PASSWORD: mongo-ecommerce-password
-    REDIS_PASSWORD: redis-ecommerce-password
-    NODO_CONNECTION_STRING: nodo-connection-string
+    # MONGO_PASSWORD: mongo-ecommerce-password
+    # REDIS_PASSWORD: redis-ecommerce-password
+    # NODO_CONNECTION_STRING: nodo-connection-string
 
   keyvault:
     name: "pagopa-d-ecommerce-kv"
