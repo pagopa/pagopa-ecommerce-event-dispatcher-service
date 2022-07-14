@@ -60,6 +60,22 @@ class PaymentGatewayClientTest {
     }
 
     @Test
+    fun pgsClient_requestRefund_504(){
+        val testUIID: UUID = UUID.randomUUID()
+
+        // preconditions
+        Mockito.`when`(paymentTransactionsControllerApi.refundRequest(testUIID))
+            .thenReturn(Mono.error(WebClientResponseException.GatewayTimeout.create(
+                504,"Gateway timeout", HttpHeaders.EMPTY, ByteArray(0), Charset.defaultCharset())))
+
+        // test
+        val exc = assertThrows(Exception::class.java) {
+            paymentGatewayClient.requestRefund(testUIID).block()
+        }
+
+        assertTrue(exc.message?.contains("GatewayTimeoutException") ?: false)
+    }
+    @Test
     fun pgsClient_requestRefund_500(){
         val testUIID: UUID = UUID.randomUUID()
 
