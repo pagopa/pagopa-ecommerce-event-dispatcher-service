@@ -1,6 +1,5 @@
 package it.pagopa.ecommerce.scheduler.client
 
-import io.netty.handler.codec.http.HttpResponseStatus.*
 import it.pagopa.ecommerce.scheduler.exceptions.BadGatewayException
 import it.pagopa.ecommerce.scheduler.exceptions.GatewayTimeoutException
 import it.pagopa.ecommerce.scheduler.exceptions.TransactionNotFound
@@ -8,7 +7,9 @@ import it.pagopa.generated.ecommerce.gateway.v1.api.PaymentTransactionsControlle
 import it.pagopa.generated.ecommerce.gateway.v1.dto.PostePayRefundResponseDto
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Qualifier
+import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
+import org.springframework.web.reactive.function.client.WebClientResponseException
 import reactor.core.publisher.Mono
 import java.util.*
 
@@ -21,12 +22,12 @@ class PaymentGatewayClient {
 
     fun requestRefund(requestId: UUID): Mono<PostePayRefundResponseDto> {
         return paymentTransactionsControllerApi.refundRequest(requestId)
-            .onErrorMap {
-                when(it){
-                    NOT_FOUND -> TransactionNotFound(requestId)
-                    GATEWAY_TIMEOUT -> GatewayTimeoutException()
-                    INTERNAL_SERVER_ERROR -> BadGatewayException("")
-                    else -> it
+            .onErrorMap(WebClientResponseException::class.java) { exception: WebClientResponseException ->
+                when (exception.statusCode) {
+                    HttpStatus.NOT_FOUND -> TransactionNotFound(requestId)
+                    HttpStatus.GATEWAY_TIMEOUT -> GatewayTimeoutException()
+                    HttpStatus.INTERNAL_SERVER_ERROR -> BadGatewayException("")
+                    else -> exception
                 }
             }
     }
