@@ -1,7 +1,8 @@
 package it.pagopa.ecommerce.scheduler.service
 
 import it.pagopa.ecommerce.scheduler.client.PaymentGatewayClient
-import it.pagopa.ecommerce.scheduler.utils.TestUtil.Companion.getMockedRefundRequest
+import it.pagopa.ecommerce.scheduler.services.RefundService
+import it.pagopa.ecommerce.scheduler.utils.getMockedRefundRequest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.mockito.InjectMocks
