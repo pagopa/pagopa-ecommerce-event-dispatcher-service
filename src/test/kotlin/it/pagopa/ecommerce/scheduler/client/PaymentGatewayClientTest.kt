@@ -2,7 +2,7 @@ package it.pagopa.ecommerce.scheduler.client
 
 import it.pagopa.ecommerce.scheduler.exceptions.BadGatewayException
 import it.pagopa.ecommerce.scheduler.exceptions.TransactionNotFound
-import it.pagopa.ecommerce.scheduler.utils.TestUtil.Companion.getMockedRefundRequest
+import it.pagopa.ecommerce.scheduler.utils.getMockedRefundRequest
 import it.pagopa.generated.ecommerce.gateway.v1.api.PaymentTransactionsControllerApi
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
