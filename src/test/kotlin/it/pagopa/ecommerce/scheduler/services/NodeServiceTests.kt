@@ -1,8 +1,8 @@
 package it.pagopa.ecommerce.scheduler.services
 
+import it.pagopa.ecommerce.scheduler.client.NodeClient
 import it.pagopa.ecommerce.scheduler.exceptions.TransactionEventNotFoundException
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreRepository
-import it.pagopa.generated.ecommerce.nodo.v1.api.NodoApi
 import it.pagopa.generated.ecommerce.nodo.v1.dto.ClosePaymentRequestV2Dto.OutcomeEnum
 import it.pagopa.generated.ecommerce.nodo.v1.dto.ClosePaymentResponseDto
 import it.pagopa.transactions.documents.TransactionAuthorizationRequestData
@@ -14,10 +14,10 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
-import org.mockito.ArgumentMatchers.any
 import org.mockito.BDDMockito.given
 import org.mockito.InjectMocks
 import org.mockito.Mock
+import org.mockito.kotlin.any
 import org.springframework.test.context.junit.jupiter.SpringExtension
 import reactor.core.publisher.Mono
 import java.util.*
@@ -30,7 +30,7 @@ class NodeServiceTests {
     lateinit var nodeService: NodeService
 
     @Mock
-    lateinit var nodeApi: NodoApi
+    lateinit var nodeClient: NodeClient
 
     @Mock
     lateinit var transactionsEventStoreRepository: TransactionsEventStoreRepository<TransactionAuthorizationRequestData>
@@ -62,7 +62,7 @@ class NodeServiceTests {
             TransactionEventCode.TRANSACTION_AUTHORIZATION_REQUESTED_EVENT
         )).willReturn(Mono.just(authEvent))
 
-        given(nodeApi.closePaymentV2(any())).willReturn(Mono.just(closePaymentResponse))
+        given(nodeClient.closePayment(any())).willReturn(Mono.just(closePaymentResponse))
 
         /* test */
         assertEquals(closePaymentResponse, nodeService.closePayment(transactionId, transactionOutcome))

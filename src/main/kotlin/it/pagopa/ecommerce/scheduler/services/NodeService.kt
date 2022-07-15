@@ -1,5 +1,6 @@
 package it.pagopa.ecommerce.scheduler.services
 
+import it.pagopa.ecommerce.scheduler.client.NodeClient
 import it.pagopa.ecommerce.scheduler.exceptions.TransactionEventNotFoundException
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreRepository
 import it.pagopa.generated.ecommerce.nodo.v1.api.NodoApi
@@ -16,7 +17,7 @@ import java.util.*
 
 @Service
 class NodeService(
-    @Autowired private val nodeApi: NodoApi,
+    @Autowired private val nodeClient: NodeClient,
     @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<TransactionAuthorizationRequestData>
 ) {
     suspend fun closePayment(transactionId: UUID, transactionOutcome: ClosePaymentRequestV2Dto.OutcomeEnum): ClosePaymentResponseDto {
@@ -40,6 +41,6 @@ class NodeService(
             timestampOperation = OffsetDateTime.now()
         }
 
-        return nodeApi.closePaymentV2(closePaymentRequest).awaitSingle()
+        return nodeClient.closePayment(closePaymentRequest).awaitSingle()
     }
 }
