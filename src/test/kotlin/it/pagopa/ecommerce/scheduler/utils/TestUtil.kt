@@ -6,6 +6,7 @@ import it.pagopa.transactions.documents.TransactionAuthorizationRequestData
 import java.time.OffsetDateTime
 import java.util.*
 
+
 fun getMockedClosePaymentRequest(
     transactionId: UUID,
     outcome: ClosePaymentRequestV2Dto.OutcomeEnum): ClosePaymentRequestV2Dto {
