@@ -10,7 +10,7 @@ import org.springframework.messaging.handler.annotation.Payload
 import org.springframework.stereotype.Service
 
 @Service
-class TransactionAuthRequestedEventsConsumer() {
+class TransactionAuthRequestedEventsConsumer {
 
     var logger: Logger = LoggerFactory.getLogger(TransactionAuthRequestedEventsConsumer::class.java)
     
