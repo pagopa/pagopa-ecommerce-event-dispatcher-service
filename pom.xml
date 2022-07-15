@@ -19,6 +19,9 @@
 		<kotlinx-coroutines.version>1.6.2</kotlinx-coroutines.version>
 		<spring-cloud-azure.version>4.0.0</spring-cloud-azure.version>
 		<jacoco.version>0.8.8</jacoco.version>
+		<sonar.coverage.exclusions> <!-- the members of the following list should be in the same line -->
+			**/it/pagopa/transactions/**
+		</sonar.coverage.exclusions>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -292,6 +295,12 @@
 				<groupId>org.jacoco</groupId>
 				<artifactId>jacoco-maven-plugin</artifactId>
 				<version>${jacoco.version}</version>
+				<configuration>
+					<excludes>
+						<exclude>it/pagopa/generated/**</exclude>
+						<exclude>it/pagopa/transactions/**</exclude>
+					</excludes>
+				</configuration>
 				<executions>
 					<execution>
 						<id>jacoco-initialize</id>
@@ -307,12 +316,6 @@
 						</goals>
 					</execution>
 				</executions>
-				<configuration>
-					<excludes>
-						<exclude>it/pagopa/generated/**</exclude>
-						<exclude>it/pagopa/transactions/**</exclude>
-					</excludes>
-				</configuration>
 			</plugin>
 		</plugins>
 	</build>
