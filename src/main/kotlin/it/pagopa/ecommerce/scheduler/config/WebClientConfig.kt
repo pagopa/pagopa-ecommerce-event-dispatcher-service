@@ -37,7 +37,11 @@ class WebClientConfig {
             ReactorClientHttpConnector(httpClient)
         ).baseUrl(nodoUri).build()
 
-        return NodoApi(NodoApiClient(webClient))
+        val nodoApiClient = NodoApiClient(webClient).apply {
+            basePath = nodoUri
+        }
+
+        return NodoApi(nodoApiClient)
     }
 
     @Bean(name = ["paymentTransactionGatewayWebClient"])
