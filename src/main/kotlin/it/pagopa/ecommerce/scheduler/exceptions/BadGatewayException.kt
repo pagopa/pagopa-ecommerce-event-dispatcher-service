@@ -5,4 +5,4 @@ import org.springframework.web.bind.annotation.ResponseStatus
 
 
 @ResponseStatus(value = HttpStatus.BAD_GATEWAY)
-class BadGatewayException(val detail: String) : RuntimeException()
+class BadGatewayException(detail: String) : RuntimeException("Bad gateway ${if (detail.isNotEmpty()) ": $detail" else ""}")

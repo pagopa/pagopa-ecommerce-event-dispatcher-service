@@ -10,7 +10,7 @@ import it.pagopa.generated.ecommerce.nodo.v1.dto.ClosePaymentRequestV2Dto
 import it.pagopa.transactions.documents.TransactionAuthorizationRequestedEvent
 import it.pagopa.transactions.documents.TransactionAuthorizationStatusUpdateData
 import it.pagopa.transactions.utils.TransactionEventCode
-import kotlinx.coroutines.reactor.mono
+import kotlinx.coroutines.runBlocking
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -44,20 +44,22 @@ class TransactionAuthRequestedEventsConsumer(
                 logger.info("Refunding transaction ${authorizationRequestedEvent.transactionId}")
                 refundService.requestRefund(authorizationRequestedEvent.data.requestId).block()
             } catch(exception: Exception) {
-                logger.error("Got exception while trying to request refund: $exception")
+                logger.error("Got exception while trying to request refund: ${exception.message}")
                 logger.error("Adding retry message for request refund")
             }
 
-            try {
-                mono {
+            logger.info("Sending KO to Nodo for transaction ${authorizationRequestedEvent.transactionId}")
+
+            runBlocking {
+                try {
                     nodeService.closePayment(
                         UUID.fromString(transactionId),
                         ClosePaymentRequestV2Dto.OutcomeEnum.KO
                     )
-                }.block()
-            } catch (exception: Exception) {
-                logger.error("Got exception while trying to close payment: $exception")
-                logger.error("Adding retry message for close payment")
+                } catch (exception: Exception) {
+                    logger.error("Got exception while trying to close payment: ${exception.message}")
+                    logger.error("Adding retry message for close payment")
+                }
             }
         }
     }
