@@ -302,7 +302,7 @@
 						</goals>
 						<configuration>
 							<inputSpec>
-								https://raw.githubusercontent.com/pagopa/pagopa-ecommerce-transactions-service/main/api-spec/api.yaml
+								https://raw.githubusercontent.com/pagopa/pagopa-ecommerce-transactions-service/main/api-spec/transactions-api.yaml
 							</inputSpec>
 							<generatorName>java</generatorName>
 							<library>webclient</library>
