@@ -116,7 +116,7 @@ stages:
       succeeded(),
       eq(${{parameters.UAT_PROD_DEPLOY}}, true),
       or(
-      eq(variables['Build.SourceBranch'], 'refs/heads/CHK-636-uat-pipelines'),
+      eq(variables['Build.SourceBranch'], 'refs/heads/CHK-637-uat-pipelines'),
       and(
       startsWith(variables['Build.SourceBranch'], 'refs/tags'),
       endsWith(variables['Build.SourceBranch'], '-RELEASE')
@@ -202,7 +202,7 @@ stages:
                   gitEmail: $(GIT_EMAIL)
                   gitUsername: $(GIT_USERNAME)
                   gitHubConnection: $(GITHUB_CONNECTION)
-                  release_branch: CHK-636-uat-pipelines
+                  release_branch: CHK-637-uat-pipelines
                   semver_chart: '${{ parameters.RELEASE_CHART_SEMVER }}'
                   semver: '${{ parameters.RELEASE_SEMVER }}'
           - ${{ if eq(parameters['SKIP_RELEASE'], False) }}:
