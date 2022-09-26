@@ -170,7 +170,7 @@ stages:
                     NAMESPACE: ecommerce
                     APP_NAME: $(K8S_IMAGE_REPOSITORY_NAME)
                     VALUE_FILE: "helm/values-uat.yaml"
-                    GREEN_VERSION: $(green_version)
+                    GREEN_VERSION:  $(Build.SourceVersion)
                     BLUE_VERSION: $(Build.SourceVersion)
 
 
