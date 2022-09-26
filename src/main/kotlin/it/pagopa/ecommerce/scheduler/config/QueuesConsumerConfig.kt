@@ -21,9 +21,9 @@ class QueuesConsumerConfig {
         return DirectChannel()
     }
 
-    @Bean
+    /**@Bean
     @InboundChannelAdapter(channel = "transactionauthrequestedchannel", poller = [Poller(fixedDelay = "1000")])
     fun storageQueueMessageSource(storageQueueTemplate: StorageQueueTemplate): StorageQueueMessageSource {
         return StorageQueueMessageSource(queueName, storageQueueTemplate)
-    }
+    }*/
 }
