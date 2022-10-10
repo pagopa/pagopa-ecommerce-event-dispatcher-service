@@ -11,21 +11,21 @@ microservice-chart:
   livenessProbe:
     httpGet:
       path: /actuator/health/liveness
-      port: 8080
+      port: 9000
     initialDelaySeconds: 60
     failureThreshold: 6
     periodSeconds: 10
   readinessProbe:
     httpGet:
       path: /actuator/health/readiness
-      port: 8080
+      port: 9000
     initialDelaySeconds: 60
     failureThreshold: 6
     periodSeconds: 10
   service:
     create: true
     type: ClusterIP
-    port: 8080
+    port: 9000
   ingress:
     create: true
     host: "weudev.ecommerce.internal.dev.platform.pagopa.it"
