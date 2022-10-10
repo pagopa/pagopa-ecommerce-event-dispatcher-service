@@ -6,7 +6,7 @@ microservice-chart:
     create: true
   image:
     repository: pagopadcommonacr.azurecr.io/pagopaecommerceschedulerservice
-    tag: "0.0.7"
+    tag: "0.0.2"
     pullPolicy: Always
   livenessProbe:
     httpGet:
