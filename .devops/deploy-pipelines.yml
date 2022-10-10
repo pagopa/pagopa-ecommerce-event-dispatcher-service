@@ -116,7 +116,7 @@ stages:
       succeeded(),
       eq(${{parameters.UAT_PROD_DEPLOY}}, true),
       or(
-      eq(variables['Build.SourceBranch'], 'refs/heads/CHK-637-uat-pipelines'),
+      eq(variables['Build.SourceBranch'], 'refs/heads/main'),
       and(
       startsWith(variables['Build.SourceBranch'], 'refs/tags'),
       endsWith(variables['Build.SourceBranch'], '-RELEASE')
@@ -170,7 +170,7 @@ stages:
                     NAMESPACE: ecommerce
                     APP_NAME: $(K8S_IMAGE_REPOSITORY_NAME)
                     VALUE_FILE: "helm/values-uat.yaml"
-                    GREEN_VERSION:  $(Build.SourceVersion)
+                    GREEN_VERSION:  $(green_version)
                     BLUE_VERSION: $(Build.SourceVersion)
 
 
@@ -202,7 +202,7 @@ stages:
                   gitEmail: $(GIT_EMAIL)
                   gitUsername: $(GIT_USERNAME)
                   gitHubConnection: $(GITHUB_CONNECTION)
-                  release_branch: CHK-637-uat-pipelines
+                  release_branch: main
                   semver_chart: '${{ parameters.RELEASE_CHART_SEMVER }}'
                   semver: '${{ parameters.RELEASE_SEMVER }}'
           - ${{ if eq(parameters['SKIP_RELEASE'], False) }}:
