@@ -4,17 +4,32 @@ microservice-chart:
   fullnameOverride: ""
   deployment:
     create: true
-    livenessProbePath: /actuator/health/liveness
-    readinessProbePath: /actuator/health/readiness
   image:
     repository: pagopadcommonacr.azurecr.io/pagopaecommerceschedulerservice
-    tag: "0.0.7" #improve
+    tag: "0.0.7"
     pullPolicy: Always
+  livenessProbe:
+    httpGet:
+      path: /actuator/health/liveness
+      port: 8080
+    initialDelaySeconds: 60
+    failureThreshold: 6
+    periodSeconds: 10
+  readinessProbe:
+    httpGet:
+      path: /actuator/health/readiness
+      port: 8080
+    initialDelaySeconds: 60
+    failureThreshold: 6
+    periodSeconds: 10
+  service:
+    create: true
+    type: ClusterIP
     port: 8080
   ingress:
+    create: true
     host: "weudev.ecommerce.internal.dev.platform.pagopa.it"
-    path: "/ecommerce"
-    pathType: "ImplementationSpecific"
+    path: /pagopa-ecommerce-scheduler-service/(.*)
   serviceAccount:
     create: false
     annotations: {}
@@ -25,16 +40,13 @@ microservice-chart:
       type: RuntimeDefault
   securityContext:
     allowPrivilegeEscalation: false
-  service:
-    type: ClusterIP
-    port: 80
   resources:
     requests:
-      memory: "96Mi"
-      cpu: "40m"
+      memory: "384Mi"
+      cpu: "200m"
     limits:
-      memory: "300Mi"
-      cpu: "300m"
+      memory: "384Mi"
+      cpu: "200m"
   autoscaling:
     minReplica: 1
     maxReplica: 2
@@ -54,25 +66,24 @@ microservice-chart:
           metricAggregationType: Count
           targetValue: "30"
   envConfig:
-    envConfig:
-      TRANSACTION_AUTHORIZATION_REQUESTED_EVENT_QUEUE_NAME: transactionauthrequestedtevents
-      AUTH_REQUESTED_TIMEOUT_SECONDS: "100"
-      PAYMENT_TRANSACTIONS_GATEWAY_URI: https://api.dev.platform.pagopa.it/payment-transactions-gateway
-      PAYMENT_TRANSACTIONS_GATEWAY_READ_TIMEOUT: "10000"
-      PAYMENT_TRANSACTIONS_GATEWAY_CONNECTION_TIMEOUT: "10000"
-      NODO_URI: https://api.dev.platform.pagopa.it/nodo
-      NODO_READ_TIMEOUT: "10000"
-      NODO_CONNECTION_TIMEOUT: "10000"
-      MONGO_HOST: pagopa-d-weu-ecommerce-cosmos-account.mongo.cosmos.azure.com
-      MONGO_USERNAME: pagopa-d-weu-ecommerce-cosmos-account
-      MONGO_PORT: "10255"
-      MONGO_SSL_ENABLED: "true"
-      ECOMMERCE_STORAGE_QUEUE_ACCOUNT_NAME: pagopadweuecommercesa
-    envSecret:
-      ECOMMERCE_STORAGE_QUEUE_KEY: ecommerce-storage-account-key
-      ECOMMERCE_STORAGE_QUEUE_ENDPOINT: ecommerce-storage-endpoint
-      MONGO_PASSWORD: mongo-ecommerce-password
-      NODO_CONNECTION_STRING: nodo-connection-string
+    TRANSACTION_AUTHORIZATION_REQUESTED_EVENT_QUEUE_NAME: transactionevents
+    AUTH_REQUESTED_TIMEOUT_SECONDS: "100"
+    PAYMENT_TRANSACTIONS_GATEWAY_URI: https://api.dev.platform.pagopa.it/payment-transactions-gateway
+    PAYMENT_TRANSACTIONS_GATEWAY_READ_TIMEOUT: "10000"
+    PAYMENT_TRANSACTIONS_GATEWAY_CONNECTION_TIMEOUT: "10000"
+    NODO_URI: https://api.dev.platform.pagopa.it/nodo
+    NODO_READ_TIMEOUT: "10000"
+    NODO_CONNECTION_TIMEOUT: "10000"
+    MONGO_HOST: pagopa-d-weu-ecommerce-cosmos-account.mongo.cosmos.azure.com
+    MONGO_USERNAME: pagopa-d-weu-ecommerce-cosmos-account
+    MONGO_PORT: "10255"
+    MONGO_SSL_ENABLED: "true"
+    ECOMMERCE_STORAGE_QUEUE_ACCOUNT_NAME: pagopadweuecommercesa
+  envSecret:
+    ECOMMERCE_STORAGE_QUEUE_KEY: ecommerce-storage-account-key
+    ECOMMERCE_STORAGE_QUEUE_ENDPOINT: ecommerce-storage-endpoint
+    MONGO_PASSWORD: mongo-ecommerce-password
+    NODO_CONNECTION_STRING: nodo-connection-string
   keyvault:
     name: "pagopa-d-ecommerce-kv"
     tenantId: "7788edaf-0346-4068-9d79-c868aed15b3d"

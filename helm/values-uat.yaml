@@ -35,7 +35,7 @@ microservice-chart:
       ECOMMERCE_STORAGE_QUEUE_ENDPOINT: ecommerce-storage-endpoint
       MONGO_PASSWORD: mongo-ecommerce-password
       NODO_CONNECTION_STRING: nodo-connection-string
-    image:
+  image:
     repository: pagopaucommonacr.azurecr.io/pagopaecommerceschedulerservice
     tag: "0.0.7"
     pullPolicy: Always
