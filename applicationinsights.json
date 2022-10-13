@@ -4,7 +4,7 @@
     "level": "INFO"
   },
   "role": {
-    "name": "pagopa-ecommerce-sessions-service"
+    "name": "pagopa-ecommerce-scheduler-service"
   },
   "sampling": {
     "percentage": 100
