@@ -84,6 +84,7 @@ microservice-chart:
     ECOMMERCE_STORAGE_QUEUE_KEY: ecommerce-storage-account-key
     MONGO_PASSWORD: mongo-ecommerce-password
     NODO_CONNECTION_STRING: nodo-connection-string
+    APPLICATIONINSIGHTS_CONNECTION_STRING: applicationinsights-connection-string
   keyvault:
     name: "pagopa-d-ecommerce-kv"
     tenantId: "7788edaf-0346-4068-9d79-c868aed15b3d"

@@ -1,0 +1,13 @@
+{
+  "selfDiagnostics": {
+    "destination": "console",
+    "level": "INFO"
+  },
+  "role": {
+    "name": "pagopa-ecommerce-scheduler-service"
+  },
+  "sampling": {
+    "percentage": 100
+  }
+}
+
