@@ -2,10 +2,41 @@ microservice-chart:
   namespace: "ecommerce"
   nameOverride: ""
   fullnameOverride: ""
-  deployment:
-    create: true
+  canaryDelivery:
+    create: false
+    ingress:
+      create: true
+      canary:
+        type: bluegreen
+    service:
+      create: true
+    deployment:
+      create: true
+      image:
+        repository: pagopaucommonacr.azurecr.io/pagopaecommerceschedulerservice
+        tag: "latest"
+        pullPolicy: Always
+    envConfig:
+      TRANSACTION_AUTHORIZATION_REQUESTED_EVENT_QUEUE_NAME: transactionevents
+      AUTH_REQUESTED_TIMEOUT_SECONDS: "100"
+      PAYMENT_TRANSACTIONS_GATEWAY_URI: https://api.uat.platform.pagopa.it/payment-transactions-gateway
+      PAYMENT_TRANSACTIONS_GATEWAY_READ_TIMEOUT: "10000"
+      PAYMENT_TRANSACTIONS_GATEWAY_CONNECTION_TIMEOUT: "10000"
+      NODO_URI: https://api.uat.platform.pagopa.it/nodo
+      NODO_READ_TIMEOUT: "10000"
+      NODO_CONNECTION_TIMEOUT: "10000"
+      MONGO_HOST: pagopa-u-weu-ecommerce-cosmos-account.mongo.cosmos.azure.com
+      MONGO_USERNAME: pagopa-u-weu-ecommerce-cosmos-account
+      MONGO_PORT: "10255"
+      MONGO_SSL_ENABLED: "true"
+      ECOMMERCE_STORAGE_QUEUE_ACCOUNT_NAME: pagopauweuecommercesa
+      ECOMMERCE_STORAGE_QUEUE_ENDPOINT: https://pagopauweuecommercesa.queue.core.windows.net/pagopauweuecommercesa
+    envSecret:
+      ECOMMERCE_STORAGE_QUEUE_KEY: ecommerce-storage-account-key
+      MONGO_PASSWORD: mongo-ecommerce-password
+      NODO_CONNECTION_STRING: nodo-connection-string
   image:
-    repository: pagopadcommonacr.azurecr.io/pagopaecommerceschedulerservice
+    repository: pagopaucommonacr.azurecr.io/pagopaecommerceschedulerservice
     tag: "0.0.2"
     pullPolicy: Always
   livenessProbe:
@@ -28,7 +59,7 @@ microservice-chart:
     port: 9000
   ingress:
     create: true
-    host: "weudev.ecommerce.internal.dev.platform.pagopa.it"
+    host: "weuuat.ecommerce.internal.uat.platform.pagopa.it"
     path: /pagopa-ecommerce-scheduler-service/(.*)
   serviceAccount:
     create: false
@@ -57,8 +88,8 @@ microservice-chart:
         metadata:
           tenantId: 7788edaf-0346-4068-9d79-c868aed15b3d
           subscriptionId: bbe47ad4-08b3-4925-94c5-1278e5819b86
-          resourceGroupName: pagopa-d-ecommerce-sec-rg
-          resourceURI: Microsoft.KeyVault/vaults/pagopa-d-ecommerce-kv
+          resourceGroupName: pagopa-u-ecommerce-sec-rg
+          resourceURI: Microsoft.KeyVault/vaults/pagopa-u-ecommerce-kv
           metricName: ServiceApiHit
           # metricNamespace: Microsoft.KeyVault/vaults
           # metricFilter: namespace eq 'default'
@@ -68,25 +99,24 @@ microservice-chart:
   envConfig:
     TRANSACTION_AUTHORIZATION_REQUESTED_EVENT_QUEUE_NAME: transactionevents
     AUTH_REQUESTED_TIMEOUT_SECONDS: "100"
-    PAYMENT_TRANSACTIONS_GATEWAY_URI: https://api.dev.platform.pagopa.it/payment-transactions-gateway
+    PAYMENT_TRANSACTIONS_GATEWAY_URI: https://api.uat.platform.pagopa.it/payment-transactions-gateway
     PAYMENT_TRANSACTIONS_GATEWAY_READ_TIMEOUT: "10000"
     PAYMENT_TRANSACTIONS_GATEWAY_CONNECTION_TIMEOUT: "10000"
-    NODO_URI: https://api.dev.platform.pagopa.it/nodo
+    NODO_URI: https://api.uat.platform.pagopa.it/nodo
     NODO_READ_TIMEOUT: "10000"
     NODO_CONNECTION_TIMEOUT: "10000"
-    MONGO_HOST: pagopa-d-weu-ecommerce-cosmos-account.mongo.cosmos.azure.com
-    MONGO_USERNAME: pagopa-d-weu-ecommerce-cosmos-account
+    MONGO_HOST: pagopa-u-weu-ecommerce-cosmos-account.mongo.cosmos.azure.com
+    MONGO_USERNAME: pagopa-u-weu-ecommerce-cosmos-account
     MONGO_PORT: "10255"
     MONGO_SSL_ENABLED: "true"
-    ECOMMERCE_STORAGE_QUEUE_ACCOUNT_NAME: pagopadweuecommercesa
-    ECOMMERCE_STORAGE_QUEUE_ENDPOINT: https://pagopadweuecommercesa.queue.core.windows.net/pagopadweuecommercesa
+    ECOMMERCE_STORAGE_QUEUE_ACCOUNT_NAME: pagopauweuecommercesa
+    ECOMMERCE_STORAGE_QUEUE_ENDPOINT: https://pagopauweuecommercesa.queue.core.windows.net/pagopauweuecommercesa
   envSecret:
     ECOMMERCE_STORAGE_QUEUE_KEY: ecommerce-storage-account-key
     MONGO_PASSWORD: mongo-ecommerce-password
     NODO_CONNECTION_STRING: nodo-connection-string
-    APPLICATIONINSIGHTS_CONNECTION_STRING: applicationinsights-connection-string
   keyvault:
-    name: "pagopa-d-ecommerce-kv"
+    name: "pagopa-u-ecommerce-kv"
     tenantId: "7788edaf-0346-4068-9d79-c868aed15b3d"
   nodeSelector: {}
   tolerations: []
