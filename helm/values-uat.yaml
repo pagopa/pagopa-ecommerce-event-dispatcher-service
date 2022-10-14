@@ -37,7 +37,7 @@ microservice-chart:
       NODO_CONNECTION_STRING: nodo-connection-string
   image:
     repository: pagopaucommonacr.azurecr.io/pagopaecommerceschedulerservice
-    tag: "0.0.2"
+    tag: "0.0.3"
     pullPolicy: Always
   livenessProbe:
     httpGet:
