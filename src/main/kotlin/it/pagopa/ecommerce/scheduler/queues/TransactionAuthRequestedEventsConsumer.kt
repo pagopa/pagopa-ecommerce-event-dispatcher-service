@@ -42,7 +42,7 @@ class TransactionAuthRequestedEventsConsumer(
         if (statusUpdateEvent == null) {
             try {
                 logger.info("Refunding transaction ${authorizationRequestedEvent.transactionId}")
-                refundService.requestRefund(authorizationRequestedEvent.data.requestId).block()
+                refundService.requestRefund(authorizationRequestedEvent.data.authorizationRequestId).block()
             } catch(exception: Exception) {
                 logger.error("Got exception while trying to request refund: ${exception.message}")
                 logger.error("Adding retry message for request refund")
