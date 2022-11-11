@@ -19,7 +19,9 @@ fun getMockedClosePaymentRequest(
         "paymentTypeCode",
         "brokerName",
         "pspChannelCode",
-        "requestId"
+        "requestId",
+        "pspBusinessName",
+        "authorizationRequestId",
     )
 
     return ClosePaymentRequestV2Dto().apply {

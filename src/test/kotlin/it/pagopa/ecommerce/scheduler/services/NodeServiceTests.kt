@@ -43,13 +43,15 @@ class NodeServiceTests {
         val data = TransactionAuthorizationRequestData(
             100,
             1,
-            "",
-            "",
-            "",
-            "",
-            "",
-            ""
-        )
+            "paymentInstrumentId",
+            "pspId",
+            "paymentTypeCode",
+            "brokerName",
+            "pspChannelCode",
+            "requestId",
+            "pspBusinessName",
+            "authorizationRequestId"
+            )
 
         val authEvent = TransactionAuthorizationRequestedEvent(transactionId.toString(), "", "", data)
 

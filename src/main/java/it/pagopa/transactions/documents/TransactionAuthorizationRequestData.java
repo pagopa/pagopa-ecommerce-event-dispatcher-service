@@ -2,13 +2,9 @@ package it.pagopa.transactions.documents;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.NoArgsConstructor;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-import java.util.UUID;
-
 @AllArgsConstructor
-@NoArgsConstructor
 @Data
 @Document
 public class TransactionAuthorizationRequestData {
@@ -19,5 +15,7 @@ public class TransactionAuthorizationRequestData {
     private String paymentTypeCode;
     private String brokerName;
     private String pspChannelCode;
-    private String requestId;
+    private String paymentMethodName;
+    private String pspBusinessName;
+    private String authorizationRequestId;
 }

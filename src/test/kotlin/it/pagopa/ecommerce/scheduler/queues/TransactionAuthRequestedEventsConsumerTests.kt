@@ -69,7 +69,9 @@ class TransactionAuthRequestedEventsConsumerTests {
                 "paymentTypeCode",
                 "brokerName",
                 "pspChannelCode",
-                "requestId"
+                "requestId",
+                "pspBusinessName",
+                "authorizationRequestId",
             )
         )
 
@@ -113,8 +115,10 @@ class TransactionAuthRequestedEventsConsumerTests {
                 "paymentTypeCode",
                 "brokerName",
                 "pspChannelCode",
-                "requestId"
-            )
+                "requestId",
+                "pspBusinessName",
+                "authorizationRequestId"
+                )
         )
 
         val postePayRefundResponse = PostePayRefundResponseDto().apply {
@@ -162,8 +166,10 @@ class TransactionAuthRequestedEventsConsumerTests {
                 "paymentTypeCode",
                 "brokerName",
                 "pspChannelCode",
-                "requestId"
-            )
+                "requestId",
+                "pspBusinessName",
+                "authorizationRequestId"
+                )
         )
 
         val postePayRefundResponse = PostePayRefundResponseDto().apply {
@@ -213,8 +219,10 @@ class TransactionAuthRequestedEventsConsumerTests {
                 "paymentTypeCode",
                 "brokerName",
                 "pspChannelCode",
-                "requestId"
-            )
+                "requestId",
+                "pspBusinessName",
+                "authorizationRequestId"
+                )
         )
 
         /* preconditions */
