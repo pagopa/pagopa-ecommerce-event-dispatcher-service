@@ -6,7 +6,7 @@ import com.azure.spring.messaging.checkpoint.Checkpointer
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.scheduler.services.NodeService
 import it.pagopa.ecommerce.scheduler.services.RefundService
-import it.pagopa.generated.ecommerce.nodo.v1.dto.ClosePaymentRequestV2Dto
+import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.transactions.documents.TransactionAuthorizationRequestedEvent
 import it.pagopa.transactions.documents.TransactionAuthorizationStatusUpdateData
 import it.pagopa.transactions.utils.TransactionEventCode

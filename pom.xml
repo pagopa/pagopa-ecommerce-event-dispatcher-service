@@ -302,7 +302,7 @@
 						</goals>
 						<configuration>
 							<inputSpec>
-								https://raw.githubusercontent.com/pagopa/pagopa-ecommerce-transactions-service/main/api-spec/transactions-api.yaml
+								https://raw.githubusercontent.com/pagopa/pagopa-ecommerce-transactions-service/CHK-736-activated-message/api-spec/transactions-api.yaml
 							</inputSpec>
 							<generatorName>java</generatorName>
 							<library>webclient</library>
@@ -358,6 +358,11 @@
 						</goals>
 					</execution>
 				</executions>
+				<configuration>
+					<source>17</source>
+					<target>17</target>
+					<compilerArgs>--enable-preview</compilerArgs>
+				</configuration>
 			</plugin>
 			<plugin>
 				<groupId>org.jacoco</groupId>
