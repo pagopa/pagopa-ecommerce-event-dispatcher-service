@@ -3,9 +3,10 @@ package it.pagopa.ecommerce.scheduler.client
 import it.pagopa.ecommerce.scheduler.exceptions.BadGatewayException
 import it.pagopa.ecommerce.scheduler.exceptions.GatewayTimeoutException
 import it.pagopa.ecommerce.scheduler.exceptions.TransactionNotFound
-import it.pagopa.generated.ecommerce.nodo.v1.api.NodoApi
-import it.pagopa.generated.ecommerce.nodo.v1.dto.ClosePaymentRequestV2Dto
-import it.pagopa.generated.ecommerce.nodo.v1.dto.ClosePaymentResponseDto
+import it.pagopa.generated.ecommerce.nodo.v2.api.NodoApi
+import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
+import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
+
 import kotlinx.coroutines.reactor.awaitSingle
 import kotlinx.coroutines.reactor.mono
 import org.springframework.beans.factory.annotation.Autowired

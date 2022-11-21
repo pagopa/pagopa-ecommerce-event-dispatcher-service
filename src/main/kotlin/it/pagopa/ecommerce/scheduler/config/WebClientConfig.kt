@@ -4,8 +4,8 @@ import io.netty.channel.ChannelOption
 import io.netty.handler.timeout.ReadTimeoutHandler
 import it.pagopa.generated.ecommerce.gateway.v1.ApiClient as GatewayApiClient
 import it.pagopa.generated.ecommerce.gateway.v1.api.PaymentTransactionsControllerApi
-import it.pagopa.generated.ecommerce.nodo.v1.ApiClient as NodoApiClient
-import it.pagopa.generated.ecommerce.nodo.v1.api.NodoApi
+import it.pagopa.generated.ecommerce.nodo.v2.ApiClient as NodoApiClient
+import it.pagopa.generated.ecommerce.nodo.v2.api.NodoApi
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration

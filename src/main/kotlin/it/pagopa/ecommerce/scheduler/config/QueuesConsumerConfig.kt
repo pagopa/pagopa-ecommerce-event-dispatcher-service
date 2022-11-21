@@ -14,16 +14,25 @@ import org.springframework.beans.factory.annotation.Value
 class QueuesConsumerConfig {
 
     @Value("\${azurestorage.queues.transactionauthrequestedevents.name}")
-    private val queueName: String? = null
+    private val queueNameAuthRequestedEvents: String? = null
+
+    @Value("\${azurestorage.queues.transactionactivatedevents.name}")
+    private val queueNameActivatedEvents: String? = null
 
     @Bean
-    fun input() : DirectChannel {
+    fun input(): DirectChannel {
         return DirectChannel()
     }
 
-    /**@Bean
+    @Bean
     @InboundChannelAdapter(channel = "transactionauthrequestedchannel", poller = [Poller(fixedDelay = "1000")])
-    fun storageQueueMessageSource(storageQueueTemplate: StorageQueueTemplate): StorageQueueMessageSource {
-        return StorageQueueMessageSource(queueName, storageQueueTemplate)
-    }*/
+    fun storageQueueAuthMessageSource(storageQueueTemplate: StorageQueueTemplate): StorageQueueMessageSource {
+        return StorageQueueMessageSource(queueNameAuthRequestedEvents, storageQueueTemplate)
+    }
+
+    @Bean
+    @InboundChannelAdapter(channel = "transactionactivatedchannel", poller = [Poller(fixedDelay = "1000")])
+    fun storageQueueActivatedMessageSource(storageQueueTemplate: StorageQueueTemplate): StorageQueueMessageSource {
+        return StorageQueueMessageSource(queueNameActivatedEvents, storageQueueTemplate)
+    }
 }
