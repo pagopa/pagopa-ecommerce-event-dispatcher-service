@@ -27,7 +27,8 @@ public abstract sealed class TransactionEvent<T>
         TransactionClosureErrorEvent,
         TransactionClosureSentEvent,
         TransactionUserReceiptAddedEvent,
-        TransactionExpiredEvent{
+        TransactionExpiredEvent,
+        TransactionRefundedEvent {
 
     @Id
     private String id;

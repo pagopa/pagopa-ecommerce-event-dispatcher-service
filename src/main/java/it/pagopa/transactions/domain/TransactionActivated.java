@@ -26,7 +26,7 @@ public final class TransactionActivated extends BaseTransactionWithPaymentToken 
 
     @Override
     public TransactionWithRequestedAuthorization apply(TransactionAuthorizationRequestedEvent event) {
-        return new TransactionWithRequestedAuthorization(this, event);
+        return new TransactionWithRequestedAuthorization(this.withStatus(TransactionStatusDto.AUTHORIZATION_REQUESTED), event);
     }
 
     @Override
@@ -50,7 +50,7 @@ public final class TransactionActivated extends BaseTransactionWithPaymentToken 
                 this.getTransactionActivatedData().getFaultCode(),
                 this.getTransactionActivatedData().getFaultCodeString(),
                 this.getCreationDate(),
-                this.getStatus()
+                status
         );
     }
 }
