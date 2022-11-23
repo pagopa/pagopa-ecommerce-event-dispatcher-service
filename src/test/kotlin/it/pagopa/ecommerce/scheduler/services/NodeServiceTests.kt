@@ -3,8 +3,8 @@ package it.pagopa.ecommerce.scheduler.services
 import it.pagopa.ecommerce.scheduler.client.NodeClient
 import it.pagopa.ecommerce.scheduler.exceptions.TransactionEventNotFoundException
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreRepository
-import it.pagopa.generated.ecommerce.nodo.v1.dto.ClosePaymentRequestV2Dto.OutcomeEnum
-import it.pagopa.generated.ecommerce.nodo.v1.dto.ClosePaymentResponseDto
+import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto.OutcomeEnum
+import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
 import it.pagopa.transactions.documents.TransactionAuthorizationRequestData
 import it.pagopa.transactions.documents.TransactionAuthorizationRequestedEvent
 import it.pagopa.transactions.utils.TransactionEventCode
@@ -56,7 +56,7 @@ class NodeServiceTests {
         val authEvent = TransactionAuthorizationRequestedEvent(transactionId.toString(), "", "", data)
 
         val closePaymentResponse = ClosePaymentResponseDto().apply {
-            esito = ClosePaymentResponseDto.EsitoEnum.OK
+            outcome = ClosePaymentResponseDto.OutcomeEnum.OK
         }
 
         /* preconditions */

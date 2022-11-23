@@ -4,9 +4,9 @@ import it.pagopa.ecommerce.scheduler.exceptions.BadGatewayException
 import it.pagopa.ecommerce.scheduler.exceptions.GatewayTimeoutException
 import it.pagopa.ecommerce.scheduler.exceptions.TransactionNotFound
 import it.pagopa.ecommerce.scheduler.utils.getMockedClosePaymentRequest
-import it.pagopa.generated.ecommerce.nodo.v1.api.NodoApi
-import it.pagopa.generated.ecommerce.nodo.v1.dto.ClosePaymentRequestV2Dto.OutcomeEnum
-import it.pagopa.generated.ecommerce.nodo.v1.dto.ClosePaymentResponseDto
+import it.pagopa.generated.ecommerce.nodo.v2.api.NodoApi
+import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto.OutcomeEnum
+import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.reactor.awaitSingle
 import kotlinx.coroutines.test.runTest
@@ -41,7 +41,7 @@ class NodeClientTest {
 
         val closePaymentRequest = getMockedClosePaymentRequest(transactionId, OutcomeEnum.OK)
         val expected = ClosePaymentResponseDto().apply {
-            esito = ClosePaymentResponseDto.EsitoEnum.OK
+            outcome = ClosePaymentResponseDto.OutcomeEnum.OK
         }
 
         /* preconditions */

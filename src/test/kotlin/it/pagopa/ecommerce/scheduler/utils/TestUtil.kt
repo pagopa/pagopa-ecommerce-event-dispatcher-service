@@ -1,7 +1,7 @@
 package it.pagopa.ecommerce.scheduler.utils
 
 import it.pagopa.generated.ecommerce.gateway.v1.dto.PostePayRefundResponseDto
-import it.pagopa.generated.ecommerce.nodo.v1.dto.ClosePaymentRequestV2Dto
+import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.transactions.documents.TransactionAuthorizationRequestData
 import java.time.OffsetDateTime
 import java.util.*
@@ -27,10 +27,10 @@ fun getMockedClosePaymentRequest(
     return ClosePaymentRequestV2Dto().apply {
         paymentTokens = listOf(UUID.randomUUID().toString())
         this.outcome = outcome
-        identificativoPsp = authEventData.pspId
-        tipoVersamento = authEventData.paymentTypeCode
-        identificativoIntermediario = authEventData.brokerName
-        identificativoCanale = authEventData.pspChannelCode
+        idPSP = authEventData.pspId
+        paymentMethod = authEventData.paymentTypeCode
+        idBrokerPSP = authEventData.brokerName
+        idChannel = authEventData.pspChannelCode
         this.transactionId = transactionId.toString()
         totalAmount = (authEventData.amount + authEventData.fee).toBigDecimal()
         timestampOperation = OffsetDateTime.now()
