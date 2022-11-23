@@ -24,12 +24,13 @@ class QueuesConsumerConfig {
         return DirectChannel()
     }
 
+ /**
     @Bean
     @InboundChannelAdapter(channel = "transactionauthrequestedchannel", poller = [Poller(fixedDelay = "1000")])
     fun storageQueueAuthMessageSource(storageQueueTemplate: StorageQueueTemplate): StorageQueueMessageSource {
         return StorageQueueMessageSource(queueNameAuthRequestedEvents, storageQueueTemplate)
     }
-
+*/
     @Bean
     @InboundChannelAdapter(channel = "transactionactivatedchannel", poller = [Poller(fixedDelay = "1000")])
     fun storageQueueActivatedMessageSource(storageQueueTemplate: StorageQueueTemplate): StorageQueueMessageSource {
