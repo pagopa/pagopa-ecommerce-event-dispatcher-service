@@ -100,16 +100,16 @@ class TransactionActivatedEventsConsumer(
     @Transactional
     private fun updateTransactionToExpired(transaction: BaseTransaction, paymentToken: String): Mono<Void> {
 
-        return transactionsRefundedEventStoreRepository.save(
-            TransactionRefundedEvent(
+        return transactionsExpiredEventStoreRepository.save(
+            TransactionExpiredEvent(
                 transaction.transactionId.value.toString(),
                 transaction.rptId.value,
                 paymentToken,
-                TransactionRefundedData(transaction.status)
+                TransactionExpiredData(transaction.status)
             )
         ).then(
             transactionsViewRepository.save(
-                it.pagopa.transactions.documents.Transaction(
+                Transaction(
                     transaction.transactionId.value.toString(),
                     paymentToken,
                     transaction.rptId.value,
@@ -125,12 +125,12 @@ class TransactionActivatedEventsConsumer(
     @Transactional
     private fun updateTransactionToRefunded(transaction: BaseTransaction, paymentToken: String): Mono<Void> {
 
-        return transactionsExpiredEventStoreRepository.save(
-            TransactionExpiredEvent(
+        return transactionsRefundedEventStoreRepository.save(
+            TransactionRefundedEvent(
                 transaction.transactionId.value.toString(),
                 transaction.rptId.value,
                 paymentToken,
-                TransactionExpiredData(transaction.status)
+                TransactionRefundedData(transaction.status)
             )
         ).then(
             transactionsViewRepository.save(
