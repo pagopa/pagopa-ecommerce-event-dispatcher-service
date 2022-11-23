@@ -29,7 +29,7 @@ class TransactionAuthRequestedEventsConsumer(
 
     var logger: Logger = LoggerFactory.getLogger(TransactionAuthRequestedEventsConsumer::class.java)
 
-    @ServiceActivator(inputChannel = "transactionauthrequestedchannel")
+    //@ServiceActivator(inputChannel = "transactionauthrequestedchannel")
     fun messageReceiver(@Payload payload: ByteArray, @Header(AzureHeaders.CHECKPOINTER) checkpointer: Checkpointer) {
         checkpointer.success().block()
         logger.info("Message '{}' successfully checkpointed", String(payload))
