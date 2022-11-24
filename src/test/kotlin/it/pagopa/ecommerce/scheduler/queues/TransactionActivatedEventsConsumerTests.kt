@@ -12,16 +12,17 @@ import it.pagopa.transactions.documents.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
 import org.mockito.Mockito
 import org.mockito.kotlin.*
-import org.springframework.test.context.junit.jupiter.SpringExtension
+import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.test.context.TestPropertySource
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import java.util.*
 
-@ExtendWith(SpringExtension::class)
+@SpringBootTest
+@TestPropertySource(locations = ["classpath:application.test.properties"])
 @OptIn(ExperimentalCoroutinesApi::class)
 class TransactionActivatedEventsConsumerTests {
 
