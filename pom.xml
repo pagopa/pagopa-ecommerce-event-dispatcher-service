@@ -165,12 +165,6 @@
 			<groupId>org.projectlombok</groupId>
 			<artifactId>lombok</artifactId>
 		</dependency>
-		<dependency>
-			<groupId>org.jacoco</groupId>
-			<artifactId>jacoco-maven-plugin</artifactId>
-			<version>${jacoco.version}</version>
-			<scope>test</scope>
-		</dependency>
 	</dependencies>
 	<dependencyManagement>
 		<dependencies>
@@ -420,69 +414,9 @@
 				</executions>
 			</plugin>
 			<plugin>
-				<groupId>org.jacoco</groupId>
-				<artifactId>jacoco-maven-plugin</artifactId>
-				<configuration>
-					<excludes>
-						<exclude>it/pagopa/generated/**</exclude>
-						<exclude>it/pagopa/transactions/server/api/ApiUtil</exclude>
-						<exclude>it/pagopa/transactions/utils/soap/**</exclude>
-						<exclude>it/pagopa/transactions/PagopaEcommerceTransactionsApplication.class</exclude>
-					</excludes>
-				</configuration>
-				<version>${jacoco.version}</version>
-				<executions>
-					<execution>
-						<id>jacoco-initialize</id>
-						<goals>
-							<goal>prepare-agent</goal>
-						</goals>
-					</execution>
-					<execution>
-						<id>jacoco-site</id>
-						<phase>package</phase>
-						<goals>
-							<goal>report</goal>
-						</goals>
-					</execution>
-				</executions>
-			</plugin>
-			<plugin>
-				<groupId>org.jacoco</groupId>
-				<artifactId>jacoco-maven-plugin</artifactId>
-				<configuration>
-					<excludes>
-						<exclude>it/pagopa/generated/**</exclude>
-						<exclude>it/pagopa/transactions/server/api/ApiUtil</exclude>
-						<exclude>it/pagopa/transactions/utils/soap/**</exclude>
-						<exclude>it/pagopa/transactions/PagopaEcommerceTransactionsApplication.class</exclude>
-					</excludes>
-				</configuration>
-				<version>${jacoco.version}</version>
-				<executions>
-					<execution>
-						<id>jacoco-initialize</id>
-						<goals>
-							<goal>prepare-agent</goal>
-						</goals>
-					</execution>
-					<execution>
-						<id>jacoco-site</id>
-						<phase>package</phase>
-						<goals>
-							<goal>report</goal>
-						</goals>
-					</execution>
-				</executions>
-			</plugin>
-			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-surefire-plugin</artifactId>
-				<configuration>
-					<argLine>--enable-preview</argLine>
-				</configuration>
-			</plugin>
-			<plugin>
-				<artifactId>maven-failsafe-plugin</artifactId>
+				<version>2.22.2</version>
 				<configuration>
 					<argLine>--enable-preview</argLine>
 				</configuration>
