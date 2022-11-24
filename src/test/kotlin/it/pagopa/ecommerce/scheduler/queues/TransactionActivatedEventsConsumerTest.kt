@@ -3,40 +3,27 @@ package it.pagopa.ecommerce.scheduler.queues
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import it.pagopa.ecommerce.scheduler.client.PaymentGatewayClient
-import it.pagopa.ecommerce.scheduler.exceptions.BadGatewayException
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.scheduler.services.NodeService
 import it.pagopa.ecommerce.scheduler.services.RefundService
-import it.pagopa.generated.ecommerce.gateway.v1.dto.PostePayRefundResponseDto
-import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
-import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
-import it.pagopa.generated.transactions.server.model.AuthorizationResultDto
 import it.pagopa.generated.transactions.server.model.TransactionStatusDto
 import it.pagopa.transactions.documents.*
-import it.pagopa.transactions.utils.TransactionEventCode
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.reactor.flux
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertDoesNotThrow
-import org.junit.jupiter.api.assertThrows
-import org.mockito.InjectMocks
+import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
 import org.mockito.Mockito
 import org.mockito.kotlin.*
-import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.test.context.TestPropertySource
+import org.springframework.test.context.junit.jupiter.SpringExtension
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import java.util.*
 
-@SpringBootTest
-@TestPropertySource(locations = ["classpath:application.test.properties"])
+@ExtendWith(SpringExtension::class)
 @OptIn(ExperimentalCoroutinesApi::class)
-class TransactionActivatedEventsConsumerTests {
+class TransactionActivatedEventsConsumerTest {
 
     @Mock
     private lateinit var checkpointer: Checkpointer
