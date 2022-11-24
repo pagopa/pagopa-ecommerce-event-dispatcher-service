@@ -23,7 +23,7 @@ import java.util.*
 
 @ExtendWith(SpringExtension::class)
 @OptIn(ExperimentalCoroutinesApi::class)
-class TransactionActivatedEventsConsumerTest {
+class TransactionActivatedEventsConsumerTests {
 
     @Mock
     private lateinit var checkpointer: Checkpointer
