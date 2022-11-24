@@ -47,10 +47,10 @@ class TransactionActivatedEventsConsumer(
 
         transactionsEventStoreRepository.findByTransactionId(transactionId.toString())
             .reduce(EmptyTransaction(), Transaction::applyEvent).cast(BaseTransaction::class.java)
-            .filterWhen {
-                isFinalStatus(it.status)
+            .filter {
+                isTransientStatus(it.status)
             }
-            .doOnNext { transaction ->
+            .flatMap { transaction ->
                 updateTransactionToExpired(transaction, paymentToken)
                     .doOnSuccess {
                         logger.info(
@@ -60,13 +60,12 @@ class TransactionActivatedEventsConsumer(
                         logger.error(
                             "Transaction expired error for transaction ${transaction.transactionId.value} : ${it.message}"
                         )
-                    }
-                    .block()
+                    }.thenReturn(transaction)
             }
-            .filterWhen {
-                isRefundable(it.status)
+            .filter {
+                isRefundableTransaction(it.status)
             }
-            .doOnNext { transaction ->
+            .flatMap { transaction ->
                 mono { transaction }.cast(BaseTransactionWithRequestedAuthorization::class.java)
                     .flatMap {
                         val authorizationRequestId =
@@ -74,7 +73,7 @@ class TransactionActivatedEventsConsumer(
                         paymentGatewayClient.requestRefund(
                             UUID.fromString(authorizationRequestId)
                         )
-                    }.doOnSuccess {
+                    }.flatMap {
                         logger.info(
                             "Transaction requestRefund for transaction $transactionId with outcome ${it.refundOutcome}"
                         )
@@ -88,16 +87,16 @@ class TransactionActivatedEventsConsumer(
                             else ->
                                 error("Refund error for transaction $transactionId with outcome  ${it.refundOutcome}")
                         }
-                    }.doOnError {
+                    }.onErrorMap {
                         logger.error(
                             "Transaction requestRefund error for transaction $transactionId : ${it.message}"
                         )
                         // TODO retry
-                    }.block()
+                        it
+                    }
             }.subscribe()
     }
 
-    @Transactional
     private fun updateTransactionToExpired(transaction: BaseTransaction, paymentToken: String): Mono<Void> {
 
         return transactionsExpiredEventStoreRepository.save(
@@ -122,7 +121,6 @@ class TransactionActivatedEventsConsumer(
         )
     }
 
-    @Transactional
     private fun updateTransactionToRefunded(transaction: BaseTransaction, paymentToken: String): Mono<Void> {
 
         return transactionsRefundedEventStoreRepository.save(
@@ -147,23 +145,20 @@ class TransactionActivatedEventsConsumer(
         )
     }
 
-    private fun isFinalStatus(status: TransactionStatusDto): Mono<Boolean> {
-        return mono {
-            TransactionStatusDto.ACTIVATED == status
-                    || TransactionStatusDto.AUTHORIZED == status
-                    || TransactionStatusDto.AUTHORIZATION_REQUESTED == status
-                    || TransactionStatusDto.AUTHORIZATION_FAILED == status
-                    || TransactionStatusDto.CLOSURE_FAILED == status
-        }
+    private fun isTransientStatus(status: TransactionStatusDto): Boolean {
+        return TransactionStatusDto.ACTIVATED == status
+                || TransactionStatusDto.AUTHORIZED == status
+                || TransactionStatusDto.AUTHORIZATION_REQUESTED == status
+                || TransactionStatusDto.AUTHORIZATION_FAILED == status
+                || TransactionStatusDto.CLOSURE_FAILED == status
+                || TransactionStatusDto.CLOSED == status
     }
 
-    private fun isRefundable(status: TransactionStatusDto): Mono<Boolean> {
-        return mono {
-            TransactionStatusDto.AUTHORIZED == status
-                    || TransactionStatusDto.AUTHORIZATION_REQUESTED == status
-                    || TransactionStatusDto.AUTHORIZATION_FAILED == status
-                    || TransactionStatusDto.CLOSURE_FAILED == status
-        }
+    private fun isRefundableTransaction(status: TransactionStatusDto): Boolean {
+        return TransactionStatusDto.AUTHORIZED == status
+                || TransactionStatusDto.AUTHORIZATION_REQUESTED == status
+                || TransactionStatusDto.AUTHORIZATION_FAILED == status
+                || TransactionStatusDto.CLOSURE_FAILED == status
     }
 
 

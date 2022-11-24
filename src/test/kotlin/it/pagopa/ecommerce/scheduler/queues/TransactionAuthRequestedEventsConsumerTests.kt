@@ -16,6 +16,7 @@ import it.pagopa.generated.transactions.server.model.TransactionStatusDto
 import it.pagopa.transactions.documents.*
 import it.pagopa.transactions.utils.TransactionEventCode
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.reactor.flux
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
@@ -49,10 +50,6 @@ class TransactionActivatedEventsConsumerTests {
     @Mock
     private lateinit var transactionsEventStoreRepository: TransactionsEventStoreRepository<Objects>
 
-    @InjectMocks
-    private lateinit var transactionActivatedEventsConsumer:
-            TransactionActivatedEventsConsumer
-
     @Mock
     private lateinit var paymentGatewayClient: PaymentGatewayClient
 
@@ -65,9 +62,19 @@ class TransactionActivatedEventsConsumerTests {
     @Mock
     private lateinit var transactionsViewRepository: TransactionsViewRepository
 
-    /*
+
     @Test
     fun `messageReceiver receives messages successfully`() {
+        var transactionActivatedEventsConsumer:
+                TransactionActivatedEventsConsumer =
+            TransactionActivatedEventsConsumer(
+                paymentGatewayClient,
+                transactionsEventStoreRepository,
+                transactionsExpiredEventStoreRepository,
+                transactionsRefundedEventStoreRepository,
+                transactionsViewRepository
+            )
+
         val transactionId = UUID.randomUUID().toString()
         val rptId = "77777777777302000100440009424"
         val paymentToken = UUID.randomUUID().toString().replace("-", "")
@@ -91,7 +98,7 @@ class TransactionActivatedEventsConsumerTests {
         given(checkpointer.success()).willReturn(Mono.empty())
         given(
             transactionsEventStoreRepository.findByTransactionId(
-                any(),
+                transactionId,
             )
         )
             .willReturn(Flux.just(activatedEvent as TransactionEvent<Objects>))
@@ -105,10 +112,19 @@ class TransactionActivatedEventsConsumerTests {
         /* Asserts */
         verify(checkpointer, Mockito.times(1)).success()
     }
-*/
+
 
     @Test
     fun `messageReceiver calls refund on transaction with authorization request`() = runTest {
+        var transactionActivatedEventsConsumer:
+                TransactionActivatedEventsConsumer =
+            TransactionActivatedEventsConsumer(
+                paymentGatewayClient,
+                transactionsEventStoreRepository,
+                transactionsExpiredEventStoreRepository,
+                transactionsRefundedEventStoreRepository,
+                transactionsViewRepository
+            )
         val transactionId = UUID.randomUUID().toString()
         val rptId = "77777777777302000100440009424"
         val paymentToken = UUID.randomUUID().toString().replace("-", "")
@@ -150,7 +166,7 @@ class TransactionActivatedEventsConsumerTests {
             rptId,
             paymentToken,
             TransactionExpiredData(
-                TransactionStatusDto.EXPIRED
+                TransactionStatusDto.ACTIVATED
             )
         )
 
