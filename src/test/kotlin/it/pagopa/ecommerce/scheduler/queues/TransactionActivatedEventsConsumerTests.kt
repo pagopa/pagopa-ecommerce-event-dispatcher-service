@@ -208,7 +208,7 @@ class TransactionActivatedEventsConsumerTests {
 
         /* Asserts */
         verify(checkpointer, times(1)).success()
-        verify(refundService, times(1)).requestRefund(any())
+        verify(paymentGatewayClient, times(1)).requestRefund(any())
     }
 
     @Test
@@ -316,6 +316,6 @@ class TransactionActivatedEventsConsumerTests {
 
         /* Asserts */
         verify(checkpointer, times(1)).success()
-        verify(refundService, times(1)).requestRefund(any())
+        verify(paymentGatewayClient, times(1)).requestRefund(any())
     }
 }
