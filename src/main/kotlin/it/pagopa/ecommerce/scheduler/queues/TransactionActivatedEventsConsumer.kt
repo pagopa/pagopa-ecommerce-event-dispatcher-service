@@ -20,8 +20,8 @@ import org.springframework.integration.annotation.ServiceActivator
 import org.springframework.messaging.handler.annotation.Header
 import org.springframework.messaging.handler.annotation.Payload
 import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Transactional
 import reactor.core.publisher.Mono
+import reactor.util.function.Tuples
 import java.util.Objects
 import java.util.UUID
 
@@ -70,30 +70,33 @@ class TransactionActivatedEventsConsumer(
                     .flatMap {
                         val authorizationRequestId =
                             it.transactionAuthorizationRequestData.authorizationRequestId
+
                         paymentGatewayClient.requestRefund(
                             UUID.fromString(authorizationRequestId)
-                        )
-                    }.flatMap {
-                        logger.info(
-                            "Transaction requestRefund for transaction $transactionId with outcome ${it.refundOutcome}"
-                        )
-                        when (it.refundOutcome) {
-                            "OK" -> mono { updateTransactionToRefunded(transaction, paymentToken) }
-                                .doOnSuccess {
-                                    logger.info(
-                                        "Transaction refunded for transaction ${transaction.transactionId.value}"
-                                    )
-                                }.block()
-                            else ->
-                                error("Refund error for transaction $transactionId with outcome  ${it.refundOutcome}")
-                        }
-                    }.onErrorMap {
-                        logger.error(
-                            "Transaction requestRefund error for transaction $transactionId : ${it.message}"
-                        )
-                        // TODO retry
-                        it
+                        ).map { refundResponse -> Tuples.of(refundResponse, transaction) }
                     }
+            }.flatMap {
+                val refundResponse = it.t1
+                val transaction = it.t2
+                logger.info(
+                    "Transaction requestRefund for transaction $transactionId with outcome ${refundResponse.refundOutcome}"
+                )
+                when (refundResponse.refundOutcome) {
+                    "OK" -> mono { updateTransactionToRefunded(transaction, paymentToken) }
+                        .doOnSuccess {
+                            logger.info(
+                                "Transaction refunded for transaction ${transaction.transactionId.value}"
+                            )
+                        }
+                    else ->
+                        error("Refund error for transaction $transactionId with outcome  ${refundResponse.refundOutcome}")
+                }
+            }.onErrorMap {
+                logger.error(
+                    "Transaction requestRefund error for transaction $transactionId : ${it.message}"
+                )
+                // TODO retry
+                it
             }.subscribe()
     }
 
