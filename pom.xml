@@ -116,11 +116,6 @@
 			<scope>test</scope>
 		</dependency>
 		<dependency>
-			<groupId>io.projectreactor</groupId>
-			<artifactId>reactor-test</artifactId>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
 			<groupId>org.jetbrains.kotlinx</groupId>
 			<artifactId>kotlinx-coroutines-test</artifactId>
 			<version>${kotlinx-coroutines.version}</version>
@@ -315,7 +310,7 @@
 							<goal>generate</goal>
 						</goals>
 						<configuration>
-							<inputSpec>https://raw.githubusercontent.com/pagopa/pagopa-payment-transactions-gateway/develop/api-specs/api_spec_PGS.yaml</inputSpec>
+							<inputSpec>https://raw.githubusercontent.com/pagopa/pagopa-payment-transactions-gateway/754e4a78e81fb67716b67694645cd394a235040c/api-specs/api_spec_PGS.yaml</inputSpec>
 							<generatorName>java</generatorName>
 							<library>webclient</library>
 							<generateApiDocumentation>false</generateApiDocumentation>
@@ -381,35 +376,6 @@
 						<goals>
 							<goal>report</goal>
 						</goals>
-					</execution>
-				</executions>
-			</plugin>
-			<plugin>
-				<groupId>org.openapitools</groupId>
-				<artifactId>openapi-generator-maven-plugin</artifactId>
-				<version>5.4.0</version>
-				<executions>
-					<execution>
-						<id>transactions-gateway-api</id>
-						<goals>
-							<goal>generate</goal>
-						</goals>
-						<configuration>
-							<inputSpec>https://raw.githubusercontent.com/pagopa/pagopa-payment-transactions-gateway/754e4a78e81fb67716b67694645cd394a235040c/api-specs/api_spec_PGS.yaml</inputSpec>
-							<generatorName>java</generatorName>
-							<library>webclient</library>
-							<generateApiDocumentation>false</generateApiDocumentation>
-							<generateApiTests>false</generateApiTests>
-							<generateModelTests>false</generateModelTests>
-							<generateSupportingFiles>true</generateSupportingFiles>
-							<configOptions>
-								<swaggerAnnotations>false</swaggerAnnotations>
-								<openApiNullable>false</openApiNullable>
-							</configOptions>
-							<modelPackage>it.pagopa.generated.ecommerce.gateway.v1.dto</modelPackage>
-							<apiPackage>it.pagopa.generated.ecommerce.gateway.v1.api</apiPackage>
-							<modelNameSuffix>dto</modelNameSuffix>
-						</configuration>
 					</execution>
 				</executions>
 			</plugin>
