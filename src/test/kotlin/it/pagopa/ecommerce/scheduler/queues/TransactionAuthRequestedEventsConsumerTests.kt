@@ -65,6 +65,7 @@ class TransactionActivatedEventsConsumerTests {
     @Mock
     private lateinit var transactionsViewRepository: TransactionsViewRepository
 
+    /*
     @Test
     fun `messageReceiver receives messages successfully`() {
         val transactionId = UUID.randomUUID().toString()
@@ -104,7 +105,7 @@ class TransactionActivatedEventsConsumerTests {
         /* Asserts */
         verify(checkpointer, Mockito.times(1)).success()
     }
-
+*/
 
     @Test
     fun `messageReceiver calls refund on transaction with authorization request`() = runTest {
