@@ -7,6 +7,7 @@ import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreReposito
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.scheduler.services.NodeService
 import it.pagopa.ecommerce.scheduler.services.RefundService
+import it.pagopa.generated.ecommerce.gateway.v1.dto.PostePayRefundResponseDto
 import it.pagopa.generated.transactions.server.model.TransactionStatusDto
 import it.pagopa.transactions.documents.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -145,7 +146,7 @@ class TransactionActivatedEventsConsumerTests {
                 "pspChannelCode",
                 "requestId",
                 "pspBusinessName",
-                "authorizationRequestId",
+                UUID.randomUUID().toString(),
             )
         )
 
@@ -154,6 +155,15 @@ class TransactionActivatedEventsConsumerTests {
             rptId,
             paymentToken,
             TransactionExpiredData(
+                TransactionStatusDto.ACTIVATED
+            )
+        )
+
+        val refundedEvent = TransactionRefundedEvent(
+            transactionId,
+            rptId,
+            paymentToken,
+            TransactionRefundedData(
                 TransactionStatusDto.ACTIVATED
             )
         )
@@ -167,6 +177,9 @@ class TransactionActivatedEventsConsumerTests {
             "email@test.it",
             TransactionStatusDto.EXPIRED
         )
+
+        val gatewayClientResponse = PostePayRefundResponseDto()
+        gatewayClientResponse.refundOutcome = "OK"
 
         /* preconditions */
         given(checkpointer.success()).willReturn(Mono.empty())
@@ -183,7 +196,9 @@ class TransactionActivatedEventsConsumerTests {
             )
 
         given(transactionsExpiredEventStoreRepository.save(any())).willReturn(Mono.just(expiredEvent))
+        given(transactionsRefundedEventStoreRepository.save(any())).willReturn(Mono.just(refundedEvent))
         given(transactionsViewRepository.save(any())).willReturn(Mono.just(transaction))
+        given(paymentGatewayClient.requestRefund(any())).willReturn(Mono.just(gatewayClientResponse))
 
         /* test */
         transactionActivatedEventsConsumer.messageReceiver(
@@ -193,16 +208,40 @@ class TransactionActivatedEventsConsumerTests {
 
         /* Asserts */
         verify(checkpointer, times(1)).success()
+        verify(refundService, times(1)).requestRefund(any())
     }
-/*
+
     @Test
-    fun `messageReceiver handles exceptions on closePayment failure`() = runTest {
-        val transactionId = UUID.randomUUID()
-        val rptId = "rptId"
-        val paymentToken = "paymentToken"
+    fun `messageReceiver calls refund and handle error with retry`() = runTest {
+        var transactionActivatedEventsConsumer:
+                TransactionActivatedEventsConsumer =
+            TransactionActivatedEventsConsumer(
+                paymentGatewayClient,
+                transactionsEventStoreRepository,
+                transactionsExpiredEventStoreRepository,
+                transactionsRefundedEventStoreRepository,
+                transactionsViewRepository
+            )
+        val transactionId = UUID.randomUUID().toString()
+        val rptId = "77777777777302000100440009424"
+        val paymentToken = UUID.randomUUID().toString().replace("-", "")
+
+        val activatedEvent = TransactionActivatedEvent(
+            transactionId,
+            rptId,
+            paymentToken,
+            TransactionActivatedData(
+                "description",
+                100,
+                "email@test.it",
+                null,
+                null,
+                paymentToken,
+            )
+        )
 
         val authorizationRequestedEvent = TransactionAuthorizationRequestedEvent(
-            transactionId.toString(),
+            transactionId,
             rptId,
             paymentToken,
             TransactionAuthorizationRequestData(
@@ -215,93 +254,68 @@ class TransactionActivatedEventsConsumerTests {
                 "pspChannelCode",
                 "requestId",
                 "pspBusinessName",
-                "authorizationRequestId"
+                UUID.randomUUID().toString(),
             )
         )
 
-        val postePayRefundResponse = PostePayRefundResponseDto().apply {
-            requestId = ""
-            paymentId = ""
-            refundOutcome = ""
-            error = ""
-        }
-
-        /* preconditions */
-        given(checkpointer.success()).willReturn(Mono.empty())
-        given(
-            transactionsAuthorizationStatusUpdateEventRepository.findByTransactionIdAndEventCode(
-                transactionId.toString(),
-                TransactionEventCode.TRANSACTION_AUTHORIZATION_STATUS_UPDATED_EVENT
-            )
-        )
-            .willReturn(Mono.empty())
-        given(refundService.requestRefund(any())).willReturn(Mono.just(postePayRefundResponse))
-        given(nodeService.closePayment(transactionId, ClosePaymentRequestV2Dto.OutcomeEnum.KO))
-            .willThrow(BadGatewayException(""))
-
-        /* test */
-        assertDoesNotThrow {
-            transactionAuthRequestedEventsConsumer.messageReceiver(
-                BinaryData.fromObject(authorizationRequestedEvent).toBytes(),
-                checkpointer
-            )
-        }
-
-        /* Asserts */
-        verify(checkpointer, times(1)).success()
-        verify(refundService, times(1)).requestRefund(any())
-        verify(nodeService, times(1)).closePayment(any(), any())
-    }
-
-    @Test
-    fun `messageReceiver handles exceptions on requestRefund failure`() = runTest {
-        val transactionId = UUID.randomUUID()
-        val rptId = "rptId"
-        val paymentToken = "paymentToken"
-
-        val authorizationRequestedEvent = TransactionAuthorizationRequestedEvent(
-            transactionId.toString(),
+        val expiredEvent = TransactionExpiredEvent(
+            transactionId,
             rptId,
             paymentToken,
-            TransactionAuthorizationRequestData(
-                100,
-                0,
-                "paymentInstrumentId",
-                "pspId",
-                "paymentTypeCode",
-                "brokerName",
-                "pspChannelCode",
-                "requestId",
-                "pspBusinessName",
-                "authorizationRequestId"
+            TransactionExpiredData(
+                TransactionStatusDto.ACTIVATED
             )
         )
+
+        val refundedEvent = TransactionRefundedEvent(
+            transactionId,
+            rptId,
+            paymentToken,
+            TransactionRefundedData(
+                TransactionStatusDto.ACTIVATED
+            )
+        )
+
+        val transaction = Transaction(
+            transactionId,
+            paymentToken,
+            rptId,
+            "description",
+            1200,
+            "email@test.it",
+            TransactionStatusDto.EXPIRED
+        )
+
+        val gatewayClientResponse = PostePayRefundResponseDto()
+        gatewayClientResponse.refundOutcome = "KO"
 
         /* preconditions */
         given(checkpointer.success()).willReturn(Mono.empty())
         given(
-            transactionsAuthorizationStatusUpdateEventRepository.findByTransactionIdAndEventCode(
-                transactionId.toString(),
-                TransactionEventCode.TRANSACTION_AUTHORIZATION_STATUS_UPDATED_EVENT
+            transactionsEventStoreRepository.findByTransactionId(
+                any(),
             )
         )
-            .willReturn(Mono.empty())
-        given(refundService.requestRefund(any())).willReturn(Mono.error(BadGatewayException("")))
-        given(nodeService.closePayment(transactionId, ClosePaymentRequestV2Dto.OutcomeEnum.KO))
-            .willReturn(ClosePaymentResponseDto().esito(ClosePaymentResponseDto.EsitoEnum.KO))
+            .willReturn(
+                Flux.just(
+                    activatedEvent as TransactionEvent<Objects>,
+                    authorizationRequestedEvent as TransactionEvent<Objects>
+                )
+            )
+
+        given(transactionsExpiredEventStoreRepository.save(any())).willReturn(Mono.just(expiredEvent))
+        given(transactionsRefundedEventStoreRepository.save(any())).willReturn(Mono.just(refundedEvent))
+        given(transactionsViewRepository.save(any())).willReturn(Mono.just(transaction))
+        given(paymentGatewayClient.requestRefund(any())).willReturn(Mono.just(gatewayClientResponse))
 
         /* test */
-        assertDoesNotThrow {
-            transactionAuthRequestedEventsConsumer.messageReceiver(
-                BinaryData.fromObject(authorizationRequestedEvent).toBytes(),
-                checkpointer
-            )
-        }
+        transactionActivatedEventsConsumer.messageReceiver(
+            BinaryData.fromObject(activatedEvent).toBytes(),
+            checkpointer
+        )
 
         /* Asserts */
         verify(checkpointer, times(1)).success()
         verify(refundService, times(1)).requestRefund(any())
-        verify(nodeService, times(1)).closePayment(any(), any())
     }
-     */
 }
