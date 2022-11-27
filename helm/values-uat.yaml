@@ -11,7 +11,7 @@ microservice-chart:
     service:
       create: true
     deployment:
-      create: true
+      create: false
       image:
         repository: pagopaucommonacr.azurecr.io/pagopaecommerceschedulerservice
         tag: "latest"
