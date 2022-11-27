@@ -13,9 +13,6 @@ import org.springframework.beans.factory.annotation.Value
 @Configuration
 class QueuesConsumerConfig {
 
-    @Value("\${azurestorage.queues.transactionauthrequestedevents.name}")
-    private val queueNameAuthRequestedEvents: String? = null
-
     @Value("\${azurestorage.queues.transactionactivatedevents.name}")
     private val queueNameActivatedEvents: String? = null
 
