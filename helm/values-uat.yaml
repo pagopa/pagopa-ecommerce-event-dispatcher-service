@@ -11,7 +11,7 @@ microservice-chart:
     service:
       create: true
     deployment:
-      create: false
+      create: true
       image:
         repository: pagopaucommonacr.azurecr.io/pagopaecommerceschedulerservice
         tag: "latest"
@@ -37,7 +37,7 @@ microservice-chart:
       NODO_CONNECTION_STRING: nodo-connection-string
   image:
     repository: pagopaucommonacr.azurecr.io/pagopaecommerceschedulerservice
-    tag: "0.0.3"
+    tag: "latest"
     pullPolicy: Always
   livenessProbe:
     httpGet:
