@@ -18,6 +18,7 @@
 		<kotlinx-coroutines.version>1.6.2</kotlinx-coroutines.version>
 		<spring-cloud-azure.version>4.0.0</spring-cloud-azure.version>
 		<jacoco.version>0.8.8</jacoco.version>
+		<pagopa-ecommerce-commons.version>0.0.1</pagopa-ecommerce-commons.version>
 		<sonar.coverage.exclusions> <!-- the members of the following list should be in the same line -->
 			**/it/pagopa/transactions/**
 		</sonar.coverage.exclusions>
@@ -159,6 +160,11 @@
 		<dependency>
 			<groupId>org.projectlombok</groupId>
 			<artifactId>lombok</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>it.pagopa</groupId>
+    		<artifactId>pagopa-ecommerce-commons</artifactId>
+   			<version>${pagopa-ecommerce-commons.version}</version>
 		</dependency>
 	</dependencies>
 	<dependencyManagement>
