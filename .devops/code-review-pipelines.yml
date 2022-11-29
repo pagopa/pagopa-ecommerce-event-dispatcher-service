@@ -20,18 +20,18 @@ jobs:
   - job: make_build
     steps:
       - checkout: pagopaEcommerceCommons
+      - script: 'ls'
       - task: Cache@2
         inputs:
-          key: 'maven | "$(Agent.OS)" | pom.xml'
+          key: 'maven | "$(Agent.OS)" | pagopa-ecommerce-commons/pom.xml'
           restoreKeys: |
             maven | "$(Agent.OS)"
             maven
           path: $(MAVEN_CACHE_FOLDER)
         displayName: Cache Maven local repo
-        workingDirectory: pagopa-ecommerce-commons
       - task: Maven@3
         inputs:
-          mavenPomFile: 'pom.xml'
+          mavenPomFile: 'pagopa-ecommerce-commons/pom.xml'
           mavenOptions: '-Xmx3072m $(MAVEN_OPTS)'
           javaHomeOption: 'JDKVersion'
           jdkVersionOption: '17'
@@ -40,7 +40,6 @@ jobs:
           testResultsFiles: '**/surefire-reports/TEST-*.xml'
           goals: 'clean install'
           sonarQubeRunAnalysis: false
-        workingDirectory: pagopa-ecommerce-commons
       - checkout: self
       - task: SonarCloudPrepare@1
         displayName: 'Prepare SonarCloud analysis configuration'
