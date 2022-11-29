@@ -7,48 +7,83 @@ trigger: none
 pool:
   vmImage: ubuntu-latest
 
-steps:
-  - task: Cache@2
-    inputs:
-      key: 'maven | "$(Agent.OS)" | pom.xml'
-      restoreKeys: |
-        maven | "$(Agent.OS)"
-        maven
-      path: $(MAVEN_CACHE_FOLDER)
-    displayName: Cache Maven local repo
+resources:
+  repositories:
+    - repository: pagopaEcommerceCommons
+      type: github
+      name: pagopa/pagopa-ecommerce-commons 
+      ref: main
+      endpoint: 'io-azure-devops-github-ro'
 
-  - task: SonarCloudPrepare@1
-    displayName: 'Prepare SonarCloud analysis configuration'
-    inputs:
-      SonarCloud: '$(SONARCLOUD_SERVICE_CONN)'
-      organization: '$(SONARCLOUD_ORG)'
-      scannerMode: Other
-      extraProperties: |
-        sonar.projectKey=$(SONARCLOUD_PROJECT_KEY)
-        sonar.projectName=$(SONARCLOUD_PROJECT_NAME)
-        sonar.coverage.jacoco.xmlReportPaths=./target/site/jacoco/jacoco.xml
-        sonar.junit.reportPaths=target/surefire-reports/
+  stages:
+    - stage: BuildschedulerService
+      jobs: 
+        - job: make_build_pagopa_ecommerce_commons     
+          steps:
+            - task: Cache@2
+              inputs:
+                key: 'maven | "$(Agent.OS)" | pom.xml'
+                restoreKeys: |
+                  maven | "$(Agent.OS)"
+                  maven
+                path: $(MAVEN_CACHE_FOLDER)
+              displayName: Cache Maven local repo
+            - checkout: pagopaEcommerceCommons
+            - task: Maven@3
+              inputs:
+                mavenPomFile: 'pom.xml'
+                mavenOptions: '-Xmx3072m $(MAVEN_OPTS)'
+                javaHomeOption: 'JDKVersion'
+                jdkVersionOption: '17'
+                jdkArchitectureOption: 'x64'
+                publishJUnitResults: false
+                testResultsFiles: '**/surefire-reports/TEST-*.xml'
+                goals: 'clean verify'
+                sonarQubeRunAnalysis: true
 
-  - task: Maven@3
-    inputs:
-      mavenPomFile: 'pom.xml'
-      mavenOptions: '-Xmx3072m $(MAVEN_OPTS)'
-      javaHomeOption: 'JDKVersion'
-      jdkVersionOption: '17'
-      jdkArchitectureOption: 'x64'
-      publishJUnitResults: false
-      testResultsFiles: '**/surefire-reports/TEST-*.xml'
-      goals: 'clean verify'
-      sonarQubeRunAnalysis: true
+        - job: make_build_pagopa_ecommerce_scheduler_service     
+          steps:
+            - task: Cache@2
+              inputs:
+                key: 'maven | "$(Agent.OS)" | pom.xml'
+                restoreKeys: |
+                  maven | "$(Agent.OS)"
+                  maven
+                path: $(MAVEN_CACHE_FOLDER)
+              displayName: Cache Maven local repo
+            - task: SonarCloudPrepare@1
+              displayName: 'Prepare SonarCloud analysis configuration'
+              inputs:
+                SonarCloud: '$(SONARCLOUD_SERVICE_CONN)'
+                organization: '$(SONARCLOUD_ORG)'
+                scannerMode: Other
+                extraProperties: |
+                  sonar.projectKey=$(SONARCLOUD_PROJECT_KEY)
+                  sonar.projectName=$(SONARCLOUD_PROJECT_NAME)
+                  sonar.coverage.jacoco.xmlReportPaths=./target/site/jacoco/jacoco.xml
+                  sonar.junit.reportPaths=target/surefire-reports/
 
-  - task: SonarCloudPublish@1
-    displayName: 'Publish SonarCloud results on build summary'
-    inputs:
-      pollingTimeoutSec: '300'
+            - task: Maven@3
+              inputs:
+                mavenPomFile: 'pom.xml'
+                mavenOptions: '-Xmx3072m $(MAVEN_OPTS)'
+                javaHomeOption: 'JDKVersion'
+                jdkVersionOption: '17'
+                jdkArchitectureOption: 'x64'
+                publishJUnitResults: false
+                testResultsFiles: '**/surefire-reports/TEST-*.xml'
+                goals: 'clean verify'
+                sonarQubeRunAnalysis: true
 
-  - task: PublishCodeCoverageResults@1
-    inputs:
-      codeCoverageTool: 'JaCoCo'
-      summaryFileLocation: 'target/site/jacoco/jacoco.xml'
-      reportDirectory: 'target/site/jacoco'
-    displayName: 'Publish Code Coverage on Azure Devops'
+            - task: SonarCloudPublish@1
+              displayName: 'Publish SonarCloud results on build summary'
+              inputs:
+                pollingTimeoutSec: '300'
+
+            - task: PublishCodeCoverageResults@1
+              inputs:
+                codeCoverageTool: 'JaCoCo'
+                summaryFileLocation: 'target/site/jacoco/jacoco.xml'
+                reportDirectory: 'target/site/jacoco'
+              displayName: 'Publish Code Coverage on Azure Devops'
+
