@@ -19,7 +19,7 @@ resources:
 jobs: 
   - job: make_build
     steps:
-      - checkout: self
+      - checkout: pagopaEcommerceCommons
       - script: 'ls'
       - task: Cache@2
         inputs:
