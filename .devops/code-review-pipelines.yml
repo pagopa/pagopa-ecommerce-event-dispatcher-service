@@ -28,6 +28,7 @@ jobs:
             maven
           path: $(MAVEN_CACHE_FOLDER)
         displayName: Cache Maven local repo
+        workingDirectory: pagopa-ecommerce-commons
       - task: Maven@3
         inputs:
           mavenPomFile: 'pom.xml'
@@ -39,6 +40,7 @@ jobs:
           testResultsFiles: '**/surefire-reports/TEST-*.xml'
           goals: 'clean install'
           sonarQubeRunAnalysis: false
+        workingDirectory: pagopa-ecommerce-commons
       - checkout: self
       - task: SonarCloudPrepare@1
         displayName: 'Prepare SonarCloud analysis configuration'
