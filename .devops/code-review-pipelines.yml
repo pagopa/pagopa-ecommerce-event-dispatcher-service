@@ -21,14 +21,6 @@ stages:
         - job: make_build 
           steps:
             - checkout: pagopaEcommerceCommons
-            - task: Cache@2
-              inputs:
-                key: 'maven | "$(Agent.OS)" | pom.xml'
-                restoreKeys: |
-                  maven | "$(Agent.OS)"
-                  maven
-                path: $(MAVEN_CACHE_FOLDER)
-              displayName: Cache Maven local repo
             - task: Maven@3
               inputs:
                 mavenPomFile: 'pom.xml'
@@ -45,14 +37,6 @@ stages:
       jobs: 
         - job: make_buildEndUnitTest
           steps:
-            - task: Cache@2
-              inputs:
-                key: 'maven | "$(Agent.OS)" | pom.xml'
-                restoreKeys: |
-                  maven | "$(Agent.OS)"
-                  maven
-                path: $(MAVEN_CACHE_FOLDER)
-              displayName: Cache Maven local repo
             - task: SonarCloudPrepare@1
               displayName: 'Prepare SonarCloud analysis configuration'
               inputs:
@@ -74,7 +58,7 @@ stages:
                 jdkArchitectureOption: 'x64'
                 publishJUnitResults: false
                 testResultsFiles: '**/surefire-reports/TEST-*.xml'
-                goals: '$(MAVEN_OPTS) clean verify'
+                goals: 'clean verify'
                 sonarQubeRunAnalysis: true
   
             - task: SonarCloudPublish@1
