@@ -38,7 +38,7 @@ stages:
                 jdkArchitectureOption: 'x64'
                 publishJUnitResults: false
                 testResultsFiles: '**/surefire-reports/TEST-*.xml'
-                goals: 'clean verify'
+                goals: 'clean install'
                 sonarQubeRunAnalysis: false
     - stage: BuildPagopaEcommerceSchedulerService
       dependsOn: [BuildpagopaEcommerceCommons]
