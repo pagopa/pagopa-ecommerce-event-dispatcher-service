@@ -39,10 +39,7 @@ jobs:
           testResultsFiles: '**/surefire-reports/TEST-*.xml'
           goals: 'clean install'
           sonarQubeRunAnalysis: false
-      - checkout: self
-        clean: true
-
-
+  
   - job: make_buildEndUnitTest
     steps:
       - task: Cache@2
