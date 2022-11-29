@@ -17,10 +17,10 @@ resources:
 
 stages:
     - stage: BuildpagopaEcommerceCommons
-      dependsOn: []
       jobs: 
         - job: make_buildpagopaEcommerceCommons 
           steps:
+            - checkout: pagopaEcommerceCommons
             - task: Cache@2
               inputs:
                 key: 'maven | "$(Agent.OS)" | pom.xml'
@@ -29,7 +29,6 @@ stages:
                   maven
                 path: $(MAVEN_CACHE_FOLDER)
               displayName: Cache Maven local repo
-            - checkout: pagopaEcommerceCommons
             - task: SonarCloudPrepare@1
               displayName: 'Prepare SonarCloud analysis configuration'
               inputs:
