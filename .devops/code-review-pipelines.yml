@@ -21,7 +21,6 @@ jobs:
     steps:
       - checkout: pagopaEcommerceCommons
       - checkout: self
-      - script: 'ls'
       - task: Cache@2
         inputs:
           key: 'maven | "$(Agent.OS)" | pagopa-ecommerce-scheduler-service/pom.xml'
