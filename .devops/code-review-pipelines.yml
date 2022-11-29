@@ -19,11 +19,10 @@ resources:
 jobs: 
   - job: make_build
     steps:
-      - checkout: pagopaEcommerceCommons
       - script: 'ls'
       - task: Cache@2
         inputs:
-          key: 'maven | "$(Agent.OS)" | pagopa-ecommerce-commons/pom.xml'
+          key: 'maven | "$(Agent.OS)" | pagopa-ecommerce-scheduler-service/pom.xml'
           restoreKeys: |
             maven | "$(Agent.OS)"
             maven
@@ -40,7 +39,6 @@ jobs:
           testResultsFiles: '**/surefire-reports/TEST-*.xml'
           goals: 'clean install'
           sonarQubeRunAnalysis: false
-      - checkout: self
       - task: SonarCloudPrepare@1
         displayName: 'Prepare SonarCloud analysis configuration'
         inputs:
@@ -54,7 +52,7 @@ jobs:
             sonar.junit.reportPaths=target/surefire-reports/
       - task: Maven@3
         inputs:
-          mavenPomFile: 'pom.xml'
+          mavenPomFile: 'pagopa-ecommerce-scheduler-service/pom.xml'
           options: '$(MAVEN_OPTS)'
           mavenOptions: '-Xmx3072m $(MAVEN_OPTS)'
           javaHomeOption: 'JDKVersion'
