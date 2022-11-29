@@ -18,7 +18,7 @@ resources:
 stages:
     - stage: BuildPagopaEcommerceCommons
       jobs: 
-        - job: make_buildpagopaEcommerceCommons 
+        - job: make_build 
           steps:
             - checkout: pagopaEcommerceCommons
             - task: Cache@2
@@ -39,11 +39,11 @@ stages:
                 publishJUnitResults: false
                 testResultsFiles: '**/surefire-reports/TEST-*.xml'
                 goals: 'clean verify'
-                sonarQubeRunAnalysis: true
-    - stage: BuildschedulerService
+                sonarQubeRunAnalysis: false
+    - stage: BuildPagopaEcommerceSchedulerService
       dependsOn: [BuildpagopaEcommerceCommons]
       jobs: 
-        - job: make_buildschedulerService
+        - job: make_buildEndUnitTest
           steps:
             - task: Cache@2
               inputs:
