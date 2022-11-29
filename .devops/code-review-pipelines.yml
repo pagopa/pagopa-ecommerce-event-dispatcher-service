@@ -15,7 +15,7 @@ resources:
       ref: main
       endpoint: 'io-azure-devops-github-ro'
 
-  stages:
+
     - stage: BuildschedulerService
       jobs: 
         - job: make_build_pagopa_ecommerce_commons     
