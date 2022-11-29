@@ -17,7 +17,7 @@ resources:
 
 
 jobs: 
-  - job: make_build_pagopa_commons 
+  - job: make_build
     steps:
       - checkout: pagopaEcommerceCommons
       - task: Cache@2
@@ -39,17 +39,7 @@ jobs:
           testResultsFiles: '**/surefire-reports/TEST-*.xml'
           goals: 'clean install'
           sonarQubeRunAnalysis: false
-  
-  - job: make_buildEndUnitTest
-    steps:
-      - task: Cache@2
-        inputs:
-          key: 'maven | "$(Agent.OS)" | pom.xml'
-          restoreKeys: |
-            maven | "$(Agent.OS)"
-            maven
-          path: $(MAVEN_CACHE_FOLDER)
-        displayName: Cache Maven local repo
+      - checkout: self
       - task: SonarCloudPrepare@1
         displayName: 'Prepare SonarCloud analysis configuration'
         inputs:
@@ -61,7 +51,6 @@ jobs:
             sonar.projectName=$(SONARCLOUD_PROJECT_NAME)
             sonar.coverage.jacoco.xmlReportPaths=./target/site/jacoco/jacoco.xml
             sonar.junit.reportPaths=target/surefire-reports/
-
       - task: Maven@3
         inputs:
           mavenPomFile: 'pom.xml'
@@ -74,12 +63,10 @@ jobs:
           testResultsFiles: '**/surefire-reports/TEST-*.xml'
           goals: 'clean verify'
           sonarQubeRunAnalysis: true
-
       - task: SonarCloudPublish@1
         displayName: 'Publish SonarCloud results on build summary'
         inputs:
           pollingTimeoutSec: '300'
-
       - task: PublishCodeCoverageResults@1
         inputs:
           codeCoverageTool: 'JaCoCo'
