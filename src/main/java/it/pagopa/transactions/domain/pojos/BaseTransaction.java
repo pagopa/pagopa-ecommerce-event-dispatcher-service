@@ -1,7 +1,9 @@
 package it.pagopa.transactions.domain.pojos;
 
+import it.pagopa.ecommerce.commons.annotations.AggregateRootId;
+import it.pagopa.ecommerce.commons.domain.Email;
+import it.pagopa.ecommerce.commons.domain.RptId;
 import it.pagopa.generated.transactions.server.model.TransactionStatusDto;
-import it.pagopa.transactions.annotations.AggregateRootId;
 import it.pagopa.transactions.domain.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;

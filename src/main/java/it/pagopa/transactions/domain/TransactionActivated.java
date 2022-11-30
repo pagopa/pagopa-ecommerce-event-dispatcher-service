@@ -1,5 +1,8 @@
 package it.pagopa.transactions.domain;
 
+import it.pagopa.ecommerce.commons.domain.Email;
+import it.pagopa.ecommerce.commons.domain.PaymentToken;
+import it.pagopa.ecommerce.commons.domain.RptId;
 import it.pagopa.generated.transactions.server.model.TransactionStatusDto;
 import it.pagopa.transactions.documents.TransactionActivatedData;
 import it.pagopa.transactions.documents.TransactionActivatedEvent;

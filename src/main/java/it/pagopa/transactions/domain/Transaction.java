@@ -1,6 +1,6 @@
 package it.pagopa.transactions.domain;
 
-import it.pagopa.transactions.annotations.AggregateRoot;
+import it.pagopa.ecommerce.commons.annotations.AggregateRoot;
 import it.pagopa.transactions.documents.TransactionEvent;
 
 @AggregateRoot
