@@ -33,7 +33,7 @@ class TransactionActivatedEventsConsumer(
     @Autowired private val transactionsExpiredEventStoreRepository: TransactionsEventStoreRepository<TransactionExpiredData>,
     @Autowired private val transactionsRefundedEventStoreRepository: TransactionsEventStoreRepository<TransactionRefundedData>,
     @Autowired private val transactionsViewRepository: TransactionsViewRepository,
-    @Autowired private val transactionUtil: TransactionUtils
+    @Autowired private val transactionUtils: TransactionUtils
 ) {
 
     var logger: Logger = LoggerFactory.getLogger(TransactionActivatedEventsConsumer::class.java)
@@ -50,7 +50,7 @@ class TransactionActivatedEventsConsumer(
         transactionsEventStoreRepository.findByTransactionId(transactionId.toString())
             .reduce(EmptyTransaction(), Transaction::applyEvent).cast(BaseTransaction::class.java)
             .filter {
-                transactionUtil.isTransientStatus(it.status)
+                transactionUtils.isTransientStatus(it.status)
             }
             .flatMap { transaction ->
                 updateTransactionToExpired(transaction, paymentToken)
@@ -65,7 +65,7 @@ class TransactionActivatedEventsConsumer(
                     }.thenReturn(transaction)
             }
             .filter {
-                transactionUtil.isRefundableTransaction(it.status)
+                transactionUtils.isRefundableTransaction(it.status)
             }
             .flatMap { transaction ->
                 mono { transaction }.cast(BaseTransactionWithRequestedAuthorization::class.java)
