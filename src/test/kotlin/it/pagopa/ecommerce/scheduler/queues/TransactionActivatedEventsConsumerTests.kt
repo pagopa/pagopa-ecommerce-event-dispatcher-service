@@ -2,6 +2,7 @@ package it.pagopa.ecommerce.scheduler.queues
 
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
+import it.pagopa.ecommerce.commons.utils.TransactionUtils
 import it.pagopa.ecommerce.scheduler.client.PaymentGatewayClient
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsViewRepository
@@ -52,6 +53,9 @@ class TransactionActivatedEventsConsumerTests {
     @Mock
     private lateinit var transactionsViewRepository: TransactionsViewRepository
 
+    @Mock
+    private lateinit var transactionUtils: TransactionUtils
+
 
     @Test
     fun `messageReceiver receives messages successfully`() {
@@ -62,7 +66,8 @@ class TransactionActivatedEventsConsumerTests {
                 transactionsEventStoreRepository,
                 transactionsExpiredEventStoreRepository,
                 transactionsRefundedEventStoreRepository,
-                transactionsViewRepository
+                transactionsViewRepository,
+                transactionUtils
             )
 
         val transactionId = UUID.randomUUID().toString()
@@ -113,7 +118,8 @@ class TransactionActivatedEventsConsumerTests {
                 transactionsEventStoreRepository,
                 transactionsExpiredEventStoreRepository,
                 transactionsRefundedEventStoreRepository,
-                transactionsViewRepository
+                transactionsViewRepository,
+                transactionUtils
             )
         val transactionId = UUID.randomUUID().toString()
         val rptId = "77777777777302000100440009424"
@@ -221,7 +227,8 @@ class TransactionActivatedEventsConsumerTests {
                 transactionsEventStoreRepository,
                 transactionsExpiredEventStoreRepository,
                 transactionsRefundedEventStoreRepository,
-                transactionsViewRepository
+                transactionsViewRepository,
+                transactionUtils
             )
         val transactionId = UUID.randomUUID().toString()
         val rptId = "77777777777302000100440009424"
@@ -296,7 +303,8 @@ class TransactionActivatedEventsConsumerTests {
                 transactionsEventStoreRepository,
                 transactionsExpiredEventStoreRepository,
                 transactionsRefundedEventStoreRepository,
-                transactionsViewRepository
+                transactionsViewRepository,
+                transactionUtils
             )
         val transactionId = UUID.randomUUID().toString()
         val rptId = "77777777777302000100440009424"
@@ -404,7 +412,8 @@ class TransactionActivatedEventsConsumerTests {
                 transactionsEventStoreRepository,
                 transactionsExpiredEventStoreRepository,
                 transactionsRefundedEventStoreRepository,
-                transactionsViewRepository
+                transactionsViewRepository,
+                transactionUtils
             )
         val transactionId = UUID.randomUUID().toString()
         val rptId = "77777777777302000100440009424"
