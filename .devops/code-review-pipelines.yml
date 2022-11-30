@@ -12,7 +12,7 @@ resources:
     - repository: pagopaEcommerceCommons
       type: github
       name: pagopa/pagopa-ecommerce-commons 
-      ref: main
+      ref: tags/
       endpoint: 'io-azure-devops-github-ro'
 
 
@@ -20,6 +20,7 @@ jobs:
   - job: make_build
     steps:
       - checkout: pagopaEcommerceCommons
+      - script: "ls"
       - checkout: self
       - task: Cache@2
         inputs:
