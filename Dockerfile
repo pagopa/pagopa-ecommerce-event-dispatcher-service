@@ -4,12 +4,15 @@ WORKDIR /workspace/app
 COPY mvnw .
 COPY .mvn .mvn
 COPY pom.xml .
+
+RUN mkdir -p /workspace/app/target
+RUN ./mvnw validate
 RUN ./mvnw dependency:copy-dependencies
 # RUN ./mvnw dependency:go-offline
 
 COPY src src
 # COPY api-spec api-spec
-RUN ./mvnw install -DskipTests # --offline
+RUN ./mvnw clean install -DskipTests # --offline
 RUN mkdir target/extracted && java -Djarmode=layertools -jar target/*.jar extract --destination target/extracted
 
 FROM openjdk:17-slim
