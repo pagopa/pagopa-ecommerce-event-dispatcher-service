@@ -7,17 +7,27 @@ trigger: none
 pool:
   vmImage: ubuntu-latest
 
+resources:
+    repositories:
+      - repository: pagopaEcommerceCommons
+        type: github
+        name: pagopa/pagopa-ecommerce-commons 
+        ref: main
+        endpoint: 'io-azure-devops-github-ro'
+
 jobs: 
   - job: make_buildEndUnitTest
     steps:
       - checkout: self
+      - checkout: pagopaEcommerceCommons
       - script: | 
+         ls
+         cd pagopa-ecommerce-scheduler-service
          COMMONS_VERSION=$(mvn help:evaluate -Dexpression=pagopa-ecommerce-commons.version -q -DforceStdout)
          echo "${COMMONS_VERSION}"
-         cd .. && git clone https://github.com/pagopa/pagopa-ecommerce-commons.git
-         cd pagopa-ecommerce-commons
+         cd ../pagopa-ecommerce-commons
          git checkout refs/tags/${COMMONS_VERSION} && cd ..
-         cd s
+         ls
       - task: Cache@2
         inputs:
           key: 'maven | "$(Agent.OS)" | pagopa-ecommerce-scheduler-service/pom.xml'
