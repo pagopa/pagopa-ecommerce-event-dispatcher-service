@@ -1,8 +1,6 @@
 variables:
   MAVEN_CACHE_FOLDER: $(Pipeline.Workspace)/.m2/repository
   MAVEN_OPTS: '-Dmaven.repo.local=$(MAVEN_CACHE_FOLDER)'
-  PAGOPA_COMMONS_VERSION: 0.0.0 
-  
 
 trigger: none
 
@@ -12,15 +10,15 @@ pool:
 jobs: 
   - job: make_buildEndUnitTest
     steps:
+      - checkout: self
       - script: | 
          ls
-         cd pagopa-ecommerce-scheduler-service
          COMMONS_VERSION=$(mvn help:evaluate -Dexpression=pagopa-ecommerce-commons.version -q -DforceStdout)
          echo "${COMMONS_VERSION}"
-         echo "##vso[task.setvariable variable=PAGOPA_COMMONS_VERSION]${COMMONS_VERSION}"
-         echo "${PAGOPA_COMMONS_VERSION}"
-      - checkout: git@github.com:pagopa/pagopa-ecommerce-commons/refs/tags/${PAGOPA_COMMONS_VERSION}
-      - checkout: self
+         cd ..
+         git clone https://github.com/pagopa/pagopa-ecommerce-commons.git
+         git checkout refs/tags/COMMONS_VERSION
+         ls
       - task: Cache@2
         inputs:
           key: 'maven | "$(Agent.OS)" | pagopa-ecommerce-scheduler-service/pom.xml'
