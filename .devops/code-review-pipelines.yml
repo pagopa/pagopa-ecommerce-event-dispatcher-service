@@ -17,8 +17,7 @@ jobs:
          cd .. && git clone https://github.com/pagopa/pagopa-ecommerce-commons.git
          cd pagopa-ecommerce-commons
          git checkout refs/tags/${COMMONS_VERSION} && cd ..
-         ls
-         pwd
+         cd s
       - task: Cache@2
         inputs:
           key: 'maven | "$(Agent.OS)" | pagopa-ecommerce-scheduler-service/pom.xml'
