@@ -12,7 +12,7 @@ resources:
     - repository: pagopaEcommerceCommons
       type: github
       name: pagopa/pagopa-ecommerce-commons 
-      ref: branches/tags/0.0.1
+      ref: refs/tags/0.0.1
       endpoint: 'io-azure-devops-github-ro'
 
 
