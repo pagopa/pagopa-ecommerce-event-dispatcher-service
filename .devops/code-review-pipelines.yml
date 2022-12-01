@@ -19,7 +19,7 @@ jobs:
          echo "${COMMONS_VERSION}"
          echo "##vso[task.setvariable variable=PAGOPA_COMMONS_VERSION]${COMMONS_VERSION}"
          echo "${PAGOPA_COMMONS_VERSION}"
-      - checkout: git://pagopa/pagopa-ecommerce-commons/refs/tags/${PAGOPA_COMMONS_VERSION}
+      - checkout: git@github.com:pagopa/pagopa-ecommerce-commons/refs/tags/${PAGOPA_COMMONS_VERSION}
       - checkout: self
       - task: Cache@2
         inputs:
