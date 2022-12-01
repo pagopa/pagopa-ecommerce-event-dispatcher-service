@@ -21,7 +21,7 @@ resources:
 jobs: 
   - job: make_buildEndUnitTest
     steps:
-      - script: echo "mvn help:evaluate -Dexpression=pagopa-ecommerce-commons.version -q -DforceStdout"
+      - script: mvn help:evaluate -Dexpression=pagopa-ecommerce-commons.version -q -DforceStdout 
       - script: echo "##vso[task.setvariable variable=PAGOPA_COMMONS_VERSION]mvn help:evaluate -Dexpression=pagopa-ecommerce-commons.version -q -DforceStdout"
       - script: echo $(PAGOPA_COMMONS_VERSION)
       - checkout: pagopaEcommerceCommons
