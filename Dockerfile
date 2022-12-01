@@ -1,9 +1,23 @@
-FROM openjdk:17-slim as build
+FROM ubuntu as build
+
 WORKDIR /workspace/app
+
+RUN apt-get update 
+RUN apt-get install -y openjdk-17-jdk
+RUN apt-get install -y maven
+RUN apt-get install -y git
 
 COPY mvnw .
 COPY .mvn .mvn
 COPY pom.xml .
+
+WORKDIR /workspace/app1
+COPY checkout_commons_version .
+COPY pom.xml .
+RUN ./checkout_commons_version
+WORKDIR /workspace/app
+
+
 RUN ./mvnw dependency:copy-dependencies
 # RUN ./mvnw dependency:go-offline
 
