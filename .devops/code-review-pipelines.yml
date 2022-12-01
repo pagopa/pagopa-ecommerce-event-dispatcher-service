@@ -21,13 +21,13 @@ resources:
 jobs: 
   - job: make_buildEndUnitTest
     steps:
-      - checkout: self
       - script: | 
          ls
          COMMONS_VERSION=$(mvn help:evaluate -Dexpression=pagopa-ecommerce-commons.version -q -DforceStdout)
          echo "${COMMONS_VERSION}"
          echo "##vso[task.setvariable variable=PAGOPA_COMMONS_VERSION]${COMMONS_VERSION}"
          echo "${PAGOPA_COMMONS_VERSION}"
+      - checkout: self
       - checkout: pagopaEcommerceCommons
       - checkout: self
       - task: Cache@2
