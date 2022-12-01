@@ -1,8 +1,7 @@
 variables:
   - MAVEN_CACHE_FOLDER: $(Pipeline.Workspace)/.m2/repository
   - MAVEN_OPTS: '-Dmaven.repo.local=$(MAVEN_CACHE_FOLDER)'
-  - name: commons_version
-    value: '0.0.1'
+  - PAGOPA_COMMONS_VERSION: '0.0.1' 
   
 
 trigger: none
@@ -22,9 +21,9 @@ resources:
 jobs: 
   - job: make_buildEndUnitTest
     steps:
-      - script: echo($(commons_version))
-      - script: echo "##vso[task.setvariable variable=commons_version]0.0.2"
-      - script: echo($(commons_version))
+      - script: echo($(PAGOPA_COMMONS_VERSION))
+      - script: echo "##vso[task.setvariable variable=PAGOPA_COMMONS_VERSION]0.0.2"
+      - script: echo($(PAGOPA_COMMONS_VERSION))
       - checkout: pagopaEcommerceCommons
       - checkout: self
       - task: Cache@2
