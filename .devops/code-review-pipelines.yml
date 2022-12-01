@@ -1,7 +1,7 @@
 variables:
   - MAVEN_CACHE_FOLDER: $(Pipeline.Workspace)/.m2/repository
   - MAVEN_OPTS: '-Dmaven.repo.local=$(MAVEN_CACHE_FOLDER)'
-  - PAGOPA_COMMONS_VERSION: 'commons_version' 
+  - name: commons_version
     value: '0.0.1'
   
 
