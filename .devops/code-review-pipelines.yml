@@ -15,9 +15,9 @@ jobs:
          ls
          COMMONS_VERSION=$(mvn help:evaluate -Dexpression=pagopa-ecommerce-commons.version -q -DforceStdout)
          echo "${COMMONS_VERSION}"
-         cd ..
-         git clone https://github.com/pagopa/pagopa-ecommerce-commons.git
-         git checkout refs/tags/COMMONS_VERSION
+         cd .. && git clone https://github.com/pagopa/pagopa-ecommerce-commons.git
+         cd pagopa-ecommerce-commons
+         git checkout refs/tags/COMMONS_VERSION && cd ..
          ls
       - task: Cache@2
         inputs:
