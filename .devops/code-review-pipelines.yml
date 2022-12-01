@@ -21,13 +21,11 @@ jobs:
       - checkout: self
       - checkout: pagopaEcommerceCommons
       - script: | 
-         ls
          cd pagopa-ecommerce-scheduler-service
-         COMMONS_VERSION=$(mvn help:evaluate -Dexpression=pagopa-ecommerce-commons.version -q -DforceStdout)
-         echo "${COMMONS_VERSION}"
+         ECOMMERCE_COMMONS_VERSION=$(mvn help:evaluate -Dexpression=pagopa-ecommerce-commons.version -q -DforceStdout)
+         echo "pagopa-ecommerce-commons version : ${ECOMMERCE_COMMONS_VERSION}"
          cd ../pagopa-ecommerce-commons
-         git checkout refs/tags/${COMMONS_VERSION} && cd ..
-         ls
+         git checkout refs/tags/${ECOMMERCE_COMMONS_VERSION} && cd ..
       - task: Cache@2
         inputs:
           key: 'maven | "$(Agent.OS)" | pagopa-ecommerce-scheduler-service/pom.xml'
