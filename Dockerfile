@@ -11,10 +11,12 @@ COPY mvnw .
 COPY .mvn .mvn
 COPY pom.xml .
 
-WORKDIR /workspace/app1
+WORKDIR /workspace/lib
 COPY checkout_commons_version .
 COPY pom.xml .
 RUN ./checkout_commons_version
+WORKDIR /workspace/lib/pagopa-ecommerce-commons
+RUN ./mvnw install -DskipTests # --offline
 WORKDIR /workspace/app
 
 

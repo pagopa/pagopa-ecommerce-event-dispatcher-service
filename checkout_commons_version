@@ -4,5 +4,5 @@ echo ${PAGOPA_ECOMMERCE_COMMONS_VERSION}
 git clone https://github.com/pagopa/pagopa-ecommerce-commons.git
 cd pagopa-ecommerce-commons
 git checkout refs/tags/${PAGOPA_ECOMMERCE_COMMONS_VERSION}
-mvn clean install -DskipTests
+
 
