@@ -1,8 +1,8 @@
 package it.pagopa.transactions.documents;
 
+import it.pagopa.ecommerce.commons.domain.TransactionActivated;
+import it.pagopa.ecommerce.commons.domain.TransactionActivationRequested;
 import it.pagopa.generated.transactions.server.model.TransactionStatusDto;
-import it.pagopa.transactions.domain.TransactionActivated;
-import it.pagopa.transactions.domain.TransactionActivationRequested;
 import lombok.Data;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.PersistenceConstructor;
