@@ -38,7 +38,7 @@ steps:
       publishJUnitResults: false
       testResultsFiles: '**/surefire-reports/TEST-*.xml'
       goals: 'validate'
-      sonarQubeRunAnalysis: true
+      sonarQubeRunAnalysis: false
   - task: Maven@3
     inputs:
       mavenPomFile: 'pom.xml'
