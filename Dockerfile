@@ -13,7 +13,7 @@ RUN ./mvnw dependency:copy-dependencies
 
 COPY src src
 # COPY api-spec api-spec
-RUN ./mvnw clean install -DskipTests # --offline
+RUN ./mvnw install -DskipTests # --offline
 RUN mkdir target/extracted && java -Djarmode=layertools -jar target/*.jar extract --destination target/extracted
 
 FROM openjdk:17-slim
