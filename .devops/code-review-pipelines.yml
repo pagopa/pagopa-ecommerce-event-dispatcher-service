@@ -39,6 +39,7 @@ steps:
       testResultsFiles: '**/surefire-reports/TEST-*.xml'
       goals: 'validate'
       sonarQubeRunAnalysis: false
+    displayName: "Maven validate"
   - task: Maven@3
     inputs:
       mavenPomFile: 'pom.xml'
@@ -50,7 +51,7 @@ steps:
       testResultsFiles: '**/surefire-reports/TEST-*.xml'
       goals: 'clean verify'
       sonarQubeRunAnalysis: true
-
+    displayName: "Maven clean verify"
   - task: SonarCloudPublish@1
     displayName: 'Publish SonarCloud results on build summary'
     inputs:
