@@ -18,6 +18,7 @@
 		<kotlinx-coroutines.version>1.6.2</kotlinx-coroutines.version>
 		<spring-cloud-azure.version>4.0.0</spring-cloud-azure.version>
 		<jacoco.version>0.8.8</jacoco.version>
+		<pagopa-ecommerce-commons.version>0.0.2</pagopa-ecommerce-commons.version>
 		<sonar.coverage.exclusions> <!-- the members of the following list should be in the same line -->
 			**/it/pagopa/transactions/**
 		</sonar.coverage.exclusions>
@@ -159,6 +160,11 @@
 		<dependency>
 			<groupId>org.projectlombok</groupId>
 			<artifactId>lombok</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>it.pagopa</groupId>
+			<artifactId>pagopa-ecommerce-commons</artifactId>
+			<version>${pagopa-ecommerce-commons.version}</version>
 		</dependency>
 	</dependencies>
 	<dependencyManagement>
@@ -385,6 +391,25 @@
 				<configuration>
 					<argLine>${argLine} --enable-preview</argLine>
 				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-scm-plugin</artifactId>
+				<version>2.0.0-M3</version>
+				<configuration>
+					<connectionUrl>scm:git:https://github.com/pagopa/pagopa-ecommerce-commons.git</connectionUrl>
+					<scmVersionType>tag</scmVersionType>
+					<scmVersion>${pagopa-ecommerce-commons.version}</scmVersion>
+					<goals>install</goals>
+				</configuration>
+				<executions>
+					<execution>
+						<phase>validate</phase>
+						<goals>
+							<goal>bootstrap</goal>
+						</goals>
+					</execution>
+				</executions>
 			</plugin>
 		</plugins>
 	</build>
