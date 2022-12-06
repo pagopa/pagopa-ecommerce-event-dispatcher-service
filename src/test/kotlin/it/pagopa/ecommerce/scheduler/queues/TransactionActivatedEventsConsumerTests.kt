@@ -2,9 +2,7 @@ package it.pagopa.ecommerce.scheduler.queues
 
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
-import it.pagopa.ecommerce.commons.generated.events.v1.*
-import it.pagopa.ecommerce.commons.generated.events.v1.TransactionActivatedEvent.TransactionEventCode
-import it.pagopa.ecommerce.commons.generated.events.v1.TransactionAuthorizationRequestedEvent.TransactionEventCode as transactionAuthorizationRequestedEventCode
+import it.pagopa.ecommerce.commons.documents.*
 import it.pagopa.ecommerce.scheduler.client.PaymentGatewayClient
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsViewRepository
@@ -12,9 +10,7 @@ import it.pagopa.ecommerce.scheduler.services.NodeService
 import it.pagopa.ecommerce.scheduler.services.RefundService
 import it.pagopa.generated.ecommerce.gateway.v1.dto.PostePayRefundResponseDto
 import it.pagopa.generated.transactions.server.model.TransactionStatusDto
-import it.pagopa.transactions.documents.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.reactor.mono
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import org.mockito.Mock
@@ -24,7 +20,6 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.test.context.TestPropertySource
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import java.time.ZonedDateTime
 import java.util.*
 
 @SpringBootTest
@@ -74,13 +69,9 @@ class TransactionActivatedEventsConsumerTests {
         val paymentToken = UUID.randomUUID().toString().replace("-", "")
 
         val activatedEvent = TransactionActivatedEvent(
-            Version.V_1,
-            UUID.randomUUID().toString(),
             transactionId,
             rptId,
             paymentToken,
-            TransactionEventCode.TRANSACTION_ACTIVATED_EVENT,
-            ZonedDateTime.now(),
             TransactionActivatedData(
                 "description",
                 100,
@@ -128,13 +119,9 @@ class TransactionActivatedEventsConsumerTests {
         val paymentToken = UUID.randomUUID().toString().replace("-", "")
 
         val activatedEvent = TransactionActivatedEvent(
-            Version.V_1,
-            UUID.randomUUID().toString(),
             transactionId,
             rptId,
             paymentToken,
-            TransactionEventCode.TRANSACTION_ACTIVATED_EVENT,
-            ZonedDateTime.now(),
             TransactionActivatedData(
                 "description",
                 100,
@@ -146,13 +133,9 @@ class TransactionActivatedEventsConsumerTests {
         )
 
         val authorizationRequestedEvent = TransactionAuthorizationRequestedEvent(
-            Version.V_1,
-            UUID.randomUUID().toString(),
             transactionId,
             rptId,
             paymentToken,
-            transactionAuthorizationRequestedEventCode.TRANSACTION_AUTHORIZATION_REQUESTED,
-            ZonedDateTime.now(),
             TransactionAuthorizationRequestData(
                 100,
                 0,
@@ -244,13 +227,9 @@ class TransactionActivatedEventsConsumerTests {
         val paymentToken = UUID.randomUUID().toString().replace("-", "")
 
         val activatedEvent = TransactionActivatedEvent(
-            Version.V_1,
-            UUID.randomUUID().toString(),
             transactionId,
             rptId,
             paymentToken,
-            TransactionEventCode.TRANSACTION_ACTIVATED_EVENT,
-            ZonedDateTime.now(),
             TransactionActivatedData(
                 "description",
                 100,
@@ -323,13 +302,9 @@ class TransactionActivatedEventsConsumerTests {
         val paymentToken = UUID.randomUUID().toString().replace("-", "")
 
         val activatedEvent = TransactionActivatedEvent(
-            Version.V_1,
-            UUID.randomUUID().toString(),
             transactionId,
             rptId,
             paymentToken,
-            TransactionEventCode.TRANSACTION_ACTIVATED_EVENT,
-            ZonedDateTime.now(),
             TransactionActivatedData(
                 "description",
                 100,
@@ -341,13 +316,9 @@ class TransactionActivatedEventsConsumerTests {
         )
 
         val authorizationRequestedEvent = TransactionAuthorizationRequestedEvent(
-            Version.V_1,
-            UUID.randomUUID().toString(),
             transactionId,
             rptId,
             paymentToken,
-            transactionAuthorizationRequestedEventCode.TRANSACTION_AUTHORIZATION_REQUESTED,
-            ZonedDateTime.now(),
             TransactionAuthorizationRequestData(
                 100,
                 0,
@@ -439,13 +410,9 @@ class TransactionActivatedEventsConsumerTests {
         val paymentToken = UUID.randomUUID().toString().replace("-", "")
 
         val activatedEvent = TransactionActivatedEvent(
-            Version.V_1,
-            UUID.randomUUID().toString(),
             transactionId,
             rptId,
             paymentToken,
-            TransactionEventCode.TRANSACTION_ACTIVATED_EVENT,
-            ZonedDateTime.now(),
             TransactionActivatedData(
                 "description",
                 100,
@@ -457,13 +424,9 @@ class TransactionActivatedEventsConsumerTests {
         )
 
         val authorizationRequestedEvent = TransactionAuthorizationRequestedEvent(
-            Version.V_1,
-            UUID.randomUUID().toString(),
             transactionId,
             rptId,
             paymentToken,
-            transactionAuthorizationRequestedEventCode.TRANSACTION_AUTHORIZATION_REQUESTED,
-            ZonedDateTime.now(),
             TransactionAuthorizationRequestData(
                 100,
                 0,
