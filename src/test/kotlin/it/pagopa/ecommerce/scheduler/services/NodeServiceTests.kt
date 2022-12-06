@@ -1,12 +1,14 @@
 package it.pagopa.ecommerce.scheduler.services
 
+import it.pagopa.ecommerce.commons.generated.events.v1.TransactionAuthorizationRequestData
+import it.pagopa.ecommerce.commons.generated.events.v1.TransactionAuthorizationRequestedEvent
+import it.pagopa.ecommerce.commons.generated.events.v1.Version
 import it.pagopa.ecommerce.scheduler.client.NodeClient
 import it.pagopa.ecommerce.scheduler.exceptions.TransactionEventNotFoundException
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreRepository
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto.OutcomeEnum
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
-import it.pagopa.transactions.documents.TransactionAuthorizationRequestData
-import it.pagopa.transactions.documents.TransactionAuthorizationRequestedEvent
+import it.pagopa.transactions.documents.TransactionEvent
 import it.pagopa.transactions.utils.TransactionEventCode
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
@@ -20,6 +22,7 @@ import org.mockito.Mock
 import org.mockito.kotlin.any
 import org.springframework.test.context.junit.jupiter.SpringExtension
 import reactor.core.publisher.Mono
+import java.time.ZonedDateTime
 import java.util.*
 
 @ExtendWith(SpringExtension::class)
@@ -52,8 +55,7 @@ class NodeServiceTests {
             "pspBusinessName",
             "authorizationRequestId"
             )
-
-        val authEvent = TransactionAuthorizationRequestedEvent(transactionId.toString(), "", "", data)
+        val authEvent = TransactionAuthorizationRequestedEvent(Version.V_1, UUID.randomUUID().toString(), transactionId.toString(), "", "", TransactionAuthorizationRequestedEvent.TransactionEventCode.TRANSACTION_AUTHORIZATION_REQUESTED, ZonedDateTime.now(), data)
 
         val closePaymentResponse = ClosePaymentResponseDto().apply {
             outcome = ClosePaymentResponseDto.OutcomeEnum.OK
@@ -63,7 +65,7 @@ class NodeServiceTests {
         given(transactionsEventStoreRepository.findByTransactionIdAndEventCode(
             transactionId.toString(),
             TransactionEventCode.TRANSACTION_AUTHORIZATION_REQUESTED_EVENT
-        )).willReturn(Mono.just(authEvent))
+        )).willReturn(Mono.just(data as TransactionEvent<TransactionAuthorizationRequestData>))
 
         given(nodeClient.closePayment(any())).willReturn(Mono.just(closePaymentResponse))
 

@@ -1,8 +1,8 @@
 package it.pagopa.ecommerce.scheduler.utils
 
+import it.pagopa.ecommerce.commons.generated.events.v1.TransactionAuthorizationRequestData
 import it.pagopa.generated.ecommerce.gateway.v1.dto.PostePayRefundResponseDto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
-import it.pagopa.transactions.documents.TransactionAuthorizationRequestData
 import java.time.OffsetDateTime
 import java.util.*
 
