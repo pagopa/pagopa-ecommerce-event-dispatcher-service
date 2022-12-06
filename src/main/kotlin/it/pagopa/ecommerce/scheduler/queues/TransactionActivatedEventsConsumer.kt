@@ -111,7 +111,7 @@ class TransactionActivatedEventsConsumer(
             )
         ).then(
             transactionsViewRepository.save(
-                it.pagopa.ecommerce.commons.documents.Transaction(
+                Transaction(
                     transaction.transactionId.value.toString(),
                     paymentToken,
                     transaction.rptId.value,
@@ -135,7 +135,7 @@ class TransactionActivatedEventsConsumer(
             )
         ).then(
             transactionsViewRepository.save(
-                it.pagopa.ecommerce.commons.documents.Transaction(
+                Transaction(
                     transaction.transactionId.value.toString(),
                     paymentToken,
                     transaction.rptId.value,
