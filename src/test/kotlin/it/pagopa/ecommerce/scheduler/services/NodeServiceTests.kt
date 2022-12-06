@@ -64,7 +64,7 @@ class NodeServiceTests {
         given(transactionsEventStoreRepository.findByTransactionIdAndEventCode(
             transactionId.toString(),
             TransactionEventCode.TRANSACTION_AUTHORIZATION_REQUESTED_EVENT
-        )).willReturn(Mono.just(data as TransactionEvent<TransactionAuthorizationRequestData>))
+        )).willReturn(Mono.just(authEvent))
 
         given(nodeClient.closePayment(any())).willReturn(Mono.just(closePaymentResponse))
 
