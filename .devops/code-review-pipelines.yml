@@ -28,7 +28,18 @@ steps:
         sonar.projectName=$(SONARCLOUD_PROJECT_NAME)
         sonar.coverage.jacoco.xmlReportPaths=./target/site/jacoco/jacoco.xml
         sonar.junit.reportPaths=target/surefire-reports/
-
+  - task: Maven@3
+    inputs:
+      mavenPomFile: 'pom.xml'
+      mavenOptions: '-Xmx3072m $(MAVEN_OPTS)'
+      javaHomeOption: 'JDKVersion'
+      jdkVersionOption: '17'
+      jdkArchitectureOption: 'x64'
+      publishJUnitResults: false
+      testResultsFiles: '**/surefire-reports/TEST-*.xml'
+      goals: 'validate'
+      sonarQubeRunAnalysis: false
+    displayName: "Maven validate"
   - task: Maven@3
     inputs:
       mavenPomFile: 'pom.xml'
@@ -40,7 +51,7 @@ steps:
       testResultsFiles: '**/surefire-reports/TEST-*.xml'
       goals: 'clean verify'
       sonarQubeRunAnalysis: true
-
+    displayName: "Maven clean verify"
   - task: SonarCloudPublish@1
     displayName: 'Publish SonarCloud results on build summary'
     inputs:
