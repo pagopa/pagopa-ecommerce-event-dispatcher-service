@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test
 import org.mockito.Mock
 import org.mockito.Mockito
 import org.mockito.kotlin.*
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.test.context.TestPropertySource
 import reactor.core.publisher.Flux
@@ -53,7 +54,7 @@ class TransactionActivatedEventsConsumerTests {
     @Mock
     private lateinit var transactionsViewRepository: TransactionsViewRepository
 
-    @Mock
+    @Autowired
     private lateinit var transactionUtils: TransactionUtils
 
 
