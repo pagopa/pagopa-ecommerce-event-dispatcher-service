@@ -1,13 +1,14 @@
 package it.pagopa.ecommerce.scheduler.services
 
+import it.pagopa.ecommerce.commons.documents.TransactionAuthorizationRequestData
+import it.pagopa.ecommerce.commons.documents.TransactionAuthorizationRequestedEvent
+import it.pagopa.ecommerce.commons.documents.TransactionEvent
+import it.pagopa.ecommerce.commons.domain.TransactionEventCode
 import it.pagopa.ecommerce.scheduler.client.NodeClient
 import it.pagopa.ecommerce.scheduler.exceptions.TransactionEventNotFoundException
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreRepository
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto.OutcomeEnum
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
-import it.pagopa.transactions.documents.TransactionAuthorizationRequestData
-import it.pagopa.transactions.documents.TransactionAuthorizationRequestedEvent
-import it.pagopa.transactions.utils.TransactionEventCode
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals

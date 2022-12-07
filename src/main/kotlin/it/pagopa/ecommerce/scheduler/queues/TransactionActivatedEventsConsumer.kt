@@ -4,15 +4,15 @@ import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import it.pagopa.ecommerce.commons.utils.TransactionUtils
+import it.pagopa.ecommerce.commons.documents.*
+import it.pagopa.ecommerce.commons.domain.EmptyTransaction
+import it.pagopa.ecommerce.commons.domain.Transaction
+import it.pagopa.ecommerce.commons.domain.pojos.BaseTransaction
+import it.pagopa.ecommerce.commons.domain.pojos.BaseTransactionWithRequestedAuthorization
 import it.pagopa.ecommerce.scheduler.client.PaymentGatewayClient
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsViewRepository
 import it.pagopa.generated.transactions.server.model.TransactionStatusDto
-import it.pagopa.transactions.documents.*
-import it.pagopa.transactions.domain.EmptyTransaction
-import it.pagopa.transactions.domain.Transaction
-import it.pagopa.transactions.domain.pojos.BaseTransaction
-import it.pagopa.transactions.domain.pojos.BaseTransactionWithRequestedAuthorization
 import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -137,7 +137,7 @@ class TransactionActivatedEventsConsumer(
             )
         ).then(
             transactionsViewRepository.save(
-                it.pagopa.transactions.documents.Transaction(
+                Transaction(
                     transaction.transactionId.value.toString(),
                     paymentToken,
                     transaction.rptId.value,
