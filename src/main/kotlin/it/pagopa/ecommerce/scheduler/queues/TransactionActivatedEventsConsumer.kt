@@ -3,6 +3,7 @@ package it.pagopa.ecommerce.scheduler.queues
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
+import it.pagopa.ecommerce.commons.utils.TransactionUtils
 import it.pagopa.ecommerce.commons.documents.*
 import it.pagopa.ecommerce.commons.domain.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.Transaction
@@ -31,7 +32,8 @@ class TransactionActivatedEventsConsumer(
     @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Objects>,
     @Autowired private val transactionsExpiredEventStoreRepository: TransactionsEventStoreRepository<TransactionExpiredData>,
     @Autowired private val transactionsRefundedEventStoreRepository: TransactionsEventStoreRepository<TransactionRefundedData>,
-    @Autowired private val transactionsViewRepository: TransactionsViewRepository
+    @Autowired private val transactionsViewRepository: TransactionsViewRepository,
+    @Autowired private val transactionUtils: TransactionUtils
 ) {
 
     var logger: Logger = LoggerFactory.getLogger(TransactionActivatedEventsConsumer::class.java)
@@ -48,7 +50,7 @@ class TransactionActivatedEventsConsumer(
         transactionsEventStoreRepository.findByTransactionId(transactionId.toString())
             .reduce(EmptyTransaction(), Transaction::applyEvent).cast(BaseTransaction::class.java)
             .filter {
-                isTransientStatus(it.status)
+                transactionUtils.isTransientStatus(it.status)
             }
             .flatMap { transaction ->
                 updateTransactionToExpired(transaction, paymentToken)
@@ -63,7 +65,7 @@ class TransactionActivatedEventsConsumer(
                     }.thenReturn(transaction)
             }
             .filter {
-                isRefundableTransaction(it.status)
+                transactionUtils.isRefundableTransaction(it.status)
             }
             .flatMap { transaction ->
                 mono { transaction }.cast(BaseTransactionWithRequestedAuthorization::class.java)
@@ -147,22 +149,5 @@ class TransactionActivatedEventsConsumer(
             ).then()
         )
     }
-
-    private fun isTransientStatus(status: TransactionStatusDto): Boolean {
-        return TransactionStatusDto.ACTIVATED == status
-                || TransactionStatusDto.AUTHORIZED == status
-                || TransactionStatusDto.AUTHORIZATION_REQUESTED == status
-                || TransactionStatusDto.AUTHORIZATION_FAILED == status
-                || TransactionStatusDto.CLOSURE_FAILED == status
-                || TransactionStatusDto.CLOSED == status
-    }
-
-    private fun isRefundableTransaction(status: TransactionStatusDto): Boolean {
-        return TransactionStatusDto.AUTHORIZED == status
-                || TransactionStatusDto.AUTHORIZATION_REQUESTED == status
-                || TransactionStatusDto.AUTHORIZATION_FAILED == status
-                || TransactionStatusDto.CLOSURE_FAILED == status
-    }
-
 
 }
