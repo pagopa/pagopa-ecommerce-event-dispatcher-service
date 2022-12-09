@@ -32,6 +32,8 @@ class NodeService(
         ).awaitSingleOrNull()
             ?: throw TransactionEventNotFoundException(transactionId, transactionEventCode)
 
+        logger.info("Invoking closePayment with  outcome {}", transactionOutcome)
+
         val closePaymentRequest = ClosePaymentRequestV2Dto().apply {
             paymentTokens = listOf(authEvent.paymentToken)
             outcome = transactionOutcome
