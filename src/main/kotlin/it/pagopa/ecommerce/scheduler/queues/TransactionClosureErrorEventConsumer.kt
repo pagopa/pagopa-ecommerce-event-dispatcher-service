@@ -8,15 +8,17 @@ import it.pagopa.ecommerce.commons.documents.TransactionClosureSendData
 import it.pagopa.ecommerce.commons.documents.TransactionClosureSentEvent
 import it.pagopa.ecommerce.commons.domain.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.Transaction
+import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.domain.pojos.BaseTransactionWithClosureError
+import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
+import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
+import it.pagopa.ecommerce.scheduler.exceptions.BadTransactionStatusException
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.scheduler.services.NodeService
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
-import it.pagopa.generated.transactions.server.model.AuthorizationResultDto
-import it.pagopa.generated.transactions.server.model.TransactionStatusDto
 import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -26,6 +28,7 @@ import org.springframework.messaging.handler.annotation.Header
 import org.springframework.messaging.handler.annotation.Payload
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
+import java.util.*
 
 @Service
 class TransactionClosureErrorEventConsumer(
@@ -48,7 +51,17 @@ class TransactionClosureErrorEventConsumer(
         transactionsEventStoreRepository.findByTransactionId(transactionId)
             .reduce(EmptyTransaction(), Transaction::applyEvent)
             .cast(BaseTransaction::class.java)
-            .filter { it.status == TransactionStatusDto.CLOSURE_ERROR }
+            .flatMap {
+                if (it.status != TransactionStatusDto.CLOSURE_ERROR) {
+                    Mono.error(BadTransactionStatusException(
+                        transactionId = TransactionId(UUID.fromString(transactionId)),
+                        expected = TransactionStatusDto.CLOSURE_ERROR,
+                        actual = it.status
+                    ))
+                } else {
+                    Mono.just(it)
+                }
+            }
             .cast(BaseTransactionWithClosureError::class.java)
             .flatMap { tx ->
                 val closureOutcome = when (tx.transactionAuthorizationStatusUpdateData.authorizationResult) {
