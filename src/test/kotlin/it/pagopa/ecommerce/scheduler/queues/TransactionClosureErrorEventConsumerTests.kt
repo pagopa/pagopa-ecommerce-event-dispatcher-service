@@ -180,10 +180,6 @@ class TransactionClosureErrorEventConsumerTests {
         given(transactionsEventStoreRepository.findByTransactionId(any()))
             .willReturn(events.toFlux())
         given(transactionsViewRepository.findByTransactionId(any())).willReturn(Mono.just(transactionDocument))
-        given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
-        given(nodeService.closePayment(UUID.fromString(uuidFromStringWorkaround), ClosePaymentRequestV2Dto.OutcomeEnum.KO)).willReturn(ClosePaymentResponseDto().apply {
-            outcome = ClosePaymentResponseDto.OutcomeEnum.KO
-        })
 
         /* test */
         val closureErrorEvent = transactionClosureErrorEvent() as TransactionEvent<Any>
