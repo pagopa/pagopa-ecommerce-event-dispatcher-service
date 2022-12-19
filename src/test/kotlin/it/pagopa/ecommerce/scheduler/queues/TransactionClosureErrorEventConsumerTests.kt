@@ -8,6 +8,7 @@ import it.pagopa.ecommerce.commons.documents.TransactionClosureSentEvent
 import it.pagopa.ecommerce.commons.documents.TransactionEvent
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
+import it.pagopa.ecommerce.scheduler.exceptions.BadTransactionStatusException
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.scheduler.services.NodeService
@@ -15,12 +16,15 @@ import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
-import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mockito
 import org.mockito.junit.jupiter.MockitoExtension
-import org.mockito.kotlin.*
+import org.mockito.kotlin.any
+import org.mockito.kotlin.given
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.verify
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toFlux
 import java.time.ZonedDateTime
@@ -79,6 +83,7 @@ class TransactionClosureErrorEventConsumerTests {
             .willReturn(events.toFlux())
         given(transactionsViewRepository.findByTransactionId(any())).willReturn(Mono.just(transactionDocument))
         given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
+        given(transactionClosureSentEventRepository.save(any())).willReturn(Mono.just(expectedClosureEvent))
         given(nodeService.closePayment(UUID.fromString(uuidFromStringWorkaround), ClosePaymentRequestV2Dto.OutcomeEnum.OK)).willReturn(ClosePaymentResponseDto().apply {
             outcome = ClosePaymentResponseDto.OutcomeEnum.OK
         })
@@ -91,12 +96,10 @@ class TransactionClosureErrorEventConsumerTests {
             uuid.`when`<Any>(UUID::randomUUID).thenReturn(closureEventId)
             uuid.`when`<Any> { UUID.fromString(any()) }.thenCallRealMethod()
 
-            given(transactionClosureSentEventRepository.save(any())).willReturn(Mono.just(expectedClosureEvent))
-
             transactionClosureErrorEventsConsumer.messageReceiver(
                 BinaryData.fromObject(closureErrorEvent).toBytes(),
                 checkpointer
-            )
+            ).block()
 
             /* Asserts */
             verify(checkpointer, Mockito.times(1)).success()
@@ -136,6 +139,7 @@ class TransactionClosureErrorEventConsumerTests {
             .willReturn(events.toFlux())
         given(transactionsViewRepository.findByTransactionId(any())).willReturn(Mono.just(transactionDocument))
         given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
+        given(transactionClosureSentEventRepository.save(any())).willReturn(Mono.just(expectedClosureEvent))
         given(nodeService.closePayment(UUID.fromString(uuidFromStringWorkaround), ClosePaymentRequestV2Dto.OutcomeEnum.KO)).willReturn(ClosePaymentResponseDto().apply {
             outcome = ClosePaymentResponseDto.OutcomeEnum.KO
         })
@@ -148,12 +152,10 @@ class TransactionClosureErrorEventConsumerTests {
             uuid.`when`<Any>(UUID::randomUUID).thenReturn(closureEventId)
             uuid.`when`<Any> { UUID.fromString(any()) }.thenCallRealMethod()
 
-            given(transactionClosureSentEventRepository.save(any())).willReturn(Mono.just(expectedClosureEvent))
-
             transactionClosureErrorEventsConsumer.messageReceiver(
                 BinaryData.fromObject(closureErrorEvent).toBytes(),
                 checkpointer
-            )
+            ).block()
 
             /* Asserts */
             verify(checkpointer, Mockito.times(1)).success()
@@ -173,8 +175,6 @@ class TransactionClosureErrorEventConsumerTests {
 
         val transactionDocument = transactionDocument(TransactionStatusDto.CLOSURE_ERROR, ZonedDateTime.parse(activationEvent.creationDate))
 
-        val uuidFromStringWorkaround = "00000000-0000-0000-0000-000000000000" // FIXME: Workaround for static mocking apparently not working
-
         /* preconditions */
         given(checkpointer.success()).willReturn(Mono.empty())
         given(transactionsEventStoreRepository.findByTransactionId(any()))
@@ -184,10 +184,12 @@ class TransactionClosureErrorEventConsumerTests {
         /* test */
         val closureErrorEvent = transactionClosureErrorEvent() as TransactionEvent<Any>
 
-        transactionClosureErrorEventsConsumer.messageReceiver(
-            BinaryData.fromObject(closureErrorEvent).toBytes(),
-            checkpointer
-        )
+        assertThrows<BadTransactionStatusException> {
+            transactionClosureErrorEventsConsumer.messageReceiver(
+                BinaryData.fromObject(closureErrorEvent).toBytes(),
+                checkpointer
+            ).block()
+        }
 
         /* Asserts */
         verify(checkpointer, Mockito.times(1)).success()

@@ -19,6 +19,7 @@ import it.pagopa.ecommerce.scheduler.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.scheduler.services.NodeService
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
+import kotlinx.coroutines.reactor.awaitSingle
 import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -39,8 +40,8 @@ class TransactionClosureErrorEventConsumer(
 ) {
     var logger: Logger = LoggerFactory.getLogger(TransactionClosureErrorEventConsumer::class.java)
 
-    @ServiceActivator(inputChannel = "transactionclosureschannel")
-    fun messageReceiver(@Payload payload: ByteArray, @Header(AzureHeaders.CHECKPOINTER) checkpointer: Checkpointer) {
+    @ServiceActivator(inputChannel = "transactionclosureschannel", outputChannel = "nullChannel")
+    fun messageReceiver(@Payload payload: ByteArray, @Header(AzureHeaders.CHECKPOINTER) checkpointer: Checkpointer): Mono<TransactionClosureSentEvent> {
         checkpointer.success().block()
 
         // TODO: Add logic to try deserializing a retry event instead
@@ -48,16 +49,18 @@ class TransactionClosureErrorEventConsumer(
             BinaryData.fromBytes(payload).toObject(TransactionClosureErrorEvent::class.java)
         val transactionId = closureErrorEvent.transactionId
 
-        transactionsEventStoreRepository.findByTransactionId(transactionId)
+        return transactionsEventStoreRepository.findByTransactionId(transactionId)
             .reduce(EmptyTransaction(), Transaction::applyEvent)
             .cast(BaseTransaction::class.java)
             .flatMap {
                 if (it.status != TransactionStatusDto.CLOSURE_ERROR) {
-                    Mono.error(BadTransactionStatusException(
-                        transactionId = TransactionId(UUID.fromString(transactionId)),
-                        expected = TransactionStatusDto.CLOSURE_ERROR,
-                        actual = it.status
-                    ))
+                    Mono.error(
+                        BadTransactionStatusException(
+                            transactionId = TransactionId(UUID.fromString(transactionId)),
+                            expected = TransactionStatusDto.CLOSURE_ERROR,
+                            actual = it.status
+                        )
+                    )
                 } else {
                     Mono.just(it)
                 }
@@ -81,7 +84,6 @@ class TransactionClosureErrorEventConsumer(
                 logger.error("Got exception while retrying closePayment!", exception)
                 return@onErrorMap exception
             }
-            .subscribe()
     }
 
     fun updateTransactionStatus(transaction: BaseTransactionWithClosureError, closePaymentResponseDto: ClosePaymentResponseDto): Mono<TransactionClosureSentEvent> {
