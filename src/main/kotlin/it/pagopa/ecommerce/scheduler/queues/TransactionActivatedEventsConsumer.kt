@@ -23,13 +23,12 @@ import org.springframework.messaging.handler.annotation.Payload
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
 import reactor.util.function.Tuples
-import java.util.Objects
 import java.util.UUID
 
 @Service
 class TransactionActivatedEventsConsumer(
     @Autowired private val paymentGatewayClient: PaymentGatewayClient,
-    @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Objects>,
+    @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,
     @Autowired private val transactionsExpiredEventStoreRepository: TransactionsEventStoreRepository<TransactionExpiredData>,
     @Autowired private val transactionsRefundedEventStoreRepository: TransactionsEventStoreRepository<TransactionRefundedData>,
     @Autowired private val transactionsViewRepository: TransactionsViewRepository,
@@ -38,8 +37,8 @@ class TransactionActivatedEventsConsumer(
 
     var logger: Logger = LoggerFactory.getLogger(TransactionActivatedEventsConsumer::class.java)
 
-    @ServiceActivator(inputChannel = "transactionactivatedchannel")
-    fun messageReceiver(@Payload payload: ByteArray, @Header(AzureHeaders.CHECKPOINTER) checkpointer: Checkpointer) {
+    @ServiceActivator(inputChannel = "transactionactivatedchannel", outputChannel = "nullChannel")
+    fun messageReceiver(@Payload payload: ByteArray, @Header(AzureHeaders.CHECKPOINTER) checkpointer: Checkpointer): Mono<Void> {
         checkpointer.success().block()
 
         val activatedEvent =
@@ -47,7 +46,7 @@ class TransactionActivatedEventsConsumer(
         val transactionId = activatedEvent.transactionId
         val paymentToken = activatedEvent.paymentToken
 
-        transactionsEventStoreRepository.findByTransactionId(transactionId.toString())
+        return transactionsEventStoreRepository.findByTransactionId(transactionId.toString())
             .reduce(EmptyTransaction(), Transaction::applyEvent).cast(BaseTransaction::class.java)
             .filter {
                 transactionUtils.isTransientStatus(it.status)
@@ -84,7 +83,7 @@ class TransactionActivatedEventsConsumer(
                     "Transaction requestRefund for transaction $transactionId with outcome ${refundResponse.refundOutcome}"
                 )
                 when (refundResponse.refundOutcome) {
-                    "OK" -> mono { updateTransactionToRefunded(transaction, paymentToken) }
+                    "OK" -> updateTransactionToRefunded(transaction, paymentToken)
                         .doOnSuccess {
                             logger.info(
                                 "Transaction refunded for transaction ${transaction.transactionId.value}"
@@ -99,7 +98,7 @@ class TransactionActivatedEventsConsumer(
                 )
                 // TODO retry
                 it
-            }.subscribe()
+            }
     }
 
     private fun updateTransactionToExpired(transaction: BaseTransaction, paymentToken: String): Mono<Void> {
