@@ -32,6 +32,8 @@ class NodeService(
         ).awaitSingleOrNull()
             ?: throw TransactionEventNotFoundException(transactionId, transactionEventCode)
 
+        logger.info("Invoking closePayment with outcome {}", transactionOutcome)
+
         val closePaymentRequest = ClosePaymentRequestV2Dto().apply {
             paymentTokens = listOf(authEvent.paymentToken)
             outcome = transactionOutcome
@@ -41,7 +43,9 @@ class NodeService(
             idChannel = authEvent.data.pspChannelCode
             this.transactionId = transactionId.toString()
             totalAmount = (authEvent.data.amount + authEvent.data.fee).toBigDecimal()
+            fee = authEvent.data.fee.toBigDecimal()
             timestampOperation = OffsetDateTime.now()
+            additionalPaymentInformations = mapOf()
         }
         return nodeClient.closePayment(closePaymentRequest).awaitSingle()
     }

@@ -3,5 +3,11 @@ services:
   spring-app:
     build: ./
     ports:
-      - "8080:8080"
+      - "8087:8080"
     env_file: .env
+    networks:
+      - pagopa-ecommerce-net
+
+networks:
+  pagopa-ecommerce-net:
+    name: pagopa-ecommerce-net

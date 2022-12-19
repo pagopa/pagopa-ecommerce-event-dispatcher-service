@@ -2,26 +2,30 @@ package it.pagopa.ecommerce.scheduler.queues
 
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
-import it.pagopa.ecommerce.commons.utils.TransactionUtils
 import it.pagopa.ecommerce.commons.documents.*
+import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
+import it.pagopa.ecommerce.commons.utils.TransactionUtils
 import it.pagopa.ecommerce.scheduler.client.PaymentGatewayClient
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.scheduler.services.NodeService
 import it.pagopa.ecommerce.scheduler.services.RefundService
 import it.pagopa.generated.ecommerce.gateway.v1.dto.PostePayRefundResponseDto
-import it.pagopa.generated.transactions.server.model.TransactionStatusDto
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import org.mockito.Mock
 import org.mockito.Mockito
-import org.mockito.kotlin.*
+import org.mockito.kotlin.any
+import org.mockito.kotlin.given
+import org.mockito.kotlin.times
+import org.mockito.kotlin.verify
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.test.context.TestPropertySource
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import reactor.test.StepVerifier
 import java.util.*
 
 @SpringBootTest
@@ -39,7 +43,7 @@ class TransactionActivatedEventsConsumerTests {
     private lateinit var refundService: RefundService
 
     @Mock
-    private lateinit var transactionsEventStoreRepository: TransactionsEventStoreRepository<Objects>
+    private lateinit var transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>
 
     @Mock
     private lateinit var paymentGatewayClient: PaymentGatewayClient
@@ -59,8 +63,7 @@ class TransactionActivatedEventsConsumerTests {
 
     @Test
     fun `messageReceiver receives messages successfully`() {
-        var transactionActivatedEventsConsumer:
-                TransactionActivatedEventsConsumer =
+        var transactionActivatedEventsConsumer =
             TransactionActivatedEventsConsumer(
                 paymentGatewayClient,
                 transactionsEventStoreRepository,
@@ -96,13 +99,18 @@ class TransactionActivatedEventsConsumerTests {
                 transactionId,
             )
         )
-            .willReturn(Flux.just(activatedEvent as TransactionEvent<Objects>))
+            .willReturn(Flux.just(activatedEvent as TransactionEvent<Any>))
+        given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
+        given(transactionsExpiredEventStoreRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
 
         /* test */
-        transactionActivatedEventsConsumer.messageReceiver(
+        StepVerifier.create(transactionActivatedEventsConsumer.messageReceiver(
             BinaryData.fromObject(activatedEvent).toBytes(),
             checkpointer
-        )
+        ))
+            .expectNext()
+            .expectComplete()
+            .verify()
 
         /* Asserts */
         verify(checkpointer, Mockito.times(1)).success()
@@ -197,8 +205,8 @@ class TransactionActivatedEventsConsumerTests {
         )
             .willReturn(
                 Flux.just(
-                    activatedEvent as TransactionEvent<Objects>,
-                    authorizationRequestedEvent as TransactionEvent<Objects>
+                    activatedEvent as TransactionEvent<Any>,
+                    authorizationRequestedEvent as TransactionEvent<Any>
                 )
             )
 
@@ -208,10 +216,13 @@ class TransactionActivatedEventsConsumerTests {
         given(paymentGatewayClient.requestRefund(any())).willReturn(Mono.just(gatewayClientResponse))
 
         /* test */
-        transactionActivatedEventsConsumer.messageReceiver(
+        StepVerifier.create(transactionActivatedEventsConsumer.messageReceiver(
             BinaryData.fromObject(activatedEvent).toBytes(),
             checkpointer
-        )
+        ))
+            .expectNext()
+            .expectComplete()
+            .verify()
 
         /* Asserts */
         verify(checkpointer, times(1)).success()
@@ -257,16 +268,6 @@ class TransactionActivatedEventsConsumerTests {
             )
         )
 
-        val transaction = Transaction(
-            transactionId,
-            paymentToken,
-            rptId,
-            "description",
-            1200,
-            "email@test.it",
-            TransactionStatusDto.EXPIRED
-        )
-
         /* preconditions */
         given(checkpointer.success()).willReturn(Mono.empty())
         given(
@@ -276,18 +277,24 @@ class TransactionActivatedEventsConsumerTests {
         )
             .willReturn(
                 Flux.just(
-                    activatedEvent as TransactionEvent<Objects>
+                    activatedEvent as TransactionEvent<Any>
                 )
             )
 
         given(transactionsExpiredEventStoreRepository.save(any())).willReturn(Mono.just(expiredEvent))
         given(transactionsRefundedEventStoreRepository.save(any())).willReturn(Mono.empty())
+        given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
 
         /* test */
-        transactionActivatedEventsConsumer.messageReceiver(
-            BinaryData.fromObject(activatedEvent).toBytes(),
-            checkpointer
+        StepVerifier.create(
+            transactionActivatedEventsConsumer.messageReceiver(
+                BinaryData.fromObject(activatedEvent).toBytes(),
+                checkpointer
+            )
         )
+            .expectNext()
+            .expectComplete()
+            .verify()
 
         /* Asserts */
         verify(checkpointer, times(1)).success()
@@ -382,8 +389,8 @@ class TransactionActivatedEventsConsumerTests {
         )
             .willReturn(
                 Flux.just(
-                    activatedEvent as TransactionEvent<Objects>,
-                    authorizationRequestedEvent as TransactionEvent<Objects>
+                    activatedEvent as TransactionEvent<Any>,
+                    authorizationRequestedEvent as TransactionEvent<Any>
                 )
             )
 
@@ -393,10 +400,14 @@ class TransactionActivatedEventsConsumerTests {
         given(paymentGatewayClient.requestRefund(any())).willReturn(Mono.just(gatewayClientResponse))
 
         /* test */
-        transactionActivatedEventsConsumer.messageReceiver(
-            BinaryData.fromObject(activatedEvent).toBytes(),
-            checkpointer
+        StepVerifier.create(
+            transactionActivatedEventsConsumer.messageReceiver(
+                BinaryData.fromObject(activatedEvent).toBytes(),
+                checkpointer
+            )
         )
+            .expectError()
+            .verify()
 
         /* Asserts */
         verify(checkpointer, times(1)).success()
@@ -469,16 +480,6 @@ class TransactionActivatedEventsConsumerTests {
             )
         )
 
-        val transaction = Transaction(
-            transactionId,
-            paymentToken,
-            rptId,
-            "description",
-            1200,
-            "email@test.it",
-            TransactionStatusDto.EXPIRED
-        )
-
         val gatewayClientResponse = PostePayRefundResponseDto()
         gatewayClientResponse.refundOutcome = "KO"
 
@@ -491,8 +492,8 @@ class TransactionActivatedEventsConsumerTests {
         )
             .willReturn(
                 Flux.just(
-                    activatedEvent as TransactionEvent<Objects>,
-                    authorizationRequestedEvent as TransactionEvent<Objects>
+                    activatedEvent as TransactionEvent<Any>,
+                    authorizationRequestedEvent as TransactionEvent<Any>
                 )
             )
 
@@ -501,10 +502,14 @@ class TransactionActivatedEventsConsumerTests {
         given(transactionsViewRepository.save(any())).willReturn(Mono.empty())
 
         /* test */
-        transactionActivatedEventsConsumer.messageReceiver(
-            BinaryData.fromObject(activatedEvent).toBytes(),
-            checkpointer
+        StepVerifier.create(
+            transactionActivatedEventsConsumer.messageReceiver(
+                BinaryData.fromObject(activatedEvent).toBytes(),
+                checkpointer
+            )
         )
+            .expectError()
+            .verify()
 
         /* Asserts */
         verify(checkpointer, times(1)).success()
