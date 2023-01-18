@@ -18,6 +18,7 @@ microservice-chart:
         pullPolicy: Always
     envConfig:
       TRANSACTION_ACTIVATED_EVENT_QUEUE_NAME: pagopa-u-weu-ecommerce-activated-events-queue
+      TRANSACTION_CLOSURE_SENT_EVENT_QUEUE_NAME: pagopa-u-weu-ecommerce-closed-events-queue
       AUTH_REQUESTED_TIMEOUT_SECONDS: "100"
       PAYMENT_TRANSACTIONS_GATEWAY_URI: https://api.uat.platform.pagopa.it/payment-transactions-gateway
       PAYMENT_TRANSACTIONS_GATEWAY_READ_TIMEOUT: "10000"
@@ -56,11 +57,13 @@ microservice-chart:
   service:
     create: true
     type: ClusterIP
-    port: 9000
+    ports:
+    - 9000
   ingress:
     create: true
     host: "weuuat.ecommerce.internal.uat.platform.pagopa.it"
     path: /pagopa-ecommerce-scheduler-service/(.*)
+    servicePort: 9000
   serviceAccount:
     create: false
     annotations: {}
@@ -98,6 +101,7 @@ microservice-chart:
           targetValue: "30"
   envConfig:
     TRANSACTION_ACTIVATED_EVENT_QUEUE_NAME: pagopa-u-weu-ecommerce-activated-events-queue
+    TRANSACTION_CLOSURE_SENT_EVENT_QUEUE_NAME: pagopa-u-weu-ecommerce-closed-events-queue
     AUTH_REQUESTED_TIMEOUT_SECONDS: "100"
     PAYMENT_TRANSACTIONS_GATEWAY_URI: https://api.uat.platform.pagopa.it/payment-transactions-gateway
     PAYMENT_TRANSACTIONS_GATEWAY_READ_TIMEOUT: "10000"
