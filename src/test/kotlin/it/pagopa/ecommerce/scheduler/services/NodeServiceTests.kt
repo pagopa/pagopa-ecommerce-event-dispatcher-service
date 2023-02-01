@@ -1,8 +1,8 @@
 package it.pagopa.ecommerce.scheduler.services
 
-import it.pagopa.ecommerce.commons.documents.TransactionAuthorizationRequestData
-import it.pagopa.ecommerce.commons.documents.TransactionAuthorizationRequestedEvent
-import it.pagopa.ecommerce.commons.documents.TransactionEvent
+import it.pagopa.ecommerce.commons.TransactionTestUtils.transactionActivateEvent
+import it.pagopa.ecommerce.commons.TransactionTestUtils.transactionAuthorizationRequestedEvent
+import it.pagopa.ecommerce.commons.documents.*
 import it.pagopa.ecommerce.commons.domain.TransactionEventCode
 import it.pagopa.ecommerce.scheduler.client.NodeClient
 import it.pagopa.ecommerce.scheduler.exceptions.TransactionEventNotFoundException
@@ -34,27 +34,16 @@ class NodeServiceTests {
     lateinit var nodeClient: NodeClient
 
     @Mock
-    lateinit var transactionsEventStoreRepository: TransactionsEventStoreRepository<TransactionAuthorizationRequestData>
+    lateinit var transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>
 
     @Test
     fun `closePayment returns successfully`() = runTest {
-        val transactionId = UUID.randomUUID()
         val transactionOutcome = OutcomeEnum.OK
 
-        val data = TransactionAuthorizationRequestData(
-            100,
-            1,
-            "paymentInstrumentId",
-            "pspId",
-            "paymentTypeCode",
-            "brokerName",
-            "pspChannelCode",
-            "requestId",
-            "pspBusinessName",
-            "authorizationRequestId"
-            )
+        val activatedEvent = transactionActivateEvent()
+        val authEvent = transactionAuthorizationRequestedEvent()
 
-        val authEvent = TransactionAuthorizationRequestedEvent(transactionId.toString(), "", "", data)
+        val transactionId = activatedEvent.transactionId
 
         val closePaymentResponse = ClosePaymentResponseDto().apply {
             outcome = ClosePaymentResponseDto.OutcomeEnum.OK
@@ -63,13 +52,18 @@ class NodeServiceTests {
         /* preconditions */
         given(transactionsEventStoreRepository.findByTransactionIdAndEventCode(
             transactionId.toString(),
+            TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
+        )).willReturn(Mono.just(activatedEvent as TransactionEvent<Any>))
+
+        given(transactionsEventStoreRepository.findByTransactionIdAndEventCode(
+            transactionId.toString(),
             TransactionEventCode.TRANSACTION_AUTHORIZATION_REQUESTED_EVENT
-        )).willReturn(Mono.just(authEvent))
+        )).willReturn(Mono.just(authEvent as TransactionEvent<Any>))
 
         given(nodeClient.closePayment(any())).willReturn(Mono.just(closePaymentResponse))
 
         /* test */
-        assertEquals(closePaymentResponse, nodeService.closePayment(transactionId, transactionOutcome))
+        assertEquals(closePaymentResponse, nodeService.closePayment(UUID.fromString(transactionId), transactionOutcome))
     }
 
     @Test
@@ -78,6 +72,11 @@ class NodeServiceTests {
         val transactionOutcome = OutcomeEnum.OK
 
         /* preconditions */
+        given(transactionsEventStoreRepository.findByTransactionIdAndEventCode(
+            transactionId.toString(),
+            TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
+        )).willReturn(Mono.empty())
+
         given(transactionsEventStoreRepository.findByTransactionIdAndEventCode(
             transactionId.toString(),
             TransactionEventCode.TRANSACTION_AUTHORIZATION_REQUESTED_EVENT

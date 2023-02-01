@@ -44,7 +44,6 @@ class TransactionActivatedEventsConsumer(
         val activatedEvent =
             BinaryData.fromBytes(payload).toObject(TransactionActivatedEvent::class.java)
         val transactionId = activatedEvent.transactionId
-        val paymentToken = activatedEvent.paymentToken
 
         return transactionsEventStoreRepository.findByTransactionId(transactionId.toString())
             .reduce(EmptyTransaction(), Transaction::applyEvent).cast(BaseTransaction::class.java)
@@ -52,7 +51,7 @@ class TransactionActivatedEventsConsumer(
                 transactionUtils.isTransientStatus(it.status)
             }
             .flatMap { transaction ->
-                updateTransactionToExpired(transaction, paymentToken)
+                updateTransactionToExpired(transaction)
                     .doOnSuccess {
                         logger.info(
                             "Transaction expired for transaction ${transaction.transactionId.value}"
@@ -83,7 +82,7 @@ class TransactionActivatedEventsConsumer(
                     "Transaction requestRefund for transaction $transactionId with outcome ${refundResponse.refundOutcome}"
                 )
                 when (refundResponse.refundOutcome) {
-                    "OK" -> updateTransactionToRefunded(transaction, paymentToken)
+                    "OK" -> updateTransactionToRefunded(transaction)
                         .doOnSuccess {
                             logger.info(
                                 "Transaction refunded for transaction ${transaction.transactionId.value}"
@@ -101,49 +100,61 @@ class TransactionActivatedEventsConsumer(
             }
     }
 
-    private fun updateTransactionToExpired(transaction: BaseTransaction, paymentToken: String): Mono<Void> {
+    private fun updateTransactionToExpired(transaction: BaseTransaction): Mono<Void> {
 
         return transactionsExpiredEventStoreRepository.save(
             TransactionExpiredEvent(
                 transaction.transactionId.value.toString(),
-                transaction.rptId.value,
-                paymentToken,
                 TransactionExpiredData(transaction.status)
             )
         ).then(
             transactionsViewRepository.save(
                 Transaction(
                     transaction.transactionId.value.toString(),
-                    paymentToken,
-                    transaction.rptId.value,
-                    transaction.description.value,
-                    transaction.amount.value,
+                    transaction.paymentNotices.map { notice ->
+                                                   PaymentNotice(
+                                                       notice.paymentToken.value,
+                                                       notice.rptId.value,
+                                                       notice.transactionDescription.value,
+                                                       notice.transactionAmount.value,
+                                                       notice.paymentContextCode.value
+                                                   )
+                    },
+                    transaction.paymentNotices.sumOf { it.transactionAmount.value },
                     transaction.email.value,
-                    TransactionStatusDto.EXPIRED
+                    TransactionStatusDto.EXPIRED,
+                    transaction.clientId,
+                    transaction.creationDate.toString()
                 )
             ).then()
         )
     }
 
-    private fun updateTransactionToRefunded(transaction: BaseTransaction, paymentToken: String): Mono<Void> {
+    private fun updateTransactionToRefunded(transaction: BaseTransaction): Mono<Void> {
 
         return transactionsRefundedEventStoreRepository.save(
             TransactionRefundedEvent(
                 transaction.transactionId.value.toString(),
-                transaction.rptId.value,
-                paymentToken,
                 TransactionRefundedData(transaction.status)
             )
         ).then(
             transactionsViewRepository.save(
                 Transaction(
                     transaction.transactionId.value.toString(),
-                    paymentToken,
-                    transaction.rptId.value,
-                    transaction.description.value,
-                    transaction.amount.value,
+                    transaction.paymentNotices.map { notice ->
+                        PaymentNotice(
+                            notice.paymentToken.value,
+                            notice.rptId.value,
+                            notice.transactionDescription.value,
+                            notice.transactionAmount.value,
+                            notice.paymentContextCode.value
+                        )
+                    },
+                    transaction.paymentNotices.sumOf { it.transactionAmount.value },
                     transaction.email.value,
-                    TransactionStatusDto.REFUNDED
+                    TransactionStatusDto.EXPIRED,
+                    transaction.clientId,
+                    transaction.creationDate.toString()
                 )
             ).then()
         )

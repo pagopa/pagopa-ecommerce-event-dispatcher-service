@@ -93,8 +93,6 @@ class TransactionClosureErrorEventConsumer(
 
         val event = TransactionClosureSentEvent(
             transaction.transactionId.value.toString(),
-            transaction.rptId.value,
-            transaction.transactionActivatedData.paymentToken,
             TransactionClosureSendData(closePaymentResponseDto.outcome, newStatus)
         )
 
