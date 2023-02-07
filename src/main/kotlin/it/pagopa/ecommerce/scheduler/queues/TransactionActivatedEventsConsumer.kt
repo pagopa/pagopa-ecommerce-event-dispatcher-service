@@ -23,6 +23,11 @@ import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
 import java.util.*
 
+/**
+ * Event consumer for events related to transaction activation.
+ * This consumer's responsibilities are to handle expiration of transactions and subsequent refund
+ * for transaction stuck in a pending/transient state.
+ */
 @Service
 class TransactionActivatedEventsConsumer(
     @Autowired private val paymentGatewayClient: PaymentGatewayClient,
