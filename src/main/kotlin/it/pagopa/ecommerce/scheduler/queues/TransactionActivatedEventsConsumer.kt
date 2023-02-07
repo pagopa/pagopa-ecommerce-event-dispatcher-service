@@ -3,17 +3,16 @@ package it.pagopa.ecommerce.scheduler.queues
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
-import it.pagopa.ecommerce.commons.utils.TransactionUtils
 import it.pagopa.ecommerce.commons.documents.*
 import it.pagopa.ecommerce.commons.domain.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.Transaction
 import it.pagopa.ecommerce.commons.domain.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.domain.pojos.BaseTransactionWithRequestedAuthorization
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
+import it.pagopa.ecommerce.commons.utils.TransactionUtils
 import it.pagopa.ecommerce.scheduler.client.PaymentGatewayClient
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsViewRepository
-import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -22,9 +21,7 @@ import org.springframework.messaging.handler.annotation.Header
 import org.springframework.messaging.handler.annotation.Payload
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
-import reactor.kotlin.core.publisher.toFlux
-import reactor.util.function.Tuples
-import java.util.UUID
+import java.util.*
 
 @Service
 class TransactionActivatedEventsConsumer(
@@ -46,68 +43,56 @@ class TransactionActivatedEventsConsumer(
     }
 
     @ServiceActivator(inputChannel = "transactionactivatedchannel", outputChannel = "nullChannel")
-    fun messageReceiver(@Payload payload: ByteArray, @Header(AzureHeaders.CHECKPOINTER) checkpointer: Checkpointer): Mono<Void> {
-        checkpointer.success().block()
+    fun messageReceiver(
+        @Payload payload: ByteArray,
+        @Header(AzureHeaders.CHECKPOINTER) checkpointer: Checkpointer
+    ): Mono<Void> {
+        val checkpoint = checkpointer.success()
 
         val transactionId = getTransactionIdFromPayload(BinaryData.fromBytes(payload))
 
-        return transactionId
+        val refundPipeline = transactionId
             .flatMapMany { transactionsEventStoreRepository.findByTransactionId(it) }
             .reduce(EmptyTransaction(), Transaction::applyEvent).cast(BaseTransaction::class.java)
             .filter {
                 transactionUtils.isTransientStatus(it.status)
             }
-            .flatMap { transaction ->
-                updateTransactionToExpired(transaction)
-                    .doOnSuccess {
-                        logger.info(
-                            "Transaction expired for transaction ${transaction.transactionId.value}"
-                        )
-                    }.doOnError {
-                        logger.error(
-                            "Transaction expired error for transaction ${transaction.transactionId.value} : ${it.message}"
-                        )
-                    }.thenReturn(transaction)
-            }
+            .flatMap(::updateTransactionToExpired)
             .filter {
                 transactionUtils.isRefundableTransaction(it.status)
             }
+            .cast(BaseTransactionWithRequestedAuthorization::class.java)
             .flatMap { transaction ->
-                mono { transaction }.cast(BaseTransactionWithRequestedAuthorization::class.java)
-                    .flatMap {
-                        val authorizationRequestId =
-                            it.transactionAuthorizationRequestData.authorizationRequestId
+                val authorizationRequestId =
+                    transaction.transactionAuthorizationRequestData.authorizationRequestId
 
-                        paymentGatewayClient.requestRefund(
-                            UUID.fromString(authorizationRequestId)
-                        ).map { refundResponse -> Tuples.of(refundResponse, transaction) }
-                    }
-            }.flatMap {
-                val refundResponse = it.t1
-                val transaction = it.t2
+                paymentGatewayClient.requestRefund(
+                    UUID.fromString(authorizationRequestId)
+                ).map { refundResponse -> Pair(refundResponse, transaction) }
+            }
+            .flatMap {
+                val (refundResponse, transaction) = it
                 logger.info(
                     "Transaction requestRefund for transaction $transactionId with outcome ${refundResponse.refundOutcome}"
                 )
                 when (refundResponse.refundOutcome) {
                     "OK" -> updateTransactionToRefunded(transaction)
-                        .doOnSuccess {
-                            logger.info(
-                                "Transaction refunded for transaction ${transaction.transactionId.value}"
-                            )
-                        }
                     else ->
-                        error("Refund error for transaction $transactionId with outcome  ${refundResponse.refundOutcome}")
+                        Mono.error(RuntimeException("Refund error for transaction $transactionId with outcome  ${refundResponse.refundOutcome}"))
                 }
-            }.onErrorMap {
+            }
+            .onErrorMap {
                 logger.error(
                     "Transaction requestRefund error for transaction $transactionId : ${it.message}"
                 )
                 // TODO retry
                 it
             }
+
+        return checkpoint.then(refundPipeline).then()
     }
 
-    private fun updateTransactionToExpired(transaction: BaseTransaction): Mono<Void> {
+    private fun updateTransactionToExpired(transaction: BaseTransaction): Mono<BaseTransaction> {
 
         return transactionsExpiredEventStoreRepository.save(
             TransactionExpiredEvent(
@@ -125,11 +110,19 @@ class TransactionActivatedEventsConsumer(
                     transaction.clientId,
                     transaction.creationDate.toString()
                 )
-            ).then()
-        )
+            )
+        ).doOnSuccess {
+            logger.info(
+                "Transaction expired for transaction ${transaction.transactionId.value}"
+            )
+        }.doOnError {
+            logger.error(
+                "Transaction expired error for transaction ${transaction.transactionId.value} : ${it.message}"
+            )
+        }.thenReturn(transaction)
     }
 
-    private fun updateTransactionToRefunded(transaction: BaseTransaction): Mono<Void> {
+    private fun updateTransactionToRefunded(transaction: BaseTransaction): Mono<BaseTransaction> {
 
         return transactionsRefundedEventStoreRepository.save(
             TransactionRefundedEvent(
@@ -147,8 +140,12 @@ class TransactionActivatedEventsConsumer(
                     transaction.clientId,
                     transaction.creationDate.toString()
                 )
-            ).then()
-        )
+            )
+        ).doOnSuccess {
+            logger.info(
+                "Transaction refunded for transaction ${transaction.transactionId.value}"
+            )
+        }.thenReturn(transaction)
     }
 
     private fun paymentNoticeDocuments(paymentNotices: List<it.pagopa.ecommerce.commons.domain.PaymentNotice>): List<PaymentNotice> {
