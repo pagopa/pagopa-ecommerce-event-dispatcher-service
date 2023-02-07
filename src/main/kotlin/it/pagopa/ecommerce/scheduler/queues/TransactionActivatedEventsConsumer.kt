@@ -22,6 +22,7 @@ import org.springframework.messaging.handler.annotation.Header
 import org.springframework.messaging.handler.annotation.Payload
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
+import reactor.kotlin.core.publisher.toFlux
 import reactor.util.function.Tuples
 import java.util.UUID
 
@@ -37,15 +38,21 @@ class TransactionActivatedEventsConsumer(
 
     var logger: Logger = LoggerFactory.getLogger(TransactionActivatedEventsConsumer::class.java)
 
+    private fun getTransactionIdFromPayload(data: BinaryData): Mono<String> {
+        val idFromActivatedEvent = data.toObjectAsync(TransactionActivatedEvent::class.java).map { it.transactionId }
+        val idFromRefundedEvent = data.toObjectAsync(TransactionRefundRetriedEvent::class.java).map { it.transactionId }
+
+        return Mono.firstWithValue(idFromActivatedEvent, idFromRefundedEvent)
+    }
+
     @ServiceActivator(inputChannel = "transactionactivatedchannel", outputChannel = "nullChannel")
     fun messageReceiver(@Payload payload: ByteArray, @Header(AzureHeaders.CHECKPOINTER) checkpointer: Checkpointer): Mono<Void> {
         checkpointer.success().block()
 
-        val activatedEvent =
-            BinaryData.fromBytes(payload).toObject(TransactionActivatedEvent::class.java)
-        val transactionId = activatedEvent.transactionId
+        val transactionId = getTransactionIdFromPayload(BinaryData.fromBytes(payload))
 
-        return transactionsEventStoreRepository.findByTransactionId(transactionId.toString())
+        return transactionId
+            .flatMapMany { transactionsEventStoreRepository.findByTransactionId(it) }
             .reduce(EmptyTransaction(), Transaction::applyEvent).cast(BaseTransaction::class.java)
             .filter {
                 transactionUtils.isTransientStatus(it.status)
