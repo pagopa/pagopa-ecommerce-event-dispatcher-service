@@ -4,11 +4,11 @@ import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import it.pagopa.ecommerce.commons.documents.TransactionClosureErrorEvent
+import it.pagopa.ecommerce.commons.documents.TransactionClosureRetriedEvent
 import it.pagopa.ecommerce.commons.documents.TransactionClosureSendData
 import it.pagopa.ecommerce.commons.documents.TransactionClosureSentEvent
 import it.pagopa.ecommerce.commons.domain.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.Transaction
-import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.domain.pojos.BaseTransactionWithClosureError
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
@@ -28,7 +28,6 @@ import org.springframework.messaging.handler.annotation.Header
 import org.springframework.messaging.handler.annotation.Payload
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
-import java.util.*
 
 @Service
 class TransactionClosureErrorEventConsumer(
@@ -39,23 +38,29 @@ class TransactionClosureErrorEventConsumer(
 ) {
     var logger: Logger = LoggerFactory.getLogger(TransactionClosureErrorEventConsumer::class.java)
 
+
+    private fun getTransactionIdFromPayload(data: BinaryData): Mono<String> {
+        val idFromClosureErrorEvent = data.toObjectAsync(TransactionClosureErrorEvent::class.java).map { it.transactionId }
+        val idFromClosureRetriedEvent = data.toObjectAsync(TransactionClosureRetriedEvent::class.java).map { it.transactionId }
+
+        return Mono.firstWithValue(idFromClosureErrorEvent, idFromClosureRetriedEvent)
+    }
+
     @ServiceActivator(inputChannel = "transactionclosureschannel", outputChannel = "nullChannel")
     fun messageReceiver(@Payload payload: ByteArray, @Header(AzureHeaders.CHECKPOINTER) checkpointer: Checkpointer): Mono<TransactionClosureSentEvent> {
-        checkpointer.success().block()
+        val checkpoint = checkpointer.success()
 
-        // TODO: Add logic to try deserializing a retry event instead
-        val closureErrorEvent =
-            BinaryData.fromBytes(payload).toObject(TransactionClosureErrorEvent::class.java)
-        val transactionId = closureErrorEvent.transactionId
+        val transactionId = getTransactionIdFromPayload(BinaryData.fromBytes(payload))
 
-        return transactionsEventStoreRepository.findByTransactionId(transactionId)
+        val closurePipeline = transactionId
+            .flatMapMany { transactionsEventStoreRepository.findByTransactionId(it) }
             .reduce(EmptyTransaction(), Transaction::applyEvent)
             .cast(BaseTransaction::class.java)
             .flatMap {
                 if (it.status != TransactionStatusDto.CLOSURE_ERROR) {
                     Mono.error(
                         BadTransactionStatusException(
-                            transactionId = TransactionId(UUID.fromString(transactionId)),
+                            transactionId = it.transactionId,
                             expected = TransactionStatusDto.CLOSURE_ERROR,
                             actual = it.status
                         )
@@ -83,6 +88,8 @@ class TransactionClosureErrorEventConsumer(
                 logger.error("Got exception while retrying closePayment!", exception)
                 return@onErrorMap exception
             }
+
+        return checkpoint.then(closurePipeline)
     }
 
     fun updateTransactionStatus(transaction: BaseTransactionWithClosureError, closePaymentResponseDto: ClosePaymentResponseDto): Mono<TransactionClosureSentEvent> {
