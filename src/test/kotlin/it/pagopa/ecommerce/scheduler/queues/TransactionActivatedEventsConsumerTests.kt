@@ -63,7 +63,7 @@ class TransactionActivatedEventsConsumerTests {
 
     @Test
     fun `messageReceiver receives messages successfully`() {
-        var transactionActivatedEventsConsumer =
+        val transactionActivatedEventsConsumer =
             TransactionActivatedEventsConsumer(
                 paymentGatewayClient,
                 transactionsEventStoreRepository,
@@ -79,15 +79,20 @@ class TransactionActivatedEventsConsumerTests {
 
         val activatedEvent = TransactionActivatedEvent(
             transactionId,
-            rptId,
-            paymentToken,
             TransactionActivatedData(
-                "description",
-                100,
                 "email@test.it",
+                listOf(
+                    PaymentNotice(
+                        paymentToken,
+                        rptId,
+                        "description",
+                        100,
+                        "paymentContextCode"
+                    )
+                ),
                 null,
                 null,
-                paymentToken,
+                Transaction.ClientId.CHECKOUT
             )
         )
 
@@ -104,10 +109,12 @@ class TransactionActivatedEventsConsumerTests {
         given(transactionsExpiredEventStoreRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
 
         /* test */
-        StepVerifier.create(transactionActivatedEventsConsumer.messageReceiver(
-            BinaryData.fromObject(activatedEvent).toBytes(),
-            checkpointer
-        ))
+        StepVerifier.create(
+            transactionActivatedEventsConsumer.messageReceiver(
+                BinaryData.fromObject(activatedEvent).toBytes(),
+                checkpointer
+            )
+        )
             .expectNext()
             .expectComplete()
             .verify()
@@ -119,7 +126,7 @@ class TransactionActivatedEventsConsumerTests {
 
     @Test
     fun `messageReceiver calls refund on transaction with authorization request`() = runTest {
-        var transactionActivatedEventsConsumer:
+        val transactionActivatedEventsConsumer:
                 TransactionActivatedEventsConsumer =
             TransactionActivatedEventsConsumer(
                 paymentGatewayClient,
@@ -135,22 +142,25 @@ class TransactionActivatedEventsConsumerTests {
 
         val activatedEvent = TransactionActivatedEvent(
             transactionId,
-            rptId,
-            paymentToken,
             TransactionActivatedData(
-                "description",
-                100,
                 "email@test.it",
+                listOf(
+                    PaymentNotice(
+                        paymentToken,
+                        rptId,
+                        "description",
+                        100,
+                        "paymentContextCode"
+                    )
+                ),
                 null,
                 null,
-                paymentToken,
+                Transaction.ClientId.CHECKOUT
             )
         )
 
         val authorizationRequestedEvent = TransactionAuthorizationRequestedEvent(
             transactionId,
-            rptId,
-            paymentToken,
             TransactionAuthorizationRequestData(
                 100,
                 0,
@@ -167,8 +177,6 @@ class TransactionActivatedEventsConsumerTests {
 
         val expiredEvent = TransactionExpiredEvent(
             transactionId,
-            rptId,
-            paymentToken,
             TransactionExpiredData(
                 TransactionStatusDto.ACTIVATED
             )
@@ -176,8 +184,6 @@ class TransactionActivatedEventsConsumerTests {
 
         val refundedEvent = TransactionRefundedEvent(
             transactionId,
-            rptId,
-            paymentToken,
             TransactionRefundedData(
                 TransactionStatusDto.ACTIVATED
             )
@@ -185,12 +191,12 @@ class TransactionActivatedEventsConsumerTests {
 
         val transaction = Transaction(
             transactionId,
-            paymentToken,
-            rptId,
-            "description",
-            1200,
-            "email@test.it",
-            TransactionStatusDto.EXPIRED
+            activatedEvent.data.paymentNotices,
+            activatedEvent.data.paymentNotices.sumOf { it.amount },
+            activatedEvent.data.email,
+            TransactionStatusDto.EXPIRED,
+            activatedEvent.data.clientId,
+            activatedEvent.creationDate
         )
 
         val gatewayClientResponse = PostePayRefundResponseDto()
@@ -216,10 +222,12 @@ class TransactionActivatedEventsConsumerTests {
         given(paymentGatewayClient.requestRefund(any())).willReturn(Mono.just(gatewayClientResponse))
 
         /* test */
-        StepVerifier.create(transactionActivatedEventsConsumer.messageReceiver(
-            BinaryData.fromObject(activatedEvent).toBytes(),
-            checkpointer
-        ))
+        StepVerifier.create(
+            transactionActivatedEventsConsumer.messageReceiver(
+                BinaryData.fromObject(activatedEvent).toBytes(),
+                checkpointer
+            )
+        )
             .expectNext()
             .expectComplete()
             .verify()
@@ -247,22 +255,25 @@ class TransactionActivatedEventsConsumerTests {
 
         val activatedEvent = TransactionActivatedEvent(
             transactionId,
-            rptId,
-            paymentToken,
             TransactionActivatedData(
-                "description",
-                100,
                 "email@test.it",
+                listOf(
+                    PaymentNotice(
+                        paymentToken,
+                        rptId,
+                        "description",
+                        100,
+                        "paymentContextCode"
+                    )
+                ),
                 null,
                 null,
-                paymentToken,
+                Transaction.ClientId.CHECKOUT
             )
         )
 
         val expiredEvent = TransactionExpiredEvent(
             transactionId,
-            rptId,
-            paymentToken,
             TransactionExpiredData(
                 TransactionStatusDto.ACTIVATED
             )
@@ -319,22 +330,25 @@ class TransactionActivatedEventsConsumerTests {
 
         val activatedEvent = TransactionActivatedEvent(
             transactionId,
-            rptId,
-            paymentToken,
             TransactionActivatedData(
-                "description",
-                100,
                 "email@test.it",
+                listOf(
+                    PaymentNotice(
+                        paymentToken,
+                        rptId,
+                        "description",
+                        100,
+                        "paymentContextCode"
+                    )
+                ),
                 null,
                 null,
-                paymentToken,
+                Transaction.ClientId.CHECKOUT
             )
         )
 
         val authorizationRequestedEvent = TransactionAuthorizationRequestedEvent(
             transactionId,
-            rptId,
-            paymentToken,
             TransactionAuthorizationRequestData(
                 100,
                 0,
@@ -351,8 +365,6 @@ class TransactionActivatedEventsConsumerTests {
 
         val expiredEvent = TransactionExpiredEvent(
             transactionId,
-            rptId,
-            paymentToken,
             TransactionExpiredData(
                 TransactionStatusDto.ACTIVATED
             )
@@ -360,8 +372,6 @@ class TransactionActivatedEventsConsumerTests {
 
         val refundedEvent = TransactionRefundedEvent(
             transactionId,
-            rptId,
-            paymentToken,
             TransactionRefundedData(
                 TransactionStatusDto.ACTIVATED
             )
@@ -369,12 +379,12 @@ class TransactionActivatedEventsConsumerTests {
 
         val transaction = Transaction(
             transactionId,
-            paymentToken,
-            rptId,
-            "description",
-            1200,
-            "email@test.it",
-            TransactionStatusDto.EXPIRED
+            activatedEvent.data.paymentNotices,
+            activatedEvent.data.paymentNotices.sumOf { it.amount },
+            activatedEvent.data.email,
+            TransactionStatusDto.EXPIRED,
+            activatedEvent.data.clientId,
+            activatedEvent.creationDate
         )
 
         val gatewayClientResponse = PostePayRefundResponseDto()
@@ -432,22 +442,25 @@ class TransactionActivatedEventsConsumerTests {
 
         val activatedEvent = TransactionActivatedEvent(
             transactionId,
-            rptId,
-            paymentToken,
             TransactionActivatedData(
-                "description",
-                100,
                 "email@test.it",
+                listOf(
+                    PaymentNotice(
+                        paymentToken,
+                        rptId,
+                        "description",
+                        100,
+                        "paymentContextCode"
+                    )
+                ),
                 null,
                 null,
-                paymentToken,
+                Transaction.ClientId.CHECKOUT
             )
         )
 
         val authorizationRequestedEvent = TransactionAuthorizationRequestedEvent(
             transactionId,
-            rptId,
-            paymentToken,
             TransactionAuthorizationRequestData(
                 100,
                 0,
@@ -464,8 +477,6 @@ class TransactionActivatedEventsConsumerTests {
 
         val expiredEvent = TransactionExpiredEvent(
             transactionId,
-            rptId,
-            paymentToken,
             TransactionExpiredData(
                 TransactionStatusDto.ACTIVATED
             )
@@ -473,8 +484,6 @@ class TransactionActivatedEventsConsumerTests {
 
         val refundedEvent = TransactionRefundedEvent(
             transactionId,
-            rptId,
-            paymentToken,
             TransactionRefundedData(
                 TransactionStatusDto.ACTIVATED
             )

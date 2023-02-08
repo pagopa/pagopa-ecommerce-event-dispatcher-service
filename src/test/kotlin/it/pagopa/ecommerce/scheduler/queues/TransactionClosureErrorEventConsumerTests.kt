@@ -3,6 +3,7 @@ package it.pagopa.ecommerce.scheduler.queues
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import it.pagopa.ecommerce.commons.TransactionTestUtils.*
+import it.pagopa.ecommerce.commons.documents.TransactionAuthorizedEvent
 import it.pagopa.ecommerce.commons.documents.TransactionClosureSendData
 import it.pagopa.ecommerce.commons.documents.TransactionClosureSentEvent
 import it.pagopa.ecommerce.commons.documents.TransactionEvent
@@ -57,7 +58,7 @@ class TransactionClosureErrorEventConsumerTests {
     fun `consumer processes bare message correctly with OK closure outcome`() = runTest {
         val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
         val authorizationRequestEvent = transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
-        val authorizationUpdateEvent = transactionAuthorizationStatusUpdatedEvent(AuthorizationResultDto.OK) as TransactionEvent<Any>
+        val authorizationUpdateEvent = transactionAuthorizedEvent() as TransactionEvent<Any>
         val closureErrorEvent = transactionClosureErrorEvent() as TransactionEvent<Any>
 
         val events = listOf(activationEvent, authorizationRequestEvent, authorizationUpdateEvent, closureErrorEvent)
@@ -69,8 +70,6 @@ class TransactionClosureErrorEventConsumerTests {
         val uuidFromStringWorkaround = "00000000-0000-0000-0000-000000000000" // FIXME: Workaround for static mocking apparently not working
         val expectedClosureEvent = TransactionClosureSentEvent(
             uuidFromStringWorkaround,
-            RPT_ID,
-            PAYMENT_TOKEN,
             TransactionClosureSendData(
                 ClosePaymentResponseDto.OutcomeEnum.OK,
                 TransactionStatusDto.CLOSED
@@ -113,7 +112,7 @@ class TransactionClosureErrorEventConsumerTests {
     fun `consumer processes bare message correctly with KO closure outcome`() = runTest {
         val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
         val authorizationRequestEvent = transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
-        val authorizationUpdateEvent = transactionAuthorizationStatusUpdatedEvent(AuthorizationResultDto.KO) as TransactionEvent<Any>
+        val authorizationUpdateEvent = transactionAuthorizationFailedEvent() as TransactionEvent<Any>
         val closureErrorEvent = transactionClosureErrorEvent() as TransactionEvent<Any>
 
         val events = listOf(activationEvent, authorizationRequestEvent, authorizationUpdateEvent, closureErrorEvent)
@@ -125,8 +124,6 @@ class TransactionClosureErrorEventConsumerTests {
         val uuidFromStringWorkaround = "00000000-0000-0000-0000-000000000000" // FIXME: Workaround for static mocking apparently not working
         val expectedClosureEvent = TransactionClosureSentEvent(
             uuidFromStringWorkaround,
-            RPT_ID,
-            PAYMENT_TOKEN,
             TransactionClosureSendData(
                 ClosePaymentResponseDto.OutcomeEnum.KO,
                 TransactionStatusDto.CLOSED
@@ -169,7 +166,7 @@ class TransactionClosureErrorEventConsumerTests {
     fun `consumer process doesn't modify db on invalid transaction status`() = runTest {
         val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
         val authorizationRequestEvent = transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
-        val authorizationUpdateEvent = transactionAuthorizationStatusUpdatedEvent(AuthorizationResultDto.KO) as TransactionEvent<Any>
+        val authorizationUpdateEvent = transactionAuthorizationFailedEvent() as TransactionEvent<Any>
 
         val events = listOf(activationEvent, authorizationRequestEvent, authorizationUpdateEvent)
 

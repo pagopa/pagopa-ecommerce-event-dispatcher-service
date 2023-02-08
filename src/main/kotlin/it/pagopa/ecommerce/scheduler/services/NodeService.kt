@@ -1,6 +1,8 @@
 package it.pagopa.ecommerce.scheduler.services
 
+import it.pagopa.ecommerce.commons.documents.TransactionActivatedEvent
 import it.pagopa.ecommerce.commons.documents.TransactionAuthorizationRequestData
+import it.pagopa.ecommerce.commons.documents.TransactionAuthorizationRequestedEvent
 import it.pagopa.ecommerce.commons.domain.TransactionEventCode
 import it.pagopa.ecommerce.scheduler.client.NodeClient
 import it.pagopa.ecommerce.scheduler.exceptions.TransactionEventNotFoundException
@@ -20,22 +22,34 @@ import java.util.*
 @Service
 class NodeService(
     @Autowired private val nodeClient: NodeClient,
-    @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<TransactionAuthorizationRequestData>
+    @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>
 ) {
     var logger: Logger = LoggerFactory.getLogger(TransactionActivatedEventsConsumer::class.java)
     suspend fun closePayment(transactionId: UUID, transactionOutcome: ClosePaymentRequestV2Dto.OutcomeEnum): ClosePaymentResponseDto {
-        val transactionEventCode = TransactionEventCode.TRANSACTION_AUTHORIZATION_REQUESTED_EVENT
+        val transactionActivatedEventCode = TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
+
+        val activatedEvent = transactionsEventStoreRepository.findByTransactionIdAndEventCode(
+            transactionId.toString(),
+            transactionActivatedEventCode
+        )
+            .cast(TransactionActivatedEvent::class.java)
+            .awaitSingleOrNull()
+            ?: throw TransactionEventNotFoundException(transactionId, transactionActivatedEventCode)
+
+        val transactionAuthRequestedEventCode = TransactionEventCode.TRANSACTION_AUTHORIZATION_REQUESTED_EVENT
 
         val authEvent = transactionsEventStoreRepository.findByTransactionIdAndEventCode(
             transactionId.toString(),
-            transactionEventCode
-        ).awaitSingleOrNull()
-            ?: throw TransactionEventNotFoundException(transactionId, transactionEventCode)
+            transactionAuthRequestedEventCode
+        )
+            .cast(TransactionAuthorizationRequestedEvent::class.java)
+            .awaitSingleOrNull()
+            ?: throw TransactionEventNotFoundException(transactionId, transactionAuthRequestedEventCode)
 
         logger.info("Invoking closePayment with outcome {}", transactionOutcome)
 
         val closePaymentRequest = ClosePaymentRequestV2Dto().apply {
-            paymentTokens = listOf(authEvent.paymentToken)
+            paymentTokens = activatedEvent.data.paymentNotices.map { it.paymentToken }
             outcome = transactionOutcome
             idPSP = authEvent.data.pspId
             paymentMethod = authEvent.data.paymentTypeCode
