@@ -2,6 +2,7 @@ package it.pagopa.ecommerce.scheduler.queues
 
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
+import it.pagopa.ecommerce.commons.TransactionTestUtils
 import it.pagopa.ecommerce.commons.documents.*
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.utils.TransactionUtils
@@ -62,7 +63,7 @@ class TransactionActivatedEventsConsumerTests {
 
 
     @Test
-    fun `messageReceiver receives messages successfully`() {
+    fun `messageReceiver receives activated messages successfully`() {
         val transactionActivatedEventsConsumer =
             TransactionActivatedEventsConsumer(
                 paymentGatewayClient,
@@ -123,6 +124,48 @@ class TransactionActivatedEventsConsumerTests {
         verify(checkpointer, Mockito.times(1)).success()
     }
 
+    @Test
+    fun `messageReceiver receives refund messages successfully`() {
+        val transactionActivatedEventsConsumer =
+            TransactionActivatedEventsConsumer(
+                paymentGatewayClient,
+                transactionsEventStoreRepository,
+                transactionsExpiredEventStoreRepository,
+                transactionsRefundedEventStoreRepository,
+                transactionsViewRepository,
+                transactionUtils
+            )
+
+        val activatedEvent = TransactionTestUtils.transactionActivateEvent()
+        val transactionId = activatedEvent.transactionId
+
+        val refundRetriedEvent = TransactionTestUtils.transactionRefundRetriedEvent(0)
+
+        /* preconditions */
+        given(checkpointer.success()).willReturn(Mono.empty())
+        given(
+            transactionsEventStoreRepository.findByTransactionId(
+                transactionId,
+            )
+        )
+            .willReturn(Flux.just(activatedEvent as TransactionEvent<Any>))
+        given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
+        given(transactionsExpiredEventStoreRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
+
+        /* test */
+        StepVerifier.create(
+            transactionActivatedEventsConsumer.messageReceiver(
+                BinaryData.fromObject(refundRetriedEvent).toBytes(),
+                checkpointer
+            )
+        )
+            .expectNext()
+            .expectComplete()
+            .verify()
+
+        /* Asserts */
+        verify(checkpointer, Mockito.times(1)).success()
+    }
 
     @Test
     fun `messageReceiver calls refund on transaction with authorization request`() = runTest {
