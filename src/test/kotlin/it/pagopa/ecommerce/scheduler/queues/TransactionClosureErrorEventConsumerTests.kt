@@ -3,11 +3,9 @@ package it.pagopa.ecommerce.scheduler.queues
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import it.pagopa.ecommerce.commons.TransactionTestUtils.*
-import it.pagopa.ecommerce.commons.documents.TransactionAuthorizedEvent
 import it.pagopa.ecommerce.commons.documents.TransactionClosureSendData
 import it.pagopa.ecommerce.commons.documents.TransactionClosureSentEvent
 import it.pagopa.ecommerce.commons.documents.TransactionEvent
-import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.scheduler.exceptions.BadTransactionStatusException
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreRepository
