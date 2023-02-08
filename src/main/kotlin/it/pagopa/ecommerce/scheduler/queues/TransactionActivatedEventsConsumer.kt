@@ -111,15 +111,7 @@ class TransactionActivatedEventsConsumer(
             transactionsViewRepository.save(
                 Transaction(
                     transaction.transactionId.value.toString(),
-                    transaction.paymentNotices.map { notice ->
-                                                   PaymentNotice(
-                                                       notice.paymentToken.value,
-                                                       notice.rptId.value,
-                                                       notice.transactionDescription.value,
-                                                       notice.transactionAmount.value,
-                                                       notice.paymentContextCode.value
-                                                   )
-                    },
+                    paymentNoticeDocuments(transaction.paymentNotices),
                     transaction.paymentNotices.sumOf { it.transactionAmount.value },
                     transaction.email.value,
                     TransactionStatusDto.EXPIRED,
@@ -141,15 +133,7 @@ class TransactionActivatedEventsConsumer(
             transactionsViewRepository.save(
                 Transaction(
                     transaction.transactionId.value.toString(),
-                    transaction.paymentNotices.map { notice ->
-                        PaymentNotice(
-                            notice.paymentToken.value,
-                            notice.rptId.value,
-                            notice.transactionDescription.value,
-                            notice.transactionAmount.value,
-                            notice.paymentContextCode.value
-                        )
-                    },
+                    paymentNoticeDocuments(transaction.paymentNotices),
                     transaction.paymentNotices.sumOf { it.transactionAmount.value },
                     transaction.email.value,
                     TransactionStatusDto.EXPIRED,
@@ -160,4 +144,15 @@ class TransactionActivatedEventsConsumer(
         )
     }
 
+    private fun paymentNoticeDocuments(paymentNotices: List<it.pagopa.ecommerce.commons.domain.PaymentNotice>): List<PaymentNotice> {
+        return paymentNotices.map { notice ->
+            PaymentNotice(
+                notice.paymentToken.value,
+                notice.rptId.value,
+                notice.transactionDescription.value,
+                notice.transactionAmount.value,
+                notice.paymentContextCode.value
+            )
+        }
+    }
 }
