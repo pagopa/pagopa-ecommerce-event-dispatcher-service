@@ -28,4 +28,13 @@ class QueuesConsumerConfig {
     ): StorageQueueMessageSource {
         return StorageQueueMessageSource(queueNameClosureEvents, storageQueueTemplate)
     }
+
+    @Bean
+    @InboundChannelAdapter(channel = "transactionexpiredchannel", poller = [Poller(fixedDelay = "1000")])
+    fun storageQueueExpirationsMessageSource(
+        storageQueueTemplate: StorageQueueTemplate,
+        @Value("\${azurestorage.queues.transactionexpiredevents.name}") queueNameClosureEvents: String
+    ): StorageQueueMessageSource {
+        return StorageQueueMessageSource(queueNameClosureEvents, storageQueueTemplate)
+    }
 }
