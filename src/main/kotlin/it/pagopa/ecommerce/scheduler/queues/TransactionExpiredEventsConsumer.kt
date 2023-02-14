@@ -64,10 +64,10 @@ class TransactionExpiredEventsConsumer(
                 logger.info("Handling expired transaction with id ${it.transactionId.value}")
             }
             .flatMap {
-                try {
-                    return@flatMap Mono.just(it as BaseTransactionWithRequestedAuthorization)
-                } catch (e: ClassCastException) {
-                    return@flatMap Mono.empty()
+                return@flatMap if(it is BaseTransactionWithRequestedAuthorization){
+                   Mono.just(it)
+                } else {
+                    Mono.empty()
                 }
             }
             .switchIfEmpty {
