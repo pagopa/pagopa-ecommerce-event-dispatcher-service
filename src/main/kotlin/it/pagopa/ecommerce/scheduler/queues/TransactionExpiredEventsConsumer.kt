@@ -116,7 +116,7 @@ class TransactionExpiredEventsConsumer(
                 Transaction(
                     transaction.transactionId.value.toString(),
                     paymentNoticeDocuments(transaction.paymentNotices),
-                    transaction.paymentNotices.sumOf { it.transactionAmount.value },
+                    TransactionUtils.getTransactionFee(transaction).orElse(null),
                     transaction.email.value,
                     TransactionStatusDto.EXPIRED,
                     transaction.clientId,

@@ -109,7 +109,7 @@ class TransactionActivatedEventsConsumer(
                     transaction.transactionId.value.toString(),
                     paymentNoticeDocuments(transaction.paymentNotices),
                     TransactionUtils.getTransactionFee(transaction).orElse(null),
-                    transaction.email,
+                    transaction.email.value,
                     TransactionStatusDto.EXPIRED,
                     transaction.clientId,
                     transaction.creationDate.toString()
@@ -139,7 +139,7 @@ class TransactionActivatedEventsConsumer(
                     transaction.transactionId.value.toString(),
                     paymentNoticeDocuments(transaction.paymentNotices),
                     TransactionUtils.getTransactionFee(transaction).orElse(null),
-                    transaction.email,
+                    transaction.email.value,
                     TransactionStatusDto.REFUNDED,
                     transaction.clientId,
                     transaction.creationDate.toString()
