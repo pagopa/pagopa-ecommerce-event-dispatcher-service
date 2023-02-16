@@ -190,7 +190,7 @@ class TransactionExpiredEventsConsumerTests {
         /* test */
         StepVerifier.create(
             transactionExpiredEventsConsumer.messageReceiver(
-                BinaryData.fromObject(activatedEvent).toBytes(),
+                BinaryData.fromObject(expiredEvent).toBytes(),
                 checkpointer
             )
         )

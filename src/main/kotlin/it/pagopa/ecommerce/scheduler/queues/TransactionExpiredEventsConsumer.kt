@@ -7,6 +7,7 @@ import it.pagopa.ecommerce.commons.documents.*
 import it.pagopa.ecommerce.commons.domain.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.Transaction
 import it.pagopa.ecommerce.commons.domain.pojos.BaseTransaction
+import it.pagopa.ecommerce.commons.domain.pojos.BaseTransactionExpired
 import it.pagopa.ecommerce.commons.domain.pojos.BaseTransactionWithRequestedAuthorization
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.utils.TransactionUtils
@@ -59,13 +60,14 @@ class TransactionExpiredEventsConsumer(
             .flatMapMany { transactionsEventStoreRepository.findByTransactionId(it) }
             .reduce(EmptyTransaction(), Transaction::applyEvent)
             .cast(BaseTransaction::class.java)
-//            .filter { it.status == TransactionStatusDto.EXPIRED } // FIXME reconstruction of EXPIRED transaction
+            .filter { it.status == TransactionStatusDto.EXPIRED }
             .doOnNext {
                 logger.info("Handling expired transaction with id ${it.transactionId.value}")
             }
+            .cast(BaseTransactionExpired::class.java)
             .flatMap {
-                return@flatMap if(it is BaseTransactionWithRequestedAuthorization){
-                   Mono.just(it)
+                return@flatMap if(it.transactionAtPreviousState is BaseTransactionWithRequestedAuthorization) {
+                   Mono.just(it.transactionAtPreviousState)
                 } else {
                     Mono.empty()
                 }
@@ -75,6 +77,7 @@ class TransactionExpiredEventsConsumer(
                     logger.info("Transaction $it was not previously authorized. No refund needed")
                 }.flatMap { Mono.empty() }
             }
+            .cast(BaseTransactionWithRequestedAuthorization::class.java)
             .flatMap { transaction ->
                 val authorizationRequestId =
                     transaction.transactionAuthorizationRequestData.authorizationRequestId
@@ -86,12 +89,12 @@ class TransactionExpiredEventsConsumer(
             .flatMap {
                 val (refundResponse, transaction) = it
                 logger.info(
-                    "Transaction requestRefund for transaction ${transaction.transactionId} with outcome ${refundResponse.refundOutcome}"
+                    "Transaction requestRefund for transaction ${transaction.transactionId.value} with outcome ${refundResponse.refundOutcome}"
                 )
                 when (refundResponse.refundOutcome) {
                     "OK" -> updateTransactionToRefunded(transaction)
                     else ->
-                        Mono.error(RuntimeException("Refund error for transaction ${transaction.transactionId} with outcome  ${refundResponse.refundOutcome}"))
+                        Mono.error(RuntimeException("Refund error for transaction ${transaction.transactionId.value} with outcome  ${refundResponse.refundOutcome}"))
                 }
             }
             .onErrorMap {
