@@ -1,6 +1,6 @@
 package it.pagopa.ecommerce.scheduler.repositories;
 
-import it.pagopa.ecommerce.commons.documents.Transaction;
+import it.pagopa.ecommerce.commons.documents.v1.Transaction;
 import org.springframework.data.repository.reactive.ReactiveCrudRepository;
 import reactor.core.publisher.Mono;
 
