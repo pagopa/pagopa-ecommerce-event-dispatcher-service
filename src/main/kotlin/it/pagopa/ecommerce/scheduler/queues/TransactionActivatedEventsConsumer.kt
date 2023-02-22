@@ -81,20 +81,23 @@ class TransactionActivatedEventsConsumer(
             .flatMap {
                 val (refundResponse, transaction) = it
                 logger.info(
-                    "Transaction requestRefund for transaction $transactionId with outcome ${refundResponse.refundOutcome}"
+                    "Transaction requestRefund for transaction ${transaction.transactionId} with outcome ${refundResponse.refundOutcome}"
                 )
                 when (refundResponse.refundOutcome) {
                     "OK" -> updateTransactionToRefunded(transaction)
                     else ->
-                        Mono.error(RuntimeException("Refund error for transaction $transactionId with outcome  ${refundResponse.refundOutcome}"))
+                        Mono.error(RuntimeException("Refund error for transaction ${transaction.transactionId} with outcome  ${refundResponse.refundOutcome}"))
                 }
             }
-            .onErrorMap {
-                logger.error(
-                    "Transaction requestRefund error for transaction $transactionId : ${it.message}"
-                )
+            .onErrorMap { exception ->
+                transactionId.map { id ->
+                    logger.error(
+                        "Transaction requestRefund error for transaction $id : ${exception.message}"
+                    )
+                }
+
                 // TODO retry
-                it
+                exception
             }
 
         return checkpoint.then(refundPipeline).then()
@@ -112,7 +115,7 @@ class TransactionActivatedEventsConsumer(
                 Transaction(
                     transaction.transactionId.value.toString(),
                     paymentNoticeDocuments(transaction.paymentNotices),
-                    transaction.paymentNotices.sumOf { it.transactionAmount.value },
+                    TransactionUtils.getTransactionFee(transaction).orElse(null),
                     transaction.email.value,
                     TransactionStatusDto.EXPIRED,
                     transaction.clientId,
@@ -135,16 +138,16 @@ class TransactionActivatedEventsConsumer(
         return transactionsRefundedEventStoreRepository.save(
             TransactionRefundedEvent(
                 transaction.transactionId.value.toString(),
-                TransactionRefundedData(transaction.status)
+                TransactionRefundedData(TransactionStatusDto.EXPIRED)
             )
         ).then(
             transactionsViewRepository.save(
                 Transaction(
                     transaction.transactionId.value.toString(),
                     paymentNoticeDocuments(transaction.paymentNotices),
-                    transaction.paymentNotices.sumOf { it.transactionAmount.value },
+                    TransactionUtils.getTransactionFee(transaction).orElse(null),
                     transaction.email.value,
-                    TransactionStatusDto.EXPIRED,
+                    TransactionStatusDto.REFUNDED,
                     transaction.clientId,
                     transaction.creationDate.toString()
                 )
