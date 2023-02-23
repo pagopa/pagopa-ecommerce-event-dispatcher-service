@@ -1,9 +1,10 @@
 package it.pagopa.ecommerce.scheduler.services
 
-import it.pagopa.ecommerce.commons.TransactionTestUtils.transactionActivateEvent
-import it.pagopa.ecommerce.commons.TransactionTestUtils.transactionAuthorizationRequestedEvent
+import it.pagopa.ecommerce.commons.v1.TransactionTestUtils.transactionActivateEvent
+import it.pagopa.ecommerce.commons.v1.TransactionTestUtils.transactionAuthorizationRequestedEvent
 import it.pagopa.ecommerce.commons.documents.*
-import it.pagopa.ecommerce.commons.domain.TransactionEventCode
+import it.pagopa.ecommerce.commons.documents.v1.TransactionEvent
+import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
 import it.pagopa.ecommerce.scheduler.client.NodeClient
 import it.pagopa.ecommerce.scheduler.exceptions.TransactionEventNotFoundException
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreRepository

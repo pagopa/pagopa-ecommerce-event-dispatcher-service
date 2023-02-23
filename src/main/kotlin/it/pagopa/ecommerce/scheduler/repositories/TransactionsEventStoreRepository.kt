@@ -1,7 +1,7 @@
 package it.pagopa.ecommerce.scheduler.repositories
 
-import it.pagopa.ecommerce.commons.documents.TransactionEvent
-import it.pagopa.ecommerce.commons.domain.TransactionEventCode
+import it.pagopa.ecommerce.commons.documents.v1.TransactionEvent
+import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
 import org.springframework.data.repository.reactive.ReactiveCrudRepository
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono

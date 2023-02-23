@@ -2,10 +2,12 @@ package it.pagopa.ecommerce.scheduler.queues
 
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
-import it.pagopa.ecommerce.commons.TransactionTestUtils.*
-import it.pagopa.ecommerce.commons.documents.TransactionClosureSendData
-import it.pagopa.ecommerce.commons.documents.TransactionClosureSentEvent
-import it.pagopa.ecommerce.commons.documents.TransactionEvent
+import it.pagopa.ecommerce.commons.documents.v1.TransactionClosedEvent
+import it.pagopa.ecommerce.commons.documents.v1.TransactionClosureData
+import it.pagopa.ecommerce.commons.documents.v1.TransactionClosureFailedEvent
+import it.pagopa.ecommerce.commons.v1.TransactionTestUtils.*
+import it.pagopa.ecommerce.commons.documents.v1.TransactionEvent
+import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.scheduler.exceptions.BadTransactionStatusException
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreRepository
@@ -41,12 +43,12 @@ class TransactionClosureErrorEventConsumerTests {
 
     private val transactionsViewRepository: TransactionsViewRepository = mock()
 
-    private val transactionClosureSentEventRepository: TransactionsEventStoreRepository<TransactionClosureSendData> =
+    private val transactionClosedEventRepository: TransactionsEventStoreRepository<TransactionClosureData> =
         mock()
 
     private val transactionClosureErrorEventsConsumer = TransactionClosureErrorEventConsumer(
         transactionsEventStoreRepository,
-        transactionClosureSentEventRepository,
+        transactionClosedEventRepository,
         transactionsViewRepository,
         nodeService
     )
@@ -55,21 +57,20 @@ class TransactionClosureErrorEventConsumerTests {
     fun `consumer processes bare closure error message correctly with OK closure outcome`() = runTest {
         val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
         val authorizationRequestEvent = transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
-        val authorizationUpdateEvent = transactionAuthorizedEvent() as TransactionEvent<Any>
+        val authorizationCompleteEvent = transactionAuthorizationCompletedEvent() as TransactionEvent<Any>
         val closureErrorEvent = transactionClosureErrorEvent() as TransactionEvent<Any>
 
-        val events = listOf(activationEvent, authorizationRequestEvent, authorizationUpdateEvent, closureErrorEvent)
+        val events = listOf(activationEvent, authorizationRequestEvent, authorizationCompleteEvent, closureErrorEvent)
 
         val expectedUpdatedTransaction = transactionDocument(TransactionStatusDto.CLOSED, ZonedDateTime.parse(activationEvent.creationDate))
 
         val transactionDocument = transactionDocument(TransactionStatusDto.CLOSURE_ERROR, ZonedDateTime.parse(activationEvent.creationDate))
 
         val uuidFromStringWorkaround = "00000000-0000-0000-0000-000000000000" // FIXME: Workaround for static mocking apparently not working
-        val expectedClosureEvent = TransactionClosureSentEvent(
+        val expectedClosureEvent = TransactionClosedEvent(
             uuidFromStringWorkaround,
-            TransactionClosureSendData(
-                ClosePaymentResponseDto.OutcomeEnum.OK,
-                TransactionStatusDto.CLOSED
+            TransactionClosureData(
+                TransactionClosureData.Outcome.OK
             )
         )
 
@@ -79,7 +80,7 @@ class TransactionClosureErrorEventConsumerTests {
             .willReturn(events.toFlux())
         given(transactionsViewRepository.findByTransactionId(any())).willReturn(Mono.just(transactionDocument))
         given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
-        given(transactionClosureSentEventRepository.save(any())).willReturn(Mono.just(expectedClosureEvent))
+        given(transactionClosedEventRepository.save(any())).willReturn(Mono.just(expectedClosureEvent))
         given(nodeService.closePayment(UUID.fromString(uuidFromStringWorkaround), ClosePaymentRequestV2Dto.OutcomeEnum.OK)).willReturn(ClosePaymentResponseDto().apply {
             outcome = ClosePaymentResponseDto.OutcomeEnum.OK
         })
@@ -100,7 +101,7 @@ class TransactionClosureErrorEventConsumerTests {
             /* Asserts */
             verify(checkpointer, Mockito.times(1)).success()
             verify(nodeService, Mockito.times(1)).closePayment(UUID.fromString(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.OK)
-            verify(transactionClosureSentEventRepository, Mockito.times(1)).save(any()) // FIXME: Unable to use better argument captor because of misbehaviour in static mocking
+            verify(transactionClosedEventRepository, Mockito.times(1)).save(any()) // FIXME: Unable to use better argument captor because of misbehaviour in static mocking
             verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransaction)
         }
     }
@@ -109,21 +110,21 @@ class TransactionClosureErrorEventConsumerTests {
     fun `consumer processes bare closure error message correctly with KO closure outcome`() = runTest {
         val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
         val authorizationRequestEvent = transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
-        val authorizationUpdateEvent = transactionAuthorizationFailedEvent() as TransactionEvent<Any>
+        val authorizationCompletedEvent = transactionAuthorizationCompletedEvent(AuthorizationResultDto.KO) as TransactionEvent<Any>
         val closureErrorEvent = transactionClosureErrorEvent() as TransactionEvent<Any>
 
-        val events = listOf(activationEvent, authorizationRequestEvent, authorizationUpdateEvent, closureErrorEvent)
+        val uuidFromStringWorkaround = "00000000-0000-0000-0000-000000000000" // FIXME: Workaround for static mocking apparently not working
 
-        val expectedUpdatedTransaction = transactionDocument(TransactionStatusDto.CLOSURE_FAILED, ZonedDateTime.parse(activationEvent.creationDate))
+        val events = listOf(activationEvent, authorizationRequestEvent, authorizationCompletedEvent, closureErrorEvent)
+
+        val expectedUpdatedTransaction = transactionDocument(TransactionStatusDto.UNAUTHORIZED, ZonedDateTime.parse(activationEvent.creationDate))
 
         val transactionDocument = transactionDocument(TransactionStatusDto.CLOSURE_ERROR, ZonedDateTime.parse(activationEvent.creationDate))
 
-        val uuidFromStringWorkaround = "00000000-0000-0000-0000-000000000000" // FIXME: Workaround for static mocking apparently not working
-        val expectedClosureEvent = TransactionClosureSentEvent(
-            uuidFromStringWorkaround,
-            TransactionClosureSendData(
-                ClosePaymentResponseDto.OutcomeEnum.KO,
-                TransactionStatusDto.CLOSED
+        val expectedClosureEvent = TransactionClosureFailedEvent(
+            activationEvent.transactionId,
+            TransactionClosureData(
+                TransactionClosureData.Outcome.OK
             )
         )
 
@@ -133,7 +134,7 @@ class TransactionClosureErrorEventConsumerTests {
             .willReturn(events.toFlux())
         given(transactionsViewRepository.findByTransactionId(any())).willReturn(Mono.just(transactionDocument))
         given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
-        given(transactionClosureSentEventRepository.save(any())).willReturn(Mono.just(expectedClosureEvent))
+        given(transactionClosedEventRepository.save(any())).willReturn(Mono.just(expectedClosureEvent))
         given(nodeService.closePayment(UUID.fromString(uuidFromStringWorkaround), ClosePaymentRequestV2Dto.OutcomeEnum.KO)).willReturn(ClosePaymentResponseDto().apply {
             outcome = ClosePaymentResponseDto.OutcomeEnum.KO
         })
@@ -154,7 +155,7 @@ class TransactionClosureErrorEventConsumerTests {
             /* Asserts */
             verify(checkpointer, Mockito.times(1)).success()
             verify(nodeService, Mockito.times(1)).closePayment(UUID.fromString(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.KO)
-            verify(transactionClosureSentEventRepository, Mockito.times(1)).save(any()) // FIXME: Unable to use better argument captor because of misbehaviour in static mocking
+            verify(transactionClosedEventRepository, Mockito.times(1)).save(any()) // FIXME: Unable to use better argument captor because of misbehaviour in static mocking
             verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransaction)
         }
     }
@@ -165,7 +166,7 @@ class TransactionClosureErrorEventConsumerTests {
 
         val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
         val authorizationRequestEvent = transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
-        val authorizationUpdateEvent = transactionAuthorizedEvent() as TransactionEvent<Any>
+        val authorizationUpdateEvent = transactionAuthorizationCompletedEvent(AuthorizationResultDto.OK) as TransactionEvent<Any>
         val closureErrorEvent = transactionClosureErrorEvent() as TransactionEvent<Any>
 
         val events = listOf(activationEvent, authorizationRequestEvent, authorizationUpdateEvent, closureErrorEvent)
@@ -175,11 +176,10 @@ class TransactionClosureErrorEventConsumerTests {
         val transactionDocument = transactionDocument(TransactionStatusDto.CLOSURE_ERROR, ZonedDateTime.parse(activationEvent.creationDate))
 
         val uuidFromStringWorkaround = "00000000-0000-0000-0000-000000000000" // FIXME: Workaround for static mocking apparently not working
-        val expectedClosureEvent = TransactionClosureSentEvent(
+        val expectedClosureEvent = TransactionClosedEvent(
             uuidFromStringWorkaround,
-            TransactionClosureSendData(
-                ClosePaymentResponseDto.OutcomeEnum.OK,
-                TransactionStatusDto.CLOSED
+            TransactionClosureData(
+                TransactionClosureData.Outcome.OK
             )
         )
 
@@ -189,7 +189,7 @@ class TransactionClosureErrorEventConsumerTests {
             .willReturn(events.toFlux())
         given(transactionsViewRepository.findByTransactionId(any())).willReturn(Mono.just(transactionDocument))
         given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
-        given(transactionClosureSentEventRepository.save(any())).willReturn(Mono.just(expectedClosureEvent))
+        given(transactionClosedEventRepository.save(any())).willReturn(Mono.just(expectedClosureEvent))
         given(nodeService.closePayment(UUID.fromString(uuidFromStringWorkaround), ClosePaymentRequestV2Dto.OutcomeEnum.OK)).willReturn(ClosePaymentResponseDto().apply {
             outcome = ClosePaymentResponseDto.OutcomeEnum.OK
         })
@@ -210,7 +210,7 @@ class TransactionClosureErrorEventConsumerTests {
             /* Asserts */
             verify(checkpointer, Mockito.times(1)).success()
             verify(nodeService, Mockito.times(1)).closePayment(UUID.fromString(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.OK)
-            verify(transactionClosureSentEventRepository, Mockito.times(1)).save(any()) // FIXME: Unable to use better argument captor because of misbehaviour in static mocking
+            verify(transactionClosedEventRepository, Mockito.times(1)).save(any()) // FIXME: Unable to use better argument captor because of misbehaviour in static mocking
             verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransaction)
         }
     }
@@ -219,7 +219,7 @@ class TransactionClosureErrorEventConsumerTests {
     fun `consumer process doesn't modify db on invalid transaction status`() = runTest {
         val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
         val authorizationRequestEvent = transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
-        val authorizationUpdateEvent = transactionAuthorizationFailedEvent() as TransactionEvent<Any>
+        val authorizationUpdateEvent = transactionAuthorizationCompletedEvent(AuthorizationResultDto.OK) as TransactionEvent<Any>
 
         val events = listOf(activationEvent, authorizationRequestEvent, authorizationUpdateEvent)
 
@@ -244,7 +244,7 @@ class TransactionClosureErrorEventConsumerTests {
         /* Asserts */
         verify(checkpointer, Mockito.times(1)).success()
         verify(nodeService, Mockito.times(0)).closePayment(any(), any())
-        verify(transactionClosureSentEventRepository, Mockito.times(0)).save(any())
+        verify(transactionClosedEventRepository, Mockito.times(0)).save(any())
         verify(transactionsViewRepository, Mockito.times(0)).save(any())
     }
 }

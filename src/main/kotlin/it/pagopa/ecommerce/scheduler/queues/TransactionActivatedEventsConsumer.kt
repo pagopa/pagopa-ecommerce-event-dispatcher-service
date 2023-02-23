@@ -4,12 +4,13 @@ import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import it.pagopa.ecommerce.commons.documents.*
-import it.pagopa.ecommerce.commons.domain.EmptyTransaction
-import it.pagopa.ecommerce.commons.domain.Transaction
-import it.pagopa.ecommerce.commons.domain.pojos.BaseTransaction
-import it.pagopa.ecommerce.commons.domain.pojos.BaseTransactionWithRequestedAuthorization
+import it.pagopa.ecommerce.commons.documents.v1.*
+import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
+import it.pagopa.ecommerce.commons.domain.v1.Transaction
+import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransaction
+import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithRequestedAuthorization
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
-import it.pagopa.ecommerce.commons.utils.TransactionUtils
+import it.pagopa.ecommerce.commons.utils.v1.TransactionUtils
 import it.pagopa.ecommerce.scheduler.client.PaymentGatewayClient
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsViewRepository
@@ -64,7 +65,9 @@ class TransactionActivatedEventsConsumer(
             }
             .flatMap(::updateTransactionToExpired)
             .filter {
-                transactionUtils.isRefundableTransaction(it.status)
+                val refundable = transactionUtils.isRefundableTransaction(it.status)
+                logger.info("Transaction ${it.transactionId.value} in status ${it.status}, refundable: $refundable")
+                refundable
             }
             .cast(BaseTransactionWithRequestedAuthorization::class.java)
             .flatMap { transaction ->
@@ -78,20 +81,23 @@ class TransactionActivatedEventsConsumer(
             .flatMap {
                 val (refundResponse, transaction) = it
                 logger.info(
-                    "Transaction requestRefund for transaction $transactionId with outcome ${refundResponse.refundOutcome}"
+                    "Transaction requestRefund for transaction ${transaction.transactionId} with outcome ${refundResponse.refundOutcome}"
                 )
                 when (refundResponse.refundOutcome) {
                     "OK" -> updateTransactionToRefunded(transaction)
                     else ->
-                        Mono.error(RuntimeException("Refund error for transaction $transactionId with outcome  ${refundResponse.refundOutcome}"))
+                        Mono.error(RuntimeException("Refund error for transaction ${transaction.transactionId} with outcome  ${refundResponse.refundOutcome}"))
                 }
             }
-            .onErrorMap {
-                logger.error(
-                    "Transaction requestRefund error for transaction $transactionId : ${it.message}"
-                )
+            .onErrorMap { exception ->
+                transactionId.map { id ->
+                    logger.error(
+                        "Transaction requestRefund error for transaction $id : ${exception.message}"
+                    )
+                }
+
                 // TODO retry
-                it
+                exception
             }
 
         return checkpoint.then(refundPipeline).then()
@@ -109,7 +115,7 @@ class TransactionActivatedEventsConsumer(
                 Transaction(
                     transaction.transactionId.value.toString(),
                     paymentNoticeDocuments(transaction.paymentNotices),
-                    transaction.paymentNotices.sumOf { it.transactionAmount.value },
+                    TransactionUtils.getTransactionFee(transaction).orElse(null),
                     transaction.email.value,
                     TransactionStatusDto.EXPIRED,
                     transaction.clientId,
@@ -132,16 +138,16 @@ class TransactionActivatedEventsConsumer(
         return transactionsRefundedEventStoreRepository.save(
             TransactionRefundedEvent(
                 transaction.transactionId.value.toString(),
-                TransactionRefundedData(transaction.status)
+                TransactionRefundedData(TransactionStatusDto.EXPIRED)
             )
         ).then(
             transactionsViewRepository.save(
                 Transaction(
                     transaction.transactionId.value.toString(),
                     paymentNoticeDocuments(transaction.paymentNotices),
-                    transaction.paymentNotices.sumOf { it.transactionAmount.value },
+                    TransactionUtils.getTransactionFee(transaction).orElse(null),
                     transaction.email.value,
-                    TransactionStatusDto.EXPIRED,
+                    TransactionStatusDto.REFUNDED,
                     transaction.clientId,
                     transaction.creationDate.toString()
                 )
@@ -153,7 +159,7 @@ class TransactionActivatedEventsConsumer(
         }.thenReturn(transaction)
     }
 
-    private fun paymentNoticeDocuments(paymentNotices: List<it.pagopa.ecommerce.commons.domain.PaymentNotice>): List<PaymentNotice> {
+    private fun paymentNoticeDocuments(paymentNotices: List<it.pagopa.ecommerce.commons.domain.v1.PaymentNotice>): List<PaymentNotice> {
         return paymentNotices.map { notice ->
             PaymentNotice(
                 notice.paymentToken.value,
