@@ -75,29 +75,8 @@ class TransactionActivatedEventsConsumerTests {
                 transactionUtils
             )
 
-        val transactionId = UUID.randomUUID().toString()
-        val rptId = "77777777777302000100440009424"
-        val paymentToken = UUID.randomUUID().toString().replace("-", "")
-
-        val activatedEvent = TransactionActivatedEvent(
-            transactionId,
-            TransactionActivatedData(
-                "email@test.it",
-                listOf(
-                    PaymentNotice(
-                        paymentToken,
-                        rptId,
-                        "description",
-                        100,
-                        "paymentContextCode"
-                    )
-                ),
-                null,
-                null,
-                Transaction.ClientId.CHECKOUT
-            )
-        )
-
+        val activatedEvent = transactionActivateEvent()
+        val transactionId = activatedEvent.transactionId
 
         /* preconditions */
         given(checkpointer.success()).willReturn(Mono.empty())
@@ -237,8 +216,7 @@ class TransactionActivatedEventsConsumerTests {
 
     @Test
     fun `messageReceiver generate new expired event with error in eventstore`() = runTest {
-        val transactionActivatedEventsConsumer:
-                TransactionActivatedEventsConsumer =
+        val transactionActivatedEventsConsumer =
             TransactionActivatedEventsConsumer(
                 paymentGatewayClient,
                 transactionsEventStoreRepository,
@@ -247,35 +225,9 @@ class TransactionActivatedEventsConsumerTests {
                 transactionsViewRepository,
                 transactionUtils
             )
-        val transactionId = UUID.randomUUID().toString()
-        val rptId = "77777777777302000100440009424"
-        val paymentToken = UUID.randomUUID().toString().replace("-", "")
 
-        val activatedEvent = TransactionActivatedEvent(
-            transactionId,
-            TransactionActivatedData(
-                "email@test.it",
-                listOf(
-                    PaymentNotice(
-                        paymentToken,
-                        rptId,
-                        "description",
-                        100,
-                        "paymentContextCode"
-                    )
-                ),
-                null,
-                null,
-                Transaction.ClientId.CHECKOUT
-            )
-        )
-
-        val expiredEvent = TransactionExpiredEvent(
-            transactionId,
-            TransactionExpiredData(
-                TransactionStatusDto.ACTIVATED
-            )
-        )
+        val activatedEvent = transactionActivateEvent()
+        val expiredEvent = transactionExpiredEvent(TransactionStatusDto.ACTIVATED)
 
         /* preconditions */
         given(checkpointer.success()).willReturn(Mono.empty())
