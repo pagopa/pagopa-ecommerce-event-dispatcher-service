@@ -2,10 +2,10 @@ package it.pagopa.ecommerce.scheduler.queues
 
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
-import it.pagopa.ecommerce.commons.TransactionTestUtils
-import it.pagopa.ecommerce.commons.TransactionTestUtils.transactionActivateEvent
-import it.pagopa.ecommerce.commons.TransactionTestUtils.transactionAuthorizationRequestedEvent
-import it.pagopa.ecommerce.commons.documents.*
+import it.pagopa.ecommerce.commons.v1.TransactionTestUtils
+import it.pagopa.ecommerce.commons.v1.TransactionTestUtils.transactionActivateEvent
+import it.pagopa.ecommerce.commons.v1.TransactionTestUtils.transactionAuthorizationRequestedEvent
+import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.scheduler.client.PaymentGatewayClient
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreRepository
@@ -18,11 +18,9 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mockito
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.*
-import org.springframework.test.context.TestPropertySource
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
-import java.util.*
 
 @ExtendWith(MockitoExtension::class)
 @OptIn(ExperimentalCoroutinesApi::class)

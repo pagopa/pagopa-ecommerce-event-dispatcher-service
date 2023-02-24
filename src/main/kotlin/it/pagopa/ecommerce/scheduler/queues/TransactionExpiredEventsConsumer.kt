@@ -3,14 +3,14 @@ package it.pagopa.ecommerce.scheduler.queues
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
-import it.pagopa.ecommerce.commons.documents.*
-import it.pagopa.ecommerce.commons.domain.EmptyTransaction
-import it.pagopa.ecommerce.commons.domain.Transaction
-import it.pagopa.ecommerce.commons.domain.pojos.BaseTransaction
-import it.pagopa.ecommerce.commons.domain.pojos.BaseTransactionExpired
-import it.pagopa.ecommerce.commons.domain.pojos.BaseTransactionWithRequestedAuthorization
+import it.pagopa.ecommerce.commons.documents.v1.*
+import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
+import it.pagopa.ecommerce.commons.domain.v1.Transaction
+import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransaction
+import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionExpired
+import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithRequestedAuthorization
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
-import it.pagopa.ecommerce.commons.utils.TransactionUtils
+import it.pagopa.ecommerce.commons.utils.v1.TransactionUtils
 import it.pagopa.ecommerce.scheduler.client.PaymentGatewayClient
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsViewRepository
@@ -120,7 +120,7 @@ class TransactionExpiredEventsConsumer(
                     transaction.transactionId.value.toString(),
                     paymentNoticeDocuments(transaction.paymentNotices),
                     TransactionUtils.getTransactionFee(transaction).orElse(null),
-                    transaction.email.value,
+                    transaction.email,
                     TransactionStatusDto.EXPIRED,
                     transaction.clientId,
                     transaction.creationDate.toString()
@@ -133,7 +133,7 @@ class TransactionExpiredEventsConsumer(
         }.thenReturn(transaction)
     }
 
-    private fun paymentNoticeDocuments(paymentNotices: List<it.pagopa.ecommerce.commons.domain.PaymentNotice>): List<PaymentNotice> {
+    private fun paymentNoticeDocuments(paymentNotices: List<it.pagopa.ecommerce.commons.domain.v1.PaymentNotice>): List<PaymentNotice> {
         return paymentNotices.map { notice ->
             PaymentNotice(
                 notice.paymentToken.value,
