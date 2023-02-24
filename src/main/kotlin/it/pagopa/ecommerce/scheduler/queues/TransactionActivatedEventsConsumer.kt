@@ -3,7 +3,6 @@ package it.pagopa.ecommerce.scheduler.queues
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
-import it.pagopa.ecommerce.commons.documents.*
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v1.Transaction
@@ -41,6 +40,13 @@ class TransactionActivatedEventsConsumer(
 
     var logger: Logger = LoggerFactory.getLogger(TransactionActivatedEventsConsumer::class.java)
 
+    private fun getTransactionIdFromPayload(data: BinaryData): Mono<String> {
+        val idFromActivatedEvent = data.toObjectAsync(TransactionActivatedEvent::class.java).map { it.transactionId }
+        val idFromClosedEvent = data.toObjectAsync(TransactionClosedEvent::class.java).map { it.transactionId }
+
+        return Mono.firstWithValue(idFromActivatedEvent, idFromClosedEvent)
+    }
+
     @ServiceActivator(inputChannel = "transactionactivatedchannel", outputChannel = "nullChannel")
     fun messageReceiver(
         @Payload payload: ByteArray,
@@ -48,7 +54,7 @@ class TransactionActivatedEventsConsumer(
     ): Mono<Void> {
         val checkpoint = checkpointer.success()
 
-        val transactionId = BinaryData.fromBytes(payload).toObjectAsync(TransactionActivatedEvent::class.java).map { it.transactionId }
+        val transactionId = getTransactionIdFromPayload(BinaryData.fromBytes(payload))
 
         val refundPipeline = transactionId
             .flatMapMany { transactionsEventStoreRepository.findByTransactionId(it) }
