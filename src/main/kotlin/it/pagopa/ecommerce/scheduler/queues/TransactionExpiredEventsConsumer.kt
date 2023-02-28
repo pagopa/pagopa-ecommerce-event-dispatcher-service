@@ -3,12 +3,15 @@ package it.pagopa.ecommerce.scheduler.queues
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
-import it.pagopa.ecommerce.commons.documents.v1.*
+import it.pagopa.ecommerce.commons.documents.v1.TransactionExpiredEvent
+import it.pagopa.ecommerce.commons.documents.v1.TransactionRefundRetriedEvent
+import it.pagopa.ecommerce.commons.documents.v1.TransactionRefundedData
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v1.Transaction
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransaction
+import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionExpired
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithRequestedAuthorization
-import it.pagopa.ecommerce.commons.utils.v1.TransactionUtils
+import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.scheduler.client.PaymentGatewayClient
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsViewRepository
@@ -20,33 +23,32 @@ import org.springframework.messaging.handler.annotation.Header
 import org.springframework.messaging.handler.annotation.Payload
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
+import reactor.kotlin.core.publisher.switchIfEmpty
 import java.util.*
 
 /**
- * Event consumer for events related to transaction activation.
- * This consumer's responsibilities are to handle expiration of transactions and subsequent refund
- * for transaction stuck in a pending/transient state.
+ * Event consumer for expiration events.
+ * These events are input in the event queue only when a transaction
+ * is stuck in an EXPIRED state **and** needs to be reverted
  */
 @Service
-class TransactionActivatedEventsConsumer(
+class TransactionExpiredEventsConsumer(
     @Autowired private val paymentGatewayClient: PaymentGatewayClient,
     @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,
-    @Autowired private val transactionsExpiredEventStoreRepository: TransactionsEventStoreRepository<TransactionExpiredData>,
     @Autowired private val transactionsRefundedEventStoreRepository: TransactionsEventStoreRepository<TransactionRefundedData>,
     @Autowired private val transactionsViewRepository: TransactionsViewRepository,
-    @Autowired private val transactionUtils: TransactionUtils
 ) {
 
-    var logger: Logger = LoggerFactory.getLogger(TransactionActivatedEventsConsumer::class.java)
+    var logger: Logger = LoggerFactory.getLogger(TransactionExpiredEventsConsumer::class.java)
 
     private fun getTransactionIdFromPayload(data: BinaryData): Mono<String> {
-        val idFromActivatedEvent = data.toObjectAsync(TransactionActivatedEvent::class.java).map { it.transactionId }
-        val idFromClosedEvent = data.toObjectAsync(TransactionClosedEvent::class.java).map { it.transactionId }
+        val idFromActivatedEvent = data.toObjectAsync(TransactionExpiredEvent::class.java).map { it.transactionId }
+        val idFromRefundedEvent = data.toObjectAsync(TransactionRefundRetriedEvent::class.java).map { it.transactionId }
 
-        return Mono.firstWithValue(idFromActivatedEvent, idFromClosedEvent)
+        return Mono.firstWithValue(idFromActivatedEvent, idFromRefundedEvent)
     }
 
-    @ServiceActivator(inputChannel = "transactionactivatedchannel", outputChannel = "nullChannel")
+    @ServiceActivator(inputChannel = "transactionexpiredchannel", outputChannel = "nullChannel")
     fun messageReceiver(
         @Payload payload: ByteArray,
         @Header(AzureHeaders.CHECKPOINTER) checkpointer: Checkpointer
@@ -59,25 +61,26 @@ class TransactionActivatedEventsConsumer(
             .flatMapMany { transactionsEventStoreRepository.findByTransactionId(it) }
             .reduce(EmptyTransaction(), Transaction::applyEvent)
             .cast(BaseTransaction::class.java)
-            .filter {
-                transactionUtils.isTransientStatus(it.status)
+            .filter { it.status == TransactionStatusDto.EXPIRED }
+            .doOnNext {
+                logger.info("Handling expired transaction with id ${it.transactionId.value}")
             }
-            .flatMap { tx -> updateTransactionToExpired(tx, transactionsExpiredEventStoreRepository, transactionsViewRepository) }
-            .filter {
-                val refundable = isTransactionRefundable(it)
-                logger.info("Transaction ${it.transactionId.value} in status ${it.status}, refundable: $refundable")
-                refundable
+            .cast(BaseTransactionExpired::class.java)
+            .map { it.transactionAtPreviousState }
+            .filter(::isTransactionRefundable)
+            .switchIfEmpty {
+                return@switchIfEmpty transactionId.doOnNext {
+                    logger.info("Transaction $it was not previously authorized. No refund needed")
+                }.flatMap { Mono.empty() }
             }
+            .cast(BaseTransactionWithRequestedAuthorization::class.java)
             .flatMap { tx -> refundTransaction(tx, transactionsRefundedEventStoreRepository, transactionsViewRepository, paymentGatewayClient) }
-            .onErrorMap { exception ->
-                transactionId.map { id ->
-                    logger.error(
-                        "Transaction requestRefund error for transaction $id : ${exception.message}"
-                    )
-                }
-
+            .onErrorMap {
+                logger.error(
+                    "Transaction requestRefund error for transaction ${transactionId.block()} : ${it.message}"
+                )
                 // TODO retry
-                exception
+                it
             }
 
         return checkpoint.then(refundPipeline).then()
