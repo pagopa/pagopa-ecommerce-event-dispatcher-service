@@ -53,6 +53,12 @@ class TransactionClosureErrorEventConsumer(
   fun messageReceiver(
     @Payload payload: ByteArray,
     @Header(AzureHeaders.CHECKPOINTER) checkpointer: Checkpointer
+  ) = processMessage(payload, checkpointer, EmptyTransaction())
+
+  fun processMessage(
+    @Payload payload: ByteArray,
+    @Header(AzureHeaders.CHECKPOINTER) checkpointer: Checkpointer,
+    emptyTransaction: EmptyTransaction
   ): Mono<Either<TransactionClosureFailedEvent, TransactionClosedEvent>> {
     val checkpoint = checkpointer.success()
 
@@ -61,7 +67,7 @@ class TransactionClosureErrorEventConsumer(
     val closurePipeline =
       transactionId
         .flatMapMany { transactionsEventStoreRepository.findByTransactionId(it) }
-        .reduce(EmptyTransaction(), Transaction::applyEvent)
+        .reduce(emptyTransaction, Transaction::applyEvent)
         .cast(BaseTransaction::class.java)
         .flatMap {
           logger.info("Status for transaction ${it.transactionId.value}: ${it.status}")
@@ -87,7 +93,7 @@ class TransactionClosureErrorEventConsumer(
                   .authorizationResultDto) {
                   AuthorizationResultDto.OK -> ClosePaymentRequestV2Dto.OutcomeEnum.OK
                   AuthorizationResultDto.KO -> ClosePaymentRequestV2Dto.OutcomeEnum.KO
-                  null ->
+                  else ->
                     return@flatMap Mono.error(
                       RuntimeException("authorizationResult in status update event is null!"))
                 }
