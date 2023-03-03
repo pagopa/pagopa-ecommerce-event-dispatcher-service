@@ -64,7 +64,7 @@ fun updateTransactionToRefunded(
           paymentNoticeDocuments(transaction.paymentNotices),
           TransactionUtils.getTransactionFee(transaction).orElse(null),
           transaction.email,
-          TransactionStatusDto.EXPIRED,
+          transaction.status,
           transaction.clientId,
           transaction.creationDate.toString())))
     .doOnSuccess {

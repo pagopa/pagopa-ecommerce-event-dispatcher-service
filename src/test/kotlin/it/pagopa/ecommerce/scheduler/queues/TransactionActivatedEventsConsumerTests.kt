@@ -12,6 +12,7 @@ import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreReposito
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.scheduler.services.NodeService
 import it.pagopa.ecommerce.scheduler.services.RefundService
+import it.pagopa.ecommerce.scheduler.services.eventretry.RefundRetryService
 import it.pagopa.generated.ecommerce.gateway.v1.dto.PostePayRefundResponseDto
 import java.time.ZonedDateTime
 import java.util.*
@@ -56,6 +57,8 @@ class TransactionActivatedEventsConsumerTests {
 
   @Mock private lateinit var transactionsViewRepository: TransactionsViewRepository
 
+  @Mock private lateinit var refundRetryService: RefundRetryService
+
   @Autowired private lateinit var transactionUtils: TransactionUtils
 
   @Test
@@ -67,7 +70,8 @@ class TransactionActivatedEventsConsumerTests {
         transactionsExpiredEventStoreRepository,
         transactionsRefundedEventStoreRepository,
         transactionsViewRepository,
-        transactionUtils)
+        transactionUtils,
+        refundRetryService)
 
     val activatedEvent = transactionActivateEvent()
     val transactionId = activatedEvent.transactionId
@@ -105,7 +109,8 @@ class TransactionActivatedEventsConsumerTests {
         transactionsExpiredEventStoreRepository,
         transactionsRefundedEventStoreRepository,
         transactionsViewRepository,
-        transactionUtils)
+        transactionUtils,
+        refundRetryService)
 
     val activatedEvent = TransactionTestUtils.transactionActivateEvent()
     val transactionId = activatedEvent.transactionId
@@ -145,7 +150,8 @@ class TransactionActivatedEventsConsumerTests {
         transactionsExpiredEventStoreRepository,
         transactionsRefundedEventStoreRepository,
         transactionsViewRepository,
-        transactionUtils)
+        transactionUtils,
+        refundRetryService)
 
     val activatedEvent = transactionActivateEvent()
     val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
@@ -206,7 +212,8 @@ class TransactionActivatedEventsConsumerTests {
         transactionsExpiredEventStoreRepository,
         transactionsRefundedEventStoreRepository,
         transactionsViewRepository,
-        transactionUtils)
+        transactionUtils,
+        refundRetryService)
 
     val activatedEvent = transactionActivateEvent()
     val expiredEvent = transactionExpiredEvent(transactionActivated(ZonedDateTime.now().toString()))
@@ -245,7 +252,8 @@ class TransactionActivatedEventsConsumerTests {
         transactionsExpiredEventStoreRepository,
         transactionsRefundedEventStoreRepository,
         transactionsViewRepository,
-        transactionUtils)
+        transactionUtils,
+        refundRetryService)
 
     val activatedEvent = transactionActivateEvent()
     val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
@@ -304,7 +312,8 @@ class TransactionActivatedEventsConsumerTests {
         transactionsExpiredEventStoreRepository,
         transactionsRefundedEventStoreRepository,
         transactionsViewRepository,
-        transactionUtils)
+        transactionUtils,
+        refundRetryService)
 
     val activatedEvent = transactionActivateEvent()
     val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
