@@ -13,6 +13,7 @@ import it.pagopa.ecommerce.scheduler.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.scheduler.services.NodeService
 import it.pagopa.ecommerce.scheduler.services.RefundService
 import it.pagopa.generated.ecommerce.gateway.v1.dto.PostePayRefundResponseDto
+import java.time.ZonedDateTime
 import java.util.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
@@ -148,8 +149,9 @@ class TransactionActivatedEventsConsumerTests {
 
     val activatedEvent = transactionActivateEvent()
     val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
-    val expiredEvent = transactionExpiredEvent(TransactionStatusDto.ACTIVATED)
-    val refundedEvent = transactionRefundedEvent(TransactionStatusDto.ACTIVATED)
+    val expiredEvent = transactionExpiredEvent(transactionActivated(ZonedDateTime.now().toString()))
+    val refundedEvent =
+      transactionRefundedEvent(transactionActivated(ZonedDateTime.now().toString()))
 
     val transactionId = activatedEvent.transactionId
 
@@ -207,7 +209,7 @@ class TransactionActivatedEventsConsumerTests {
         transactionUtils)
 
     val activatedEvent = transactionActivateEvent()
-    val expiredEvent = transactionExpiredEvent(TransactionStatusDto.ACTIVATED)
+    val expiredEvent = transactionExpiredEvent(transactionActivated(ZonedDateTime.now().toString()))
 
     /* preconditions */
     given(checkpointer.success()).willReturn(Mono.empty())
@@ -247,8 +249,9 @@ class TransactionActivatedEventsConsumerTests {
 
     val activatedEvent = transactionActivateEvent()
     val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
-    val expiredEvent = transactionExpiredEvent(TransactionStatusDto.ACTIVATED)
-    val refundedEvent = transactionRefundedEvent(TransactionStatusDto.ACTIVATED)
+    val expiredEvent = transactionExpiredEvent(transactionActivated(ZonedDateTime.now().toString()))
+    val refundedEvent =
+      transactionRefundedEvent(transactionActivated(ZonedDateTime.now().toString()))
 
     val transactionId = activatedEvent.transactionId
 
@@ -305,8 +308,9 @@ class TransactionActivatedEventsConsumerTests {
 
     val activatedEvent = transactionActivateEvent()
     val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
-    val expiredEvent = transactionExpiredEvent(TransactionStatusDto.ACTIVATED)
-    val refundedEvent = transactionRefundedEvent(TransactionStatusDto.ACTIVATED)
+    val expiredEvent = transactionExpiredEvent(transactionActivated(ZonedDateTime.now().toString()))
+    val refundedEvent =
+      transactionRefundedEvent(transactionActivated(ZonedDateTime.now().toString()))
 
     val gatewayClientResponse = PostePayRefundResponseDto()
     gatewayClientResponse.refundOutcome = "KO"

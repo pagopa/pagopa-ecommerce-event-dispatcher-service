@@ -7,6 +7,7 @@ import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v1.Transaction
+import it.pagopa.ecommerce.commons.domain.v1.TransactionWithClosureError
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithClosureError
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
@@ -51,6 +52,12 @@ class TransactionClosureErrorEventConsumer(
   fun messageReceiver(
     @Payload payload: ByteArray,
     @Header(AzureHeaders.CHECKPOINTER) checkpointer: Checkpointer
+  ) = messageReceiver(payload, checkpointer, EmptyTransaction())
+
+  fun messageReceiver(
+    payload: ByteArray,
+    checkpointer: Checkpointer,
+    emptyTransaction: EmptyTransaction
   ): Mono<Either<TransactionClosureFailedEvent, TransactionClosedEvent>> {
     val checkpoint = checkpointer.success()
 
@@ -59,7 +66,7 @@ class TransactionClosureErrorEventConsumer(
     val closurePipeline =
       transactionId
         .flatMapMany { transactionsEventStoreRepository.findByTransactionId(it) }
-        .reduce(EmptyTransaction(), Transaction::applyEvent)
+        .reduce(emptyTransaction, Transaction::applyEvent)
         .cast(BaseTransaction::class.java)
         .flatMap {
           logger.info("Status for transaction ${it.transactionId.value}: ${it.status}")
@@ -74,20 +81,35 @@ class TransactionClosureErrorEventConsumer(
             Mono.just(it)
           }
         }
-        .cast(BaseTransactionWithClosureError::class.java)
+        .cast(TransactionWithClosureError::class.java)
         .flatMap { tx ->
+          val transactionAtPreviousState = tx.transactionAtPreviousState()
+          val canceledByUser: Boolean =
+            transactionAtPreviousState.isPresent && transactionAtPreviousState.get().isLeft
           val closureOutcome =
-            when (tx.transactionAuthorizationCompletedData.authorizationResultDto) {
-              AuthorizationResultDto.OK -> ClosePaymentRequestV2Dto.OutcomeEnum.OK
-              AuthorizationResultDto.KO -> ClosePaymentRequestV2Dto.OutcomeEnum.KO
-              null ->
-                return@flatMap Mono.error(
-                  RuntimeException("authorizationResult in status update event is null!"))
-            }
-
+            tx
+              .transactionAtPreviousState()
+              .map {
+                it.fold(
+                  { ClosePaymentRequestV2Dto.OutcomeEnum.KO },
+                  { trxWithAuthorizationCompleted ->
+                    when (trxWithAuthorizationCompleted.transactionAuthorizationCompletedData
+                      .authorizationResultDto) {
+                      AuthorizationResultDto.OK -> ClosePaymentRequestV2Dto.OutcomeEnum.OK
+                      AuthorizationResultDto.KO -> ClosePaymentRequestV2Dto.OutcomeEnum.KO
+                      else ->
+                        throw RuntimeException(
+                          "authorizationResult in status update event is null!")
+                    }
+                  })
+              }
+              .orElseThrow {
+                RuntimeException(
+                  "Unexpected transactionAtPreviousStep: ${tx.transactionAtPreviousState}")
+              }
           mono { nodeService.closePayment(tx.transactionId.value, closureOutcome) }
             .flatMap { closePaymentResponse ->
-              updateTransactionStatus(tx, closureOutcome, closePaymentResponse)
+              updateTransactionStatus(tx, closureOutcome, closePaymentResponse, canceledByUser)
             }
         }
         .onErrorMap { exception ->
@@ -103,7 +125,8 @@ class TransactionClosureErrorEventConsumer(
   private fun updateTransactionStatus(
     transaction: BaseTransactionWithClosureError,
     closureOutcome: ClosePaymentRequestV2Dto.OutcomeEnum,
-    closePaymentResponseDto: ClosePaymentResponseDto
+    closePaymentResponseDto: ClosePaymentResponseDto,
+    canceledByUser: Boolean
   ): Mono<Either<TransactionClosureFailedEvent, TransactionClosedEvent>> {
     val outcome =
       when (closePaymentResponseDto.outcome) {
@@ -126,7 +149,12 @@ class TransactionClosureErrorEventConsumer(
     val newStatus =
       when (closureOutcome) {
         ClosePaymentRequestV2Dto.OutcomeEnum.OK -> TransactionStatusDto.CLOSED
-        ClosePaymentRequestV2Dto.OutcomeEnum.KO -> TransactionStatusDto.UNAUTHORIZED
+        ClosePaymentRequestV2Dto.OutcomeEnum.KO ->
+          if (canceledByUser) {
+            TransactionStatusDto.CANCELED
+          } else {
+            TransactionStatusDto.UNAUTHORIZED
+          }
       }
 
     logger.info("Updating transaction {} status to {}", transaction.transactionId.value, newStatus)
