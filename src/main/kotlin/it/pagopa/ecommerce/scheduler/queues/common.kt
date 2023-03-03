@@ -58,7 +58,8 @@ fun updateTransactionToRefundRequested(
     transactionsRefundedEventStoreRepository,
     transactionsViewRepository,
     TransactionRefundRequestedEvent(
-      transaction.transactionId.value.toString(), TransactionRefundedData(transaction.status)))
+      transaction.transactionId.value.toString(), TransactionRefundedData(transaction.status)),
+    TransactionStatusDto.REFUND_REQUESTED)
 }
 
 fun updateTransactionToRefundError(
@@ -72,7 +73,8 @@ fun updateTransactionToRefundError(
     transactionsRefundedEventStoreRepository,
     transactionsViewRepository,
     TransactionRefundErrorEvent(
-      transaction.transactionId.value.toString(), TransactionRefundedData(transaction.status)))
+      transaction.transactionId.value.toString(), TransactionRefundedData(transaction.status)),
+    TransactionStatusDto.REFUND_ERROR)
 }
 
 fun updateTransactionToRefunded(
@@ -86,7 +88,8 @@ fun updateTransactionToRefunded(
     transactionsRefundedEventStoreRepository,
     transactionsViewRepository,
     TransactionRefundedEvent(
-      transaction.transactionId.value.toString(), TransactionRefundedData(transaction.status)))
+      transaction.transactionId.value.toString(), TransactionRefundedData(transaction.status)),
+    TransactionStatusDto.REFUNDED)
 }
 
 fun updateTransactionWithRefundEvent(
@@ -94,7 +97,8 @@ fun updateTransactionWithRefundEvent(
   transactionsRefundedEventStoreRepository:
     TransactionsEventStoreRepository<TransactionRefundedData>,
   transactionsViewRepository: TransactionsViewRepository,
-  event: TransactionEvent<TransactionRefundedData>
+  event: TransactionEvent<TransactionRefundedData>,
+  status: TransactionStatusDto
 ): Mono<BaseTransaction> {
   return transactionsRefundedEventStoreRepository
     .save(event)
@@ -105,7 +109,7 @@ fun updateTransactionWithRefundEvent(
           paymentNoticeDocuments(transaction.paymentNotices),
           TransactionUtils.getTransactionFee(transaction).orElse(null),
           transaction.email,
-          TransactionStatusDto.EXPIRED,
+          status,
           transaction.clientId,
           transaction.creationDate.toString())))
     .doOnSuccess {

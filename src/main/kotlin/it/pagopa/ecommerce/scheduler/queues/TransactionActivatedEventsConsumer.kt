@@ -94,6 +94,7 @@ class TransactionActivatedEventsConsumer(
               updateTransactionToRefundError(
                 it, transactionsRefundedEventStoreRepository, transactionsViewRepository)
             }
+            // TODO add retry event send here
             .then(baseTransaction)
         }
     return checkpoint.then(refundPipeline).then()
