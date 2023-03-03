@@ -41,4 +41,14 @@ class QueuesConsumerConfig {
   ): StorageQueueMessageSource {
     return StorageQueueMessageSource(queueNameClosureEvents, storageQueueTemplate)
   }
+
+  @Bean
+  @InboundChannelAdapter(
+    channel = "transactionsrefundchannel", poller = [Poller(fixedDelay = "1000")])
+  fun storageQueueRefundMessageSource(
+    storageQueueTemplate: StorageQueueTemplate,
+    @Value("\${azurestorage.queues.transactionsrefund.name}") refundRequestedEvent: String
+  ): StorageQueueMessageSource {
+    return StorageQueueMessageSource(refundRequestedEvent, storageQueueTemplate)
+  }
 }
