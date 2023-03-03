@@ -354,7 +354,7 @@ class TransactionClosureErrorEventConsumerTests {
 
       assertThrows<RuntimeException> {
         transactionClosureErrorEventsConsumer
-          .processMessage(
+          .messageReceiver(
             BinaryData.fromObject(activatedEvent).toBytes(), checkpointer, emptyTransactionMock)
           .block()
       }

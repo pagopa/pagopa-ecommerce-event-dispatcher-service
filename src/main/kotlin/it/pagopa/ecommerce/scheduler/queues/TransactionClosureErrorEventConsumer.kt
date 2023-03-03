@@ -53,11 +53,11 @@ class TransactionClosureErrorEventConsumer(
   fun messageReceiver(
     @Payload payload: ByteArray,
     @Header(AzureHeaders.CHECKPOINTER) checkpointer: Checkpointer
-  ) = processMessage(payload, checkpointer, EmptyTransaction())
+  ) = messageReceiver(payload, checkpointer, EmptyTransaction())
 
-  fun processMessage(
-    @Payload payload: ByteArray,
-    @Header(AzureHeaders.CHECKPOINTER) checkpointer: Checkpointer,
+  fun messageReceiver(
+    payload: ByteArray,
+    checkpointer: Checkpointer,
     emptyTransaction: EmptyTransaction
   ): Mono<Either<TransactionClosureFailedEvent, TransactionClosedEvent>> {
     val checkpoint = checkpointer.success()
