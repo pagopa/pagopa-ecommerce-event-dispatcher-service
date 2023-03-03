@@ -54,7 +54,7 @@ class TransactionClosureErrorEventConsumerTests {
       nodeService)
 
   @Test
-  fun `consumer processes bare closure error message correctly with OK closure outcome`() =
+  fun `consumer processes bare closure error message correctly with OK closure outcome for authorization completed transaction`() =
     runTest {
       val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
       val authorizationRequestEvent =
@@ -121,7 +121,7 @@ class TransactionClosureErrorEventConsumerTests {
     }
 
   @Test
-  fun `consumer processes bare closure error message correctly with KO closure outcome`() =
+  fun `consumer processes bare closure error message correctly with KO closure outcome for authorization completed transaction`() =
     runTest {
       val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
       val authorizationRequestEvent =
@@ -144,6 +144,69 @@ class TransactionClosureErrorEventConsumerTests {
       val expectedUpdatedTransaction =
         transactionDocument(
           TransactionStatusDto.UNAUTHORIZED, ZonedDateTime.parse(activationEvent.creationDate))
+
+      val transactionDocument =
+        transactionDocument(
+          TransactionStatusDto.CLOSURE_ERROR, ZonedDateTime.parse(activationEvent.creationDate))
+
+      val expectedClosureEvent =
+        TransactionClosureFailedEvent(
+          activationEvent.transactionId, TransactionClosureData(TransactionClosureData.Outcome.OK))
+
+      /* preconditions */
+      given(checkpointer.success()).willReturn(Mono.empty())
+      given(transactionsEventStoreRepository.findByTransactionId(any())).willReturn(events.toFlux())
+      given(transactionsViewRepository.findByTransactionId(any()))
+        .willReturn(Mono.just(transactionDocument))
+      given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
+      given(transactionClosedEventRepository.save(any()))
+        .willReturn(Mono.just(expectedClosureEvent))
+      given(
+          nodeService.closePayment(
+            UUID.fromString(uuidFromStringWorkaround), ClosePaymentRequestV2Dto.OutcomeEnum.KO))
+        .willReturn(
+          ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.KO })
+
+      /* test */
+
+      val closureEventId = UUID.fromString(expectedClosureEvent.id)
+
+      Mockito.mockStatic(UUID::class.java).use { uuid ->
+        uuid.`when`<Any>(UUID::randomUUID).thenReturn(closureEventId)
+        uuid.`when`<Any> { UUID.fromString(any()) }.thenCallRealMethod()
+
+        transactionClosureErrorEventsConsumer
+          .messageReceiver(BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer)
+          .block()
+
+        /* Asserts */
+        verify(checkpointer, Mockito.times(1)).success()
+        verify(nodeService, Mockito.times(1))
+          .closePayment(UUID.fromString(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.KO)
+        verify(transactionClosedEventRepository, Mockito.times(1))
+          .save(
+            any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
+        // mocking
+        verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransaction)
+      }
+    }
+
+  @Test
+  fun `consumer processes bare closure error message correctly with KO closure outcome for user canceled transaction`() =
+    runTest {
+      val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
+      val userCanceledEvent = transactionUserCanceledEvent() as TransactionEvent<Any>
+      val closureErrorEvent = transactionClosureErrorEvent() as TransactionEvent<Any>
+
+      val uuidFromStringWorkaround =
+        "00000000-0000-0000-0000-000000000000" // FIXME: Workaround for static mocking apparently
+      // not working
+
+      val events = listOf(activationEvent, userCanceledEvent, closureErrorEvent)
+
+      val expectedUpdatedTransaction =
+        transactionDocument(
+          TransactionStatusDto.CANCELED, ZonedDateTime.parse(activationEvent.creationDate))
 
       val transactionDocument =
         transactionDocument(
