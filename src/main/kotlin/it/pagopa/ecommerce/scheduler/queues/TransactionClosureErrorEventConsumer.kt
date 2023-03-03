@@ -8,7 +8,9 @@ import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v1.Transaction
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransaction
+import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithCancellationRequested
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithClosureError
+import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithCompletedAuthorization
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.scheduler.exceptions.BadTransactionStatusException
@@ -77,12 +79,23 @@ class TransactionClosureErrorEventConsumer(
         .cast(BaseTransactionWithClosureError::class.java)
         .flatMap { tx ->
           val closureOutcome =
-            when (tx.transactionAuthorizationCompletedData.authorizationResultDto) {
-              AuthorizationResultDto.OK -> ClosePaymentRequestV2Dto.OutcomeEnum.OK
-              AuthorizationResultDto.KO -> ClosePaymentRequestV2Dto.OutcomeEnum.KO
-              null ->
+            when (val transactionAtPreviousState = tx.transactionAtPreviousState) {
+              is BaseTransactionWithCompletedAuthorization -> {
+                when (transactionAtPreviousState.transactionAuthorizationCompletedData
+                  .authorizationResultDto) {
+                  AuthorizationResultDto.OK -> ClosePaymentRequestV2Dto.OutcomeEnum.OK
+                  AuthorizationResultDto.KO -> ClosePaymentRequestV2Dto.OutcomeEnum.KO
+                  null ->
+                    return@flatMap Mono.error(
+                      RuntimeException("authorizationResult in status update event is null!"))
+                }
+              }
+              is BaseTransactionWithCancellationRequested -> ClosePaymentRequestV2Dto.OutcomeEnum.KO
+              else -> {
                 return@flatMap Mono.error(
-                  RuntimeException("authorizationResult in status update event is null!"))
+                  RuntimeException(
+                    "Unexpected transactionAtPreviousStep: ${tx.transactionAtPreviousState}"))
+              }
             }
 
           mono { nodeService.closePayment(tx.transactionId.value, closureOutcome) }
