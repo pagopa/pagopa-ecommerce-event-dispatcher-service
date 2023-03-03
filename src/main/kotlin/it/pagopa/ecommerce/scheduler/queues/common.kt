@@ -1,6 +1,7 @@
 package it.pagopa.ecommerce.scheduler.queues
 
 import it.pagopa.ecommerce.commons.documents.v1.*
+import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithRequestedAuthorization
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
@@ -170,3 +171,12 @@ fun paymentNoticeDocuments(
 
 fun isTransactionRefundable(tx: BaseTransaction): Boolean =
   tx is BaseTransactionWithRequestedAuthorization
+
+fun reduceEvents(
+  transactionId: Mono<String>,
+  transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>
+) =
+  transactionId
+    .flatMapMany { transactionsEventStoreRepository.findByTransactionId(it) }
+    .reduce(EmptyTransaction(), it.pagopa.ecommerce.commons.domain.v1.Transaction::applyEvent)
+    .cast(BaseTransaction::class.java)

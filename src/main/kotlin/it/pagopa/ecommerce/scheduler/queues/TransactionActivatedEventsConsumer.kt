@@ -4,9 +4,6 @@ import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import it.pagopa.ecommerce.commons.documents.v1.*
-import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
-import it.pagopa.ecommerce.commons.domain.v1.Transaction
-import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.utils.v1.TransactionUtils
 import it.pagopa.ecommerce.scheduler.client.PaymentGatewayClient
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreRepository
@@ -61,11 +58,7 @@ class TransactionActivatedEventsConsumer(
     val checkpoint = checkpointer.success()
 
     val transactionId = getTransactionIdFromPayload(BinaryData.fromBytes(payload))
-    val baseTransaction =
-      transactionId
-        .flatMapMany { transactionsEventStoreRepository.findByTransactionId(it) }
-        .reduce(EmptyTransaction(), Transaction::applyEvent)
-        .cast(BaseTransaction::class.java)
+    val baseTransaction = reduceEvents(transactionId, transactionsEventStoreRepository)
     val refundPipeline =
       baseTransaction
         .filter { transactionUtils.isTransientStatus(it.status) }
