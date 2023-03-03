@@ -47,16 +47,57 @@ fun updateTransactionToExpired(
     .thenReturn(transaction)
 }
 
+fun updateTransactionToRefundRequested(
+  transaction: BaseTransaction,
+  transactionsRefundedEventStoreRepository:
+    TransactionsEventStoreRepository<TransactionRefundedData>,
+  transactionsViewRepository: TransactionsViewRepository
+): Mono<BaseTransaction> {
+  return updateTransactionWithRefundEvent(
+    transaction,
+    transactionsRefundedEventStoreRepository,
+    transactionsViewRepository,
+    TransactionRefundRequestedEvent(
+      transaction.transactionId.value.toString(), TransactionRefundedData(transaction.status)))
+}
+
+fun updateTransactionToRefundError(
+  transaction: BaseTransaction,
+  transactionsRefundedEventStoreRepository:
+    TransactionsEventStoreRepository<TransactionRefundedData>,
+  transactionsViewRepository: TransactionsViewRepository
+): Mono<BaseTransaction> {
+  return updateTransactionWithRefundEvent(
+    transaction,
+    transactionsRefundedEventStoreRepository,
+    transactionsViewRepository,
+    TransactionRefundErrorEvent(
+      transaction.transactionId.value.toString(), TransactionRefundedData(transaction.status)))
+}
+
 fun updateTransactionToRefunded(
   transaction: BaseTransaction,
   transactionsRefundedEventStoreRepository:
     TransactionsEventStoreRepository<TransactionRefundedData>,
   transactionsViewRepository: TransactionsViewRepository,
 ): Mono<BaseTransaction> {
+  return updateTransactionWithRefundEvent(
+    transaction,
+    transactionsRefundedEventStoreRepository,
+    transactionsViewRepository,
+    TransactionRefundedEvent(
+      transaction.transactionId.value.toString(), TransactionRefundedData(transaction.status)))
+}
+
+fun updateTransactionWithRefundEvent(
+  transaction: BaseTransaction,
+  transactionsRefundedEventStoreRepository:
+    TransactionsEventStoreRepository<TransactionRefundedData>,
+  transactionsViewRepository: TransactionsViewRepository,
+  event: TransactionEvent<TransactionRefundedData>
+): Mono<BaseTransaction> {
   return transactionsRefundedEventStoreRepository
-    .save(
-      TransactionRefundedEvent(
-        transaction.transactionId.value.toString(), TransactionRefundedData(transaction.status)))
+    .save(event)
     .then(
       transactionsViewRepository.save(
         Transaction(
@@ -80,6 +121,10 @@ fun refundTransaction(
   paymentGatewayClient: PaymentGatewayClient
 ): Mono<BaseTransaction> {
   return Mono.just(tx)
+    .flatMap {
+      updateTransactionToRefundRequested(
+        it, transactionsEventStoreRepository, transactionsViewRepository)
+    }
     .cast(BaseTransactionWithRequestedAuthorization::class.java)
     .flatMap { transaction ->
       val authorizationRequestId =
