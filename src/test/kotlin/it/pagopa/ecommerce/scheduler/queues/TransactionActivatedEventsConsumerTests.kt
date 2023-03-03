@@ -164,16 +164,21 @@ class TransactionActivatedEventsConsumerTests {
 
     val activatedEvent = transactionActivateEvent()
     val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
-    EmptyTransaction().applyEvent(activatedEvent).applyEvent(authorizationRequestedEvent)
-    val expiredEvent =
-      transactionExpiredEvent(reduceEvents(activatedEvent, authorizationRequestedEvent))
-    val refundRequestedEvent =
-      transactionRefundRequestedEvent(
-        reduceEvents(activatedEvent, authorizationRequestedEvent, expiredEvent))
+    val expiredEvent = transactionExpiredEvent(transactionActivated(ZonedDateTime.now().toString()))
     val refundedEvent =
-      transactionRefundedEvent(
-        reduceEvents(
-          activatedEvent, authorizationRequestedEvent, expiredEvent, refundRequestedEvent))
+      transactionRefundedEvent(transactionActivated(ZonedDateTime.now().toString()))
+
+    val transactionId = activatedEvent.transactionId
+
+    val transaction =
+      Transaction(
+        transactionId,
+        activatedEvent.data.paymentNotices,
+        activatedEvent.data.paymentNotices.sumOf { it.amount },
+        activatedEvent.data.email,
+        TransactionStatusDto.EXPIRED,
+        activatedEvent.data.clientId,
+        activatedEvent.creationDate)
 
     val gatewayClientResponse = PostePayRefundResponseDto()
     gatewayClientResponse.refundOutcome = "OK"
