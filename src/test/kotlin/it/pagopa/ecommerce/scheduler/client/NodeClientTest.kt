@@ -7,6 +7,8 @@ import it.pagopa.ecommerce.scheduler.utils.getMockedClosePaymentRequest
 import it.pagopa.generated.ecommerce.nodo.v2.api.NodoApi
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto.OutcomeEnum
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
+import java.nio.charset.Charset
+import java.util.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.reactor.awaitSingle
 import kotlinx.coroutines.test.runTest
@@ -21,90 +23,87 @@ import org.springframework.http.HttpHeaders
 import org.springframework.test.context.TestPropertySource
 import org.springframework.web.reactive.function.client.WebClientResponseException
 import reactor.core.publisher.Mono
-import java.nio.charset.Charset
-import java.util.*
 
 @SpringBootTest
 @OptIn(ExperimentalCoroutinesApi::class)
 @TestPropertySource(locations = ["classpath:application.test.properties"])
 class NodeClientTest {
 
-    @Mock
-    private lateinit var nodeApi: NodoApi
+  @Mock private lateinit var nodeApi: NodoApi
 
-    @InjectMocks
-    private lateinit var nodeClient: NodeClient
+  @InjectMocks private lateinit var nodeClient: NodeClient
 
-    @Test
-    fun `closePayment returns successfully`() = runTest {
-        val transactionId: UUID = UUID.randomUUID()
+  @Test
+  fun `closePayment returns successfully`() = runTest {
+    val transactionId: UUID = UUID.randomUUID()
 
-        val closePaymentRequest = getMockedClosePaymentRequest(transactionId, OutcomeEnum.OK)
-        val expected = ClosePaymentResponseDto().apply {
-            outcome = ClosePaymentResponseDto.OutcomeEnum.OK
-        }
+    val closePaymentRequest = getMockedClosePaymentRequest(transactionId, OutcomeEnum.OK)
+    val expected =
+      ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
 
-        /* preconditions */
-        given(nodeApi.closePaymentV2(closePaymentRequest))
-            .willReturn(Mono.just(expected))
+    /* preconditions */
+    given(nodeApi.closePaymentV2(closePaymentRequest)).willReturn(Mono.just(expected))
 
-        /* test */
-        val response = nodeClient.closePayment(closePaymentRequest).awaitSingle()
+    /* test */
+    val response = nodeClient.closePayment(closePaymentRequest).awaitSingle()
 
-        assertEquals(expected, response)
+    assertEquals(expected, response)
+  }
+
+  @Test
+  fun `closePayment throws TransactionEventNotFoundException on Node 404`() = runTest {
+    val transactionId: UUID = UUID.randomUUID()
+
+    val closePaymentRequest = getMockedClosePaymentRequest(transactionId, OutcomeEnum.OK)
+
+    /* preconditions */
+    given(nodeApi.closePaymentV2(closePaymentRequest))
+      .willReturn(
+        Mono.error(
+          WebClientResponseException.create(
+            404, "Not found", HttpHeaders.EMPTY, ByteArray(0), Charset.defaultCharset())))
+
+    /* test */
+    assertThrows<TransactionNotFound> { nodeClient.closePayment(closePaymentRequest).awaitSingle() }
+  }
+
+  @Test
+  fun `closePayment throws GatewayTimeoutException on Node 408`() = runTest {
+    val transactionId: UUID = UUID.randomUUID()
+
+    val closePaymentRequest = getMockedClosePaymentRequest(transactionId, OutcomeEnum.OK)
+
+    /* preconditions */
+    given(nodeApi.closePaymentV2(closePaymentRequest))
+      .willReturn(
+        Mono.error(
+          WebClientResponseException.create(
+            408, "Request timeout", HttpHeaders.EMPTY, ByteArray(0), Charset.defaultCharset())))
+
+    /* test */
+    assertThrows<GatewayTimeoutException> {
+      nodeClient.closePayment(closePaymentRequest).awaitSingle()
     }
+  }
 
-    @Test
-    fun `closePayment throws TransactionEventNotFoundException on Node 404`() = runTest {
-        val transactionId: UUID = UUID.randomUUID()
+  @Test
+  fun `closePayment throws BadGatewayException on Node 500`() = runTest {
+    val transactionId: UUID = UUID.randomUUID()
 
-        val closePaymentRequest = getMockedClosePaymentRequest(transactionId, OutcomeEnum.OK)
+    val closePaymentRequest = getMockedClosePaymentRequest(transactionId, OutcomeEnum.OK)
 
-        /* preconditions */
-        given(nodeApi.closePaymentV2(closePaymentRequest))
-            .willReturn(Mono.error(WebClientResponseException.create(
-                404,"Not found", HttpHeaders.EMPTY, ByteArray(0), Charset.defaultCharset())))
+    /* preconditions */
+    given(nodeApi.closePaymentV2(closePaymentRequest))
+      .willReturn(
+        Mono.error(
+          WebClientResponseException.create(
+            500,
+            "Internal server error",
+            HttpHeaders.EMPTY,
+            ByteArray(0),
+            Charset.defaultCharset())))
 
-
-        /* test */
-        assertThrows<TransactionNotFound> {
-            nodeClient.closePayment(closePaymentRequest).awaitSingle()
-        }
-    }
-
-    @Test
-    fun `closePayment throws GatewayTimeoutException on Node 408`() = runTest {
-        val transactionId: UUID = UUID.randomUUID()
-
-        val closePaymentRequest = getMockedClosePaymentRequest(transactionId, OutcomeEnum.OK)
-
-        /* preconditions */
-        given(nodeApi.closePaymentV2(closePaymentRequest))
-            .willReturn(Mono.error(WebClientResponseException.create(
-                408,"Request timeout", HttpHeaders.EMPTY, ByteArray(0), Charset.defaultCharset())))
-
-
-        /* test */
-        assertThrows<GatewayTimeoutException> {
-            nodeClient.closePayment(closePaymentRequest).awaitSingle()
-        }
-    }
-
-    @Test
-    fun `closePayment throws BadGatewayException on Node 500`() = runTest {
-        val transactionId: UUID = UUID.randomUUID()
-
-        val closePaymentRequest = getMockedClosePaymentRequest(transactionId, OutcomeEnum.OK)
-
-        /* preconditions */
-        given(nodeApi.closePaymentV2(closePaymentRequest))
-            .willReturn(Mono.error(WebClientResponseException.create(
-                500,"Internal server error", HttpHeaders.EMPTY, ByteArray(0), Charset.defaultCharset())))
-
-
-        /* test */
-        assertThrows<BadGatewayException> {
-            nodeClient.closePayment(closePaymentRequest).awaitSingle()
-        }
-    }
+    /* test */
+    assertThrows<BadGatewayException> { nodeClient.closePayment(closePaymentRequest).awaitSingle() }
+  }
 }

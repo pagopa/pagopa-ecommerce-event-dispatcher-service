@@ -35,7 +35,7 @@ An example configuration of these environment variables is in the `.env.example`
 Create your environment typing :
 ```sh
 cp .env.example .env
-``` 
+```
 
 Then from current project directory run :
 ```sh
@@ -48,12 +48,24 @@ docker-compose up
 Create your environment:
 ```sh
 export $(grep -v '^#' .env.local | xargs)
-``` 
+```
 
 Then from current project directory run :
 ```sh
- mvn spring-boot:run
+mvn spring-boot:run
 ```
 
 Note that with this method you would also need an active Redis instance on your local machine.
 We suggest you to use the [ecommerce-local](https://github.com/pagopa/pagopa-ecommerce-local) instead.
+
+## Code formatting
+
+Code formatting checks are automatically performed during build phase.
+If the code is not well formatted an error is raised blocking the maven build.
+
+Helpful commands:
+
+```sh
+mvn spotless:check # --> used to perform format checks
+mvn spotless:apply # --> used to format all misformatted files
+```

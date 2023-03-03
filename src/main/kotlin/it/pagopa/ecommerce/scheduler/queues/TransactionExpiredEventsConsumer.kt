@@ -15,6 +15,7 @@ import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.scheduler.client.PaymentGatewayClient
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsViewRepository
+import java.util.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -24,65 +25,73 @@ import org.springframework.messaging.handler.annotation.Payload
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.switchIfEmpty
-import java.util.*
 
 /**
- * Event consumer for expiration events.
- * These events are input in the event queue only when a transaction
- * is stuck in an EXPIRED state **and** needs to be reverted
+ * Event consumer for expiration events. These events are input in the event queue only when a
+ * transaction is stuck in an EXPIRED state **and** needs to be reverted
  */
 @Service
 class TransactionExpiredEventsConsumer(
-    @Autowired private val paymentGatewayClient: PaymentGatewayClient,
-    @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,
-    @Autowired private val transactionsRefundedEventStoreRepository: TransactionsEventStoreRepository<TransactionRefundedData>,
-    @Autowired private val transactionsViewRepository: TransactionsViewRepository,
+  @Autowired private val paymentGatewayClient: PaymentGatewayClient,
+  @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,
+  @Autowired
+  private val transactionsRefundedEventStoreRepository:
+    TransactionsEventStoreRepository<TransactionRefundedData>,
+  @Autowired private val transactionsViewRepository: TransactionsViewRepository,
 ) {
 
-    var logger: Logger = LoggerFactory.getLogger(TransactionExpiredEventsConsumer::class.java)
+  var logger: Logger = LoggerFactory.getLogger(TransactionExpiredEventsConsumer::class.java)
 
-    private fun getTransactionIdFromPayload(data: BinaryData): Mono<String> {
-        val idFromActivatedEvent = data.toObjectAsync(TransactionExpiredEvent::class.java).map { it.transactionId }
-        val idFromRefundedEvent = data.toObjectAsync(TransactionRefundRetriedEvent::class.java).map { it.transactionId }
+  private fun getTransactionIdFromPayload(data: BinaryData): Mono<String> {
+    val idFromActivatedEvent =
+      data.toObjectAsync(TransactionExpiredEvent::class.java).map { it.transactionId }
+    val idFromRefundedEvent =
+      data.toObjectAsync(TransactionRefundRetriedEvent::class.java).map { it.transactionId }
 
-        return Mono.firstWithValue(idFromActivatedEvent, idFromRefundedEvent)
-    }
+    return Mono.firstWithValue(idFromActivatedEvent, idFromRefundedEvent)
+  }
 
-    @ServiceActivator(inputChannel = "transactionexpiredchannel", outputChannel = "nullChannel")
-    fun messageReceiver(
-        @Payload payload: ByteArray,
-        @Header(AzureHeaders.CHECKPOINTER) checkpointer: Checkpointer
-    ): Mono<Void> {
-        val checkpoint = checkpointer.success()
+  @ServiceActivator(inputChannel = "transactionexpiredchannel", outputChannel = "nullChannel")
+  fun messageReceiver(
+    @Payload payload: ByteArray,
+    @Header(AzureHeaders.CHECKPOINTER) checkpointer: Checkpointer
+  ): Mono<Void> {
+    val checkpoint = checkpointer.success()
 
-        val transactionId = getTransactionIdFromPayload(BinaryData.fromBytes(payload))
+    val transactionId = getTransactionIdFromPayload(BinaryData.fromBytes(payload))
 
-        val refundPipeline = transactionId
-            .flatMapMany { transactionsEventStoreRepository.findByTransactionId(it) }
-            .reduce(EmptyTransaction(), Transaction::applyEvent)
-            .cast(BaseTransaction::class.java)
-            .filter { it.status == TransactionStatusDto.EXPIRED }
+    val refundPipeline =
+      transactionId
+        .flatMapMany { transactionsEventStoreRepository.findByTransactionId(it) }
+        .reduce(EmptyTransaction(), Transaction::applyEvent)
+        .cast(BaseTransaction::class.java)
+        .filter { it.status == TransactionStatusDto.EXPIRED }
+        .doOnNext { logger.info("Handling expired transaction with id ${it.transactionId.value}") }
+        .cast(BaseTransactionExpired::class.java)
+        .map { it.transactionAtPreviousState }
+        .filter(::isTransactionRefundable)
+        .switchIfEmpty {
+          return@switchIfEmpty transactionId
             .doOnNext {
-                logger.info("Handling expired transaction with id ${it.transactionId.value}")
+              logger.info("Transaction $it was not previously authorized. No refund needed")
             }
-            .cast(BaseTransactionExpired::class.java)
-            .map { it.transactionAtPreviousState }
-            .filter(::isTransactionRefundable)
-            .switchIfEmpty {
-                return@switchIfEmpty transactionId.doOnNext {
-                    logger.info("Transaction $it was not previously authorized. No refund needed")
-                }.flatMap { Mono.empty() }
-            }
-            .cast(BaseTransactionWithRequestedAuthorization::class.java)
-            .flatMap { tx -> refundTransaction(tx, transactionsRefundedEventStoreRepository, transactionsViewRepository, paymentGatewayClient) }
-            .onErrorMap {
-                logger.error(
-                    "Transaction requestRefund error for transaction ${transactionId.block()} : ${it.message}"
-                )
-                // TODO retry
-                it
-            }
+            .flatMap { Mono.empty() }
+        }
+        .cast(BaseTransactionWithRequestedAuthorization::class.java)
+        .flatMap { tx ->
+          refundTransaction(
+            tx,
+            transactionsRefundedEventStoreRepository,
+            transactionsViewRepository,
+            paymentGatewayClient)
+        }
+        .onErrorMap {
+          logger.error(
+            "Transaction requestRefund error for transaction ${transactionId.block()} : ${it.message}")
+          // TODO retry
+          it
+        }
 
-        return checkpoint.then(refundPipeline).then()
-    }
+    return checkpoint.then(refundPipeline).then()
+  }
 }
