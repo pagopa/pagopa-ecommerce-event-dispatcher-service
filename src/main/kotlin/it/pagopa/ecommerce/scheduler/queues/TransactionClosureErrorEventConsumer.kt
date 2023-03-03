@@ -29,124 +29,136 @@ import reactor.core.publisher.Mono
 
 @Service
 class TransactionClosureErrorEventConsumer(
-    @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,
-    @Autowired private val transactionClosureSentEventRepository: TransactionsEventStoreRepository<TransactionClosureData>,
-    @Autowired private val transactionsViewRepository: TransactionsViewRepository,
-    @Autowired private val nodeService: NodeService,
+  @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,
+  @Autowired
+  private val transactionClosureSentEventRepository:
+    TransactionsEventStoreRepository<TransactionClosureData>,
+  @Autowired private val transactionsViewRepository: TransactionsViewRepository,
+  @Autowired private val nodeService: NodeService,
 ) {
-    var logger: Logger = LoggerFactory.getLogger(TransactionClosureErrorEventConsumer::class.java)
+  var logger: Logger = LoggerFactory.getLogger(TransactionClosureErrorEventConsumer::class.java)
 
+  private fun getTransactionIdFromPayload(data: BinaryData): Mono<String> {
+    val idFromClosureErrorEvent =
+      data.toObjectAsync(TransactionClosureErrorEvent::class.java).map { it.transactionId }
+    val idFromClosureRetriedEvent =
+      data.toObjectAsync(TransactionClosureRetriedEvent::class.java).map { it.transactionId }
 
-    private fun getTransactionIdFromPayload(data: BinaryData): Mono<String> {
-        val idFromClosureErrorEvent = data.toObjectAsync(TransactionClosureErrorEvent::class.java).map { it.transactionId }
-        val idFromClosureRetriedEvent = data.toObjectAsync(TransactionClosureRetriedEvent::class.java).map { it.transactionId }
+    return Mono.firstWithValue(idFromClosureErrorEvent, idFromClosureRetriedEvent)
+  }
 
-        return Mono.firstWithValue(idFromClosureErrorEvent, idFromClosureRetriedEvent)
-    }
+  @ServiceActivator(inputChannel = "transactionclosureschannel", outputChannel = "nullChannel")
+  fun messageReceiver(
+    @Payload payload: ByteArray,
+    @Header(AzureHeaders.CHECKPOINTER) checkpointer: Checkpointer
+  ): Mono<Either<TransactionClosureFailedEvent, TransactionClosedEvent>> {
+    val checkpoint = checkpointer.success()
 
-    @ServiceActivator(inputChannel = "transactionclosureschannel", outputChannel = "nullChannel")
-    fun messageReceiver(@Payload payload: ByteArray, @Header(AzureHeaders.CHECKPOINTER) checkpointer: Checkpointer): Mono<Either<TransactionClosureFailedEvent, TransactionClosedEvent>> {
-        val checkpoint = checkpointer.success()
+    val transactionId = getTransactionIdFromPayload(BinaryData.fromBytes(payload))
 
-        val transactionId = getTransactionIdFromPayload(BinaryData.fromBytes(payload))
+    val closurePipeline =
+      transactionId
+        .flatMapMany { transactionsEventStoreRepository.findByTransactionId(it) }
+        .reduce(EmptyTransaction(), Transaction::applyEvent)
+        .cast(BaseTransaction::class.java)
+        .flatMap {
+          logger.info("Status for transaction ${it.transactionId.value}: ${it.status}")
 
-        val closurePipeline = transactionId
-            .flatMapMany { transactionsEventStoreRepository.findByTransactionId(it) }
-            .reduce(EmptyTransaction(), Transaction::applyEvent)
-            .cast(BaseTransaction::class.java)
-            .flatMap {
-                logger.info("Status for transaction ${it.transactionId.value}: ${it.status}")
-
-                if (it.status != TransactionStatusDto.CLOSURE_ERROR) {
-                    Mono.error(
-                        BadTransactionStatusException(
-                            transactionId = it.transactionId,
-                            expected = TransactionStatusDto.CLOSURE_ERROR,
-                            actual = it.status
-                        )
-                    )
-                } else {
-                    Mono.just(it)
-                }
-            }
-            .cast(BaseTransactionWithClosureError::class.java)
-            .flatMap { tx ->
-                val closureOutcome = when (tx.transactionAuthorizationCompletedData.authorizationResultDto) {
-                    AuthorizationResultDto.OK -> ClosePaymentRequestV2Dto.OutcomeEnum.OK
-                    AuthorizationResultDto.KO -> ClosePaymentRequestV2Dto.OutcomeEnum.KO
-                    null -> return@flatMap Mono.error(RuntimeException("authorizationResult in status update event is null!"))
-                }
-
-                mono { nodeService.closePayment(tx.transactionId.value, closureOutcome) }
-                    .flatMap { closePaymentResponse ->
-                        updateTransactionStatus(tx, closureOutcome, closePaymentResponse)
-                    }
-            }
-            .onErrorMap { exception ->
-                // TODO: Add appropriate retrying logic + enqueueing of retry event
-
-                logger.error("Got exception while retrying closePayment!", exception)
-                return@onErrorMap exception
+          if (it.status != TransactionStatusDto.CLOSURE_ERROR) {
+            Mono.error(
+              BadTransactionStatusException(
+                transactionId = it.transactionId,
+                expected = TransactionStatusDto.CLOSURE_ERROR,
+                actual = it.status))
+          } else {
+            Mono.just(it)
+          }
+        }
+        .cast(BaseTransactionWithClosureError::class.java)
+        .flatMap { tx ->
+          val closureOutcome =
+            when (tx.transactionAuthorizationCompletedData.authorizationResultDto) {
+              AuthorizationResultDto.OK -> ClosePaymentRequestV2Dto.OutcomeEnum.OK
+              AuthorizationResultDto.KO -> ClosePaymentRequestV2Dto.OutcomeEnum.KO
+              null ->
+                return@flatMap Mono.error(
+                  RuntimeException("authorizationResult in status update event is null!"))
             }
 
-        return checkpoint.then(closurePipeline)
-    }
+          mono { nodeService.closePayment(tx.transactionId.value, closureOutcome) }
+            .flatMap { closePaymentResponse ->
+              updateTransactionStatus(tx, closureOutcome, closePaymentResponse)
+            }
+        }
+        .onErrorMap { exception ->
+          // TODO: Add appropriate retrying logic + enqueueing of retry event
 
-    private fun updateTransactionStatus(
-        transaction: BaseTransactionWithClosureError,
-        closureOutcome: ClosePaymentRequestV2Dto.OutcomeEnum,
-        closePaymentResponseDto: ClosePaymentResponseDto
-    ): Mono<Either<TransactionClosureFailedEvent, TransactionClosedEvent>> {
-        val outcome = when (closePaymentResponseDto.outcome) {
-            ClosePaymentResponseDto.OutcomeEnum.OK -> TransactionClosureData.Outcome.OK
-            ClosePaymentResponseDto.OutcomeEnum.KO -> TransactionClosureData.Outcome.KO
+          logger.error("Got exception while retrying closePayment!", exception)
+          return@onErrorMap exception
         }
 
-        val event: Either<TransactionClosureFailedEvent, TransactionClosedEvent> = when (outcome) {
-            TransactionClosureData.Outcome.OK -> Either.right(TransactionClosedEvent(
-                transaction.transactionId.value.toString(),
-                TransactionClosureData(outcome)
-            ))
-            TransactionClosureData.Outcome.KO -> Either.left(TransactionClosureFailedEvent(
-                transaction.transactionId.value.toString(),
-                TransactionClosureData(outcome)
-            ))
-        }
+    return checkpoint.then(closurePipeline)
+  }
 
-        val newStatus = when (closureOutcome) {
-            ClosePaymentRequestV2Dto.OutcomeEnum.OK -> TransactionStatusDto.CLOSED
-            ClosePaymentRequestV2Dto.OutcomeEnum.KO -> TransactionStatusDto.UNAUTHORIZED
-        }
+  private fun updateTransactionStatus(
+    transaction: BaseTransactionWithClosureError,
+    closureOutcome: ClosePaymentRequestV2Dto.OutcomeEnum,
+    closePaymentResponseDto: ClosePaymentResponseDto
+  ): Mono<Either<TransactionClosureFailedEvent, TransactionClosedEvent>> {
+    val outcome =
+      when (closePaymentResponseDto.outcome) {
+        ClosePaymentResponseDto.OutcomeEnum.OK -> TransactionClosureData.Outcome.OK
+        ClosePaymentResponseDto.OutcomeEnum.KO -> TransactionClosureData.Outcome.KO
+      }
 
-        logger.info("Updating transaction {} status to {}", transaction.transactionId.value, newStatus)
+    val event: Either<TransactionClosureFailedEvent, TransactionClosedEvent> =
+      when (outcome) {
+        TransactionClosureData.Outcome.OK ->
+          Either.right(
+            TransactionClosedEvent(
+              transaction.transactionId.value.toString(), TransactionClosureData(outcome)))
+        TransactionClosureData.Outcome.KO ->
+          Either.left(
+            TransactionClosureFailedEvent(
+              transaction.transactionId.value.toString(), TransactionClosureData(outcome)))
+      }
 
-        val transactionUpdate = transactionsViewRepository.findByTransactionId(transaction.transactionId.value.toString())
+    val newStatus =
+      when (closureOutcome) {
+        ClosePaymentRequestV2Dto.OutcomeEnum.OK -> TransactionStatusDto.CLOSED
+        ClosePaymentRequestV2Dto.OutcomeEnum.KO -> TransactionStatusDto.UNAUTHORIZED
+      }
 
-        val saveEvent = event.bimap({
-            transactionClosureSentEventRepository.save(it)
-                .flatMap { closedEvent ->
-                    transactionUpdate.flatMap { tx ->
-                        tx.status = newStatus
-                        transactionsViewRepository.save(tx)
-                    }.thenReturn(closedEvent)
-                }
-        }, {
-            transactionClosureSentEventRepository.save(it)
-                .flatMap { closedEvent ->
-                    transactionUpdate.flatMap { tx ->
-                        tx.status = newStatus
-                        transactionsViewRepository.save(tx)
-                    }.thenReturn(closedEvent)
-                }
+    logger.info("Updating transaction {} status to {}", transaction.transactionId.value, newStatus)
+
+    val transactionUpdate =
+      transactionsViewRepository.findByTransactionId(transaction.transactionId.value.toString())
+
+    val saveEvent =
+      event.bimap(
+        {
+          transactionClosureSentEventRepository.save(it).flatMap { closedEvent ->
+            transactionUpdate
+              .flatMap { tx ->
+                tx.status = newStatus
+                transactionsViewRepository.save(tx)
+              }
+              .thenReturn(closedEvent)
+          }
+        },
+        {
+          transactionClosureSentEventRepository.save(it).flatMap { closedEvent ->
+            transactionUpdate
+              .flatMap { tx ->
+                tx.status = newStatus
+                transactionsViewRepository.save(tx)
+              }
+              .thenReturn(closedEvent)
+          }
         })
-        
-        return saveEvent.fold(
-            {
-                it.map { closureFailed -> Either.left(closureFailed) }
-            },
-            {
-                it.map { closed -> Either.right(closed) }
-            }
-        )
-    }
+
+    return saveEvent.fold(
+      { it.map { closureFailed -> Either.left(closureFailed) } },
+      { it.map { closed -> Either.right(closed) } })
+  }
 }

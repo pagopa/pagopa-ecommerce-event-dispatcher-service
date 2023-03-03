@@ -6,10 +6,11 @@ import org.springframework.data.repository.reactive.ReactiveCrudRepository
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
-interface TransactionsEventStoreRepository<T> : ReactiveCrudRepository<TransactionEvent<T>, String> {
-    fun findByTransactionId(idTransaction: String): Flux<TransactionEvent<T>>
-    fun findByTransactionIdAndEventCode(
-        idTransaction: String,
-        eventCode: TransactionEventCode
-    ): Mono<TransactionEvent<T>>
+interface TransactionsEventStoreRepository<T> :
+  ReactiveCrudRepository<TransactionEvent<T>, String> {
+  fun findByTransactionId(idTransaction: String): Flux<TransactionEvent<T>>
+  fun findByTransactionIdAndEventCode(
+    idTransaction: String,
+    eventCode: TransactionEventCode
+  ): Mono<TransactionEvent<T>>
 }

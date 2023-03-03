@@ -35,7 +35,7 @@ An example configuration of these environment variables is in the `.env.example`
 Create your environment typing :
 ```sh
 cp .env.example .env
-``` 
+```
 
 Then from current project directory run :
 ```sh
@@ -48,11 +48,11 @@ docker-compose up
 Create your environment:
 ```sh
 export $(grep -v '^#' .env.local | xargs)
-``` 
+```
 
 Then from current project directory run :
 ```sh
- mvn spring-boot:run
+mvn spring-boot:run
 ```
 
 Note that with this method you would also need an active Redis instance on your local machine.

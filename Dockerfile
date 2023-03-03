@@ -12,6 +12,7 @@ RUN ./mvnw dependency:copy-dependencies
 # RUN ./mvnw dependency:go-offline
 
 COPY src src
+COPY eclipse-style.xml eclipse-style.xml
 # COPY api-spec api-spec
 RUN ./mvnw install -DskipTests # --offline
 RUN mkdir target/extracted && java -Djarmode=layertools -jar target/*.jar extract --destination target/extracted
