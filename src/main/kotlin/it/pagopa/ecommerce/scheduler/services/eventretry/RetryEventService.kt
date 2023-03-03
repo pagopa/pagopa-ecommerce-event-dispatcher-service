@@ -23,7 +23,7 @@ abstract class RetryEventService<E>(
   private val retryOffset: Int,
   private val maxAttempts: Int,
   private val viewRepository: TransactionsViewRepository,
-  private val eventStoreRepository: TransactionsEventStoreRepository<TransactionRetriedData>,
+  private val retryEventStoreRepository: TransactionsEventStoreRepository<TransactionRetriedData>,
   private val logger: Logger = LoggerFactory.getLogger(RetryEventService::class.java)
 ) where E : TransactionEvent<TransactionRetriedData> {
 
@@ -59,7 +59,7 @@ abstract class RetryEventService<E>(
     newStatus: TransactionStatusDto
   ): Mono<E> =
     Mono.just(event)
-      .flatMap { eventStoreRepository.save(it) }
+      .flatMap { retryEventStoreRepository.save(it) }
       .flatMap { viewRepository.findByTransactionId(it.transactionId) }
       .flatMap {
         viewRepository

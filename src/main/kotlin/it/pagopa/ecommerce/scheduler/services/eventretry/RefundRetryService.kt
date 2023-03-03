@@ -25,7 +25,7 @@ class RefundRetryService(
     retryOffset = refundRetryOffset,
     maxAttempts = maxAttempts,
     viewRepository = viewRepository,
-    eventStoreRepository = eventStoreRepository) {
+    retryEventStoreRepository = eventStoreRepository) {
 
   override fun buildRetryEvent(
     transactionId: TransactionId,

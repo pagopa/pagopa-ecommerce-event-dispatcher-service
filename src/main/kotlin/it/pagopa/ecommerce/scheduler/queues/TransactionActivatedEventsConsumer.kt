@@ -92,6 +92,10 @@ class TransactionActivatedEventsConsumer(
               "Transaction requestRefund error for transaction $id : ${exception.message}")
           }
           baseTransaction
+            .flatMap {
+              updateTransactionToRefundError(
+                it, transactionsRefundedEventStoreRepository, transactionsViewRepository)
+            }
             .flatMap { refundRetryService.enqueueRetryEvent(it, 0) }
             .then(baseTransaction)
         }
