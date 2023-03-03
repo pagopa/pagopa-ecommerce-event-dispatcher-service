@@ -59,12 +59,13 @@ class TransactionExpiredEventsConsumer(
     val checkpoint = checkpointer.success()
 
     val transactionId = getTransactionIdFromPayload(BinaryData.fromBytes(payload))
-
-    val refundPipeline =
+    val baseTransaction =
       transactionId
         .flatMapMany { transactionsEventStoreRepository.findByTransactionId(it) }
         .reduce(EmptyTransaction(), Transaction::applyEvent)
         .cast(BaseTransaction::class.java)
+    val refundPipeline =
+      baseTransaction
         .filter { it.status == TransactionStatusDto.EXPIRED }
         .doOnNext { logger.info("Handling expired transaction with id ${it.transactionId.value}") }
         .cast(BaseTransactionExpired::class.java)
@@ -85,11 +86,18 @@ class TransactionExpiredEventsConsumer(
             transactionsViewRepository,
             paymentGatewayClient)
         }
-        .onErrorMap {
-          logger.error(
-            "Transaction requestRefund error for transaction ${transactionId.block()} : ${it.message}")
-          // TODO retry
-          it
+        .onErrorResume { exception ->
+          transactionId.map { id ->
+            logger.error(
+              "Transaction requestRefund error for transaction $id : ${exception.message}")
+          }
+          baseTransaction
+            .flatMap {
+              updateTransactionToRefundError(
+                it, transactionsRefundedEventStoreRepository, transactionsViewRepository)
+            }
+            // TODO add retry event send here
+            .then(baseTransaction)
         }
 
     return checkpoint.then(refundPipeline).then()
