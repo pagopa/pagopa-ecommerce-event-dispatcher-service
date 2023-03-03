@@ -7,10 +7,9 @@ import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v1.Transaction
+import it.pagopa.ecommerce.commons.domain.v1.TransactionWithClosureError
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransaction
-import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithCancellationRequested
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithClosureError
-import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithCompletedAuthorization
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.scheduler.exceptions.BadTransactionStatusException
@@ -82,33 +81,32 @@ class TransactionClosureErrorEventConsumer(
             Mono.just(it)
           }
         }
-        .cast(BaseTransactionWithClosureError::class.java)
+        .cast(TransactionWithClosureError::class.java)
         .flatMap { tx ->
-          val canceledByUser: Boolean
+          val transactionAtPreviousState = tx.transactionAtPreviousState()
+          val canceledByUser: Boolean =
+            transactionAtPreviousState.isPresent && transactionAtPreviousState.get().isLeft
           val closureOutcome =
-            when (val transactionAtPreviousState = tx.transactionAtPreviousState) {
-              is BaseTransactionWithCompletedAuthorization -> {
-                canceledByUser = false
-                when (transactionAtPreviousState.transactionAuthorizationCompletedData
-                  .authorizationResultDto) {
-                  AuthorizationResultDto.OK -> ClosePaymentRequestV2Dto.OutcomeEnum.OK
-                  AuthorizationResultDto.KO -> ClosePaymentRequestV2Dto.OutcomeEnum.KO
-                  else ->
-                    return@flatMap Mono.error(
-                      RuntimeException("authorizationResult in status update event is null!"))
-                }
+            tx
+              .transactionAtPreviousState()
+              .map {
+                it.fold(
+                  { ClosePaymentRequestV2Dto.OutcomeEnum.KO },
+                  { trxWithAuthorizationCompleted ->
+                    when (trxWithAuthorizationCompleted.transactionAuthorizationCompletedData
+                      .authorizationResultDto) {
+                      AuthorizationResultDto.OK -> ClosePaymentRequestV2Dto.OutcomeEnum.OK
+                      AuthorizationResultDto.KO -> ClosePaymentRequestV2Dto.OutcomeEnum.KO
+                      else ->
+                        throw RuntimeException(
+                          "authorizationResult in status update event is null!")
+                    }
+                  })
               }
-              is BaseTransactionWithCancellationRequested -> {
-                canceledByUser = true
-                ClosePaymentRequestV2Dto.OutcomeEnum.KO
+              .orElseThrow {
+                RuntimeException(
+                  "Unexpected transactionAtPreviousStep: ${tx.transactionAtPreviousState}")
               }
-              else -> {
-                return@flatMap Mono.error(
-                  RuntimeException(
-                    "Unexpected transactionAtPreviousStep: ${tx.transactionAtPreviousState}"))
-              }
-            }
-
           mono { nodeService.closePayment(tx.transactionId.value, closureOutcome) }
             .flatMap { closePaymentResponse ->
               updateTransactionStatus(tx, closureOutcome, closePaymentResponse, canceledByUser)
