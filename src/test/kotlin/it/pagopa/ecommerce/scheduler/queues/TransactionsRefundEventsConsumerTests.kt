@@ -80,13 +80,13 @@ class TransactionsRefundEventsConsumerTests {
       .willReturn(Mono.just(expectedRefundedEvent))
     given(paymentGatewayClient.requestRefund(any())).willReturn(Mono.just(gatewayClientResponse))
 
-    /* test */
-
     val refundedEventId = UUID.fromString(expectedRefundedEvent.id)
 
     Mockito.mockStatic(UUID::class.java).use { uuid ->
       uuid.`when`<Any>(UUID::randomUUID).thenReturn(refundedEventId)
       uuid.`when`<Any> { UUID.fromString(any()) }.thenCallRealMethod()
+
+      /* test */
 
       transactionRefundedEventsConsumer
         .messageReceiver(BinaryData.fromObject(refundRequestedEvent).toBytes(), checkpointer)
@@ -99,4 +99,40 @@ class TransactionsRefundEventsConsumerTests {
       verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
     }
   }
+
+  @Test
+  fun `consumer processes refund request event for a transaction without refund requested`() =
+    runTest {
+      val activationEvent = TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>
+      val authorizationRequestEvent =
+        transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
+      val authorizationCompleteEvent =
+        TransactionTestUtils.transactionAuthorizationCompletedEvent() as TransactionEvent<Any>
+      val refundRequestedEvent =
+        TransactionRefundRequestedEvent(
+          TransactionTestUtils.TRANSACTION_ID,
+          TransactionRefundedData(TransactionStatusDto.REFUND_REQUESTED))
+          as TransactionEvent<Any>
+
+      val events =
+        listOf(
+          activationEvent,
+          authorizationRequestEvent,
+          authorizationCompleteEvent,
+        )
+
+      /* preconditions */
+      given(checkpointer.success()).willReturn(Mono.empty())
+      given(transactionsEventStoreRepository.findByTransactionId(any())).willReturn(events.toFlux())
+      given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
+
+      /* test */
+
+      transactionRefundedEventsConsumer
+        .messageReceiver(BinaryData.fromObject(refundRequestedEvent).toBytes(), checkpointer)
+        .block()
+
+      /* Asserts */
+      verify(checkpointer, Mockito.times(1)).success()
+    }
 }
