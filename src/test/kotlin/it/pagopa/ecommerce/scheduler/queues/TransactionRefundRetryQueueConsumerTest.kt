@@ -11,6 +11,7 @@ import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreReposito
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.scheduler.services.eventretry.RefundRetryService
 import it.pagopa.generated.ecommerce.gateway.v1.dto.PostePayRefundResponseDto
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -24,6 +25,7 @@ import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
 
 @ExtendWith(MockitoExtension::class)
+@OptIn(ExperimentalCoroutinesApi::class)
 class TransactionRefundRetryQueueConsumerTest {
 
   private val paymentGatewayClient: PaymentGatewayClient = mock()
@@ -55,7 +57,7 @@ class TransactionRefundRetryQueueConsumerTest {
       refundRetryService)
 
   @Test
-  fun `messageReceiver refunds correctly with OK outcome from gateway`() = runTest {
+  fun `messageReceiver consume event correctly with OK outcome from gateway`() = runTest {
     val activatedEvent = TransactionTestUtils.transactionActivateEvent()
 
     val authorizationRequestedEvent = TransactionTestUtils.transactionAuthorizationRequestedEvent()
@@ -118,10 +120,12 @@ class TransactionRefundRetryQueueConsumerTest {
         transactionRefundEventStoreCaptor.allValues[idx].eventCode,
         "Unexpected event code on idx: $idx")
     }
+    verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any())
   }
 
   @Test
-  fun `messageReceiver refunds correctly with KO outcome from gateway`() = runTest {
+  fun `messageReceiver consume event correctly with KO outcome from gateway`() = runTest {
+    val retryCount = 1
     val activatedEvent = TransactionTestUtils.transactionActivateEvent()
 
     val authorizationRequestedEvent = TransactionTestUtils.transactionAuthorizationRequestedEvent()
@@ -134,7 +138,7 @@ class TransactionRefundRetryQueueConsumerTest {
         TransactionTestUtils.reduceEvents(
           activatedEvent, authorizationRequestedEvent, expiredEvent))
 
-    val refundRetriedEvent = TransactionTestUtils.transactionRefundRetriedEvent(0)
+    val refundRetriedEvent = TransactionTestUtils.transactionRefundRetriedEvent(retryCount)
 
     val gatewayClientResponse = PostePayRefundResponseDto().apply { refundOutcome = "KO" }
 
@@ -172,5 +176,7 @@ class TransactionRefundRetryQueueConsumerTest {
     verify(paymentGatewayClient, times(1)).requestRefund(any())
     verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
     verify(transactionsViewRepository, times(0)).save(any())
+    verify(refundRetryService, times(1)).enqueueRetryEvent(any(), any())
+    assertEquals(retryCount, retryCountCaptor.value)
   }
 }
