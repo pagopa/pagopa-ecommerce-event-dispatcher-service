@@ -1,6 +1,7 @@
 package it.pagopa.ecommerce.scheduler.queues
 
 import it.pagopa.ecommerce.commons.documents.v1.*
+import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithRequestedAuthorization
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
@@ -47,16 +48,61 @@ fun updateTransactionToExpired(
     .thenReturn(transaction)
 }
 
+fun updateTransactionToRefundRequested(
+  transaction: BaseTransaction,
+  transactionsRefundedEventStoreRepository:
+    TransactionsEventStoreRepository<TransactionRefundedData>,
+  transactionsViewRepository: TransactionsViewRepository
+): Mono<BaseTransaction> {
+  return updateTransactionWithRefundEvent(
+    transaction,
+    transactionsRefundedEventStoreRepository,
+    transactionsViewRepository,
+    TransactionRefundRequestedEvent(
+      transaction.transactionId.value.toString(), TransactionRefundedData(transaction.status)),
+    TransactionStatusDto.REFUND_REQUESTED)
+}
+
+fun updateTransactionToRefundError(
+  transaction: BaseTransaction,
+  transactionsRefundedEventStoreRepository:
+    TransactionsEventStoreRepository<TransactionRefundedData>,
+  transactionsViewRepository: TransactionsViewRepository
+): Mono<BaseTransaction> {
+  return updateTransactionWithRefundEvent(
+    transaction,
+    transactionsRefundedEventStoreRepository,
+    transactionsViewRepository,
+    TransactionRefundErrorEvent(
+      transaction.transactionId.value.toString(), TransactionRefundedData(transaction.status)),
+    TransactionStatusDto.REFUND_ERROR)
+}
+
 fun updateTransactionToRefunded(
   transaction: BaseTransaction,
   transactionsRefundedEventStoreRepository:
     TransactionsEventStoreRepository<TransactionRefundedData>,
   transactionsViewRepository: TransactionsViewRepository,
 ): Mono<BaseTransaction> {
+  return updateTransactionWithRefundEvent(
+    transaction,
+    transactionsRefundedEventStoreRepository,
+    transactionsViewRepository,
+    TransactionRefundedEvent(
+      transaction.transactionId.value.toString(), TransactionRefundedData(transaction.status)),
+    TransactionStatusDto.REFUNDED)
+}
+
+fun updateTransactionWithRefundEvent(
+  transaction: BaseTransaction,
+  transactionsRefundedEventStoreRepository:
+    TransactionsEventStoreRepository<TransactionRefundedData>,
+  transactionsViewRepository: TransactionsViewRepository,
+  event: TransactionEvent<TransactionRefundedData>,
+  status: TransactionStatusDto
+): Mono<BaseTransaction> {
   return transactionsRefundedEventStoreRepository
-    .save(
-      TransactionRefundedEvent(
-        transaction.transactionId.value.toString(), TransactionRefundedData(transaction.status)))
+    .save(event)
     .then(
       transactionsViewRepository.save(
         Transaction(
@@ -64,7 +110,7 @@ fun updateTransactionToRefunded(
           paymentNoticeDocuments(transaction.paymentNotices),
           TransactionUtils.getTransactionFee(transaction).orElse(null),
           transaction.email,
-          TransactionStatusDto.EXPIRED,
+          status,
           transaction.clientId,
           transaction.creationDate.toString())))
     .doOnSuccess {
@@ -121,3 +167,12 @@ fun paymentNoticeDocuments(
 
 fun isTransactionRefundable(tx: BaseTransaction): Boolean =
   tx is BaseTransactionWithRequestedAuthorization
+
+fun reduceEvents(
+  transactionId: Mono<String>,
+  transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>
+) =
+  transactionId
+    .flatMapMany { transactionsEventStoreRepository.findByTransactionId(it) }
+    .reduce(EmptyTransaction(), it.pagopa.ecommerce.commons.domain.v1.Transaction::applyEvent)
+    .cast(BaseTransaction::class.java)

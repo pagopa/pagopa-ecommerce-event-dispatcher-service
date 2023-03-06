@@ -6,9 +6,6 @@ import com.azure.spring.messaging.checkpoint.Checkpointer
 import it.pagopa.ecommerce.commons.documents.v1.TransactionExpiredEvent
 import it.pagopa.ecommerce.commons.documents.v1.TransactionRefundRetriedEvent
 import it.pagopa.ecommerce.commons.documents.v1.TransactionRefundedData
-import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
-import it.pagopa.ecommerce.commons.domain.v1.Transaction
-import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionExpired
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithRequestedAuthorization
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
@@ -59,12 +56,9 @@ class TransactionExpiredEventsConsumer(
     val checkpoint = checkpointer.success()
 
     val transactionId = getTransactionIdFromPayload(BinaryData.fromBytes(payload))
-
+    val baseTransaction = reduceEvents(transactionId, transactionsEventStoreRepository)
     val refundPipeline =
-      transactionId
-        .flatMapMany { transactionsEventStoreRepository.findByTransactionId(it) }
-        .reduce(EmptyTransaction(), Transaction::applyEvent)
-        .cast(BaseTransaction::class.java)
+      baseTransaction
         .filter { it.status == TransactionStatusDto.EXPIRED }
         .doOnNext { logger.info("Handling expired transaction with id ${it.transactionId.value}") }
         .cast(BaseTransactionExpired::class.java)
@@ -77,6 +71,10 @@ class TransactionExpiredEventsConsumer(
             }
             .flatMap { Mono.empty() }
         }
+        .flatMap {
+          updateTransactionToRefundRequested(
+            it, transactionsRefundedEventStoreRepository, transactionsViewRepository)
+        }
         .cast(BaseTransactionWithRequestedAuthorization::class.java)
         .flatMap { tx ->
           refundTransaction(
@@ -85,11 +83,18 @@ class TransactionExpiredEventsConsumer(
             transactionsViewRepository,
             paymentGatewayClient)
         }
-        .onErrorMap {
-          logger.error(
-            "Transaction requestRefund error for transaction ${transactionId.block()} : ${it.message}")
-          // TODO retry
-          it
+        .onErrorResume { exception ->
+          transactionId.map { id ->
+            logger.error(
+              "Transaction requestRefund error for transaction $id : ${exception.message}")
+          }
+          baseTransaction
+            .flatMap {
+              updateTransactionToRefundError(
+                it, transactionsRefundedEventStoreRepository, transactionsViewRepository)
+            }
+            // TODO add retry event send here
+            .then(baseTransaction)
         }
 
     return checkpoint.then(refundPipeline).then()
