@@ -71,6 +71,10 @@ class TransactionExpiredEventsConsumer(
             }
             .flatMap { Mono.empty() }
         }
+        .flatMap {
+          updateTransactionToRefundRequested(
+            it, transactionsRefundedEventStoreRepository, transactionsViewRepository)
+        }
         .cast(BaseTransactionWithRequestedAuthorization::class.java)
         .flatMap { tx ->
           refundTransaction(

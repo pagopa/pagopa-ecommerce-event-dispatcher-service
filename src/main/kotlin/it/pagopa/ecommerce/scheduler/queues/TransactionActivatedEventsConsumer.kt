@@ -70,6 +70,10 @@ class TransactionActivatedEventsConsumer(
             "Transaction ${it.transactionId.value} in status ${it.status}, refundable: $refundable")
           refundable
         }
+        .flatMap {
+          updateTransactionToRefundRequested(
+            it, transactionsRefundedEventStoreRepository, transactionsViewRepository)
+        }
         .flatMap { tx ->
           refundTransaction(
             tx,
