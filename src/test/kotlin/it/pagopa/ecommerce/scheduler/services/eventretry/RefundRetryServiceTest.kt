@@ -13,23 +13,16 @@ import org.mockito.kotlin.mock
 @ExtendWith(MockitoExtension::class)
 class RefundRetryServiceTest {
 
-    private val refundRetryQueueAsyncClient: QueueAsyncClient = mock()
+  private val refundRetryQueueAsyncClient: QueueAsyncClient = mock()
 
-    private val transactionsViewRepository: TransactionsViewRepository = mock()
+  private val transactionsViewRepository: TransactionsViewRepository = mock()
 
-    private val eventStoreRepository: TransactionsEventStoreRepository<TransactionRetriedData> = mock()
+  private val eventStoreRepository: TransactionsEventStoreRepository<TransactionRetriedData> =
+    mock()
 
-    private val refundRetryService = RefundRetryService(
-        refundRetryQueueAsyncClient,
-        10,
-        3,
-        transactionsViewRepository,
-        eventStoreRepository
-    )
+  private val refundRetryService =
+    RefundRetryService(
+      refundRetryQueueAsyncClient, 10, 3, transactionsViewRepository, eventStoreRepository)
 
-    @Test
-    fun `Should enqueue new refund retry event for left remaining attempts`() {
-
-    }
-
+  @Test fun `Should enqueue new refund retry event for left remaining attempts`() {}
 }
