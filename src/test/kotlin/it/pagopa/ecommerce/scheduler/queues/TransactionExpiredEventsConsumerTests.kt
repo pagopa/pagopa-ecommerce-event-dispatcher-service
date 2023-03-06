@@ -11,6 +11,7 @@ import it.pagopa.ecommerce.commons.v1.TransactionTestUtils.transactionAuthorizat
 import it.pagopa.ecommerce.scheduler.client.PaymentGatewayClient
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsViewRepository
+import it.pagopa.ecommerce.scheduler.services.eventretry.RefundRetryService
 import it.pagopa.generated.ecommerce.gateway.v1.dto.PostePayRefundResponseDto
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
@@ -39,11 +40,15 @@ class TransactionExpiredEventsConsumerTests {
     TransactionsEventStoreRepository<TransactionRefundedData> =
     mock()
 
+  private val refundRetryService: RefundRetryService = mock()
+
   @Captor private lateinit var transactionViewRepositoryCaptor: ArgumentCaptor<Transaction>
 
   @Captor
   private lateinit var transactionRefundEventStoreCaptor:
     ArgumentCaptor<TransactionEvent<TransactionRefundedData>>
+
+  @Captor private lateinit var retryCountCaptor: ArgumentCaptor<Int>
 
   private val transactionsViewRepository: TransactionsViewRepository = mock()
 
@@ -53,7 +58,7 @@ class TransactionExpiredEventsConsumerTests {
       transactionsEventStoreRepository,
       transactionsRefundedEventStoreRepository,
       transactionsViewRepository,
-    )
+      refundRetryService)
 
   @Test
   fun `messageReceiver receives expired messages successfully`() {
@@ -273,7 +278,8 @@ class TransactionExpiredEventsConsumerTests {
     given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture()))
       .willReturn(Mono.just(transaction))
     given(paymentGatewayClient.requestRefund(any())).willReturn(Mono.just(gatewayClientResponse))
-
+    given(refundRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture()))
+      .willReturn(Mono.empty())
     /* test */
     StepVerifier.create(
         transactionExpiredEventsConsumer.messageReceiver(
@@ -301,5 +307,6 @@ class TransactionExpiredEventsConsumerTests {
         transactionRefundEventStoreCaptor.allValues[idx].eventCode,
         "Unexpected event code on idx: $idx")
     }
+    Assertions.assertEquals(0, retryCountCaptor.value)
   }
 }
