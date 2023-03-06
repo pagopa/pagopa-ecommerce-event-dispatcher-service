@@ -126,10 +126,6 @@ fun refundTransaction(
   paymentGatewayClient: PaymentGatewayClient
 ): Mono<BaseTransaction> {
   return Mono.just(tx)
-    .flatMap {
-      updateTransactionToRefundRequested(
-        it, transactionsEventStoreRepository, transactionsViewRepository)
-    }
     .cast(BaseTransactionWithRequestedAuthorization::class.java)
     .flatMap { transaction ->
       val authorizationRequestId =
