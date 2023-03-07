@@ -83,13 +83,17 @@ class TransactionRefundRetryQueueConsumer(
             logger.error(
               "Transaction requestRefund error for transaction $it : ${exception.message}")
           }
-          baseTransaction
-            .flatMap { tx ->
-              event.flatMap { event ->
-                refundRetryService.enqueueRetryEvent(tx, event.data.retryCount)
+          if (exception is BadTransactionStatusException) {
+            Mono.error(exception)
+          } else {
+            baseTransaction
+              .flatMap { tx ->
+                event.flatMap { event ->
+                  refundRetryService.enqueueRetryEvent(tx, event.data.retryCount)
+                }
               }
-            }
-            .then(baseTransaction)
+              .then(baseTransaction)
+          }
         }
     return checkpoint.then(refundPipeline).then()
   }
