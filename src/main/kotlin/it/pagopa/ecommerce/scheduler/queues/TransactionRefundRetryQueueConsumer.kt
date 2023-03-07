@@ -7,7 +7,9 @@ import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v1.Transaction
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransaction
+import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.scheduler.client.PaymentGatewayClient
+import it.pagopa.ecommerce.scheduler.exceptions.BadTransactionStatusException
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.scheduler.services.eventretry.RefundRetryService
@@ -56,6 +58,19 @@ class TransactionRefundRetryQueueConsumer(
         .cast(BaseTransaction::class.java)
     val refundPipeline =
       baseTransaction
+        .flatMap {
+          logger.info("Status for transaction ${it.transactionId.value}: ${it.status}")
+
+          if (it.status != TransactionStatusDto.REFUND_ERROR) {
+            Mono.error(
+              BadTransactionStatusException(
+                transactionId = it.transactionId,
+                expected = TransactionStatusDto.REFUND_ERROR,
+                actual = it.status))
+          } else {
+            Mono.just(it)
+          }
+        }
         .flatMap { tx ->
           refundTransaction(
             tx,

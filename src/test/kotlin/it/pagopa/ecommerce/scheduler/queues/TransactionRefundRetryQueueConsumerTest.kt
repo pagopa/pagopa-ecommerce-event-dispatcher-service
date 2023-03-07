@@ -69,7 +69,10 @@ class TransactionRefundRetryQueueConsumerTest {
       TransactionTestUtils.transactionRefundRequestedEvent(
         TransactionTestUtils.reduceEvents(
           activatedEvent, authorizationRequestedEvent, expiredEvent))
-
+    val refundErrorEvent =
+      TransactionTestUtils.transactionRefundErrorEvent(
+        TransactionTestUtils.reduceEvents(
+          activatedEvent, authorizationRequestedEvent, expiredEvent, refundRequestedEvent))
     val refundRetriedEvent = TransactionTestUtils.transactionRefundRetriedEvent(0)
 
     val gatewayClientResponse = PostePayRefundResponseDto().apply { refundOutcome = "OK" }
@@ -86,7 +89,8 @@ class TransactionRefundRetryQueueConsumerTest {
           authorizationRequestedEvent as TransactionEvent<Any>,
           expiredEvent as TransactionEvent<Any>,
           refundRequestedEvent as TransactionEvent<Any>,
-          refundRetriedEvent as TransactionEvent<Any>))
+          refundRetriedEvent as TransactionEvent<Any>,
+          refundErrorEvent as TransactionEvent<Any>))
 
     given(
         transactionsRefundedEventStoreRepository.save(transactionRefundEventStoreCaptor.capture()))
@@ -137,7 +141,10 @@ class TransactionRefundRetryQueueConsumerTest {
       TransactionTestUtils.transactionRefundRequestedEvent(
         TransactionTestUtils.reduceEvents(
           activatedEvent, authorizationRequestedEvent, expiredEvent))
-
+    val refundErrorEvent =
+      TransactionTestUtils.transactionRefundErrorEvent(
+        TransactionTestUtils.reduceEvents(
+          activatedEvent, authorizationRequestedEvent, expiredEvent, refundRequestedEvent))
     val refundRetriedEvent = TransactionTestUtils.transactionRefundRetriedEvent(retryCount)
 
     val gatewayClientResponse = PostePayRefundResponseDto().apply { refundOutcome = "KO" }
@@ -154,7 +161,8 @@ class TransactionRefundRetryQueueConsumerTest {
           authorizationRequestedEvent as TransactionEvent<Any>,
           expiredEvent as TransactionEvent<Any>,
           refundRequestedEvent as TransactionEvent<Any>,
-          refundRetriedEvent as TransactionEvent<Any>))
+          refundRetriedEvent as TransactionEvent<Any>,
+          refundErrorEvent as TransactionEvent<Any>))
 
     given(
         transactionsRefundedEventStoreRepository.save(transactionRefundEventStoreCaptor.capture()))
