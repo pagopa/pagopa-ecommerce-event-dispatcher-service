@@ -10,6 +10,7 @@ import it.pagopa.ecommerce.commons.domain.v1.TransactionId
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.utils.v1.TransactionUtils
+import it.pagopa.ecommerce.scheduler.exceptions.NoRetryAttemptLeftException
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsViewRepository
 import java.time.Duration
@@ -31,12 +32,10 @@ abstract class RetryEventService<E>(
       buildRetryEvent(baseTransaction.transactionId, TransactionRetriedData(retriedCount + 1))
     return Mono.just(retryEvent)
       .filter { it.data.retryCount <= maxAttempts }
-      .doOnSuccess {
-        if (it == null) {
-          logger.info(
-            "No attempts left for retry event $retryEvent for transaction id: ${baseTransaction.transactionId}")
-        }
-      }
+      .switchIfEmpty(
+        Mono.error(
+          NoRetryAttemptLeftException(
+            eventCode = retryEvent.eventCode, transactionId = baseTransaction.transactionId)))
       .flatMap { storeEventAndUpdateView(baseTransaction, it, newTransactionStatus()) }
       .flatMap {
         enqueueMessage(it, Duration.ofSeconds((retryOffset * it.data.retryCount).toLong()))

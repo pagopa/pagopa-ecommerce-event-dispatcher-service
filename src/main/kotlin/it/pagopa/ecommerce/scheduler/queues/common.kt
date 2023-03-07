@@ -176,8 +176,14 @@ fun isTransactionRefundable(tx: BaseTransaction): Boolean =
 fun reduceEvents(
   transactionId: Mono<String>,
   transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>
+) = reduceEvents(transactionId, transactionsEventStoreRepository, EmptyTransaction())
+
+fun reduceEvents(
+  transactionId: Mono<String>,
+  transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,
+  emptyTransaction: EmptyTransaction
 ) =
   transactionId
     .flatMapMany { transactionsEventStoreRepository.findByTransactionId(it) }
-    .reduce(EmptyTransaction(), it.pagopa.ecommerce.commons.domain.v1.Transaction::applyEvent)
+    .reduce(emptyTransaction, it.pagopa.ecommerce.commons.domain.v1.Transaction::applyEvent)
     .cast(BaseTransaction::class.java)

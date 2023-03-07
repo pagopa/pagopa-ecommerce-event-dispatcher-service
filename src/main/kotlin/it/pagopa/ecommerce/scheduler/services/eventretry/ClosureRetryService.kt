@@ -13,26 +13,25 @@ import org.springframework.stereotype.Service
 
 @Service
 class ClosureRetryService(
-    @Autowired private val closureRetryQueueAsyncClient: QueueAsyncClient,
-    @Value("\${closePaymentRetry.eventOffsetSeconds}") private val closePaymentRetryOffset: Int,
-    @Value("\${closePaymentRetry.maxAttempts}") private val maxAttempts: Int,
-    @Autowired private val viewRepository: TransactionsViewRepository,
-    @Autowired
-    private val eventStoreRepository: TransactionsEventStoreRepository<TransactionRetriedData>
+  @Autowired private val closureRetryQueueAsyncClient: QueueAsyncClient,
+  @Value("\${closePaymentRetry.eventOffsetSeconds}") private val closePaymentRetryOffset: Int,
+  @Value("\${closePaymentRetry.maxAttempts}") private val maxAttempts: Int,
+  @Autowired private val viewRepository: TransactionsViewRepository,
+  @Autowired
+  private val eventStoreRepository: TransactionsEventStoreRepository<TransactionRetriedData>
 ) :
-    RetryEventService<TransactionClosureRetriedEvent>(
-        queueAsyncClient = closureRetryQueueAsyncClient,
-        retryOffset = closePaymentRetryOffset,
-        maxAttempts = maxAttempts,
-        viewRepository = viewRepository,
-        retryEventStoreRepository = eventStoreRepository
-    ) {
+  RetryEventService<TransactionClosureRetriedEvent>(
+    queueAsyncClient = closureRetryQueueAsyncClient,
+    retryOffset = closePaymentRetryOffset,
+    maxAttempts = maxAttempts,
+    viewRepository = viewRepository,
+    retryEventStoreRepository = eventStoreRepository) {
 
-    override fun buildRetryEvent(
-        transactionId: TransactionId,
-        transactionRetriedData: TransactionRetriedData
-    ): TransactionClosureRetriedEvent =
-        TransactionClosureRetriedEvent(transactionId.value.toString(), transactionRetriedData)
+  override fun buildRetryEvent(
+    transactionId: TransactionId,
+    transactionRetriedData: TransactionRetriedData
+  ): TransactionClosureRetriedEvent =
+    TransactionClosureRetriedEvent(transactionId.value.toString(), transactionRetriedData)
 
-    override fun newTransactionStatus(): TransactionStatusDto = TransactionStatusDto.CLOSURE_ERROR
+  override fun newTransactionStatus(): TransactionStatusDto = TransactionStatusDto.CLOSURE_ERROR
 }

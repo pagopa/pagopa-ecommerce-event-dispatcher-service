@@ -13,6 +13,7 @@ import it.pagopa.ecommerce.scheduler.exceptions.BadTransactionStatusException
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.scheduler.services.NodeService
+import it.pagopa.ecommerce.scheduler.services.eventretry.ClosureRetryService
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
 import java.time.ZonedDateTime
@@ -42,6 +43,8 @@ class TransactionClosureErrorEventConsumerTests {
 
   private val transactionsViewRepository: TransactionsViewRepository = mock()
 
+  private val closureRetryService: ClosureRetryService = mock()
+
   private val transactionClosedEventRepository:
     TransactionsEventStoreRepository<TransactionClosureData> =
     mock()
@@ -51,7 +54,8 @@ class TransactionClosureErrorEventConsumerTests {
       transactionsEventStoreRepository,
       transactionClosedEventRepository,
       transactionsViewRepository,
-      nodeService)
+      nodeService,
+      closureRetryService)
 
   @Test
   fun `consumer processes bare closure error message correctly with OK closure outcome for authorization completed transaction`() =
