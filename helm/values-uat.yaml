@@ -37,7 +37,7 @@ microservice-chart:
       ECOMMERCE_STORAGE_QUEUE_ENDPOINT: https://pagopauweuecommercesa.queue.core.windows.net/pagopauweuecommercesa
       REFUND_RETRY_EVENT_BASE_INTERVAL_SECONDS: 600
       REFUND_RETRY_EVENT_MAX_ATTEMPTS: 3
-      CLOSE_PAYMENT_RETRY_EVENT_OFFSET_SECONDS: 600
+      CLOSE_PAYMENT_RETRY_EVENT_BASE_INTERVAL_SECONDS: 600
       CLOSE_PAYMENT_RETRY_EVENT_MAX_ATTEMPTS: 3
     envSecret:
       ECOMMERCE_STORAGE_QUEUE_KEY: ecommerce-storage-account-key
@@ -128,7 +128,7 @@ microservice-chart:
     ECOMMERCE_STORAGE_QUEUE_ENDPOINT: https://pagopauweuecommercesa.queue.core.windows.net/pagopauweuecommercesa
     REFUND_RETRY_EVENT_BASE_INTERVAL_SECONDS: 600
     REFUND_RETRY_EVENT_MAX_ATTEMPTS: 3
-    CLOSE_PAYMENT_RETRY_EVENT_OFFSET_SECONDS: 600
+    CLOSE_PAYMENT_RETRY_EVENT_BASE_INTERVAL_SECONDS: 600
     CLOSE_PAYMENT_RETRY_EVENT_MAX_ATTEMPTS: 3
   envSecret:
     ECOMMERCE_STORAGE_QUEUE_KEY: ecommerce-storage-account-key
