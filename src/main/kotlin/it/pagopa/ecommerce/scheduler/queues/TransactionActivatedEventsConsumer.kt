@@ -8,6 +8,7 @@ import it.pagopa.ecommerce.commons.utils.v1.TransactionUtils
 import it.pagopa.ecommerce.scheduler.client.PaymentGatewayClient
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsViewRepository
+import it.pagopa.ecommerce.scheduler.services.eventretry.RefundRetryService
 import java.util.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -34,7 +35,8 @@ class TransactionActivatedEventsConsumer(
   private val transactionsRefundedEventStoreRepository:
     TransactionsEventStoreRepository<TransactionRefundedData>,
   @Autowired private val transactionsViewRepository: TransactionsViewRepository,
-  @Autowired private val transactionUtils: TransactionUtils
+  @Autowired private val transactionUtils: TransactionUtils,
+  @Autowired private val refundRetryService: RefundRetryService
 ) {
 
   var logger: Logger = LoggerFactory.getLogger(TransactionActivatedEventsConsumer::class.java)
@@ -91,7 +93,7 @@ class TransactionActivatedEventsConsumer(
               updateTransactionToRefundError(
                 it, transactionsRefundedEventStoreRepository, transactionsViewRepository)
             }
-            // TODO add retry event send here
+            .flatMap { refundRetryService.enqueueRetryEvent(it, 0) }
             .then(baseTransaction)
         }
     return checkpoint.then(refundPipeline).then()

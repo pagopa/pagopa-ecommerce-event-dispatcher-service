@@ -14,6 +14,7 @@ import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreReposito
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.scheduler.services.NodeService
 import it.pagopa.ecommerce.scheduler.services.RefundService
+import it.pagopa.ecommerce.scheduler.services.eventretry.RefundRetryService
 import it.pagopa.generated.ecommerce.gateway.v1.dto.PostePayRefundResponseDto
 import java.time.ZonedDateTime
 import java.util.*
@@ -61,6 +62,8 @@ class TransactionActivatedEventsConsumerTests {
 
   @Mock private lateinit var transactionsViewRepository: TransactionsViewRepository
 
+  @Mock private lateinit var refundRetryService: RefundRetryService
+
   @Captor private lateinit var transactionViewRepositoryCaptor: ArgumentCaptor<Transaction>
 
   @Captor
@@ -70,6 +73,8 @@ class TransactionActivatedEventsConsumerTests {
   @Captor
   private lateinit var transactionExpiredEventStoreCaptor:
     ArgumentCaptor<TransactionEvent<TransactionExpiredData>>
+
+  @Captor private lateinit var retryCountCaptor: ArgumentCaptor<Int>
 
   @Autowired private lateinit var transactionUtils: TransactionUtils
 
@@ -82,7 +87,8 @@ class TransactionActivatedEventsConsumerTests {
         transactionsExpiredEventStoreRepository,
         transactionsRefundedEventStoreRepository,
         transactionsViewRepository,
-        transactionUtils)
+        transactionUtils,
+        refundRetryService)
 
     val activatedEvent = transactionActivateEvent()
     val transactionId = activatedEvent.transactionId
@@ -120,7 +126,8 @@ class TransactionActivatedEventsConsumerTests {
         transactionsExpiredEventStoreRepository,
         transactionsRefundedEventStoreRepository,
         transactionsViewRepository,
-        transactionUtils)
+        transactionUtils,
+        refundRetryService)
 
     val activatedEvent = TransactionTestUtils.transactionActivateEvent()
     val transactionId = activatedEvent.transactionId
@@ -160,7 +167,8 @@ class TransactionActivatedEventsConsumerTests {
         transactionsExpiredEventStoreRepository,
         transactionsRefundedEventStoreRepository,
         transactionsViewRepository,
-        transactionUtils)
+        transactionUtils,
+        refundRetryService)
 
     val activatedEvent = transactionActivateEvent()
     val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
@@ -221,7 +229,8 @@ class TransactionActivatedEventsConsumerTests {
         transactionsExpiredEventStoreRepository,
         transactionsRefundedEventStoreRepository,
         transactionsViewRepository,
-        transactionUtils)
+        transactionUtils,
+        refundRetryService)
 
     val activatedEvent = transactionActivateEvent()
     val expiredEvent = transactionExpiredEvent(transactionActivated(ZonedDateTime.now().toString()))
@@ -260,7 +269,8 @@ class TransactionActivatedEventsConsumerTests {
         transactionsExpiredEventStoreRepository,
         transactionsRefundedEventStoreRepository,
         transactionsViewRepository,
-        transactionUtils)
+        transactionUtils,
+        refundRetryService)
 
     val activatedEvent = transactionActivateEvent()
     val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
@@ -319,7 +329,8 @@ class TransactionActivatedEventsConsumerTests {
         transactionsExpiredEventStoreRepository,
         transactionsRefundedEventStoreRepository,
         transactionsViewRepository,
-        transactionUtils)
+        transactionUtils,
+        refundRetryService)
 
     val activatedEvent = transactionActivateEvent()
     val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
@@ -358,7 +369,7 @@ class TransactionActivatedEventsConsumerTests {
   }
 
   @Test
-  fun `messageReceiver calls refund on transaction with authorization request and PGS response OK generating refunded event`() =
+  fun `messageReceiver calls refund on transaction with authorization request and PGS response KO generating refunded event`() =
     runTest {
       val transactionActivatedEventsConsumer =
         TransactionActivatedEventsConsumer(
@@ -367,7 +378,8 @@ class TransactionActivatedEventsConsumerTests {
           transactionsExpiredEventStoreRepository,
           transactionsRefundedEventStoreRepository,
           transactionsViewRepository,
-          transactionUtils)
+          transactionUtils,
+          refundRetryService)
 
       val activatedEvent = transactionActivateEvent()
       val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
@@ -408,7 +420,8 @@ class TransactionActivatedEventsConsumerTests {
         Mono.just(it.arguments[0])
       }
       given(paymentGatewayClient.requestRefund(any())).willReturn(Mono.just(gatewayClientResponse))
-
+      given(refundRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture()))
+        .willReturn(Mono.empty())
       /* test */
       StepVerifier.create(
           transactionActivatedEventsConsumer.messageReceiver(
@@ -422,6 +435,7 @@ class TransactionActivatedEventsConsumerTests {
       verify(paymentGatewayClient, times(1)).requestRefund(any())
       verify(transactionsRefundedEventStoreRepository, times(2)).save(any())
       verify(transactionsViewRepository, times(3)).save(any())
+      assertEquals(0, retryCountCaptor.value)
       /*
        * check view update statuses and events stored into event store
        */
@@ -452,7 +466,7 @@ class TransactionActivatedEventsConsumerTests {
     }
 
   @Test
-  fun `messageReceiver calls refund on transaction with authorization request and PGS response KO generating refund error event`() =
+  fun `messageReceiver calls refund on transaction with authorization request and PGS response OK generating refund error event`() =
     runTest {
       val transactionActivatedEventsConsumer =
         TransactionActivatedEventsConsumer(
@@ -461,7 +475,8 @@ class TransactionActivatedEventsConsumerTests {
           transactionsExpiredEventStoreRepository,
           transactionsRefundedEventStoreRepository,
           transactionsViewRepository,
-          transactionUtils)
+          transactionUtils,
+          refundRetryService)
 
       val activatedEvent = transactionActivateEvent()
       val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
