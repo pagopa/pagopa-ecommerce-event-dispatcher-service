@@ -85,13 +85,14 @@ microservice-chart:
     MONGO_SSL_ENABLED: "true"
     ECOMMERCE_STORAGE_QUEUE_ACCOUNT_NAME: pagopadweuecommercesa
     ECOMMERCE_STORAGE_QUEUE_ENDPOINT: https://pagopadweuecommercesa.queue.core.windows.net/pagopadweuecommercesa
+    REFUND_RETRY_EVENT_OFFSET_SECONDS: 600
+    REFUND_RETRY_EVENT_MAX_ATTEMPTS: 3
   envSecret:
     ECOMMERCE_STORAGE_QUEUE_KEY: ecommerce-storage-account-key
     MONGO_PASSWORD: mongo-ecommerce-password
     NODO_CONNECTION_STRING: nodo-connection-string
     APPLICATIONINSIGHTS_CONNECTION_STRING: applicationinsights-connection-string
     QUEUE_CONNECTION_STRING: ecommerce-storage-connection-string
-    REFUND_RETRY_EVENT_OFFSET_SECONDS: 60
   keyvault:
     name: "pagopa-d-ecommerce-kv"
     tenantId: "7788edaf-0346-4068-9d79-c868aed15b3d"
