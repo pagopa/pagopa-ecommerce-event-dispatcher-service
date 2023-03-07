@@ -89,7 +89,7 @@ abstract class RetryEventService<E>(
         .sendMessageWithResponse(
           BinaryData.fromObject(eventToSend),
           visibilityTimeout,
-          null,
+          null, // timeToLive
         )
         .doOnNext {
           logger.info(
