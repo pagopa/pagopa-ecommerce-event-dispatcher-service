@@ -11,11 +11,12 @@ import it.pagopa.ecommerce.scheduler.queues.QueueCommonsLogger.logger
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsViewRepository
 import java.util.*
+import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 
 object QueueCommonsLogger {
-  val logger = LoggerFactory.getLogger("commons.kt")
+  val logger: Logger = LoggerFactory.getLogger(QueueCommonsLogger::class.java)
 }
 
 fun updateTransactionToExpired(
@@ -114,7 +115,8 @@ fun updateTransactionWithRefundEvent(
           transaction.clientId,
           transaction.creationDate.toString())))
     .doOnSuccess {
-      logger.info("Transaction refunded for transaction ${transaction.transactionId.value}")
+      logger.info(
+        "Updated event for transaction with id ${transaction.transactionId.value} to status $status")
     }
     .thenReturn(transaction)
 }
@@ -149,6 +151,9 @@ fun refundTransaction(
             RuntimeException(
               "Refund error for transaction ${transaction.transactionId} with outcome  ${refundResponse.refundOutcome}"))
       }
+    }
+    .doOnError {
+      logger.error("Exception processing refund for transaction ${tx.transactionId}", it)
     }
 }
 
