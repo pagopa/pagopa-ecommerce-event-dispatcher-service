@@ -6,7 +6,7 @@ import com.azure.spring.messaging.checkpoint.Checkpointer
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v1.Transaction
-import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithRefundRequested
+import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransaction
 import it.pagopa.ecommerce.scheduler.client.PaymentGatewayClient
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsViewRepository
@@ -53,7 +53,7 @@ class TransactionRefundRetryQueueConsumer(
       event
         .flatMapMany { transactionsEventStoreRepository.findByTransactionId(it.transactionId) }
         .reduce(EmptyTransaction(), Transaction::applyEvent)
-        .cast(BaseTransactionWithRefundRequested::class.java)
+        .cast(BaseTransaction::class.java)
     val refundPipeline =
       baseTransaction
         .flatMap { tx ->
