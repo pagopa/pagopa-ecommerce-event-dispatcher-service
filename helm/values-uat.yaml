@@ -21,6 +21,7 @@ microservice-chart:
       TRANSACTION_CLOSURE_SENT_EVENT_QUEUE_NAME: pagopa-u-weu-ecommerce-closed-events-queue
       TRANSACTION_EXPIRED_EVENT_QUEUE_NAME: pagopa-u-weu-ecommerce-expired-events-queue
       TRANSACTION_REFUND_RETRY_EVENT_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-refund-retry-queue
+      TRANSACTION_CLOSE_PAYMENT_RETRY_EVENT_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-close-payment-retry-queue
       AUTH_REQUESTED_TIMEOUT_SECONDS: "100"
       PAYMENT_TRANSACTIONS_GATEWAY_URI: https://api.uat.platform.pagopa.it/payment-transactions-gateway
       PAYMENT_TRANSACTIONS_GATEWAY_READ_TIMEOUT: "10000"
@@ -36,6 +37,8 @@ microservice-chart:
       ECOMMERCE_STORAGE_QUEUE_ENDPOINT: https://pagopauweuecommercesa.queue.core.windows.net/pagopauweuecommercesa
       REFUND_RETRY_EVENT_BASE_INTERVAL_SECONDS: 600
       REFUND_RETRY_EVENT_MAX_ATTEMPTS: 3
+      CLOSE_PAYMENT_RETRY_EVENT_OFFSET_SECONDS: 600
+      CLOSE_PAYMENT_RETRY_EVENT_MAX_ATTEMPTS: 3
     envSecret:
       ECOMMERCE_STORAGE_QUEUE_KEY: ecommerce-storage-account-key
       MONGO_PASSWORD: mongo-ecommerce-password
@@ -107,7 +110,9 @@ microservice-chart:
   envConfig:
     TRANSACTION_ACTIVATED_EVENT_QUEUE_NAME: pagopa-u-weu-ecommerce-activated-events-queue
     TRANSACTION_CLOSURE_SENT_EVENT_QUEUE_NAME: pagopa-u-weu-ecommerce-closed-events-queue
+    TRANSACTION_EXPIRED_EVENT_QUEUE_NAME: pagopa-u-weu-ecommerce-expired-events-queue
     TRANSACTION_REFUND_RETRY_EVENT_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-refund-retry-queue
+    TRANSACTION_CLOSE_PAYMENT_RETRY_EVENT_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-close-payment-retry-queue
     AUTH_REQUESTED_TIMEOUT_SECONDS: "100"
     PAYMENT_TRANSACTIONS_GATEWAY_URI: https://api.uat.platform.pagopa.it/payment-transactions-gateway
     PAYMENT_TRANSACTIONS_GATEWAY_READ_TIMEOUT: "10000"
@@ -123,6 +128,8 @@ microservice-chart:
     ECOMMERCE_STORAGE_QUEUE_ENDPOINT: https://pagopauweuecommercesa.queue.core.windows.net/pagopauweuecommercesa
     REFUND_RETRY_EVENT_BASE_INTERVAL_SECONDS: 600
     REFUND_RETRY_EVENT_MAX_ATTEMPTS: 3
+    CLOSE_PAYMENT_RETRY_EVENT_OFFSET_SECONDS: 600
+    CLOSE_PAYMENT_RETRY_EVENT_MAX_ATTEMPTS: 3
   envSecret:
     ECOMMERCE_STORAGE_QUEUE_KEY: ecommerce-storage-account-key
     MONGO_PASSWORD: mongo-ecommerce-password

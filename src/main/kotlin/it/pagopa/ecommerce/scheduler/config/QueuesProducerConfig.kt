@@ -9,14 +9,25 @@ import org.springframework.context.annotation.Configuration
 @Configuration
 class QueuesProducerConfig {
 
-  @Bean
-  fun refundRetryQueueAsyncClient(
-    @Value("\${azurestorage.connectionstring}") storageConnectionString: String,
-    @Value("\${azurestorage.queues.transactionrefundretry.name}") queueEventInitName: String,
-  ): QueueAsyncClient {
-    return QueueClientBuilder()
-      .connectionString(storageConnectionString)
-      .queueName(queueEventInitName)
-      .buildAsyncClient()
-  }
+    @Bean
+    fun refundRetryQueueAsyncClient(
+        @Value("\${azurestorage.connectionstring}") storageConnectionString: String,
+        @Value("\${azurestorage.queues.transactionrefundretry.name}") queueEventInitName: String,
+    ): QueueAsyncClient {
+        return QueueClientBuilder()
+            .connectionString(storageConnectionString)
+            .queueName(queueEventInitName)
+            .buildAsyncClient()
+    }
+
+    @Bean
+    fun closureRetryQueueAsyncClient(
+        @Value("\${azurestorage.connectionstring}") storageConnectionString: String,
+        @Value("\${azurestorage.queues.transactionclosepaymentretry.name}") queueEventInitName: String,
+    ): QueueAsyncClient {
+        return QueueClientBuilder()
+            .connectionString(storageConnectionString)
+            .queueName(queueEventInitName)
+            .buildAsyncClient()
+    }
 }
