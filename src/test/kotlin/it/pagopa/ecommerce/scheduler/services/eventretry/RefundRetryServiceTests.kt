@@ -188,8 +188,7 @@ class RefundRetryServiceTests {
           queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
       .willReturn(queueSuccessfulResponse())
     StepVerifier.create(refundRetryService.enqueueRetryEvent(baseTransaction, maxAttempts))
-      .expectError(java.lang.RuntimeException::class.java)
-      .verify()
+      .verifyComplete()
 
     verify(eventStoreRepository, times(0)).save(any())
     verify(transactionsViewRepository, times(0)).findByTransactionId(any())

@@ -113,18 +113,14 @@ class TransactionRefundRetryQueueConsumerTest {
     verify(paymentGatewayClient, times(1)).requestRefund(any())
     val expectedRefundEventStatuses = listOf(TransactionEventCode.TRANSACTION_REFUNDED_EVENT)
     val viewExpectedStatuses = listOf(TransactionStatusDto.REFUNDED)
-    viewExpectedStatuses.forEachIndexed { idx, expectedStatus ->
-      assertEquals(
-        expectedStatus,
-        transactionViewRepositoryCaptor.allValues[idx].status,
-        "Unexpected view status on idx: $idx")
-    }
-    expectedRefundEventStatuses.forEachIndexed { idx, expectedStatus ->
-      assertEquals(
-        expectedStatus,
-        transactionRefundEventStoreCaptor.allValues[idx].eventCode,
-        "Unexpected event code on idx: $idx")
-    }
+    assertEquals(
+      TransactionStatusDto.REFUNDED,
+      transactionViewRepositoryCaptor.value.status,
+      "Unexpected view status")
+    assertEquals(
+      TransactionEventCode.TRANSACTION_REFUNDED_EVENT,
+      transactionRefundEventStoreCaptor.value.eventCode,
+      "Unexpected event code")
     verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any())
   }
 

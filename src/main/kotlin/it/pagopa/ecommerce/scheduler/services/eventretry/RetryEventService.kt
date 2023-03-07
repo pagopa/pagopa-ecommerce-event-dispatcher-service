@@ -13,7 +13,6 @@ import it.pagopa.ecommerce.commons.utils.v1.TransactionUtils
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsViewRepository
 import java.time.Duration
-import java.util.concurrent.TimeUnit
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
@@ -32,13 +31,15 @@ abstract class RetryEventService<E>(
       buildRetryEvent(baseTransaction.transactionId, TransactionRetriedData(retriedCount + 1))
     return Mono.just(retryEvent)
       .filter { it.data.retryCount <= maxAttempts }
-      .switchIfEmpty(
-        Mono.error(
-          RuntimeException(
-            "No attempts left for retry event $retryEvent for transaction id: ${baseTransaction.transactionId}")))
+      .doOnSuccess {
+        if (it == null) {
+          logger.info(
+            "No attempts left for retry event $retryEvent for transaction id: ${baseTransaction.transactionId}")
+        }
+      }
       .flatMap { storeEventAndUpdateView(baseTransaction, it, newTransactionStatus()) }
       .flatMap {
-        enqueueMessage(it, TimeUnit.SECONDS.toMillis((retryOffset * it.data.retryCount).toLong()))
+        enqueueMessage(it, Duration.ofSeconds((retryOffset * it.data.retryCount).toLong()))
       }
       .doOnError {
         logger.error(
@@ -82,16 +83,19 @@ abstract class RetryEventService<E>(
           .flatMap { Mono.just(event) }
       }
 
-  private fun enqueueMessage(event: E, visibilityTimeoutMillis: Long): Mono<Void> =
+  private fun enqueueMessage(event: E, visibilityTimeout: Duration): Mono<Void> =
     Mono.just(event).flatMap { eventToSend ->
       queueAsyncClient
         .sendMessageWithResponse(
-          BinaryData.fromObject(eventToSend), Duration.ofMillis(visibilityTimeoutMillis), null)
-        .flatMap {
+          BinaryData.fromObject(eventToSend),
+          visibilityTimeout,
+          null,
+        )
+        .doOnNext {
           logger.info(
             "Event: [$event] successfully sent with visibility timeout: [${it.value.timeNextVisible}] ms to queue: [${queueAsyncClient.queueName}]")
-          Mono.empty<Void>()
         }
+        .then()
         .doOnError { exception -> logger.error("Error sending event: [${event}].", exception) }
     }
 }
