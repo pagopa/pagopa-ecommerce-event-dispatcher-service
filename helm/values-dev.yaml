@@ -85,7 +85,7 @@ microservice-chart:
     MONGO_SSL_ENABLED: "true"
     ECOMMERCE_STORAGE_QUEUE_ACCOUNT_NAME: pagopadweuecommercesa
     ECOMMERCE_STORAGE_QUEUE_ENDPOINT: https://pagopadweuecommercesa.queue.core.windows.net/pagopadweuecommercesa
-    REFUND_RETRY_EVENT_OFFSET_SECONDS: 600
+    REFUND_RETRY_EVENT_BASE_INTERVAL_SECONDS: 600
     REFUND_RETRY_EVENT_MAX_ATTEMPTS: 3
   envSecret:
     ECOMMERCE_STORAGE_QUEUE_KEY: ecommerce-storage-account-key
