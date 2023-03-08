@@ -6,15 +6,13 @@ import com.azure.spring.messaging.checkpoint.Checkpointer
 import it.pagopa.ecommerce.commons.documents.v1.TransactionExpiredEvent
 import it.pagopa.ecommerce.commons.documents.v1.TransactionRefundRetriedEvent
 import it.pagopa.ecommerce.commons.documents.v1.TransactionRefundedData
-import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
-import it.pagopa.ecommerce.commons.domain.v1.Transaction
-import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionExpired
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithRequestedAuthorization
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.scheduler.client.PaymentGatewayClient
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsViewRepository
+import it.pagopa.ecommerce.scheduler.services.eventretry.RefundRetryService
 import java.util.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -38,6 +36,7 @@ class TransactionExpiredEventsConsumer(
   private val transactionsRefundedEventStoreRepository:
     TransactionsEventStoreRepository<TransactionRefundedData>,
   @Autowired private val transactionsViewRepository: TransactionsViewRepository,
+  @Autowired private val refundRetryService: RefundRetryService
 ) {
 
   var logger: Logger = LoggerFactory.getLogger(TransactionExpiredEventsConsumer::class.java)
@@ -59,12 +58,9 @@ class TransactionExpiredEventsConsumer(
     val checkpoint = checkpointer.success()
 
     val transactionId = getTransactionIdFromPayload(BinaryData.fromBytes(payload))
-
+    val baseTransaction = reduceEvents(transactionId, transactionsEventStoreRepository)
     val refundPipeline =
-      transactionId
-        .flatMapMany { transactionsEventStoreRepository.findByTransactionId(it) }
-        .reduce(EmptyTransaction(), Transaction::applyEvent)
-        .cast(BaseTransaction::class.java)
+      baseTransaction
         .filter { it.status == TransactionStatusDto.EXPIRED }
         .doOnNext { logger.info("Handling expired transaction with id ${it.transactionId.value}") }
         .cast(BaseTransactionExpired::class.java)
@@ -77,6 +73,10 @@ class TransactionExpiredEventsConsumer(
             }
             .flatMap { Mono.empty() }
         }
+        .flatMap {
+          updateTransactionToRefundRequested(
+            it, transactionsRefundedEventStoreRepository, transactionsViewRepository)
+        }
         .cast(BaseTransactionWithRequestedAuthorization::class.java)
         .flatMap { tx ->
           refundTransaction(
@@ -85,11 +85,18 @@ class TransactionExpiredEventsConsumer(
             transactionsViewRepository,
             paymentGatewayClient)
         }
-        .onErrorMap {
-          logger.error(
-            "Transaction requestRefund error for transaction ${transactionId.block()} : ${it.message}")
-          // TODO retry
-          it
+        .onErrorResume { exception ->
+          transactionId.map { id ->
+            logger.error(
+              "Transaction requestRefund error for transaction $id : ${exception.message}")
+          }
+          baseTransaction
+            .flatMap {
+              updateTransactionToRefundError(
+                it, transactionsRefundedEventStoreRepository, transactionsViewRepository)
+            }
+            .flatMap { refundRetryService.enqueueRetryEvent(it, 0) }
+            .then(baseTransaction)
         }
 
     return checkpoint.then(refundPipeline).then()

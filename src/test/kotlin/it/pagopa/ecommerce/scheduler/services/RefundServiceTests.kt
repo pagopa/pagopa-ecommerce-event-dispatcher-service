@@ -14,7 +14,7 @@ import reactor.core.publisher.Mono
 
 @SpringBootTest
 @TestPropertySource(locations = ["classpath:application.test.properties"])
-class RefundServiceTest {
+class RefundServiceTests {
   @Mock private lateinit var paymentGatewayClient: PaymentGatewayClient
 
   @InjectMocks private lateinit var refundService: RefundService
