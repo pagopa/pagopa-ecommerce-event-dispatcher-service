@@ -12,7 +12,7 @@ import it.pagopa.ecommerce.commons.documents.v1.TransactionRetriedData
 import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils
-import it.pagopa.ecommerce.scheduler.exceptions.NoRetryAttemptLeftException
+import it.pagopa.ecommerce.scheduler.exceptions.NoRetryAttemptsLeftException
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsViewRepository
 import java.time.Duration
@@ -88,7 +88,9 @@ class RefundRetryServiceTests {
     }
     given(
         refundRetryQueueAsyncClient.sendMessageWithResponse(
-          queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
+          queueCaptor.capture(),
+          eq(Duration.ofSeconds((refundRetryOffset * 3).toLong())),
+          anyOrNull()))
       .willReturn(queueSuccessfulResponse())
     StepVerifier.create(refundRetryService.enqueueRetryEvent(baseTransaction, maxAttempts - 1))
       .expectNext()
@@ -105,7 +107,6 @@ class RefundRetryServiceTests {
     assertEquals(TransactionEventCode.TRANSACTION_REFUND_RETRIED_EVENT, savedEvent.eventCode)
     assertEquals(TransactionStatusDto.REFUND_ERROR, savedView.status)
     assertEquals(maxAttempts, eventSentOnQueue.data.retryCount)
-    assertEquals(refundRetryOffset * 3, durationCaptor.value.seconds.toInt())
   }
 
   @Test
@@ -189,7 +190,7 @@ class RefundRetryServiceTests {
           queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
       .willReturn(queueSuccessfulResponse())
     StepVerifier.create(refundRetryService.enqueueRetryEvent(baseTransaction, maxAttempts))
-      .expectError(NoRetryAttemptLeftException::class.java)
+      .expectError(NoRetryAttemptsLeftException::class.java)
       .verify()
 
     verify(eventStoreRepository, times(0)).save(any())

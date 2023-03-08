@@ -15,7 +15,7 @@ import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.scheduler.client.PaymentGatewayClient
 import it.pagopa.ecommerce.scheduler.exceptions.BadTransactionStatusException
-import it.pagopa.ecommerce.scheduler.exceptions.NoRetryAttemptLeftException
+import it.pagopa.ecommerce.scheduler.exceptions.NoRetryAttemptsLeftException
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.scheduler.services.NodeService
@@ -171,7 +171,7 @@ class TransactionClosureErrorEventConsumer(
                     closureRetryService.enqueueRetryEvent(baseTransaction, retryCount)
                   }
                   .onErrorResume { exception ->
-                    if (exception is NoRetryAttemptLeftException) {
+                    if (exception is NoRetryAttemptsLeftException) {
                       refundTransactionPipeline(tx, null).then()
                     } else {
                       Mono.empty()
@@ -194,30 +194,29 @@ class TransactionClosureErrorEventConsumer(
     val toBeRefunded = wasAuthorized && nodoOutcome == TransactionClosureData.Outcome.KO
     logger.info(
       "Transaction Nodo ClosePaymentV2 response outcome: ${nodoOutcome}, was authorized: $wasAuthorized --> to be refunded: $toBeRefunded")
-    return if (toBeRefunded) {
-      Mono.just(transaction)
-        .flatMap { tx ->
-          updateTransactionToRefundRequested(
-            tx, transactionsRefundedEventStoreRepository, transactionsViewRepository)
-        }
-        .flatMap {
-          refundTransaction(
-            getBaseTransactionWithCompletedAuthorization(transactionAtPreviousState)!!,
-            transactionsRefundedEventStoreRepository,
-            transactionsViewRepository,
-            paymentGatewayClient,
-            refundRetryService)
-        }
-    } else {
-      Mono.empty()
-    }
+    val transactionWithCompletedAuthorization =
+      getBaseTransactionWithCompletedAuthorization(transactionAtPreviousState)
+    return Mono.just(transactionWithCompletedAuthorization)
+      .filter { it.isPresent && toBeRefunded }
+      .flatMap { tx ->
+        updateTransactionToRefundRequested(
+          tx.get(), transactionsRefundedEventStoreRepository, transactionsViewRepository)
+      }
+      .flatMap {
+        refundTransaction(
+          transactionWithCompletedAuthorization.get(),
+          transactionsRefundedEventStoreRepository,
+          transactionsViewRepository,
+          paymentGatewayClient,
+          refundRetryService)
+      }
   }
 
   private fun wasTransactionCanceledByUser(
     transactionAtPreviousState:
       Optional<
         Either<BaseTransactionWithCancellationRequested, BaseTransactionWithCompletedAuthorization>>
-  ): Boolean = transactionAtPreviousState.isPresent && transactionAtPreviousState.get().isLeft
+  ): Boolean = transactionAtPreviousState.map { it.isLeft }.orElse(false)
 
   private fun wasTransactionAuthorized(
     transactionAtPreviousState:
@@ -239,8 +238,10 @@ class TransactionClosureErrorEventConsumer(
     transactionAtPreviousState:
       Optional<
         Either<BaseTransactionWithCancellationRequested, BaseTransactionWithCompletedAuthorization>>
-  ): BaseTransactionWithCompletedAuthorization? =
-    transactionAtPreviousState.map { either -> either.fold({ null }, { it }) }.orElseGet { null }
+  ): Optional<BaseTransactionWithCompletedAuthorization> =
+    transactionAtPreviousState.flatMap { either ->
+      either.fold({ Optional.empty() }, { Optional.of(it) })
+    }
 
   private fun updateTransactionStatus(
     transaction: BaseTransactionWithClosureError,

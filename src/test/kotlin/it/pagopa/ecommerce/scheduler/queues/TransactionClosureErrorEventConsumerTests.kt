@@ -12,7 +12,7 @@ import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils.*
 import it.pagopa.ecommerce.scheduler.client.PaymentGatewayClient
 import it.pagopa.ecommerce.scheduler.exceptions.BadTransactionStatusException
-import it.pagopa.ecommerce.scheduler.exceptions.NoRetryAttemptLeftException
+import it.pagopa.ecommerce.scheduler.exceptions.NoRetryAttemptsLeftException
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.scheduler.services.NodeService
@@ -1029,7 +1029,7 @@ class TransactionClosureErrorEventConsumerTests {
     given(closureRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture()))
       .willReturn(
         Mono.error(
-          NoRetryAttemptLeftException(
+          NoRetryAttemptsLeftException(
             eventCode = TransactionEventCode.TRANSACTION_CLOSURE_RETRIED_EVENT,
             transactionId = TransactionId(UUID.randomUUID()))))
     /* test */
