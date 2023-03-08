@@ -60,7 +60,7 @@ class RefundRetryServiceTests {
       eventStoreRepository)
 
   @Test
-  fun `Should enqueue new closure retry event for left remaining attempts`() {
+  fun `Should enqueue new refund retry event for left remaining attempts`() {
     val events: MutableList<TransactionEvent<Any>> =
       mutableListOf(
         TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
@@ -109,7 +109,7 @@ class RefundRetryServiceTests {
   }
 
   @Test
-  fun `Should enqueue new closure retry event for first time sending event`() {
+  fun `Should enqueue new refund retry event for first time sending event`() {
     val events: MutableList<TransactionEvent<Any>> =
       mutableListOf(
         TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
@@ -158,7 +158,7 @@ class RefundRetryServiceTests {
   }
 
   @Test
-  fun `Should not enqueue new closure retry event for no left remaining attempts`() {
+  fun `Should not enqueue new refund retry event for no left remaining attempts`() {
     val events: MutableList<TransactionEvent<Any>> =
       mutableListOf(
         TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
@@ -200,7 +200,7 @@ class RefundRetryServiceTests {
   }
 
   @Test
-  fun `Should not enqueue new closure retry event for error saving event to eventstore`() {
+  fun `Should not enqueue new refund retry event for error saving event to eventstore`() {
     val events: MutableList<TransactionEvent<Any>> =
       mutableListOf(
         TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
@@ -242,7 +242,7 @@ class RefundRetryServiceTests {
   }
 
   @Test
-  fun `Should not enqueue new closure retry event for error retrieving transaction view`() {
+  fun `Should not enqueue new refund retry event for error retrieving transaction view`() {
     val events: MutableList<TransactionEvent<Any>> =
       mutableListOf(
         TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
@@ -282,7 +282,7 @@ class RefundRetryServiceTests {
   }
 
   @Test
-  fun `Should not enqueue new closure retry event for error updating transaction view`() {
+  fun `Should not enqueue new refund retry event for error updating transaction view`() {
     val events: MutableList<TransactionEvent<Any>> =
       mutableListOf(
         TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
