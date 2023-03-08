@@ -177,8 +177,8 @@ class TransactionRefundRetryQueueConsumerTest {
     /* Asserts */
     verify(checkpointer, times(1)).success()
     verify(paymentGatewayClient, times(1)).requestRefund(any())
-    verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
-    verify(transactionsViewRepository, times(0)).save(any())
+    verify(transactionsRefundedEventStoreRepository, times(1)).save(any())
+    verify(transactionsViewRepository, times(1)).save(any())
     verify(refundRetryService, times(1)).enqueueRetryEvent(any(), any())
     assertEquals(retryCount, retryCountCaptor.value)
   }

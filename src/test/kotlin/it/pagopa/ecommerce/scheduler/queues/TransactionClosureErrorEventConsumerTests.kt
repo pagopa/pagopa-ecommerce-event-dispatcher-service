@@ -17,6 +17,7 @@ import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreReposito
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.scheduler.services.NodeService
 import it.pagopa.ecommerce.scheduler.services.eventretry.ClosureRetryService
+import it.pagopa.ecommerce.scheduler.services.eventretry.RefundRetryService
 import it.pagopa.generated.ecommerce.gateway.v1.dto.PostePayRefundResponseDto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
@@ -58,6 +59,8 @@ class TransactionClosureErrorEventConsumerTests {
     TransactionsEventStoreRepository<TransactionClosureData> =
     mock()
 
+  private val refundRetryService: RefundRetryService = mock()
+
   @Captor private lateinit var viewArgumentCaptor: ArgumentCaptor<Transaction>
 
   @Captor
@@ -78,7 +81,8 @@ class TransactionClosureErrorEventConsumerTests {
       nodeService,
       closureRetryService,
       transactionsRefundedEventStoreRepository,
-      paymentGatewayClient)
+      paymentGatewayClient,
+      refundRetryService)
 
   @Test
   fun `consumer processes bare closure error message correctly with OK closure outcome for authorization completed transaction`() =

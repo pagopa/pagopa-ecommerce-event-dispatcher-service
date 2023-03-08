@@ -20,6 +20,7 @@ import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreReposito
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.scheduler.services.NodeService
 import it.pagopa.ecommerce.scheduler.services.eventretry.ClosureRetryService
+import it.pagopa.ecommerce.scheduler.services.eventretry.RefundRetryService
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
 import java.util.*
@@ -46,6 +47,7 @@ class TransactionClosureErrorEventConsumer(
   private val transactionsRefundedEventStoreRepository:
     TransactionsEventStoreRepository<TransactionRefundedData>,
   @Autowired private val paymentGatewayClient: PaymentGatewayClient,
+  @Autowired private val refundRetryService: RefundRetryService
 ) {
   var logger: Logger = LoggerFactory.getLogger(TransactionClosureErrorEventConsumer::class.java)
 
@@ -203,7 +205,8 @@ class TransactionClosureErrorEventConsumer(
             getBaseTransactionWithCompletedAuthorization(transactionAtPreviousState)!!,
             transactionsRefundedEventStoreRepository,
             transactionsViewRepository,
-            paymentGatewayClient)
+            paymentGatewayClient,
+            refundRetryService)
         }
     } else {
       Mono.empty()

@@ -10,6 +10,7 @@ import it.pagopa.ecommerce.scheduler.client.PaymentGatewayClient
 import it.pagopa.ecommerce.scheduler.queues.QueueCommonsLogger.logger
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsViewRepository
+import it.pagopa.ecommerce.scheduler.services.eventretry.RefundRetryService
 import java.util.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -125,7 +126,9 @@ fun refundTransaction(
   tx: BaseTransaction,
   transactionsEventStoreRepository: TransactionsEventStoreRepository<TransactionRefundedData>,
   transactionsViewRepository: TransactionsViewRepository,
-  paymentGatewayClient: PaymentGatewayClient
+  paymentGatewayClient: PaymentGatewayClient,
+  refundRetryService: RefundRetryService,
+  retryCount: Int = 0
 ): Mono<BaseTransaction> {
   return Mono.just(tx)
     .cast(BaseTransactionWithRequestedAuthorization::class.java)
@@ -152,8 +155,13 @@ fun refundTransaction(
               "Refund error for transaction ${transaction.transactionId} with outcome  ${refundResponse.refundOutcome}"))
       }
     }
-    .doOnError {
-      logger.error("Exception processing refund for transaction ${tx.transactionId}", it)
+    .onErrorResume { exception ->
+      logger.error(
+        "Transaction requestRefund error for transaction ${tx.transactionId.value} : ${exception.message}")
+      updateTransactionToRefundError(
+          tx, transactionsEventStoreRepository, transactionsViewRepository)
+        .flatMap { refundRetryService.enqueueRetryEvent(it, retryCount) }
+        .thenReturn(tx)
     }
 }
 
