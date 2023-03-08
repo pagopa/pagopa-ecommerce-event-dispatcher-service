@@ -72,6 +72,7 @@ microservice-chart:
     TRANSACTION_CLOSURE_SENT_EVENT_QUEUE_NAME: pagopa-d-weu-ecommerce-closed-events-queue
     TRANSACTION_EXPIRED_EVENT_QUEUE_NAME: pagopa-d-weu-ecommerce-expired-events-queue
     TRANSACTION_REFUND_RETRY_EVENT_QUEUE_NAME: pagopa-d-weu-ecommerce-transactions-refund-retry-queue
+    TRANSACTIONS_REFUND_QUEUE_NAME: pagopa-d-weu-ecommerce-transactions-refund-queue
     AUTH_REQUESTED_TIMEOUT_SECONDS: "100"
     PAYMENT_TRANSACTIONS_GATEWAY_URI: https://api.dev.platform.pagopa.it/payment-transactions-gateway
     PAYMENT_TRANSACTIONS_GATEWAY_READ_TIMEOUT: "10000"
