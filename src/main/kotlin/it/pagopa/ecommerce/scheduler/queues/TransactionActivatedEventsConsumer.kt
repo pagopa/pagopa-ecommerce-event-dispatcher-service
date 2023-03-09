@@ -81,21 +81,10 @@ class TransactionActivatedEventsConsumer(
             tx,
             transactionsRefundedEventStoreRepository,
             transactionsViewRepository,
-            paymentGatewayClient)
+            paymentGatewayClient,
+            refundRetryService)
         }
-        .onErrorResume { exception ->
-          transactionId.map { id ->
-            logger.error(
-              "Transaction requestRefund error for transaction $id : ${exception.message}")
-          }
-          baseTransaction
-            .flatMap {
-              updateTransactionToRefundError(
-                it, transactionsRefundedEventStoreRepository, transactionsViewRepository)
-            }
-            .flatMap { refundRetryService.enqueueRetryEvent(it, 0) }
-            .then(baseTransaction)
-        }
+
     return checkpoint.then(refundPipeline).then()
   }
 }

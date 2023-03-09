@@ -19,4 +19,15 @@ class QueuesProducerConfig {
       .queueName(queueEventInitName)
       .buildAsyncClient()
   }
+
+  @Bean
+  fun closureRetryQueueAsyncClient(
+    @Value("\${azurestorage.connectionstring}") storageConnectionString: String,
+    @Value("\${azurestorage.queues.transactionclosepaymentretry.name}") queueEventInitName: String,
+  ): QueueAsyncClient {
+    return QueueClientBuilder()
+      .connectionString(storageConnectionString)
+      .queueName(queueEventInitName)
+      .buildAsyncClient()
+  }
 }
