@@ -5,7 +5,7 @@ import it.pagopa.ecommerce.commons.documents.v1.TransactionAuthorizationRequeste
 import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
 import it.pagopa.ecommerce.scheduler.client.NodeClient
 import it.pagopa.ecommerce.scheduler.exceptions.TransactionEventNotFoundException
-import it.pagopa.ecommerce.scheduler.queues.TransactionActivatedEventsConsumer
+import it.pagopa.ecommerce.scheduler.queues.TransactionExpirationQueueConsumer
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreRepository
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
@@ -23,7 +23,7 @@ class NodeService(
   @Autowired private val nodeClient: NodeClient,
   @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>
 ) {
-  var logger: Logger = LoggerFactory.getLogger(TransactionActivatedEventsConsumer::class.java)
+  var logger: Logger = LoggerFactory.getLogger(TransactionExpirationQueueConsumer::class.java)
   suspend fun closePayment(
     transactionId: UUID,
     transactionOutcome: ClosePaymentRequestV2Dto.OutcomeEnum

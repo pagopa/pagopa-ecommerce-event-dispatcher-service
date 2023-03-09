@@ -6,14 +6,15 @@ import com.azure.spring.messaging.checkpoint.Checkpointer
 import it.pagopa.ecommerce.commons.documents.v1.TransactionExpiredEvent
 import it.pagopa.ecommerce.commons.documents.v1.TransactionRefundRetriedEvent
 import it.pagopa.ecommerce.commons.documents.v1.TransactionRefundedData
-import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionExpired
-import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithRequestedAuthorization
+import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
+import it.pagopa.ecommerce.commons.domain.v1.Transaction
+import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransaction
+import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithRefundRequested
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.scheduler.client.PaymentGatewayClient
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.scheduler.services.eventretry.RefundRetryService
-import java.util.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -25,11 +26,11 @@ import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.switchIfEmpty
 
 /**
- * Event consumer for expiration events. These events are input in the event queue only when a
- * transaction is stuck in an EXPIRED state **and** needs to be reverted
+ * Event consumer for transactions to refund. These events are input in the event queue only when a
+ * transaction is stuck in an REFUND_REQUESTED state **and** needs to be reverted
  */
 @Service
-class TransactionExpiredEventsConsumer(
+class TransactionsRefundQueueConsumer(
   @Autowired private val paymentGatewayClient: PaymentGatewayClient,
   @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,
   @Autowired
@@ -39,7 +40,7 @@ class TransactionExpiredEventsConsumer(
   @Autowired private val refundRetryService: RefundRetryService
 ) {
 
-  var logger: Logger = LoggerFactory.getLogger(TransactionExpiredEventsConsumer::class.java)
+  var logger: Logger = LoggerFactory.getLogger(TransactionsRefundQueueConsumer::class.java)
 
   private fun getTransactionIdFromPayload(data: BinaryData): Mono<String> {
     val idFromActivatedEvent =
@@ -50,7 +51,7 @@ class TransactionExpiredEventsConsumer(
     return Mono.firstWithValue(idFromActivatedEvent, idFromRefundedEvent)
   }
 
-  @ServiceActivator(inputChannel = "transactionexpiredchannel", outputChannel = "nullChannel")
+  @ServiceActivator(inputChannel = "transactionsrefundchannel", outputChannel = "nullChannel")
   fun messageReceiver(
     @Payload payload: ByteArray,
     @Header(AzureHeaders.CHECKPOINTER) checkpointer: Checkpointer
@@ -58,14 +59,13 @@ class TransactionExpiredEventsConsumer(
     val checkpoint = checkpointer.success()
 
     val transactionId = getTransactionIdFromPayload(BinaryData.fromBytes(payload))
-    val baseTransaction = reduceEvents(transactionId, transactionsEventStoreRepository)
+
     val refundPipeline =
-      baseTransaction
-        .filter { it.status == TransactionStatusDto.EXPIRED }
-        .doOnNext { logger.info("Handling expired transaction with id ${it.transactionId.value}") }
-        .cast(BaseTransactionExpired::class.java)
-        .map { it.transactionAtPreviousState }
-        .filter(::isTransactionRefundable)
+      transactionId
+        .flatMapMany { transactionsEventStoreRepository.findByTransactionId(it) }
+        .reduce(EmptyTransaction(), Transaction::applyEvent)
+        .cast(BaseTransaction::class.java)
+        .filter { it.status == TransactionStatusDto.REFUND_REQUESTED }
         .switchIfEmpty {
           return@switchIfEmpty transactionId
             .doOnNext {
@@ -73,11 +73,10 @@ class TransactionExpiredEventsConsumer(
             }
             .flatMap { Mono.empty() }
         }
-        .flatMap {
-          updateTransactionToRefundRequested(
-            it, transactionsRefundedEventStoreRepository, transactionsViewRepository)
+        .doOnNext {
+          logger.info("Handling refund request for transaction with id ${it.transactionId.value}")
         }
-        .cast(BaseTransactionWithRequestedAuthorization::class.java)
+        .cast(BaseTransactionWithRefundRequested::class.java)
         .flatMap { tx ->
           refundTransaction(
             tx,
@@ -86,6 +85,7 @@ class TransactionExpiredEventsConsumer(
             paymentGatewayClient,
             refundRetryService)
         }
+
     return checkpoint.then(refundPipeline).then()
   }
 }

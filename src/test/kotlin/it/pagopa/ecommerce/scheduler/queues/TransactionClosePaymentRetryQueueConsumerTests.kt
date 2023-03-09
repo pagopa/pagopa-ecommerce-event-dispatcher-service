@@ -39,7 +39,7 @@ import reactor.test.StepVerifier
 
 @ExtendWith(MockitoExtension::class)
 @OptIn(ExperimentalCoroutinesApi::class)
-class TransactionClosureErrorEventConsumerTests {
+class TransactionClosePaymentRetryQueueConsumerTests {
   private val checkpointer: Checkpointer = mock()
 
   private val nodeService: NodeService = mock()
@@ -74,7 +74,7 @@ class TransactionClosureErrorEventConsumerTests {
   @Captor private lateinit var retryCountCaptor: ArgumentCaptor<Int>
 
   private val transactionClosureErrorEventsConsumer =
-    TransactionClosureErrorEventConsumer(
+    TransactionClosePaymentRetryQueueConsumer(
       transactionsEventStoreRepository,
       transactionClosedEventRepository,
       transactionsViewRepository,

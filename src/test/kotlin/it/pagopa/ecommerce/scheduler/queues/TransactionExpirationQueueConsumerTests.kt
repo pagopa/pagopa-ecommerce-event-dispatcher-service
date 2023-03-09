@@ -40,7 +40,7 @@ import reactor.test.StepVerifier
 @SpringBootTest
 @TestPropertySource(locations = ["classpath:application.test.properties"])
 @OptIn(ExperimentalCoroutinesApi::class)
-class TransactionActivatedEventsConsumerTests {
+class TransactionExpirationQueueConsumerTests {
 
   @Mock private lateinit var checkpointer: Checkpointer
 
@@ -80,8 +80,8 @@ class TransactionActivatedEventsConsumerTests {
 
   @Test
   fun `messageReceiver receives activated messages successfully`() {
-    val transactionActivatedEventsConsumer =
-      TransactionActivatedEventsConsumer(
+    val transactionExpirationQueueConsumer =
+      TransactionExpirationQueueConsumer(
         paymentGatewayClient,
         transactionsEventStoreRepository,
         transactionsExpiredEventStoreRepository,
@@ -107,7 +107,7 @@ class TransactionActivatedEventsConsumerTests {
 
     /* test */
     StepVerifier.create(
-        transactionActivatedEventsConsumer.messageReceiver(
+        transactionExpirationQueueConsumer.messageReceiver(
           BinaryData.fromObject(activatedEvent).toBytes(), checkpointer))
       .expectNext()
       .expectComplete()
@@ -119,8 +119,8 @@ class TransactionActivatedEventsConsumerTests {
 
   @Test
   fun `messageReceiver receives refund messages successfully`() {
-    val transactionActivatedEventsConsumer =
-      TransactionActivatedEventsConsumer(
+    val transactionExpirationQueueConsumer =
+      TransactionExpirationQueueConsumer(
         paymentGatewayClient,
         transactionsEventStoreRepository,
         transactionsExpiredEventStoreRepository,
@@ -148,7 +148,7 @@ class TransactionActivatedEventsConsumerTests {
 
     /* test */
     StepVerifier.create(
-        transactionActivatedEventsConsumer.messageReceiver(
+        transactionExpirationQueueConsumer.messageReceiver(
           BinaryData.fromObject(refundRetriedEvent).toBytes(), checkpointer))
       .expectNext()
       .expectComplete()
@@ -160,8 +160,8 @@ class TransactionActivatedEventsConsumerTests {
 
   @Test
   fun `messageReceiver calls refund on transaction with authorization request`() = runTest {
-    val transactionActivatedEventsConsumer =
-      TransactionActivatedEventsConsumer(
+    val transactionExpirationQueueConsumer =
+      TransactionExpirationQueueConsumer(
         paymentGatewayClient,
         transactionsEventStoreRepository,
         transactionsExpiredEventStoreRepository,
@@ -209,7 +209,7 @@ class TransactionActivatedEventsConsumerTests {
 
     /* test */
     StepVerifier.create(
-        transactionActivatedEventsConsumer.messageReceiver(
+        transactionExpirationQueueConsumer.messageReceiver(
           BinaryData.fromObject(activatedEvent).toBytes(), checkpointer))
       .expectNext()
       .expectComplete()
@@ -222,8 +222,8 @@ class TransactionActivatedEventsConsumerTests {
 
   @Test
   fun `messageReceiver generate new expired event with error in eventstore`() = runTest {
-    val transactionActivatedEventsConsumer =
-      TransactionActivatedEventsConsumer(
+    val transactionExpirationQueueConsumer =
+      TransactionExpirationQueueConsumer(
         paymentGatewayClient,
         transactionsEventStoreRepository,
         transactionsExpiredEventStoreRepository,
@@ -249,7 +249,7 @@ class TransactionActivatedEventsConsumerTests {
 
     /* test */
     StepVerifier.create(
-        transactionActivatedEventsConsumer.messageReceiver(
+        transactionExpirationQueueConsumer.messageReceiver(
           BinaryData.fromObject(activatedEvent).toBytes(), checkpointer))
       .expectNext()
       .expectComplete()
@@ -262,8 +262,8 @@ class TransactionActivatedEventsConsumerTests {
 
   @Test
   fun `messageReceiver fails to generate new expired event`() = runTest {
-    val transactionActivatedEventsConsumer =
-      TransactionActivatedEventsConsumer(
+    val transactionExpirationQueueConsumer =
+      TransactionExpirationQueueConsumer(
         paymentGatewayClient,
         transactionsEventStoreRepository,
         transactionsExpiredEventStoreRepository,
@@ -311,7 +311,7 @@ class TransactionActivatedEventsConsumerTests {
 
     /* test */
     StepVerifier.create(
-        transactionActivatedEventsConsumer.messageReceiver(
+        transactionExpirationQueueConsumer.messageReceiver(
           BinaryData.fromObject(activatedEvent).toBytes(), checkpointer))
       .expectError()
       .verify()
@@ -322,8 +322,8 @@ class TransactionActivatedEventsConsumerTests {
 
   @Test
   fun `messageReceiver fails to generate new refund event`() = runTest {
-    val transactionActivatedEventsConsumer =
-      TransactionActivatedEventsConsumer(
+    val transactionExpirationQueueConsumer =
+      TransactionExpirationQueueConsumer(
         paymentGatewayClient,
         transactionsEventStoreRepository,
         transactionsExpiredEventStoreRepository,
@@ -359,7 +359,7 @@ class TransactionActivatedEventsConsumerTests {
 
     /* test */
     StepVerifier.create(
-        transactionActivatedEventsConsumer.messageReceiver(
+        transactionExpirationQueueConsumer.messageReceiver(
           BinaryData.fromObject(activatedEvent).toBytes(), checkpointer))
       .expectError()
       .verify()
@@ -371,8 +371,8 @@ class TransactionActivatedEventsConsumerTests {
   @Test
   fun `messageReceiver calls refund on transaction with authorization request and PGS response KO generating refunded event`() =
     runTest {
-      val transactionActivatedEventsConsumer =
-        TransactionActivatedEventsConsumer(
+      val transactionExpirationQueueConsumer =
+        TransactionExpirationQueueConsumer(
           paymentGatewayClient,
           transactionsEventStoreRepository,
           transactionsExpiredEventStoreRepository,
@@ -424,7 +424,7 @@ class TransactionActivatedEventsConsumerTests {
         .willReturn(Mono.empty())
       /* test */
       StepVerifier.create(
-          transactionActivatedEventsConsumer.messageReceiver(
+          transactionExpirationQueueConsumer.messageReceiver(
             BinaryData.fromObject(activatedEvent).toBytes(), checkpointer))
         .expectNext()
         .expectComplete()
@@ -468,8 +468,8 @@ class TransactionActivatedEventsConsumerTests {
   @Test
   fun `messageReceiver calls refund on transaction with authorization request and PGS response OK generating refund error event`() =
     runTest {
-      val transactionActivatedEventsConsumer =
-        TransactionActivatedEventsConsumer(
+      val transactionExpirationQueueConsumer =
+        TransactionExpirationQueueConsumer(
           paymentGatewayClient,
           transactionsEventStoreRepository,
           transactionsExpiredEventStoreRepository,
@@ -510,7 +510,7 @@ class TransactionActivatedEventsConsumerTests {
 
       /* test */
       StepVerifier.create(
-          transactionActivatedEventsConsumer.messageReceiver(
+          transactionExpirationQueueConsumer.messageReceiver(
             BinaryData.fromObject(activatedEvent).toBytes(), checkpointer))
         .expectNext()
         .expectComplete()
@@ -553,8 +553,8 @@ class TransactionActivatedEventsConsumerTests {
   @Test
   fun `messageReceiver calls update transaction to EXPIRED_NOT_AUTHORIZED for activated only expired transaction`() =
     runTest {
-      val transactionActivatedEventsConsumer =
-        TransactionActivatedEventsConsumer(
+      val transactionExpirationQueueConsumer =
+        TransactionExpirationQueueConsumer(
           paymentGatewayClient,
           transactionsEventStoreRepository,
           transactionsExpiredEventStoreRepository,
@@ -591,7 +591,7 @@ class TransactionActivatedEventsConsumerTests {
 
       /* test */
       StepVerifier.create(
-          transactionActivatedEventsConsumer.messageReceiver(
+          transactionExpirationQueueConsumer.messageReceiver(
             BinaryData.fromObject(activatedEvent).toBytes(), checkpointer))
         .expectNext()
         .expectComplete()

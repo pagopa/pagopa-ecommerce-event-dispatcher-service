@@ -49,7 +49,7 @@ class TransactionsRefundEventsConsumerTests {
   private val transactionsViewRepository: TransactionsViewRepository = mock()
 
   private val transactionRefundedEventsConsumer =
-    TransactionsRefundConsumer(
+    TransactionsRefundQueueConsumer(
       paymentGatewayClient,
       transactionsEventStoreRepository,
       transactionsRefundedEventStoreRepository,

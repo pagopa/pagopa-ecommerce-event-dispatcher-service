@@ -189,6 +189,8 @@ fun paymentNoticeDocuments(
 fun isTransactionRefundable(tx: BaseTransaction): Boolean =
   tx is BaseTransactionWithRequestedAuthorization
 
+fun isTransactionExpired(tx: BaseTransaction): Boolean = tx.status == TransactionStatusDto.EXPIRED
+
 fun reduceEvents(
   transactionId: Mono<String>,
   transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>
