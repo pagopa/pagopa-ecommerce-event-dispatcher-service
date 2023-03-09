@@ -59,19 +59,17 @@ class TransactionActivatedEventsConsumer(
 
     val transactionId = getTransactionIdFromPayload(BinaryData.fromBytes(payload))
     val baseTransaction = reduceEvents(transactionId, transactionsEventStoreRepository)
-    val refundable = baseTransaction.map { isTransactionRefundable(it) }
     val refundPipeline =
       baseTransaction
         .filter { transactionUtils.isTransientStatus(it.status) }
         .flatMap { tx ->
-          refundable.flatMap { refundable ->
-            logger.info(
-              "Transaction ${tx.transactionId.value} in status ${tx.status}, refundable: $refundable")
-            updateTransactionToExpired(
-              tx, transactionsExpiredEventStoreRepository, transactionsViewRepository, refundable)
-          }
+          val refundable = isTransactionRefundable(tx)
+          logger.info(
+            "Transaction ${tx.transactionId.value} in status ${tx.status}, refundable: $refundable")
+          updateTransactionToExpired(
+            tx, transactionsExpiredEventStoreRepository, transactionsViewRepository, refundable)
         }
-        .filterWhen { refundable }
+        .filter { isTransactionRefundable(it) }
         .flatMap {
           updateTransactionToRefundRequested(
             it, transactionsRefundedEventStoreRepository, transactionsViewRepository)
