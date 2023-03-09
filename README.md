@@ -25,32 +25,34 @@ These are all environment variables needed by the application:
 | ECOMMERCE_STORAGE_QUEUE_ENDPOINT               | eCommerce storage account queue endpoint                                          | string |         |
 | AUTH_REQUESTED_TIMEOUT_SECONDS                 |                                                                                   | string |         |
 | TRANSACTION_ACTIVATED_EVENT_QUEUE_NAME         | Queue name for activated events scheduled for retries                             | string |         |
-| TRANSACTION_CLOSURE_SENT_EVENT_QUEUE_NAME      | Queue name for closure events scheduled for retries                               | string |         |
-
+| TRANSACTIONS_CLOSE_PAYMENT_RETRY_QUEUE_NAME    | Queue name for closure events scheduled for retries                               | string |         |
 
 An example configuration of these environment variables is in the `.env.example` file.
 
 ## Run the application with `Docker`
 
 Create your environment typing :
+
 ```sh
 cp .env.example .env
 ```
 
 Then from current project directory run :
+
 ```sh
 docker-compose up
 ```
 
-
 ## Run the application with `springboot-plugin`
 
 Create your environment:
+
 ```sh
 export $(grep -v '^#' .env.local | xargs)
 ```
 
 Then from current project directory run :
+
 ```sh
 mvn spring-boot:run
 ```

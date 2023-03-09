@@ -35,7 +35,7 @@ import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
 
 @Service
-class TransactionClosureErrorEventConsumer(
+class TransactionClosePaymentRetryQueueConsumer(
   @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,
   @Autowired
   private val transactionClosureSentEventRepository:
@@ -49,7 +49,8 @@ class TransactionClosureErrorEventConsumer(
   @Autowired private val paymentGatewayClient: PaymentGatewayClient,
   @Autowired private val refundRetryService: RefundRetryService
 ) {
-  var logger: Logger = LoggerFactory.getLogger(TransactionClosureErrorEventConsumer::class.java)
+  var logger: Logger =
+    LoggerFactory.getLogger(TransactionClosePaymentRetryQueueConsumer::class.java)
 
   private fun getTransactionIdFromPayload(data: BinaryData): Mono<String> {
     val idFromClosureErrorEvent =
