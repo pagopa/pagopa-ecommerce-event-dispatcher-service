@@ -85,12 +85,6 @@ class TransactionsRefundConsumer(
             paymentGatewayClient,
             refundRetryService)
         }
-        .onErrorMap {
-          logger.error(
-            "Transaction requestRefund error for transaction ${transactionId.block()} : ${it.message}")
-          // TODO retry
-          it
-        }
 
     return checkpoint.then(refundPipeline).then()
   }
