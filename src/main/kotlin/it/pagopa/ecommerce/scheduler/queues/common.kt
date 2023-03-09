@@ -23,7 +23,8 @@ object QueueCommonsLogger {
 fun updateTransactionToExpired(
   transaction: BaseTransaction,
   transactionsExpiredEventStoreRepository: TransactionsEventStoreRepository<TransactionExpiredData>,
-  transactionsViewRepository: TransactionsViewRepository
+  transactionsViewRepository: TransactionsViewRepository,
+  refundable: Boolean
 ): Mono<BaseTransaction> {
 
   return transactionsExpiredEventStoreRepository
@@ -37,7 +38,7 @@ fun updateTransactionToExpired(
           paymentNoticeDocuments(transaction.paymentNotices),
           TransactionUtils.getTransactionFee(transaction).orElse(null),
           transaction.email,
-          TransactionStatusDto.EXPIRED,
+          getExpiredTransactionStatus(refundable),
           transaction.clientId,
           transaction.creationDate.toString())))
     .doOnSuccess {
@@ -49,6 +50,13 @@ fun updateTransactionToExpired(
     }
     .thenReturn(transaction)
 }
+
+fun getExpiredTransactionStatus(refundable: Boolean) =
+  if (refundable) {
+    TransactionStatusDto.EXPIRED
+  } else {
+    TransactionStatusDto.EXPIRED_NOT_AUTHORIZED
+  }
 
 fun updateTransactionToRefundRequested(
   transaction: BaseTransaction,

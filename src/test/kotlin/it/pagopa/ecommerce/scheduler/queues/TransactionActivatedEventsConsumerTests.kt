@@ -549,4 +549,66 @@ class TransactionActivatedEventsConsumerTests {
           "Unexpected event code on idx: $idx")
       }
     }
+
+  @Test
+  fun `messageReceiver calls update transaction to EXPIRED_NOT_AUTHORIZED for activated only expired transaction`() =
+    runTest {
+      val transactionActivatedEventsConsumer =
+        TransactionActivatedEventsConsumer(
+          paymentGatewayClient,
+          transactionsEventStoreRepository,
+          transactionsExpiredEventStoreRepository,
+          transactionsRefundedEventStoreRepository,
+          transactionsViewRepository,
+          transactionUtils,
+          refundRetryService)
+
+      val activatedEvent = transactionActivateEvent()
+
+      val gatewayClientResponse = PostePayRefundResponseDto()
+      gatewayClientResponse.refundOutcome = "OK"
+
+      /* preconditions */
+      given(checkpointer.success()).willReturn(Mono.empty())
+      given(
+          transactionsEventStoreRepository.findByTransactionId(
+            any(),
+          ))
+        .willReturn(Flux.just(activatedEvent as TransactionEvent<Any>))
+
+      given(
+          transactionsExpiredEventStoreRepository.save(
+            transactionExpiredEventStoreCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
+      given(
+          transactionsRefundedEventStoreRepository.save(
+            transactionRefundEventStoreCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
+      given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
+        Mono.just(it.arguments[0])
+      }
+      given(paymentGatewayClient.requestRefund(any())).willReturn(Mono.just(gatewayClientResponse))
+
+      /* test */
+      StepVerifier.create(
+          transactionActivatedEventsConsumer.messageReceiver(
+            BinaryData.fromObject(activatedEvent).toBytes(), checkpointer))
+        .expectNext()
+        .expectComplete()
+        .verify()
+
+      /* Asserts */
+      verify(checkpointer, times(1)).success()
+      verify(paymentGatewayClient, times(0)).requestRefund(any())
+      verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
+      verify(transactionsViewRepository, times(1)).save(any())
+      verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
+      assertEquals(
+        TransactionEventCode.TRANSACTION_EXPIRED_EVENT,
+        transactionExpiredEventStoreCaptor.value.eventCode)
+      assertEquals(
+        TransactionStatusDto.EXPIRED_NOT_AUTHORIZED,
+        transactionViewRepositoryCaptor.value.status,
+      )
+    }
 }
