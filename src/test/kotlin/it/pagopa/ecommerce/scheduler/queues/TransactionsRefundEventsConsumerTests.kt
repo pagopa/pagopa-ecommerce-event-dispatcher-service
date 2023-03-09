@@ -9,6 +9,7 @@ import it.pagopa.ecommerce.commons.v1.TransactionTestUtils.transactionAuthorizat
 import it.pagopa.ecommerce.scheduler.client.PaymentGatewayClient
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsViewRepository
+import it.pagopa.ecommerce.scheduler.services.eventretry.RefundRetryService
 import it.pagopa.generated.ecommerce.gateway.v1.dto.PostePayRefundResponseDto
 import java.util.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -30,6 +31,8 @@ class TransactionsRefundEventsConsumerTests {
 
   private val paymentGatewayClient: PaymentGatewayClient = mock()
 
+  private val refundRetryService: RefundRetryService = mock()
+
   private val transactionsRefundedEventStoreRepository:
     TransactionsEventStoreRepository<TransactionRefundedData> =
     mock()
@@ -42,7 +45,7 @@ class TransactionsRefundEventsConsumerTests {
       transactionsEventStoreRepository,
       transactionsRefundedEventStoreRepository,
       transactionsViewRepository,
-    )
+      refundRetryService)
 
   @Test
   fun `consumer processes refund request event correctly with pgs refund`() = runTest {

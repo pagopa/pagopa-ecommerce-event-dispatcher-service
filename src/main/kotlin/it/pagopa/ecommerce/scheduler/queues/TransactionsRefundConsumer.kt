@@ -14,6 +14,7 @@ import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.scheduler.client.PaymentGatewayClient
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsViewRepository
+import it.pagopa.ecommerce.scheduler.services.eventretry.RefundRetryService
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -36,6 +37,7 @@ class TransactionsRefundConsumer(
   private val transactionsRefundedEventStoreRepository:
     TransactionsEventStoreRepository<TransactionRefundedData>,
   @Autowired private val transactionsViewRepository: TransactionsViewRepository,
+  @Autowired private val refundRetryService: RefundRetryService
 ) {
 
   var logger: Logger = LoggerFactory.getLogger(TransactionsRefundConsumer::class.java)
@@ -80,7 +82,8 @@ class TransactionsRefundConsumer(
             tx,
             transactionsRefundedEventStoreRepository,
             transactionsViewRepository,
-            paymentGatewayClient)
+            paymentGatewayClient,
+            refundRetryService)
         }
         .onErrorMap {
           logger.error(

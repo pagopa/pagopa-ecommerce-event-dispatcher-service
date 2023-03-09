@@ -29,9 +29,9 @@ import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
 
 @ExtendWith(MockitoExtension::class)
-class RefundRetryServiceTests {
+class ClosureRetryServiceTests {
 
-  private val refundRetryQueueAsyncClient: QueueAsyncClient = mock()
+  private val closureRetryQueueAsyncClient: QueueAsyncClient = mock()
 
   private val transactionsViewRepository: TransactionsViewRepository = mock()
 
@@ -49,34 +49,29 @@ class RefundRetryServiceTests {
 
   private val maxAttempts = 3
 
-  private val refundRetryOffset = 10
+  private val closureRetryOffset = 10
 
-  private val refundRetryService =
-    RefundRetryService(
-      refundRetryQueueAsyncClient,
+  private val closureRetryService =
+    ClosureRetryService(
+      closureRetryQueueAsyncClient,
       10,
       maxAttempts,
       transactionsViewRepository,
       eventStoreRepository)
 
   @Test
-  fun `Should enqueue new refund retry event for left remaining attempts`() {
+  fun `Should enqueue new closure retry event for left remaining attempts`() {
     val events: MutableList<TransactionEvent<Any>> =
       mutableListOf(
         TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
         TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>,
         TransactionTestUtils.transactionAuthorizationCompletedEvent() as TransactionEvent<Any>,
-      )
-    events.add(
-      TransactionTestUtils.transactionExpiredEvent(
-        TransactionTestUtils.reduceEvents(*events.toTypedArray())) as TransactionEvent<Any>)
-    events.add(
-      TransactionTestUtils.transactionRefundRequestedEvent(
-        TransactionTestUtils.reduceEvents(*events.toTypedArray())) as TransactionEvent<Any>)
+        TransactionTestUtils.transactionClosureErrorEvent() as TransactionEvent<Any>)
+
     val baseTransaction = TransactionTestUtils.reduceEvents(*events.toTypedArray())
     val transactionDocument =
       TransactionTestUtils.transactionDocument(
-        TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now())
+        TransactionStatusDto.CLOSURE_ERROR, ZonedDateTime.now())
     given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
@@ -87,46 +82,40 @@ class RefundRetryServiceTests {
       Mono.just(it.arguments[0])
     }
     given(
-        refundRetryQueueAsyncClient.sendMessageWithResponse(
-          queueCaptor.capture(),
-          eq(Duration.ofSeconds((refundRetryOffset * 3).toLong())),
-          anyOrNull()))
+        closureRetryQueueAsyncClient.sendMessageWithResponse(
+          queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
       .willReturn(queueSuccessfulResponse())
-    StepVerifier.create(refundRetryService.enqueueRetryEvent(baseTransaction, maxAttempts - 1))
+    StepVerifier.create(closureRetryService.enqueueRetryEvent(baseTransaction, maxAttempts - 1))
       .expectNext()
       .verifyComplete()
 
     verify(eventStoreRepository, times(1)).save(any())
     verify(transactionsViewRepository, times(1)).findByTransactionId(any())
     verify(transactionsViewRepository, times(1)).save(any())
-    verify(refundRetryQueueAsyncClient, times(1))
+    verify(closureRetryQueueAsyncClient, times(1))
       .sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull())
     val savedEvent = eventStoreCaptor.value
     val savedView = viewRepositoryCaptor.value
     val eventSentOnQueue = queueCaptor.value.toObject(TransactionRefundRetriedEvent::class.java)
-    assertEquals(TransactionEventCode.TRANSACTION_REFUND_RETRIED_EVENT, savedEvent.eventCode)
-    assertEquals(TransactionStatusDto.REFUND_ERROR, savedView.status)
+    assertEquals(TransactionEventCode.TRANSACTION_CLOSURE_RETRIED_EVENT, savedEvent.eventCode)
+    assertEquals(TransactionStatusDto.CLOSURE_ERROR, savedView.status)
     assertEquals(maxAttempts, eventSentOnQueue.data.retryCount)
+    assertEquals(closureRetryOffset * 3, durationCaptor.value.seconds.toInt())
   }
 
   @Test
-  fun `Should enqueue new refund retry event for first time sending event`() {
+  fun `Should enqueue new closure retry event for first time sending event`() {
     val events: MutableList<TransactionEvent<Any>> =
       mutableListOf(
         TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
         TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>,
         TransactionTestUtils.transactionAuthorizationCompletedEvent() as TransactionEvent<Any>,
-      )
-    events.add(
-      TransactionTestUtils.transactionExpiredEvent(
-        TransactionTestUtils.reduceEvents(*events.toTypedArray())) as TransactionEvent<Any>)
-    events.add(
-      TransactionTestUtils.transactionRefundRequestedEvent(
-        TransactionTestUtils.reduceEvents(*events.toTypedArray())) as TransactionEvent<Any>)
+        TransactionTestUtils.transactionClosureErrorEvent() as TransactionEvent<Any>)
+
     val baseTransaction = TransactionTestUtils.reduceEvents(*events.toTypedArray())
     val transactionDocument =
       TransactionTestUtils.transactionDocument(
-        TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now())
+        TransactionStatusDto.CLOSURE_ERROR, ZonedDateTime.now())
     given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
@@ -137,45 +126,40 @@ class RefundRetryServiceTests {
       Mono.just(it.arguments[0])
     }
     given(
-        refundRetryQueueAsyncClient.sendMessageWithResponse(
+        closureRetryQueueAsyncClient.sendMessageWithResponse(
           queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
       .willReturn(queueSuccessfulResponse())
-    StepVerifier.create(refundRetryService.enqueueRetryEvent(baseTransaction, 0))
+    StepVerifier.create(closureRetryService.enqueueRetryEvent(baseTransaction, 0))
       .expectNext()
       .verifyComplete()
 
     verify(eventStoreRepository, times(1)).save(any())
     verify(transactionsViewRepository, times(1)).findByTransactionId(any())
     verify(transactionsViewRepository, times(1)).save(any())
-    verify(refundRetryQueueAsyncClient, times(1))
+    verify(closureRetryQueueAsyncClient, times(1))
       .sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull())
     val savedEvent = eventStoreCaptor.value
     val savedView = viewRepositoryCaptor.value
     val eventSentOnQueue = queueCaptor.value.toObject(TransactionRefundRetriedEvent::class.java)
-    assertEquals(TransactionEventCode.TRANSACTION_REFUND_RETRIED_EVENT, savedEvent.eventCode)
-    assertEquals(TransactionStatusDto.REFUND_ERROR, savedView.status)
+    assertEquals(TransactionEventCode.TRANSACTION_CLOSURE_RETRIED_EVENT, savedEvent.eventCode)
+    assertEquals(TransactionStatusDto.CLOSURE_ERROR, savedView.status)
     assertEquals(1, eventSentOnQueue.data.retryCount)
-    assertEquals(refundRetryOffset, durationCaptor.value.seconds.toInt())
+    assertEquals(closureRetryOffset, durationCaptor.value.seconds.toInt())
   }
 
   @Test
-  fun `Should not enqueue new refund retry event for no left remaining attempts`() {
+  fun `Should not enqueue new closure retry event for no left remaining attempts`() {
     val events: MutableList<TransactionEvent<Any>> =
       mutableListOf(
         TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
         TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>,
         TransactionTestUtils.transactionAuthorizationCompletedEvent() as TransactionEvent<Any>,
-      )
-    events.add(
-      TransactionTestUtils.transactionExpiredEvent(
-        TransactionTestUtils.reduceEvents(*events.toTypedArray())) as TransactionEvent<Any>)
-    events.add(
-      TransactionTestUtils.transactionRefundRequestedEvent(
-        TransactionTestUtils.reduceEvents(*events.toTypedArray())) as TransactionEvent<Any>)
+        TransactionTestUtils.transactionClosureErrorEvent() as TransactionEvent<Any>)
+
     val baseTransaction = TransactionTestUtils.reduceEvents(*events.toTypedArray())
     val transactionDocument =
       TransactionTestUtils.transactionDocument(
-        TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now())
+        TransactionStatusDto.CLOSURE_ERROR, ZonedDateTime.now())
     given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
@@ -186,38 +170,33 @@ class RefundRetryServiceTests {
       Mono.just(it.arguments[0])
     }
     given(
-        refundRetryQueueAsyncClient.sendMessageWithResponse(
+        closureRetryQueueAsyncClient.sendMessageWithResponse(
           queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
       .willReturn(queueSuccessfulResponse())
-    StepVerifier.create(refundRetryService.enqueueRetryEvent(baseTransaction, maxAttempts))
+    StepVerifier.create(closureRetryService.enqueueRetryEvent(baseTransaction, maxAttempts))
       .expectError(NoRetryAttemptsLeftException::class.java)
       .verify()
 
     verify(eventStoreRepository, times(0)).save(any())
     verify(transactionsViewRepository, times(0)).findByTransactionId(any())
     verify(transactionsViewRepository, times(0)).save(any())
-    verify(refundRetryQueueAsyncClient, times(0))
+    verify(closureRetryQueueAsyncClient, times(0))
       .sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull())
   }
 
   @Test
-  fun `Should not enqueue new refund retry event for error saving event to eventstore`() {
+  fun `Should not enqueue new closure retry event for error saving event to eventstore`() {
     val events: MutableList<TransactionEvent<Any>> =
       mutableListOf(
         TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
         TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>,
         TransactionTestUtils.transactionAuthorizationCompletedEvent() as TransactionEvent<Any>,
-      )
-    events.add(
-      TransactionTestUtils.transactionExpiredEvent(
-        TransactionTestUtils.reduceEvents(*events.toTypedArray())) as TransactionEvent<Any>)
-    events.add(
-      TransactionTestUtils.transactionRefundRequestedEvent(
-        TransactionTestUtils.reduceEvents(*events.toTypedArray())) as TransactionEvent<Any>)
+        TransactionTestUtils.transactionClosureErrorEvent() as TransactionEvent<Any>)
+
     val baseTransaction = TransactionTestUtils.reduceEvents(*events.toTypedArray())
     val transactionDocument =
       TransactionTestUtils.transactionDocument(
-        TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now())
+        TransactionStatusDto.CLOSURE_ERROR, ZonedDateTime.now())
     given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
       Mono.error<TransactionEvent<Any>>(RuntimeException("Error saving event into event store"))
     }
@@ -228,34 +207,29 @@ class RefundRetryServiceTests {
       Mono.just(it.arguments[0])
     }
     given(
-        refundRetryQueueAsyncClient.sendMessageWithResponse(
+        closureRetryQueueAsyncClient.sendMessageWithResponse(
           queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
       .willReturn(queueSuccessfulResponse())
-    StepVerifier.create(refundRetryService.enqueueRetryEvent(baseTransaction, maxAttempts - 1))
+    StepVerifier.create(closureRetryService.enqueueRetryEvent(baseTransaction, maxAttempts - 1))
       .expectError(java.lang.RuntimeException::class.java)
       .verify()
 
     verify(eventStoreRepository, times(1)).save(any())
     verify(transactionsViewRepository, times(0)).findByTransactionId(any())
     verify(transactionsViewRepository, times(0)).save(any())
-    verify(refundRetryQueueAsyncClient, times(0))
+    verify(closureRetryQueueAsyncClient, times(0))
       .sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull())
   }
 
   @Test
-  fun `Should not enqueue new refund retry event for error retrieving transaction view`() {
+  fun `Should not enqueue new closure retry event for error retrieving transaction view`() {
     val events: MutableList<TransactionEvent<Any>> =
       mutableListOf(
         TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
         TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>,
         TransactionTestUtils.transactionAuthorizationCompletedEvent() as TransactionEvent<Any>,
-      )
-    events.add(
-      TransactionTestUtils.transactionExpiredEvent(
-        TransactionTestUtils.reduceEvents(*events.toTypedArray())) as TransactionEvent<Any>)
-    events.add(
-      TransactionTestUtils.transactionRefundRequestedEvent(
-        TransactionTestUtils.reduceEvents(*events.toTypedArray())) as TransactionEvent<Any>)
+        TransactionTestUtils.transactionClosureErrorEvent() as TransactionEvent<Any>)
+
     val baseTransaction = TransactionTestUtils.reduceEvents(*events.toTypedArray())
 
     given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
@@ -268,38 +242,33 @@ class RefundRetryServiceTests {
       Mono.just(it.arguments[0])
     }
     given(
-        refundRetryQueueAsyncClient.sendMessageWithResponse(
+        closureRetryQueueAsyncClient.sendMessageWithResponse(
           queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
       .willReturn(queueSuccessfulResponse())
-    StepVerifier.create(refundRetryService.enqueueRetryEvent(baseTransaction, maxAttempts - 1))
+    StepVerifier.create(closureRetryService.enqueueRetryEvent(baseTransaction, maxAttempts - 1))
       .expectError(java.lang.RuntimeException::class.java)
       .verify()
 
     verify(eventStoreRepository, times(1)).save(any())
     verify(transactionsViewRepository, times(1)).findByTransactionId(any())
     verify(transactionsViewRepository, times(0)).save(any())
-    verify(refundRetryQueueAsyncClient, times(0))
+    verify(closureRetryQueueAsyncClient, times(0))
       .sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull())
   }
 
   @Test
-  fun `Should not enqueue new refund retry event for error updating transaction view`() {
+  fun `Should not enqueue new closure retry event for error updating transaction view`() {
     val events: MutableList<TransactionEvent<Any>> =
       mutableListOf(
         TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
         TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>,
         TransactionTestUtils.transactionAuthorizationCompletedEvent() as TransactionEvent<Any>,
-      )
-    events.add(
-      TransactionTestUtils.transactionExpiredEvent(
-        TransactionTestUtils.reduceEvents(*events.toTypedArray())) as TransactionEvent<Any>)
-    events.add(
-      TransactionTestUtils.transactionRefundRequestedEvent(
-        TransactionTestUtils.reduceEvents(*events.toTypedArray())) as TransactionEvent<Any>)
+        TransactionTestUtils.transactionClosureErrorEvent() as TransactionEvent<Any>)
+
     val baseTransaction = TransactionTestUtils.reduceEvents(*events.toTypedArray())
     val transactionDocument =
       TransactionTestUtils.transactionDocument(
-        TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now())
+        TransactionStatusDto.CLOSURE_ERROR, ZonedDateTime.now())
     given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
@@ -310,17 +279,17 @@ class RefundRetryServiceTests {
       Mono.error<Transaction>(RuntimeException("Error updating transaction view"))
     }
     given(
-        refundRetryQueueAsyncClient.sendMessageWithResponse(
+        closureRetryQueueAsyncClient.sendMessageWithResponse(
           queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
       .willReturn(queueSuccessfulResponse())
-    StepVerifier.create(refundRetryService.enqueueRetryEvent(baseTransaction, maxAttempts - 1))
+    StepVerifier.create(closureRetryService.enqueueRetryEvent(baseTransaction, maxAttempts - 1))
       .expectError(java.lang.RuntimeException::class.java)
       .verify()
 
     verify(eventStoreRepository, times(1)).save(any())
     verify(transactionsViewRepository, times(1)).findByTransactionId(any())
     verify(transactionsViewRepository, times(1)).save(any())
-    verify(refundRetryQueueAsyncClient, times(0))
+    verify(closureRetryQueueAsyncClient, times(0))
       .sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull())
   }
 
