@@ -63,15 +63,13 @@ class TransactionActivatedEventsConsumer(
       baseTransaction
         .filter { transactionUtils.isTransientStatus(it.status) }
         .flatMap { tx ->
-          updateTransactionToExpired(
-            tx, transactionsExpiredEventStoreRepository, transactionsViewRepository)
-        }
-        .filter {
-          val refundable = isTransactionRefundable(it)
+          val refundable = isTransactionRefundable(tx)
           logger.info(
-            "Transaction ${it.transactionId.value} in status ${it.status}, refundable: $refundable")
-          refundable
+            "Transaction ${tx.transactionId.value} in status ${tx.status}, refundable: $refundable")
+          updateTransactionToExpired(
+            tx, transactionsExpiredEventStoreRepository, transactionsViewRepository, refundable)
         }
+        .filter { isTransactionRefundable(it) }
         .flatMap {
           updateTransactionToRefundRequested(
             it, transactionsRefundedEventStoreRepository, transactionsViewRepository)
