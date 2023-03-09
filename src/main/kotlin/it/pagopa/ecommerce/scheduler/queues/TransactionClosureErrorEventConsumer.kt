@@ -170,13 +170,12 @@ class TransactionClosureErrorEventConsumer(
                   .flatMap { retryCount ->
                     closureRetryService.enqueueRetryEvent(baseTransaction, retryCount)
                   }
-                  .onErrorResume { exception ->
-                    if (exception is NoRetryAttemptsLeftException) {
-                      refundTransactionPipeline(tx, null).then()
-                    } else {
-                      Mono.empty()
-                    }
+                  .onErrorResume(NoRetryAttemptsLeftException::class.java) { exception ->
+                    logger.error(
+                      "No more attempts left for closure retry, refunding transaction", exception)
+                    refundTransactionPipeline(tx, null).then()
                   }
+                  .then()
               }
             }
         }

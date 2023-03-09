@@ -27,7 +27,6 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.ArgumentCaptor
 import org.mockito.Captor
@@ -36,6 +35,7 @@ import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.*
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toFlux
+import reactor.test.StepVerifier
 
 @ExtendWith(MockitoExtension::class)
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -137,9 +137,11 @@ class TransactionClosureErrorEventConsumerTests {
         uuid.`when`<Any>(UUID::randomUUID).thenReturn(closureEventId)
         uuid.`when`<Any> { UUID.fromString(any()) }.thenCallRealMethod()
 
-        transactionClosureErrorEventsConsumer
-          .messageReceiver(BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer)
-          .block()
+        StepVerifier.create(
+            transactionClosureErrorEventsConsumer.messageReceiver(
+              BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer))
+          .expectNext()
+          .verifyComplete()
 
         /* Asserts */
         verify(checkpointer, Mockito.times(1)).success()
@@ -219,9 +221,11 @@ class TransactionClosureErrorEventConsumerTests {
         uuid.`when`<Any>(UUID::randomUUID).thenReturn(closureEventId)
         uuid.`when`<Any> { UUID.fromString(any()) }.thenCallRealMethod()
 
-        transactionClosureErrorEventsConsumer
-          .messageReceiver(BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer)
-          .block()
+        StepVerifier.create(
+            transactionClosureErrorEventsConsumer.messageReceiver(
+              BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer))
+          .expectNext()
+          .verifyComplete()
 
         /* Asserts */
         verify(checkpointer, Mockito.times(1)).success()
@@ -301,9 +305,11 @@ class TransactionClosureErrorEventConsumerTests {
         uuid.`when`<Any>(UUID::randomUUID).thenReturn(closureEventId)
         uuid.`when`<Any> { UUID.fromString(any()) }.thenCallRealMethod()
 
-        transactionClosureErrorEventsConsumer
-          .messageReceiver(BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer)
-          .block()
+        StepVerifier.create(
+            transactionClosureErrorEventsConsumer.messageReceiver(
+              BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer))
+          .expectNext()
+          .verifyComplete()
 
         /* Asserts */
         verify(checkpointer, Mockito.times(1)).success()
@@ -375,9 +381,11 @@ class TransactionClosureErrorEventConsumerTests {
         uuid.`when`<Any>(UUID::randomUUID).thenReturn(closureEventId)
         uuid.`when`<Any> { UUID.fromString(any()) }.thenCallRealMethod()
 
-        transactionClosureErrorEventsConsumer
-          .messageReceiver(BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer)
-          .block()
+        StepVerifier.create(
+            transactionClosureErrorEventsConsumer.messageReceiver(
+              BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer))
+          .expectNext()
+          .verifyComplete()
 
         /* Asserts */
         verify(checkpointer, Mockito.times(1)).success()
@@ -449,9 +457,11 @@ class TransactionClosureErrorEventConsumerTests {
         uuid.`when`<Any>(UUID::randomUUID).thenReturn(closureEventId)
         uuid.`when`<Any> { UUID.fromString(any()) }.thenCallRealMethod()
 
-        transactionClosureErrorEventsConsumer
-          .messageReceiver(BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer)
-          .block()
+        StepVerifier.create(
+            transactionClosureErrorEventsConsumer.messageReceiver(
+              BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer))
+          .expectNext()
+          .verifyComplete()
 
         /* Asserts */
         verify(checkpointer, Mockito.times(1)).success()
@@ -528,11 +538,12 @@ class TransactionClosureErrorEventConsumerTests {
       Mockito.mockStatic(UUID::class.java).use { uuid ->
         uuid.`when`<Any>(UUID::randomUUID).thenReturn(closureEventId)
         uuid.`when`<Any> { UUID.fromString(any()) }.thenCallRealMethod()
-        assertThrows<RuntimeException> {
-          transactionClosureErrorEventsConsumer
-            .messageReceiver(BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer)
-            .block()
-        }
+
+        StepVerifier.create(
+            transactionClosureErrorEventsConsumer.messageReceiver(
+              BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer))
+          .expectError(java.lang.RuntimeException::class.java)
+          .verify()
 
         /* Asserts */
         verify(checkpointer, Mockito.times(1)).success()
@@ -574,12 +585,11 @@ class TransactionClosureErrorEventConsumerTests {
 
       /* test */
 
-      assertThrows<RuntimeException> {
-        transactionClosureErrorEventsConsumer
-          .messageReceiver(
-            BinaryData.fromObject(activatedEvent).toBytes(), checkpointer, emptyTransactionMock)
-          .block()
-      }
+      StepVerifier.create(
+          transactionClosureErrorEventsConsumer.messageReceiver(
+            BinaryData.fromObject(activatedEvent).toBytes(), checkpointer, emptyTransactionMock))
+        .expectError(RuntimeException::class.java)
+        .verify()
 
       /* Asserts */
       verify(checkpointer, Mockito.times(1)).success()
@@ -641,9 +651,11 @@ class TransactionClosureErrorEventConsumerTests {
       uuid.`when`<Any>(UUID::randomUUID).thenReturn(closureEventId)
       uuid.`when`<Any> { UUID.fromString(any()) }.thenCallRealMethod()
 
-      transactionClosureErrorEventsConsumer
-        .messageReceiver(BinaryData.fromObject(closureRetriedEvent).toBytes(), checkpointer)
-        .block()
+      StepVerifier.create(
+          transactionClosureErrorEventsConsumer.messageReceiver(
+            BinaryData.fromObject(closureRetriedEvent).toBytes(), checkpointer))
+        .expectNext()
+        .verifyComplete()
 
       /* Asserts */
       verify(checkpointer, Mockito.times(1)).success()
@@ -682,11 +694,11 @@ class TransactionClosureErrorEventConsumerTests {
     /* test */
     val closureErrorEvent = transactionClosureErrorEvent() as TransactionEvent<Any>
 
-    assertThrows<BadTransactionStatusException> {
-      transactionClosureErrorEventsConsumer
-        .messageReceiver(BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer)
-        .block()
-    }
+    StepVerifier.create(
+        transactionClosureErrorEventsConsumer.messageReceiver(
+          BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer))
+      .expectError(BadTransactionStatusException::class.java)
+      .verify()
 
     /* Asserts */
     verify(checkpointer, Mockito.times(1)).success()
@@ -752,9 +764,11 @@ class TransactionClosureErrorEventConsumerTests {
         uuid.`when`<Any>(UUID::randomUUID).thenReturn(closureEventId)
         uuid.`when`<Any> { UUID.fromString(any()) }.thenCallRealMethod()
 
-        transactionClosureErrorEventsConsumer
-          .messageReceiver(BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer)
-          .block()
+        StepVerifier.create(
+            transactionClosureErrorEventsConsumer.messageReceiver(
+              BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer))
+          .expectNext()
+          .verifyComplete()
 
         /* Asserts */
         verify(checkpointer, Mockito.times(1)).success()
@@ -851,9 +865,11 @@ class TransactionClosureErrorEventConsumerTests {
       uuid.`when`<Any>(UUID::randomUUID).thenReturn(closureEventId)
       uuid.`when`<Any> { UUID.fromString(any()) }.thenCallRealMethod()
 
-      transactionClosureErrorEventsConsumer
-        .messageReceiver(BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer)
-        .block()
+      StepVerifier.create(
+          transactionClosureErrorEventsConsumer.messageReceiver(
+            BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer))
+        .expectNext()
+        .verifyComplete()
 
       /* Asserts */
       verify(checkpointer, Mockito.times(1)).success()
@@ -947,9 +963,11 @@ class TransactionClosureErrorEventConsumerTests {
       uuid.`when`<Any>(UUID::randomUUID).thenReturn(closureEventId)
       uuid.`when`<Any> { UUID.fromString(any()) }.thenCallRealMethod()
 
-      transactionClosureErrorEventsConsumer
-        .messageReceiver(BinaryData.fromObject(closureRetriedEvent).toBytes(), checkpointer)
-        .block()
+      StepVerifier.create(
+          transactionClosureErrorEventsConsumer.messageReceiver(
+            BinaryData.fromObject(closureRetriedEvent).toBytes(), checkpointer))
+        .expectNext()
+        .verifyComplete()
 
       /* Asserts */
       verify(checkpointer, Mockito.times(1)).success()
@@ -1040,9 +1058,11 @@ class TransactionClosureErrorEventConsumerTests {
       uuid.`when`<Any>(UUID::randomUUID).thenReturn(closureEventId)
       uuid.`when`<Any> { UUID.fromString(any()) }.thenCallRealMethod()
 
-      transactionClosureErrorEventsConsumer
-        .messageReceiver(BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer)
-        .block()
+      StepVerifier.create(
+          transactionClosureErrorEventsConsumer.messageReceiver(
+            BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer))
+        .expectNext()
+        .verifyComplete()
 
       /* Asserts */
       verify(checkpointer, Mockito.times(1)).success()
@@ -1131,9 +1151,11 @@ class TransactionClosureErrorEventConsumerTests {
         uuid.`when`<Any>(UUID::randomUUID).thenReturn(closureEventId)
         uuid.`when`<Any> { UUID.fromString(any()) }.thenCallRealMethod()
 
-        transactionClosureErrorEventsConsumer
-          .messageReceiver(BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer)
-          .block()
+        StepVerifier.create(
+            transactionClosureErrorEventsConsumer.messageReceiver(
+              BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer))
+          .expectError(java.lang.RuntimeException::class.java)
+          .verify()
 
         /* Asserts */
         verify(checkpointer, Mockito.times(1)).success()
