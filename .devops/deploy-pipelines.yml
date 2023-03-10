@@ -51,6 +51,20 @@ parameters:
     values:
       - False
       - True
+  - name: "UAT_SKIP_BLUE_DEPLOYMENT"
+    displayName: "Skip blue/green UAT deployment strategy: activating this parameter no blue version will be created and the pipeline proceed building and deploy artifact green version"
+    type: boolean
+    default: True
+    values:
+      - False
+      - True
+  - name: "UAT_SKIP_MANUAL_APPROVAL"
+    displayName: "Skip the UAT manual approval check"
+    type: boolean
+    default: True
+    values:
+      - False
+      - True
 resources:
   repositories:
     - repository: pagopaCommons
@@ -80,7 +94,7 @@ stages:
   - stage: 'Deploy_for_DEV'
     displayName: 'Deploy DEV'
     dependsOn: Build_for_DEV
-    condition: or(succeeded(), eq(${{parameters.DEV_DEPLOY}}, true) )
+    condition: and(succeeded(), eq(${{parameters.DEV_DEPLOY}}, true) )
     jobs:
       - deployment: "deploy"
         environment: 'DEV'
@@ -134,13 +148,18 @@ stages:
               DOCKER_IMAGE_NAME: $(K8S_IMAGE_REPOSITORY_NAME)
               DOCKER_IMAGE_TAG: $(Build.SourceVersion)
               FORCE_REPLACE_DOCKER_IMAGE: ${{ parameters.FORCE_REPLACE_DOCKER_IMAGE }}
-          - template: templates/maven-github-current-version/template.yaml@pagopaCommons
+          - template: azure-templates/chart-current-version.yml
 
   - stage: "Deploy_UAT_Blue"
     displayName: 'UAT blue deployment'
     dependsOn: Build_release_candidate
+    condition:
+      and(
+      succeeded(),
+      eq(${{parameters.UAT_SKIP_BLUE_DEPLOYMENT}}, False)
+      )
     variables:
-      green_version: $[ stageDependencies.Build_release_candidate.build.outputs['current_version.value'] ]
+      green_version: $[ stageDependencies.Build_release_candidate.build.outputs['chart_current_version.appVersion'] ]
     jobs:
       - deployment: "Blue_deployment"
         displayName: "Blue deployment"
@@ -170,9 +189,8 @@ stages:
                     NAMESPACE: ecommerce
                     APP_NAME: $(K8S_IMAGE_REPOSITORY_NAME)
                     VALUE_FILE: "helm/values-uat.yaml"
-                    GREEN_VERSION:  $(green_version)
+                    GREEN_VERSION: $(green_version)
                     BLUE_VERSION: $(Build.SourceVersion)
-
 
   - stage: "Bluegreen_WaitForApproval"
     displayName: 'UAT green approval deployment'
@@ -187,11 +205,16 @@ stages:
             timeoutInMinutes: 4320 # 3 days
             inputs:
               onTimeout: 'skip'
+            condition: and(succeeded(), eq(${{parameters.UAT_SKIP_MANUAL_APPROVAL}}, False))
 
   - stage: Release
-    dependsOn: Bluegreen_WaitForApproval
+    ${{ if eq(parameters['UAT_SKIP_BLUE_DEPLOYMENT'], True) }}:
+      dependsOn: Build_release_candidate
+    ${{ if eq(parameters['UAT_SKIP_BLUE_DEPLOYMENT'], False) }}:
+      dependsOn: Bluegreen_WaitForApproval
     jobs:
       - job: make_release
+        displayName: Make github release
         steps:
           - ${{ if eq(parameters['SKIP_RELEASE'], False) }}:
               - template: templates/node-job-setup/template.yaml@pagopaCommons
@@ -205,20 +228,21 @@ stages:
                   release_branch: main
                   semver_chart: '${{ parameters.RELEASE_CHART_SEMVER }}'
                   semver: '${{ parameters.RELEASE_SEMVER }}'
-          - ${{ if eq(parameters['SKIP_RELEASE'], False) }}:
-              - template: templates/maven-github-current-version/template.yaml@pagopaCommons
-      - job: tag_version
-        steps:
-          - template: templates/maven-github-current-version/template.yaml@pagopaCommons
+          - template: azure-templates/chart-current-version.yml
 
   - stage: "Release_tag_docker"
     displayName: 'Docker tag release'
     dependsOn: Release
+    condition:
+      and(
+      succeeded(),
+      eq(${{parameters.SKIP_RELEASE}}, False)
+      )
     variables:
-      next_version: $[ stageDependencies.Release.make_release.outputs['current_version.value'] ]
+      next_version: $[ stageDependencies.Release.make_release.outputs['chart_current_version.appVersion'] ]
     jobs:
       - job: "build"
-        displayName: 'Build UAT service beta'
+        displayName: 'Tag Docker Blue version UAT'
         steps:
           - task: Docker@2
             displayName: "docker login"
@@ -236,12 +260,15 @@ stages:
 
   - stage: "Deploy_UAT_Green"
     displayName: 'UAT green deployment'
-    dependsOn: [ Release_tag_docker,Release ]
+    ${{ if eq(parameters['SKIP_RELEASE'], True) }}:
+      dependsOn: Release
+    ${{ if eq(parameters['SKIP_RELEASE'], False) }}:
+      dependsOn: [ Release_tag_docker,Release ]
     variables:
-      green_version: $[ stageDependencies.Release.make_release.outputs['current_version.value'] ]
+      green_version: $[ stageDependencies.Release.make_release.outputs['chart_current_version.appVersion'] ]
     jobs:
-      - deployment: "Blue_deployment"
-        displayName: "Blue deployment"
+      - deployment: "Green_deployment"
+        displayName: "Green deployment"
         pool:
           name: pagopa-uat-linux
         environment: 'UAT'
@@ -257,6 +284,7 @@ stages:
                   inputs:
                     targetType: "inline"
                     script: |
+                      helm repo add microservice-chart https://pagopa.github.io/aks-microservice-chart-blueprint
                       helm dep build helm
                 - template: azure-templates/helm-microservice-chart-deploy.yml
                   parameters:
