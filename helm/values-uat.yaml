@@ -45,7 +45,7 @@ microservice-chart:
       QUEUE_CONNECTION_STRING: ecommerce-storage-connection-string
   image:
     repository: pagopaucommonacr.azurecr.io/pagopaecommerceschedulerservice
-    tag: "0.0.3"
+    tag: "0.1.0"
     pullPolicy: Always
   livenessProbe:
     httpGet:
@@ -65,7 +65,7 @@ microservice-chart:
     create: true
     type: ClusterIP
     ports:
-    - 9000
+      - 9000
   ingress:
     create: true
     host: "weuuat.ecommerce.internal.uat.platform.pagopa.it"
