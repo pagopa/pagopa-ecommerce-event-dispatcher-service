@@ -727,8 +727,9 @@ class TransactionExpirationQueueConsumerTests {
           closedEvent,
           addUserReceiptEvent))
 
-    val gatewayClientResponse = PostePayRefundResponseDto()
-    gatewayClientResponse.refundOutcome = "OK"
+    val gatewayClientResponse = PostePayRefundResponseDto().apply {
+        refundOutcome = "OK"
+    }
 
     /* preconditions */
     given(checkpointer.success()).willReturn(Mono.empty())
