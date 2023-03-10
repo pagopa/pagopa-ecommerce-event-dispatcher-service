@@ -7,6 +7,7 @@ import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils.transactionAuthorizationRequestedEvent
+import it.pagopa.ecommerce.commons.v1.TransactionTestUtils.transactionClosedEvent
 import it.pagopa.ecommerce.scheduler.client.PaymentGatewayClient
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsViewRepository
@@ -63,6 +64,8 @@ class TransactionsRefundEventsConsumerTests {
       transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
     val authorizationCompleteEvent =
       TransactionTestUtils.transactionAuthorizationCompletedEvent() as TransactionEvent<Any>
+    val closedEvent =
+      transactionClosedEvent(TransactionClosureData.Outcome.KO) as TransactionEvent<Any>
     val refundRequestedEvent =
       TransactionRefundRequestedEvent(
         TransactionTestUtils.TRANSACTION_ID,
@@ -76,9 +79,9 @@ class TransactionsRefundEventsConsumerTests {
         activationEvent,
         authorizationRequestEvent,
         authorizationCompleteEvent,
+        closedEvent,
         refundRequestedEvent)
 
-    // not working
     val expectedRefundedEvent =
       TransactionRefundedEvent(
         TransactionTestUtils.TRANSACTION_ID,
@@ -166,6 +169,8 @@ class TransactionsRefundEventsConsumerTests {
       transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
     val authorizationCompleteEvent =
       TransactionTestUtils.transactionAuthorizationCompletedEvent() as TransactionEvent<Any>
+    val closedEvent =
+      transactionClosedEvent(TransactionClosureData.Outcome.KO) as TransactionEvent<Any>
     val refundRequestedEvent =
       TransactionRefundRequestedEvent(
         TransactionTestUtils.TRANSACTION_ID,
@@ -179,9 +184,9 @@ class TransactionsRefundEventsConsumerTests {
         activationEvent,
         authorizationRequestEvent,
         authorizationCompleteEvent,
+        closedEvent,
         refundRequestedEvent)
 
-    // not working
     val expectedRefundedEvent =
       TransactionRefundedEvent(
         TransactionTestUtils.TRANSACTION_ID,
