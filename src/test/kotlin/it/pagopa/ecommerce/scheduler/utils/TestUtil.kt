@@ -2,13 +2,14 @@ package it.pagopa.ecommerce.scheduler.utils
 
 import it.pagopa.ecommerce.commons.documents.v1.TransactionAuthorizationRequestData
 import it.pagopa.generated.ecommerce.gateway.v1.dto.PostePayRefundResponseDto
+import it.pagopa.generated.ecommerce.nodo.v2.dto.CancelPaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import java.time.OffsetDateTime
 import java.util.*
 
 fun getMockedClosePaymentRequest(
   transactionId: UUID,
-  outcome: ClosePaymentRequestV2Dto.OutcomeEnum
+  outcome: CancelPaymentRequestV2Dto.OutcomeEnum
 ): ClosePaymentRequestV2Dto {
 
   val authEventData =
