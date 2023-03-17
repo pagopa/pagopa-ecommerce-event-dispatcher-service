@@ -7,8 +7,8 @@ import it.pagopa.ecommerce.scheduler.client.NodeClient
 import it.pagopa.ecommerce.scheduler.exceptions.TransactionEventNotFoundException
 import it.pagopa.ecommerce.scheduler.queues.TransactionExpirationQueueConsumer
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreRepository
-import it.pagopa.generated.ecommerce.nodo.v2.dto.CancelPaymentRequestV2Dto
-import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
+import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2KODto
+import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2OKDto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
 import java.time.OffsetDateTime
 import java.util.*
@@ -27,7 +27,7 @@ class NodeService(
   var logger: Logger = LoggerFactory.getLogger(TransactionExpirationQueueConsumer::class.java)
   suspend fun closePayment(
     transactionId: UUID,
-    transactionOutcome: CancelPaymentRequestV2Dto.OutcomeEnum
+    transactionOutcome: ClosePaymentRequestV2KODto.OutcomeEnum
   ): ClosePaymentResponseDto {
     val transactionActivatedEventCode = TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
 
@@ -51,7 +51,7 @@ class NodeService(
     logger.info("Invoking closePayment with outcome {}", transactionOutcome)
 
     val closePaymentRequest =
-      ClosePaymentRequestV2Dto().apply {
+      ClosePaymentRequestV2OKDto().apply {
         paymentTokens = activatedEvent.data.paymentNotices.map { it.paymentToken }
         outcome = transactionOutcome
         idPSP = authEvent?.data?.pspId
