@@ -46,7 +46,6 @@ class NodeService(
           transactionId.toString(), transactionAuthRequestedEventCode)
         .cast(TransactionAuthorizationRequestedEvent::class.java)
         .awaitSingleOrNull()
-        ?: throw TransactionEventNotFoundException(transactionId, transactionAuthRequestedEventCode)
 
     logger.info("Invoking closePayment with outcome {}", transactionOutcome)
 
@@ -54,13 +53,13 @@ class NodeService(
       ClosePaymentRequestV2Dto().apply {
         paymentTokens = activatedEvent.data.paymentNotices.map { it.paymentToken }
         outcome = transactionOutcome
-        idPSP = authEvent.data.pspId
-        paymentMethod = authEvent.data.paymentTypeCode
-        idBrokerPSP = authEvent.data.brokerName
-        idChannel = authEvent.data.pspChannelCode
+        idPSP = authEvent?.data?.pspId
+        paymentMethod = authEvent?.data?.paymentTypeCode
+        idBrokerPSP = authEvent?.data?.brokerName
+        idChannel = authEvent?.data?.pspChannelCode
         this.transactionId = transactionId.toString()
-        totalAmount = (authEvent.data.amount + authEvent.data.fee).toBigDecimal()
-        fee = authEvent.data.fee.toBigDecimal()
+        totalAmount = (authEvent?.data?.amount?.plus(authEvent.data.fee))?.toBigDecimal()
+        fee = authEvent?.data?.fee?.toBigDecimal()
         timestampOperation = OffsetDateTime.now()
         additionalPaymentInformations = mapOf()
       }

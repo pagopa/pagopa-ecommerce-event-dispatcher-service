@@ -68,7 +68,7 @@ class TransactionClosePaymentRetryQueueConsumer(
       .onErrorResume { Mono.just(0) }
   }
 
-  @ServiceActivator(inputChannel = "transactionclosureschannel", outputChannel = "nullChannel")
+  @ServiceActivator(inputChannel = "transactionretryclosureschannel", outputChannel = "nullChannel")
   fun messageReceiver(
     @Payload payload: ByteArray,
     @Header(AzureHeaders.CHECKPOINTER) checkPointer: Checkpointer
