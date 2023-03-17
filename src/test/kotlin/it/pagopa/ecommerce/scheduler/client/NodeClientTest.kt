@@ -5,7 +5,7 @@ import it.pagopa.ecommerce.scheduler.exceptions.GatewayTimeoutException
 import it.pagopa.ecommerce.scheduler.exceptions.TransactionNotFound
 import it.pagopa.ecommerce.scheduler.utils.getMockedClosePaymentRequest
 import it.pagopa.generated.ecommerce.nodo.v2.api.NodoApi
-import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto.OutcomeEnum
+import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2KODto.OutcomeEnum
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
 import java.nio.charset.Charset
 import java.util.*

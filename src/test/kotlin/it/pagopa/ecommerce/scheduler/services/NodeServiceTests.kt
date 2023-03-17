@@ -1,6 +1,5 @@
 package it.pagopa.ecommerce.scheduler.services
 
-import it.pagopa.ecommerce.commons.documents.*
 import it.pagopa.ecommerce.commons.documents.v1.TransactionEvent
 import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils.transactionActivateEvent
@@ -8,7 +7,7 @@ import it.pagopa.ecommerce.commons.v1.TransactionTestUtils.transactionAuthorizat
 import it.pagopa.ecommerce.scheduler.client.NodeClient
 import it.pagopa.ecommerce.scheduler.exceptions.TransactionEventNotFoundException
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreRepository
-import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto.OutcomeEnum
+import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2KODto.OutcomeEnum
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
 import java.util.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
