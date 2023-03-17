@@ -21,7 +21,7 @@ import it.pagopa.ecommerce.scheduler.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.scheduler.services.NodeService
 import it.pagopa.ecommerce.scheduler.services.eventretry.ClosureRetryService
 import it.pagopa.ecommerce.scheduler.services.eventretry.RefundRetryService
-import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
+import it.pagopa.generated.ecommerce.nodo.v2.dto.CancelPaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
 import java.util.*
 import kotlinx.coroutines.reactor.mono
@@ -115,7 +115,7 @@ class TransactionClosePaymentRetryQueueConsumer(
                      * retrying a closure for a transaction canceled by the user (not authorized) so here
                      * we have to perform a closePayment KO request to Nodo
                      */
-                    ClosePaymentRequestV2Dto.OutcomeEnum.KO
+                    CancelPaymentRequestV2Dto.OutcomeEnum.KO
                   },
                   {
                     /*
@@ -125,8 +125,8 @@ class TransactionClosePaymentRetryQueueConsumer(
                     trxWithAuthorizationCompleted ->
                     when (trxWithAuthorizationCompleted.transactionAuthorizationCompletedData
                       .authorizationResultDto) {
-                      AuthorizationResultDto.OK -> ClosePaymentRequestV2Dto.OutcomeEnum.OK
-                      AuthorizationResultDto.KO -> ClosePaymentRequestV2Dto.OutcomeEnum.KO
+                      AuthorizationResultDto.OK -> CancelPaymentRequestV2Dto.OutcomeEnum.OK
+                      AuthorizationResultDto.KO -> CancelPaymentRequestV2Dto.OutcomeEnum.KO
                       else ->
                         throw RuntimeException(
                           "authorizationResult in status update event is null!")
@@ -245,7 +245,7 @@ class TransactionClosePaymentRetryQueueConsumer(
 
   private fun updateTransactionStatus(
     transaction: BaseTransactionWithClosureError,
-    closureOutcome: ClosePaymentRequestV2Dto.OutcomeEnum,
+    closureOutcome: CancelPaymentRequestV2Dto.OutcomeEnum,
     closePaymentResponseDto: ClosePaymentResponseDto,
     canceledByUser: Boolean,
     wasAuthorized: Boolean
@@ -277,8 +277,8 @@ class TransactionClosePaymentRetryQueueConsumer(
         TransactionStatusDto.CANCELED
       } else {
         when (closureOutcome) {
-          ClosePaymentRequestV2Dto.OutcomeEnum.OK -> TransactionStatusDto.CLOSED
-          ClosePaymentRequestV2Dto.OutcomeEnum.KO -> TransactionStatusDto.UNAUTHORIZED
+          CancelPaymentRequestV2Dto.OutcomeEnum.OK -> TransactionStatusDto.CLOSED
+          CancelPaymentRequestV2Dto.OutcomeEnum.KO -> TransactionStatusDto.UNAUTHORIZED
         }
       }
     logger.info("Updating transaction {} status to {}", transaction.transactionId.value, newStatus)
