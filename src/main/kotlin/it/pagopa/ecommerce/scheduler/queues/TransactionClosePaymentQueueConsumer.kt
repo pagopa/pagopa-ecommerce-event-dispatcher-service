@@ -14,9 +14,8 @@ import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreReposito
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.scheduler.services.NodeService
 import it.pagopa.ecommerce.scheduler.services.eventretry.ClosureRetryService
-import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
+import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2KODto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
-import java.util.*
 import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -80,7 +79,7 @@ class TransactionClosePaymentQueueConsumer(
         .flatMap { tx ->
           mono {
               nodeService.closePayment(
-                tx.transactionId.value, ClosePaymentRequestV2Dto.OutcomeEnum.KO)
+                tx.transactionId.value, ClosePaymentRequestV2KODto.OutcomeEnum.KO)
             }
             .flatMap { closePaymentResponse ->
               updateTransactionStatus(
@@ -119,7 +118,7 @@ class TransactionClosePaymentQueueConsumer(
         transaction.transactionId.value.toString(), TransactionClosureData(outcome))
 
     /*
-     * if the transaction was canceled by the user the transaction
+     * the transaction was canceled by the user so it
      * will go to CANCELED status regardless the Nodo ClosePayment outcome
      */
     val newStatus = TransactionStatusDto.CANCELED

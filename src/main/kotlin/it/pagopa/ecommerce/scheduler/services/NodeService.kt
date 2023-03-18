@@ -48,22 +48,63 @@ class NodeService(
         .cast(TransactionAuthorizationRequestedEvent::class.java)
         .awaitSingleOrNull()
 
-    logger.info("Invoking closePayment with outcome {}", transactionOutcome)
+    if (authEvent != null) {
+      val closePaymentOK =
+        ClosePaymentRequestV2OKDto().apply {
+          paymentTokens = activatedEvent.data.paymentNotices.map { it.paymentToken }
+          outcome = transactionOutcome
+          idPSP = authEvent.data.pspId
+          paymentMethod = authEvent.data.paymentTypeCode
+          idBrokerPSP = authEvent.data.brokerName
+          idChannel = authEvent.data.pspChannelCode
+          this.transactionId = transactionId.toString()
+          totalAmount = (authEvent.data.amount.plus(authEvent.data.fee)).toBigDecimal()
+          fee = authEvent.data.fee.toBigDecimal()
+          timestampOperation = OffsetDateTime.now()
+          additionalPaymentInformations = mapOf()
+        }
+      return nodeClient.closePayment(closePaymentOK).awaitSingle()
+    } else {
+      val closePaymentKO =
+        ClosePaymentRequestV2KODto().apply {
+          paymentTokens = activatedEvent.data.paymentNotices.map { it.paymentToken }
+          outcome = transactionOutcome
+          this.transactionId = transactionId.toString()
+        }
+      return nodeClient.closePayment(closePaymentKO).awaitSingle()
+    }
+    /*
+    TODO COULD THIS IF ELSE BLOCK CONVERTED IN MONO CHAIN?
+    val monoOk = transactionsEventStoreRepository
+        .findByTransactionIdAndEventCode(
+          transactionId.toString(), transactionAuthRequestedEventCode)
+        .cast(TransactionAuthorizationRequestedEvent::class.java)
+        .filter(Objects::nonNull)
+        .map { authEvent ->
+            ClosePaymentRequestV2OKDto().apply {
+              paymentTokens = activatedEvent.data.paymentNotices.map { it.paymentToken }
+              outcome = transactionOutcome
+              idPSP = authEvent.data.pspId
+              paymentMethod = authEvent.data.paymentTypeCode
+              idBrokerPSP = authEvent.data.brokerName
+              idChannel = authEvent.data.pspChannelCode
+              this.transactionId = transactionId.toString()
+              totalAmount = (authEvent.data.amount.plus(authEvent.data.fee)).toBigDecimal()
+              fee = authEvent.data.fee.toBigDecimal()
+              timestampOperation = OffsetDateTime.now()
+              additionalPaymentInformations = mapOf()
+            }
+        }
 
-    val closePaymentRequest =
-      ClosePaymentRequestV2OKDto().apply {
-        paymentTokens = activatedEvent.data.paymentNotices.map { it.paymentToken }
-        outcome = transactionOutcome
-        idPSP = authEvent?.data?.pspId
-        paymentMethod = authEvent?.data?.paymentTypeCode
-        idBrokerPSP = authEvent?.data?.brokerName
-        idChannel = authEvent?.data?.pspChannelCode
-        this.transactionId = transactionId.toString()
-        totalAmount = (authEvent?.data?.amount?.plus(authEvent.data.fee))?.toBigDecimal()
-        fee = authEvent?.data?.fee?.toBigDecimal()
-        timestampOperation = OffsetDateTime.now()
-        additionalPaymentInformations = mapOf()
-      }
-    return nodeClient.closePayment(closePaymentRequest).awaitSingle()
+      val monoKo =  mono { activatedEvent }
+          .map { ev -> ClosePaymentRequestV2KODto().apply {
+              paymentTokens = ev.data.paymentNotices.map { it.paymentToken }
+            outcome = transactionOutcome
+            this.transactionId = transactionId.toString();
+            }
+          }
+
+      */
+
   }
 }
