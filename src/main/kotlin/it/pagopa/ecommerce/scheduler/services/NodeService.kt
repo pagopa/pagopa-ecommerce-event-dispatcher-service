@@ -1,5 +1,6 @@
 package it.pagopa.ecommerce.scheduler.services
 
+import io.vavr.Tuple
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
 import it.pagopa.ecommerce.scheduler.client.NodeClient
@@ -40,7 +41,7 @@ class NodeService(
         .awaitSingleOrNull()
         ?: throw TransactionEventNotFoundException(transactionId, transactionActivatedEventCode)
 
-    // Check if the user canceled event request exists
+    // Retrieved to check if the user canceled event request exists
     val userCanceledEvent =
       transactionsEventStoreRepository
         .findByTransactionIdAndEventCode(
@@ -54,14 +55,6 @@ class NodeService(
           transactionId.toString(), TransactionEventCode.TRANSACTION_AUTHORIZATION_REQUESTED_EVENT)
         .cast(TransactionAuthorizationRequestedEvent::class.java)
         .awaitSingleOrNull()
-
-    if (userCanceledEvent != null && authEvent != null) {
-      throw TransactionEventsInconsistentException(
-        transactionId,
-        listOf(
-          TransactionEventCode.TRANSACTION_AUTHORIZATION_REQUESTED_EVENT,
-          TransactionEventCode.TRANSACTION_USER_CANCELED_EVENT))
-    }
 
     val closePaymentRequestMono =
       mono { userCanceledEvent }
@@ -100,6 +93,18 @@ class NodeService(
                     TransactionEventCode.TRANSACTION_USER_CANCELED_EVENT))
               }))
 
-    return nodeClient.closePayment(closePaymentRequestMono.awaitSingle()).awaitSingle()
+    val monoComplex =
+      mono { Tuple.of(userCanceledEvent, authEvent) }
+        .filter { t -> t._1() == null || t._2() == null }
+        .flatMap { closePaymentRequestMono }
+        .switchIfEmpty(
+          Mono.error(
+            TransactionEventsInconsistentException(
+              transactionId,
+              listOf(
+                TransactionEventCode.TRANSACTION_AUTHORIZATION_REQUESTED_EVENT,
+                TransactionEventCode.TRANSACTION_USER_CANCELED_EVENT))))
+
+    return nodeClient.closePayment(monoComplex.awaitSingle()).awaitSingle()
   }
 }
