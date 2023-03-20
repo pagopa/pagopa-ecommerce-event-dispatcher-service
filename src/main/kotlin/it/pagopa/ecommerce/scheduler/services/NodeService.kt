@@ -65,6 +65,15 @@ class NodeService(
         }
       return nodeClient.closePayment(closePaymentOK).awaitSingle()
     } else {
+
+      //Check if the user canceled event request exists
+      transactionsEventStoreRepository
+        .findByTransactionIdAndEventCode(
+          transactionId.toString(), TransactionEventCode.TRANSACTION_USER_CANCELED_EVENT)
+        .cast(TransactionAuthorizationRequestedEvent::class.java)
+        .awaitSingleOrNull()
+        ?: throw TransactionEventNotFoundException(transactionId, TransactionEventCode.TRANSACTION_USER_CANCELED_EVENT)
+
       val closePaymentKO =
         ClosePaymentRequestV2KODto().apply {
           paymentTokens = activatedEvent.data.paymentNotices.map { it.paymentToken }
@@ -73,9 +82,9 @@ class NodeService(
         }
       return nodeClient.closePayment(closePaymentKO).awaitSingle()
     }
-    /*
-    TODO COULD THIS IF ELSE BLOCK CONVERTED IN MONO CHAIN?
-    val monoOk = transactionsEventStoreRepository
+
+    //TODO COULD THIS IF ELSE BLOCK CONVERTED IN MONO CHAIN?
+    /*val monoOk = transactionsEventStoreRepository
         .findByTransactionIdAndEventCode(
           transactionId.toString(), transactionAuthRequestedEventCode)
         .cast(TransactionAuthorizationRequestedEvent::class.java)
@@ -104,7 +113,6 @@ class NodeService(
             }
           }
 
-      */
-
+*/
   }
 }

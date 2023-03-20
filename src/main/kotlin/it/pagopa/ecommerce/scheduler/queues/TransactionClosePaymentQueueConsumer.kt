@@ -89,7 +89,7 @@ class TransactionClosePaymentQueueConsumer(
             .onErrorResume { exception ->
               baseTransaction.flatMap { baseTransaction ->
                 logger.error(
-                  "Got exception while retrying closePaymentV2 for transaction with id ${baseTransaction.transactionId}!",
+                  "Got exception while calling closePaymentV2 for transaction with id ${baseTransaction.transactionId}!",
                   exception)
                 closureRetryService.enqueueRetryEvent(baseTransaction, 0).doOnError(
                   NoRetryAttemptsLeftException::class.java) { exception ->
@@ -118,7 +118,7 @@ class TransactionClosePaymentQueueConsumer(
         transaction.transactionId.value.toString(), TransactionClosureData(outcome))
 
     /*
-     * the transaction was canceled by the user so it
+     * the transaction was canceled by the user then it
      * will go to CANCELED status regardless the Nodo ClosePayment outcome
      */
     val newStatus = TransactionStatusDto.CANCELED
