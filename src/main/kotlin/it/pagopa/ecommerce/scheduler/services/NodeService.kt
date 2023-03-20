@@ -1,11 +1,11 @@
 package it.pagopa.ecommerce.scheduler.services
 
-import it.pagopa.ecommerce.commons.documents.v1.TransactionActivatedEvent
-import it.pagopa.ecommerce.commons.documents.v1.TransactionAuthorizationRequestedEvent
+import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
 import it.pagopa.ecommerce.scheduler.client.NodeClient
 import it.pagopa.ecommerce.scheduler.exceptions.TransactionEventNotFoundException
-import it.pagopa.ecommerce.scheduler.queues.TransactionExpirationQueueConsumer
+import it.pagopa.ecommerce.scheduler.exceptions.TransactionEventsInconsistentException
+import it.pagopa.ecommerce.scheduler.exceptions.TransactionEventsPreconditionsNotMatchedException
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreRepository
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2KODto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2OKDto
@@ -14,17 +14,19 @@ import java.time.OffsetDateTime
 import java.util.*
 import kotlinx.coroutines.reactor.awaitSingle
 import kotlinx.coroutines.reactor.awaitSingleOrNull
+import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
+import reactor.core.publisher.Mono
 
 @Service
 class NodeService(
   @Autowired private val nodeClient: NodeClient,
   @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>
 ) {
-  var logger: Logger = LoggerFactory.getLogger(TransactionExpirationQueueConsumer::class.java)
+  var logger: Logger = LoggerFactory.getLogger(NodeService::class.java)
   suspend fun closePayment(
     transactionId: UUID,
     transactionOutcome: ClosePaymentRequestV2KODto.OutcomeEnum
@@ -38,81 +40,66 @@ class NodeService(
         .awaitSingleOrNull()
         ?: throw TransactionEventNotFoundException(transactionId, transactionActivatedEventCode)
 
-    val transactionAuthRequestedEventCode =
-      TransactionEventCode.TRANSACTION_AUTHORIZATION_REQUESTED_EVENT
+    // Check if the user canceled event request exists
+    val userCanceledEvent =
+      transactionsEventStoreRepository
+        .findByTransactionIdAndEventCode(
+          transactionId.toString(), TransactionEventCode.TRANSACTION_USER_CANCELED_EVENT)
+        .cast(TransactionUserCanceledEvent::class.java)
+        .awaitSingleOrNull()
 
     val authEvent =
       transactionsEventStoreRepository
         .findByTransactionIdAndEventCode(
-          transactionId.toString(), transactionAuthRequestedEventCode)
+          transactionId.toString(), TransactionEventCode.TRANSACTION_AUTHORIZATION_REQUESTED_EVENT)
         .cast(TransactionAuthorizationRequestedEvent::class.java)
         .awaitSingleOrNull()
 
-    if (authEvent != null) {
-      val closePaymentOK =
-        ClosePaymentRequestV2OKDto().apply {
-          paymentTokens = activatedEvent.data.paymentNotices.map { it.paymentToken }
-          outcome = transactionOutcome
-          idPSP = authEvent.data.pspId
-          paymentMethod = authEvent.data.paymentTypeCode
-          idBrokerPSP = authEvent.data.brokerName
-          idChannel = authEvent.data.pspChannelCode
-          this.transactionId = transactionId.toString()
-          totalAmount = (authEvent.data.amount.plus(authEvent.data.fee)).toBigDecimal()
-          fee = authEvent.data.fee.toBigDecimal()
-          timestampOperation = OffsetDateTime.now()
-          additionalPaymentInformations = mapOf()
-        }
-      return nodeClient.closePayment(closePaymentOK).awaitSingle()
-    } else {
-
-      //Check if the user canceled event request exists
-      transactionsEventStoreRepository
-        .findByTransactionIdAndEventCode(
-          transactionId.toString(), TransactionEventCode.TRANSACTION_USER_CANCELED_EVENT)
-        .cast(TransactionAuthorizationRequestedEvent::class.java)
-        .awaitSingleOrNull()
-        ?: throw TransactionEventNotFoundException(transactionId, TransactionEventCode.TRANSACTION_USER_CANCELED_EVENT)
-
-      val closePaymentKO =
-        ClosePaymentRequestV2KODto().apply {
-          paymentTokens = activatedEvent.data.paymentNotices.map { it.paymentToken }
-          outcome = transactionOutcome
-          this.transactionId = transactionId.toString()
-        }
-      return nodeClient.closePayment(closePaymentKO).awaitSingle()
+    if (userCanceledEvent != null && authEvent != null) {
+      throw TransactionEventsInconsistentException(
+        transactionId,
+        listOf(
+          TransactionEventCode.TRANSACTION_AUTHORIZATION_REQUESTED_EVENT,
+          TransactionEventCode.TRANSACTION_USER_CANCELED_EVENT))
     }
 
-    //TODO COULD THIS IF ELSE BLOCK CONVERTED IN MONO CHAIN?
-    /*val monoOk = transactionsEventStoreRepository
-        .findByTransactionIdAndEventCode(
-          transactionId.toString(), transactionAuthRequestedEventCode)
-        .cast(TransactionAuthorizationRequestedEvent::class.java)
-        .filter(Objects::nonNull)
-        .map { authEvent ->
-            ClosePaymentRequestV2OKDto().apply {
-              paymentTokens = activatedEvent.data.paymentNotices.map { it.paymentToken }
-              outcome = transactionOutcome
-              idPSP = authEvent.data.pspId
-              paymentMethod = authEvent.data.paymentTypeCode
-              idBrokerPSP = authEvent.data.brokerName
-              idChannel = authEvent.data.pspChannelCode
-              this.transactionId = transactionId.toString()
-              totalAmount = (authEvent.data.amount.plus(authEvent.data.fee)).toBigDecimal()
-              fee = authEvent.data.fee.toBigDecimal()
-              timestampOperation = OffsetDateTime.now()
-              additionalPaymentInformations = mapOf()
-            }
-        }
-
-      val monoKo =  mono { activatedEvent }
-          .map { ev -> ClosePaymentRequestV2KODto().apply {
-              paymentTokens = ev.data.paymentNotices.map { it.paymentToken }
+    val closePaymentRequestMono =
+      mono { userCanceledEvent }
+        .map {
+          ClosePaymentRequestV2KODto().apply {
+            paymentTokens = activatedEvent.data.paymentNotices.map { it.paymentToken }
             outcome = transactionOutcome
-            this.transactionId = transactionId.toString();
-            }
+            this.transactionId = transactionId.toString()
           }
+        }
+        .filter(Objects::nonNull)
+        .switchIfEmpty(
+          mono { authEvent }
+            .map { ev ->
+              ClosePaymentRequestV2OKDto().apply {
+                paymentTokens = activatedEvent.data.paymentNotices.map { it.paymentToken }
+                outcome = transactionOutcome
+                idPSP = ev.data.pspId
+                paymentMethod = ev.data.paymentTypeCode
+                idBrokerPSP = ev.data.brokerName
+                idChannel = ev.data.pspChannelCode
+                this.transactionId = transactionId.toString()
+                totalAmount = (ev.data.amount.plus(ev.data.fee)).toBigDecimal()
+                fee = ev.data.fee.toBigDecimal()
+                timestampOperation = OffsetDateTime.now()
+                additionalPaymentInformations = mapOf()
+              }
+            }
+            .filter(Objects::nonNull)
+            .switchIfEmpty(
+              Mono.error {
+                TransactionEventsPreconditionsNotMatchedException(
+                  transactionId,
+                  listOf(
+                    TransactionEventCode.TRANSACTION_AUTHORIZATION_REQUESTED_EVENT,
+                    TransactionEventCode.TRANSACTION_USER_CANCELED_EVENT))
+              }))
 
-*/
+    return nodeClient.closePayment(closePaymentRequestMono.awaitSingle()).awaitSingle()
   }
 }

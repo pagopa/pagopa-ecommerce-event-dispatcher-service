@@ -4,7 +4,6 @@ import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
-import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils.*
 import it.pagopa.ecommerce.scheduler.exceptions.BadTransactionStatusException
@@ -50,14 +49,8 @@ class TransactionClosePaymentQueueConsumerTests {
   @Captor private lateinit var viewArgumentCaptor: ArgumentCaptor<Transaction>
 
   @Captor
-  private lateinit var refundedEventStoreRepositoryCaptor:
-    ArgumentCaptor<TransactionEvent<TransactionRefundedData>>
-
-  @Captor
   private lateinit var closedEventStoreRepositoryCaptor:
     ArgumentCaptor<TransactionEvent<TransactionClosureData>>
-
-  @Captor private lateinit var retryCountCaptor: ArgumentCaptor<Int>
 
   private val transactionClosureEventsConsumer =
     TransactionClosePaymentQueueConsumer(
@@ -281,7 +274,8 @@ class TransactionClosePaymentQueueConsumerTests {
 
     val transactionDocument =
       transactionDocument(
-        TransactionStatusDto.CANCELLATION_REQUESTED, ZonedDateTime.parse(activationEvent.creationDate))
+        TransactionStatusDto.CANCELLATION_REQUESTED,
+        ZonedDateTime.parse(activationEvent.creationDate))
 
     /* preconditions */
     given(checkpointer.success()).willReturn(Mono.empty())
@@ -292,8 +286,8 @@ class TransactionClosePaymentQueueConsumerTests {
     /* test */
 
     StepVerifier.create(
-      transactionClosureEventsConsumer.messageReceiver(
-        BinaryData.fromObject(cancelRequestEvent).toBytes(), checkpointer))
+        transactionClosureEventsConsumer.messageReceiver(
+          BinaryData.fromObject(cancelRequestEvent).toBytes(), checkpointer))
       .expectError(BadTransactionStatusException::class.java)
       .verify()
 
@@ -304,5 +298,4 @@ class TransactionClosePaymentQueueConsumerTests {
     verify(transactionsViewRepository, Mockito.times(0)).save(any())
     verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any())
   }
-
 }
