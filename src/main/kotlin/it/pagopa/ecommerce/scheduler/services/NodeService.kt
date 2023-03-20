@@ -56,7 +56,7 @@ class NodeService(
         .cast(TransactionAuthorizationRequestedEvent::class.java)
         .awaitSingleOrNull()
 
-    val closePaymentRequestMono =
+    val closePaymentRequest =
       mono { userCanceledEvent }
         .map {
           ClosePaymentRequestV2KODto().apply {
@@ -93,10 +93,10 @@ class NodeService(
                     TransactionEventCode.TRANSACTION_USER_CANCELED_EVENT))
               }))
 
-    val monoComplex =
+    val checkAndGetClosePaymentRequest =
       mono { Tuple.of(userCanceledEvent, authEvent) }
         .filter { t -> t._1() == null || t._2() == null }
-        .flatMap { closePaymentRequestMono }
+        .flatMap { closePaymentRequest }
         .switchIfEmpty(
           Mono.error(
             TransactionEventsInconsistentException(
@@ -105,6 +105,6 @@ class NodeService(
                 TransactionEventCode.TRANSACTION_AUTHORIZATION_REQUESTED_EVENT,
                 TransactionEventCode.TRANSACTION_USER_CANCELED_EVENT))))
 
-    return nodeClient.closePayment(monoComplex.awaitSingle()).awaitSingle()
+    return nodeClient.closePayment(checkAndGetClosePaymentRequest.awaitSingle()).awaitSingle()
   }
 }
