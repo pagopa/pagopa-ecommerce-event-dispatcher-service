@@ -32,12 +32,13 @@ class TransactionClosePaymentQueueConsumer(
   @Autowired
   private val transactionClosureSentEventRepository:
     TransactionsEventStoreRepository<TransactionClosureData>,
+  @Autowired
+  private val transactionClosureErrorEventStoreRepository: TransactionsEventStoreRepository<Void>,
   @Autowired private val transactionsViewRepository: TransactionsViewRepository,
   @Autowired private val nodeService: NodeService,
   @Autowired private val closureRetryService: ClosureRetryService
 ) {
-  var logger: Logger =
-    LoggerFactory.getLogger(TransactionClosePaymentRetryQueueConsumer::class.java)
+  var logger: Logger = LoggerFactory.getLogger(TransactionClosePaymentQueueConsumer::class.java)
 
   private fun getTransactionIdFromPayload(data: BinaryData): Mono<String> {
     return data.toObjectAsync(TransactionUserCanceledEvent::class.java).map { it.transactionId }
@@ -91,10 +92,25 @@ class TransactionClosePaymentQueueConsumer(
                 logger.error(
                   "Got exception while calling closePaymentV2 for transaction with id ${baseTransaction.transactionId}!",
                   exception)
-                closureRetryService.enqueueRetryEvent(baseTransaction, 0).doOnError(
-                  NoRetryAttemptsLeftException::class.java) { exception ->
-                  logger.error("No more attempts left for closure retry", exception)
-                }
+                transactionsViewRepository
+                  .findByTransactionId(baseTransaction.transactionId.value.toString())
+                  .flatMap { tx ->
+                    tx.status = TransactionStatusDto.CLOSURE_ERROR
+                    transactionsViewRepository.save(tx)
+                  }
+                  .map { transaction -> TransactionClosureErrorEvent(transaction.transactionId) }
+                  .flatMap { transactionClosureErrorEvent ->
+                    transactionClosureErrorEventStoreRepository.save(transactionClosureErrorEvent)
+                  }
+                  .flatMap {
+                    reduceEvents(transactionId, transactionsEventStoreRepository, emptyTransaction)
+                  }
+                  .flatMap { transactionUpdated ->
+                    closureRetryService.enqueueRetryEvent(transactionUpdated, 0).doOnError(
+                      NoRetryAttemptsLeftException::class.java) { exception ->
+                      logger.error("No more attempts left for closure retry", exception)
+                    }
+                  }
               }
             }
         }
