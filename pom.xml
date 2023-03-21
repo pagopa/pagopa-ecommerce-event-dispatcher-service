@@ -9,7 +9,7 @@
 	</parent>
 	<groupId>it.pagopa.ecommerce</groupId>
 	<artifactId>scheduler</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>0.1.2</version>
 	<name>scheduler</name>
 	<description>Demo project for Spring Boot</description>
 	<properties>
@@ -18,9 +18,11 @@
 		<kotlinx-coroutines.version>1.6.2</kotlinx-coroutines.version>
 		<spring-cloud-azure.version>4.0.0</spring-cloud-azure.version>
 		<jacoco.version>0.8.8</jacoco.version>
+		<pagopa-ecommerce-commons.version>0.8.6</pagopa-ecommerce-commons.version>
 		<sonar.coverage.exclusions> <!-- the members of the following list should be in the same line -->
 			**/it/pagopa/transactions/**
 		</sonar.coverage.exclusions>
+		<spotless.version>2.28.0</spotless.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -95,6 +97,11 @@
 			<scope>test</scope>
 		</dependency>
 		<dependency>
+			<groupId>io.vavr</groupId>
+			<artifactId>vavr</artifactId>
+			<version>0.10.4</version>
+		</dependency>
+		<dependency>
 			<groupId>org.slf4j</groupId>
 			<artifactId>slf4j-api</artifactId>
 			<version>1.7.30</version>
@@ -113,11 +120,6 @@
 		<dependency>
 			<groupId>org.mockito</groupId>
 			<artifactId>mockito-inline</artifactId>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>io.projectreactor</groupId>
-			<artifactId>reactor-test</artifactId>
 			<scope>test</scope>
 		</dependency>
 		<dependency>
@@ -166,9 +168,15 @@
 			<artifactId>lombok</artifactId>
 		</dependency>
 		<dependency>
-			<groupId>org.jacoco</groupId>
-			<artifactId>jacoco-maven-plugin</artifactId>
-			<version>${jacoco.version}</version>
+			<groupId>it.pagopa</groupId>
+			<artifactId>pagopa-ecommerce-commons</artifactId>
+			<version>${pagopa-ecommerce-commons.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>it.pagopa</groupId>
+			<artifactId>pagopa-ecommerce-commons</artifactId>
+			<version>${pagopa-ecommerce-commons.version}</version>
+			<type>test-jar</type>
 			<scope>test</scope>
 		</dependency>
 		<dependency>
@@ -195,6 +203,9 @@
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
+				<configuration>
+					<jvmArguments>--enable-preview</jvmArguments>
+				</configuration>
 			</plugin>
 			<plugin>
 				<groupId>org.codehaus.mojo</groupId>
@@ -288,7 +299,7 @@
 						</goals>
 						<configuration>
 							<inputSpec>
-								https://raw.githubusercontent.com/pagopa/pagopa-infra/d45da6310d2efd34f083abaa242bb2f9ca253bea/src/api/nodopagamenti_api/nodoPerPM/v2/_swagger.json.tpl
+								https://raw.githubusercontent.com/pagopa/pagopa-infra/2d3db67b9638dc53ff2c04b1fc4fd2bc0f54763e/src/core/api/nodopagamenti_api/nodoPerPM/v2/_swagger.json.tpl
 							</inputSpec>
 							<generatorName>java</generatorName>
 							<library>webclient</library>
@@ -296,28 +307,8 @@
 							<generateApiTests>false</generateApiTests>
 							<generateModelTests>false</generateModelTests>
 							<generateSupportingFiles>true</generateSupportingFiles>
-							<modelPackage>it.pagopa.generated.ecommerce.nodo.v1.dto</modelPackage>
-							<apiPackage>it.pagopa.generated.ecommerce.nodo.v1.api</apiPackage>
-							<modelNameSuffix>dto</modelNameSuffix>
-						</configuration>
-					</execution>
-					<execution>
-						<id>transactions-api</id>
-						<goals>
-							<goal>generate</goal>
-						</goals>
-						<configuration>
-							<inputSpec>
-								https://raw.githubusercontent.com/pagopa/pagopa-ecommerce-transactions-service/main/api-spec/transactions-api.yaml
-							</inputSpec>
-							<generatorName>java</generatorName>
-							<library>webclient</library>
-							<generateApiDocumentation>false</generateApiDocumentation>
-							<generateApiTests>false</generateApiTests>
-							<generateModelTests>false</generateModelTests>
-							<generateSupportingFiles>true</generateSupportingFiles>
-							<modelPackage>it.pagopa.generated.transactions.server.model</modelPackage>
-							<apiPackage>it.pagopa.generated.transactions.server.api</apiPackage>
+							<modelPackage>it.pagopa.generated.ecommerce.nodo.v2.dto</modelPackage>
+							<apiPackage>it.pagopa.generated.ecommerce.nodo.v2.api</apiPackage>
 							<modelNameSuffix>dto</modelNameSuffix>
 						</configuration>
 					</execution>
@@ -327,7 +318,7 @@
 							<goal>generate</goal>
 						</goals>
 						<configuration>
-							<inputSpec>https://raw.githubusercontent.com/pagopa/pagopa-payment-transactions-gateway/develop/api-specs/api_spec_PGS.yaml</inputSpec>
+							<inputSpec>https://raw.githubusercontent.com/pagopa/pagopa-payment-transactions-gateway/754e4a78e81fb67716b67694645cd394a235040c/api-specs/api_spec_PGS.yaml</inputSpec>
 							<generatorName>java</generatorName>
 							<library>webclient</library>
 							<generateApiDocumentation>false</generateApiDocumentation>
@@ -364,6 +355,11 @@
 						</goals>
 					</execution>
 				</executions>
+				<configuration>
+					<source>17</source>
+					<target>17</target>
+					<compilerArgs>--enable-preview</compilerArgs>
+				</configuration>
 			</plugin>
 			<plugin>
 				<groupId>org.jacoco</groupId>
@@ -392,87 +388,79 @@
 				</executions>
 			</plugin>
 			<plugin>
-				<groupId>org.openapitools</groupId>
-				<artifactId>openapi-generator-maven-plugin</artifactId>
-				<version>5.4.0</version>
-				<executions>
-					<execution>
-						<id>transactions-gateway-api</id>
-						<goals>
-							<goal>generate</goal>
-						</goals>
-						<configuration>
-							<inputSpec>https://raw.githubusercontent.com/pagopa/pagopa-payment-transactions-gateway/754e4a78e81fb67716b67694645cd394a235040c/api-specs/api_spec_PGS.yaml</inputSpec>
-							<generatorName>java</generatorName>
-							<library>webclient</library>
-							<generateApiDocumentation>false</generateApiDocumentation>
-							<generateApiTests>false</generateApiTests>
-							<generateModelTests>false</generateModelTests>
-							<generateSupportingFiles>true</generateSupportingFiles>
-							<configOptions>
-								<swaggerAnnotations>false</swaggerAnnotations>
-								<openApiNullable>false</openApiNullable>
-							</configOptions>
-							<modelPackage>it.pagopa.generated.ecommerce.gateway.v1.dto</modelPackage>
-							<apiPackage>it.pagopa.generated.ecommerce.gateway.v1.api</apiPackage>
-							<modelNameSuffix>dto</modelNameSuffix>
-						</configuration>
-					</execution>
-				</executions>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<version>2.22.1</version>
+				<configuration>
+					<argLine>${argLine} --enable-preview</argLine>
+				</configuration>
 			</plugin>
 			<plugin>
-				<groupId>org.jacoco</groupId>
-				<artifactId>jacoco-maven-plugin</artifactId>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-scm-plugin</artifactId>
+				<version>2.0.0-M3</version>
 				<configuration>
-					<excludes>
-						<exclude>it/pagopa/generated/**</exclude>
-						<exclude>it/pagopa/transactions/server/api/ApiUtil</exclude>
-						<exclude>it/pagopa/transactions/utils/soap/**</exclude>
-						<exclude>it/pagopa/transactions/PagopaEcommerceTransactionsApplication.class</exclude>
-					</excludes>
+					<skipCheckoutIfExists>false</skipCheckoutIfExists>
+					<connectionUrl>scm:git:https://github.com/pagopa/pagopa-ecommerce-commons.git</connectionUrl>
+					<scmVersionType>tag</scmVersionType>
+					<scmVersion>${pagopa-ecommerce-commons.version}</scmVersion>
+					<goals>install -DskipTests</goals>
 				</configuration>
-				<version>${jacoco.version}</version>
 				<executions>
 					<execution>
-						<id>jacoco-initialize</id>
+						<phase>validate</phase>
 						<goals>
-							<goal>prepare-agent</goal>
-						</goals>
-					</execution>
-					<execution>
-						<id>jacoco-site</id>
-						<phase>package</phase>
-						<goals>
-							<goal>report</goal>
+							<goal>bootstrap</goal>
 						</goals>
 					</execution>
 				</executions>
 			</plugin>
 			<plugin>
-				<groupId>org.jacoco</groupId>
-				<artifactId>jacoco-maven-plugin</artifactId>
+				<groupId>com.diffplug.spotless</groupId>
+				<artifactId>spotless-maven-plugin</artifactId>
+				<version>${spotless.version}</version>
 				<configuration>
-					<excludes>
-						<exclude>it/pagopa/generated/**</exclude>
-						<exclude>it/pagopa/transactions/server/api/ApiUtil</exclude>
-						<exclude>it/pagopa/transactions/utils/soap/**</exclude>
-						<exclude>it/pagopa/transactions/PagopaEcommerceTransactionsApplication.class</exclude>
-					</excludes>
+					<formats>
+						<!-- you can define as many formats as you want, each is independent -->
+						<format>
+							<!-- define the files to apply to -->
+							<includes>
+								<include>*.md</include>
+								<include>.gitignore</include>
+							</includes>
+							<!-- define the steps to apply to those files -->
+							<trimTrailingWhitespace/>
+							<endWithNewline/>
+							<indent>
+								<tabs>true</tabs>
+								<spacesPerTab>4</spacesPerTab>
+							</indent>
+						</format>
+					</formats>
+					<!-- define a language-specific format -->
+					<java>
+						<toggleOffOn/>
+						<eclipse>
+							<file>${project.basedir}/eclipse-style.xml</file>
+						</eclipse>
+						<trimTrailingWhitespace/>
+						<endWithNewline/>
+					</java>
+					<kotlin>
+						<toggleOffOn/>
+						<ktfmt>
+							<version>0.39</version> <!-- optional -->
+							<style>DEFAULT</style> <!-- optional, other options are DROPBOX, GOOGLE and KOTLINLANG -->
+						</ktfmt>
+						<trimTrailingWhitespace/>
+						<endWithNewline/>
+					</kotlin>
 				</configuration>
-				<version>${jacoco.version}</version>
 				<executions>
 					<execution>
-						<id>jacoco-initialize</id>
 						<goals>
-							<goal>prepare-agent</goal>
+							<goal>check</goal>
 						</goals>
-					</execution>
-					<execution>
-						<id>jacoco-site</id>
-						<phase>package</phase>
-						<goals>
-							<goal>report</goal>
-						</goals>
+						<phase>compile</phase>
 					</execution>
 				</executions>
 			</plugin>

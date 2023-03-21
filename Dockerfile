@@ -1,13 +1,18 @@
-FROM openjdk:17-slim as build
+FROM openjdk:17-jdk as build
 WORKDIR /workspace/app
+
+RUN microdnf install git
 
 COPY mvnw .
 COPY .mvn .mvn
 COPY pom.xml .
+
+RUN ./mvnw validate
 RUN ./mvnw dependency:copy-dependencies
 # RUN ./mvnw dependency:go-offline
 
 COPY src src
+COPY eclipse-style.xml eclipse-style.xml
 # COPY api-spec api-spec
 RUN ./mvnw install -DskipTests # --offline
 RUN mkdir target/extracted && java -Djarmode=layertools -jar target/*.jar extract --destination target/extracted
@@ -21,6 +26,9 @@ WORKDIR /app/
 
 ARG EXTRACTED=/workspace/app/target/extracted
 
+ADD --chown=user https://github.com/microsoft/ApplicationInsights-Java/releases/download/3.4.1/applicationinsights-agent-3.4.1.jar ./applicationinsights-agent.jar
+COPY --chown=user applicationinsights.json ./applicationinsights.json
+
 COPY --from=build --chown=user ${EXTRACTED}/dependencies/ ./
 RUN true
 COPY --from=build --chown=user ${EXTRACTED}/spring-boot-loader/ ./
@@ -31,4 +39,4 @@ COPY --from=build --chown=user ${EXTRACTED}/application/ ./
 RUN true
 
 
-ENTRYPOINT ["java","org.springframework.boot.loader.JarLauncher"]
+ENTRYPOINT ["java","-javaagent:applicationinsights-agent.jar","--enable-preview","org.springframework.boot.loader.JarLauncher"]

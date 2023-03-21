@@ -2,63 +2,53 @@ microservice-chart:
   namespace: "ecommerce"
   nameOverride: ""
   fullnameOverride: ""
-
+  deployment:
+    create: true
   image:
     repository: pagopadcommonacr.azurecr.io/pagopaecommerceschedulerservice
-    tag: "latest" #improve
+    tag: "0.1.2"
     pullPolicy: Always
-
   livenessProbe:
     httpGet:
       path: /actuator/health/liveness
-      port: 8080
-    initialDelaySeconds: 60
+      port: 9000
+    initialDelaySeconds: 80
     failureThreshold: 6
     periodSeconds: 10
-
   readinessProbe:
     httpGet:
       path: /actuator/health/readiness
-      port: 8080
-    initialDelaySeconds: 60
+      port: 9000
+    initialDelaySeconds: 80
     failureThreshold: 6
     periodSeconds: 10
-
-  deployment:
-    create: true
-
   service:
     create: true
     type: ClusterIP
-    port: 8080
-
+    ports:
+      - 9000
   ingress:
     create: true
     host: "weudev.ecommerce.internal.dev.platform.pagopa.it"
     path: /pagopa-ecommerce-scheduler-service/(.*)
-
+    servicePort: 9000
   serviceAccount:
     create: false
     annotations: {}
     name: ""
-
   podAnnotations: {}
-
   podSecurityContext:
     seccompProfile:
       type: RuntimeDefault
-
   securityContext:
     allowPrivilegeEscalation: false
-
   resources:
     requests:
-      memory: "256Mi"
-      cpu: "40m"
+      memory: "512Mi"
+      cpu: "200m"
     limits:
-      memory: "256Mi"
-      cpu: "150m"
-
+      memory: "512Mi"
+      cpu: "200m"
   autoscaling:
     minReplica: 1
     maxReplica: 2
@@ -77,41 +67,45 @@ microservice-chart:
           # metricAggregationInterval: "-1:1:0"
           metricAggregationType: Count
           targetValue: "30"
-
   envConfig:
-    # MONGO_HOST: pagopa-d-weu-ecommerce-cosmos-account.mongo.cosmos.azure.com
-    # MONGO_USERNAME: pagopa-d-weu-ecommerce-cosmos-account
-    # MONGO_PORT: "10255"
-    # REDIS_HOST: pagopa-d-weu-ecommerce-redis.redis.cache.windows.net
-    # REDIS_PORT: "6380"
-    # NODO_URI: https://api.dev.platform.pagopa.it/nodo/node-for-psp/v1
-    # NODO_READ_TIMEOUT: "10000"
-    # NODO_CONNECTION_TIMEOUT: "10000"
-    # ECOMMERCE_TRANSACTIONS_URI: https://api.dev.platform.pagopa.it/ecommerce/transactions-service/v1
-    # ECOMMERCE_TRANSACTIONS_READ_TIMEOUT: "10000"
-    # ECOMMERCE_TRANSACTIONS_CONNECTION_TIMEOUT: "10000"
-    # ECOMMERCE_SESSIONS_URI: https://api.dev.platform.pagopa.it/ecommerce/sessions-service/v1
-    # ECOMMERCE_SESSIONS_READ_TIMEOUT: "10000"
-    # ECOMMERCE_SESSIONS_CONNECTION_TIMEOUT: "10000"
-    # ECOMMERCE_PAYMENT_INSTRUMENTS_URI: https://api.dev.platform.pagopa.it/ecommerce/payment-instruments-service/v1
-    # ECOMMERCE_PAYMENT_INSTRUMENTS_READ_TIMEOUT: "10000"
-    # ECOMMERCE_PAYMENT_INSTRUMENTS_CONNECTION_TIMEOUT: "10000"
-    # PAYMENT_TRANSACTIONS_GATEWAY_URI: http://pagopa-ecommerce-payment-instruments-service:8080
-    # PAYMENT_TRANSACTIONS_GATEWAY_READ_TIMEOUT: "10000"
-    # PAYMENT_TRANSACTIONS_GATEWAY_CONNECTION_TIMEOUT: "10000"
-
+    TRANSACTIONS_CLOSE_PAYMENT_RETRY_QUEUE_NAME: pagopa-d-weu-ecommerce-transactions-close-payment-retry-queue
+    TRANSACTIONS_EXPIRATION_QUEUE_NAME: pagopa-d-weu-ecommerce-transactions-expiration-queue
+    TRANSACTIONS_REFUND_RETRY_QUEUE_NAME: pagopa-d-weu-ecommerce-transactions-refund-retry-queue
+    TRANSACTIONS_REFUND_QUEUE_NAME: pagopa-d-weu-ecommerce-transactions-refund-queue
+    AUTH_REQUESTED_TIMEOUT_SECONDS: "100"
+    PAYMENT_TRANSACTIONS_GATEWAY_URI: https://api.dev.platform.pagopa.it/payment-transactions-gateway
+    PAYMENT_TRANSACTIONS_GATEWAY_READ_TIMEOUT: "10000"
+    PAYMENT_TRANSACTIONS_GATEWAY_CONNECTION_TIMEOUT: "10000"
+    NODO_URI: https://api.dev.platform.pagopa.it/nodo
+    NODO_READ_TIMEOUT: "10000"
+    NODO_CONNECTION_TIMEOUT: "10000"
+    MONGO_HOST: pagopa-d-weu-ecommerce-cosmos-account.mongo.cosmos.azure.com
+    MONGO_USERNAME: pagopa-d-weu-ecommerce-cosmos-account
+    MONGO_PORT: "10255"
+    MONGO_SSL_ENABLED: "true"
+    ECOMMERCE_STORAGE_QUEUE_ACCOUNT_NAME: pagopadweuecommercesa
+    ECOMMERCE_STORAGE_QUEUE_ENDPOINT: https://pagopadweuecommercesa.queue.core.windows.net/pagopadweuecommercesa
+    REFUND_RETRY_EVENT_BASE_INTERVAL_SECONDS: "600"
+    REFUND_RETRY_EVENT_MAX_ATTEMPTS: "3"
+    CLOSE_PAYMENT_RETRY_EVENT_BASE_INTERVAL_SECONDS: "600"
+    CLOSE_PAYMENT_RETRY_EVENT_MAX_ATTEMPTS: "3"
   envSecret:
-    # MONGO_PASSWORD: mongo-ecommerce-password
-    # REDIS_PASSWORD: redis-ecommerce-password
-    # NODO_CONNECTION_STRING: nodo-connection-string
-
+    ECOMMERCE_STORAGE_QUEUE_KEY: ecommerce-storage-account-key
+    MONGO_PASSWORD: mongo-ecommerce-password
+    NODO_CONNECTION_STRING: nodo-connection-string
+    APPLICATIONINSIGHTS_CONNECTION_STRING: applicationinsights-connection-string
+    QUEUE_CONNECTION_STRING: ecommerce-storage-connection-string
   keyvault:
     name: "pagopa-d-ecommerce-kv"
     tenantId: "7788edaf-0346-4068-9d79-c868aed15b3d"
-
   nodeSelector: {}
-
   tolerations: []
-
-  affinity: {}
-
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node_type
+                operator: In
+                values:
+                  - user

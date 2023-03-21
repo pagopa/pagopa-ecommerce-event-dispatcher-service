@@ -7,9 +7,6 @@ import org.springframework.test.context.TestPropertySource
 @SpringBootTest
 @TestPropertySource(locations = ["classpath:application.test.properties"])
 class SchedulerApplicationTests {
-	
-	@Test
-	fun contextLoads() {
-	}
 
+  @Test fun contextLoads() {}
 }
