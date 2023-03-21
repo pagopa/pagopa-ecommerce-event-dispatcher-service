@@ -17,6 +17,7 @@ microservice-chart:
         tag: "latest"
         pullPolicy: Always
     envConfig:
+      TRANSACTIONS_CLOSE_PAYMENT_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-close-payment-queue
       TRANSACTIONS_CLOSE_PAYMENT_RETRY_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-close-payment-retry-queue
       TRANSACTIONS_EXPIRATION_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-expiration-queue
       TRANSACTIONS_REFUND_RETRY_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-refund-retry-queue
@@ -107,6 +108,7 @@ microservice-chart:
           metricAggregationType: Count
           targetValue: "30"
   envConfig:
+    TRANSACTIONS_CLOSE_PAYMENT_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-close-payment-queue
     TRANSACTIONS_CLOSE_PAYMENT_RETRY_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-close-payment-retry-queue
     TRANSACTIONS_EXPIRATION_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-expiration-queue
     TRANSACTIONS_REFUND_RETRY_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-refund-retry-queue
