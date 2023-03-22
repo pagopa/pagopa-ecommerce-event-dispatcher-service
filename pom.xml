@@ -299,7 +299,7 @@
 						</goals>
 						<configuration>
 							<inputSpec>
-								https://raw.githubusercontent.com/pagopa/pagopa-infra/CHK-1251-evolution-to-openapi3/src/core/api/nodopagamenti_api/nodoPerPM/v2/_openapi.json.tpl
+								https://raw.githubusercontent.com/pagopa/pagopa-infra/CHK-1251-closePaymentV2/src/core/api/nodopagamenti_api/nodoPerPM/v2/_swagger.json.tpl
 							</inputSpec>
 							<generatorName>java</generatorName>
 							<library>webclient</library>

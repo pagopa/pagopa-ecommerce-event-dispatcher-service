@@ -8,7 +8,7 @@ import it.pagopa.ecommerce.scheduler.exceptions.TransactionEventNotFoundExceptio
 import it.pagopa.ecommerce.scheduler.exceptions.TransactionEventsInconsistentException
 import it.pagopa.ecommerce.scheduler.exceptions.TransactionEventsPreconditionsNotMatchedException
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreRepository
-import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2KODto.OutcomeEnum
+import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto.OutcomeEnum
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
 import java.util.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi

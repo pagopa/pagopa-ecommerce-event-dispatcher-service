@@ -14,8 +14,9 @@ import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreReposito
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.scheduler.services.NodeService
 import it.pagopa.ecommerce.scheduler.services.eventretry.ClosureRetryService
-import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2KODto
+import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
+import java.util.*
 import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -80,7 +81,7 @@ class TransactionClosePaymentQueueConsumer(
         .flatMap { tx ->
           mono {
               nodeService.closePayment(
-                tx.transactionId.value, ClosePaymentRequestV2KODto.OutcomeEnum.KO)
+                tx.transactionId.value, ClosePaymentRequestV2Dto.OutcomeEnum.KO)
             }
             .flatMap { closePaymentResponse ->
               updateTransactionStatus(
@@ -92,15 +93,19 @@ class TransactionClosePaymentQueueConsumer(
                 logger.error(
                   "Got exception while calling closePaymentV2 for transaction with id ${baseTransaction.transactionId}!",
                   exception)
-                transactionsViewRepository
-                  .findByTransactionId(baseTransaction.transactionId.value.toString())
+
+                mono { baseTransaction }
+                  .map { tx -> TransactionClosureErrorEvent(tx.transactionId.toString()) }
+                  .flatMap { transactionClosureErrorEvent ->
+                    transactionClosureErrorEventStoreRepository.save(transactionClosureErrorEvent)
+                  }
+                  .flatMap {
+                    transactionsViewRepository.findByTransactionId(
+                      baseTransaction.transactionId.value.toString())
+                  }
                   .flatMap { tx ->
                     tx.status = TransactionStatusDto.CLOSURE_ERROR
                     transactionsViewRepository.save(tx)
-                  }
-                  .map { transaction -> TransactionClosureErrorEvent(transaction.transactionId) }
-                  .flatMap { transactionClosureErrorEvent ->
-                    transactionClosureErrorEventStoreRepository.save(transactionClosureErrorEvent)
                   }
                   .flatMap {
                     reduceEvents(transactionId, transactionsEventStoreRepository, emptyTransaction)

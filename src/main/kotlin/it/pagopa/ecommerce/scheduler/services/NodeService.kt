@@ -8,8 +8,7 @@ import it.pagopa.ecommerce.scheduler.exceptions.TransactionEventNotFoundExceptio
 import it.pagopa.ecommerce.scheduler.exceptions.TransactionEventsInconsistentException
 import it.pagopa.ecommerce.scheduler.exceptions.TransactionEventsPreconditionsNotMatchedException
 import it.pagopa.ecommerce.scheduler.repositories.TransactionsEventStoreRepository
-import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2KODto
-import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2OKDto
+import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
 import java.time.OffsetDateTime
 import java.util.*
@@ -30,7 +29,7 @@ class NodeService(
   var logger: Logger = LoggerFactory.getLogger(NodeService::class.java)
   suspend fun closePayment(
     transactionId: UUID,
-    transactionOutcome: ClosePaymentRequestV2KODto.OutcomeEnum
+    transactionOutcome: ClosePaymentRequestV2Dto.OutcomeEnum
   ): ClosePaymentResponseDto {
     val transactionActivatedEventCode = TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
 
@@ -59,7 +58,7 @@ class NodeService(
     val closePaymentRequest =
       mono { userCanceledEvent }
         .map {
-          ClosePaymentRequestV2KODto().apply {
+          ClosePaymentRequestV2Dto().apply {
             paymentTokens = activatedEvent.data.paymentNotices.map { it.paymentToken }
             outcome = transactionOutcome
             this.transactionId = transactionId.toString()
@@ -69,7 +68,7 @@ class NodeService(
         .switchIfEmpty(
           mono { authEvent }
             .map { ev ->
-              ClosePaymentRequestV2OKDto().apply {
+              ClosePaymentRequestV2Dto().apply {
                 paymentTokens = activatedEvent.data.paymentNotices.map { it.paymentToken }
                 outcome = transactionOutcome
                 idPSP = ev.data.pspId

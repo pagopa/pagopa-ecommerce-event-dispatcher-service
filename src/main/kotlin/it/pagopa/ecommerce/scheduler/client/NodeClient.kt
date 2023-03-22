@@ -4,7 +4,7 @@ import it.pagopa.ecommerce.scheduler.exceptions.BadGatewayException
 import it.pagopa.ecommerce.scheduler.exceptions.GatewayTimeoutException
 import it.pagopa.ecommerce.scheduler.exceptions.TransactionNotFound
 import it.pagopa.generated.ecommerce.nodo.v2.api.NodoApi
-import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2KODto
+import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
 import java.util.*
 import kotlinx.coroutines.reactor.awaitSingle
@@ -18,7 +18,7 @@ import reactor.core.publisher.Mono
 @Component
 class NodeClient(@Autowired private val nodeApi: NodoApi) {
   suspend fun closePayment(
-    closePaymentRequest: ClosePaymentRequestV2KODto
+    closePaymentRequest: ClosePaymentRequestV2Dto
   ): Mono<ClosePaymentResponseDto> {
     return mono {
       try {
