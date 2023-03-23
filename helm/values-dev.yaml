@@ -77,7 +77,7 @@ microservice-chart:
     PAYMENT_TRANSACTIONS_GATEWAY_URI: https://api.dev.platform.pagopa.it/payment-transactions-gateway
     PAYMENT_TRANSACTIONS_GATEWAY_READ_TIMEOUT: "10000"
     PAYMENT_TRANSACTIONS_GATEWAY_CONNECTION_TIMEOUT: "10000"
-    NODO_URI: https://api.dev.platform.pagopa.it/nodo
+    NODO_URI: https://api.dev.platform.pagopa.it/nodo/nodo-per-pm/v2
     NODO_READ_TIMEOUT: "10000"
     NODO_CONNECTION_TIMEOUT: "10000"
     MONGO_HOST: pagopa-d-weu-ecommerce-cosmos-account.mongo.cosmos.azure.com
