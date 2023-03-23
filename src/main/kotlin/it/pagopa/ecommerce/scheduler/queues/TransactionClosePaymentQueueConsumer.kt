@@ -95,7 +95,7 @@ class TransactionClosePaymentQueueConsumer(
                   exception)
 
                 mono { baseTransaction }
-                  .map { tx -> TransactionClosureErrorEvent(tx.transactionId.toString()) }
+                  .map { tx -> TransactionClosureErrorEvent(tx.transactionId.value().toString()) }
                   .flatMap { transactionClosureErrorEvent ->
                     transactionClosureErrorEventStoreRepository.save(transactionClosureErrorEvent)
                   }
