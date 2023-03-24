@@ -16,6 +16,16 @@ class QueuesConsumerConfig {
     channel = "transactionclosureschannel", poller = [Poller(fixedDelay = "1000")])
   fun storageQueueClosuresMessageSource(
     storageQueueTemplate: StorageQueueTemplate,
+    @Value("\${azurestorage.queues.transactionclosepayment.name}") queueNameClosureEvents: String
+  ): StorageQueueMessageSource {
+    return StorageQueueMessageSource(queueNameClosureEvents, storageQueueTemplate)
+  }
+
+  @Bean
+  @InboundChannelAdapter(
+    channel = "transactionretryclosureschannel", poller = [Poller(fixedDelay = "1000")])
+  fun storageQueueRetryClosuresMessageSource(
+    storageQueueTemplate: StorageQueueTemplate,
     @Value("\${azurestorage.queues.transactionclosepaymentretry.name}")
     queueNameClosureEvents: String
   ): StorageQueueMessageSource {

@@ -20,12 +20,13 @@ These are all environment variables needed by the application:
 | NODO_URI                                       | Nodo connection URI                                                               | string |         |
 | NODO_READ_TIMEOUT                              | Timeout for requests towards Nodo                                                 | number |         |
 | NODO_CONNECTION_TIMEOUT                        | Timeout for establishing connections towards Nodo                                 | number |         |
-| ECOMMERCE_STORAGE_QUEUE_KEY                    | eCommerce storage account access key                                              | string ||
-| ECOMMERCE_STORAGE_QUEUE_ACCOUNT_NAME           | eCommerce storage account name                                                    | string ||
+| ECOMMERCE_STORAGE_QUEUE_KEY                    | eCommerce storage account access key                                              | string |         |
+| ECOMMERCE_STORAGE_QUEUE_ACCOUNT_NAME           | eCommerce storage account name                                                    | string |         |
 | ECOMMERCE_STORAGE_QUEUE_ENDPOINT               | eCommerce storage account queue endpoint                                          | string |         |
 | AUTH_REQUESTED_TIMEOUT_SECONDS                 |                                                                                   | string |         |
 | TRANSACTION_ACTIVATED_EVENT_QUEUE_NAME         | Queue name for activated events scheduled for retries                             | string |         |
 | TRANSACTIONS_CLOSE_PAYMENT_RETRY_QUEUE_NAME    | Queue name for closure events scheduled for retries                               | string |         |
+| TRANSACTIONS_CLOSE_PAYMENT_QUEUE_NAME          | Queue name for closure events scheduled                                           | string |         |
 
 An example configuration of these environment variables is in the `.env.example` file.
 
