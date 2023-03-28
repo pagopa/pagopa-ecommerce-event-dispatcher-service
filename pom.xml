@@ -8,9 +8,9 @@
 		<relativePath /> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>it.pagopa.ecommerce</groupId>
-	<artifactId>scheduler</artifactId>
+	<artifactId>event-dispatcher</artifactId>
 	<version>0.1.2</version>
-	<name>scheduler</name>
+	<name>event-dispatcher</name>
 	<description>Demo project for Spring Boot</description>
 	<properties>
 		<java.version>17</java.version>

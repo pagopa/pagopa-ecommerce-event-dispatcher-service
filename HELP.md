@@ -1,7 +1,7 @@
 # Read Me First
 The following was discovered as part of building this project:
 
-* The original package name ' it.pagopa.ecommerce.scheduler' is invalid and this project uses 'it.pagopa.ecommerce.scheduler' instead.
+* The original package name ' it.pagopa.ecommerce.eventdispatcher' is invalid and this project uses 'it.pagopa.ecommerce.eventdispatcher' instead.
 
 # Getting Started
 
