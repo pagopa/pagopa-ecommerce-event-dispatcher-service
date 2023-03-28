@@ -1,4 +1,4 @@
-# pagoa-ecommerce-event-dispatcher-service
+# pagopa-ecommerce-event-dispatcher-service
 
 ## What is this?
 
