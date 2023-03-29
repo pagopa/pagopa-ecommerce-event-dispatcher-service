@@ -5,7 +5,7 @@ microservice-chart:
   deployment:
     create: true
   image:
-    repository: pagopadcommonacr.azurecr.io/pagopaecommerceschedulerservice
+    repository: pagopadcommonacr.azurecr.io/pagopaecommerceeventdispatcher
     tag: "0.1.2"
     pullPolicy: Always
   livenessProbe:
@@ -30,7 +30,7 @@ microservice-chart:
   ingress:
     create: true
     host: "weudev.ecommerce.internal.dev.platform.pagopa.it"
-    path: /pagopa-ecommerce-scheduler-service/(.*)
+    path: /pagopa-ecommerce-event-dispatcher/(.*)
     servicePort: 9000
   serviceAccount:
     create: false
