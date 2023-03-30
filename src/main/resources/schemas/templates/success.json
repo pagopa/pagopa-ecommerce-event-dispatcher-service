@@ -1,0 +1,177 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "$id": "templates/success/schema.json",
+  "title": "success",
+  "type": "object",
+  "required": ["transaction", "user", "cart"],
+  "properties": {
+    "transaction": {
+      "type": "object",
+      "required": [
+        "id",
+        "timestamp",
+        "amount",
+        "psp",
+        "rrn",
+        "authCode",
+        "paymentMethod"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "examples": ["F57E2F8E-25FF-4183-AB7B-4A5EC1A96644"]
+        },
+        "timestamp": {
+          "type": "string",
+          "examples": ["2020-07-10 15:00:00.000"]
+        },
+        "amount": {
+          "type": "string"
+        },
+        "psp": {
+          "type": "object",
+          "required": ["name", "fee"],
+          "properties": {
+            "name": {
+              "type": "string",
+              "examples": ["Nexi"]
+            },
+            "fee": {
+              "type": "object",
+              "required": ["amount"],
+              "properties": {
+                "amount": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "rrn": {
+          "type": "string",
+          "examples": ["1234567890"]
+        },
+        "authCode": {
+          "type": "string",
+          "examples": ["9999999999"]
+        },
+        "paymentMethod": {
+          "type": "object",
+          "required": ["name"],
+          "properties": {
+            "name": {
+              "type": "string",
+              "examples": ["Visa *1234"]
+            },
+            "logo": {
+              "type": "string"
+            },
+            "accountHolder": {
+              "type": "string",
+              "examples": ["Marzia Roccaraso"]
+            },
+            "extraFee": {
+              "type": "boolean",
+              "examples": [false]
+            }
+          }
+        }
+      }
+    },
+    "user": {
+      "type": "object",
+      "required": ["email"],
+      "properties": {
+        "data": {
+          "type": "object",
+          "required": ["firstName", "lastName", "taxCode"],
+          "properties": {
+            "firstName": {
+              "type": "string",
+              "examples": ["Marzia"]
+            },
+            "lastName": {
+              "type": "string",
+              "examples": ["Roccaraso"]
+            },
+            "taxCode": {
+              "type": "string",
+              "examples": ["RCCMRZ88A52C409A"]
+            }
+          }
+        },
+        "email": {
+          "type": "string"
+        }
+      }
+    },
+    "cart": {
+      "type": "object",
+      "required": ["items", "amountPartial"],
+      "properties": {
+        "items": {
+          "type": "array",
+          "additionalItems": false,
+          "items": {
+            "type": "object",
+            "required": ["refNumber", "payee", "amount"],
+            "properties": {
+              "refNumber": {
+                "type": "object",
+                "required": ["type", "value"],
+                "properties": {
+                  "type": {
+                    "enum": ["codiceAvviso", "IUV"],
+                    "examples": ["codiceAvviso","IUV"]
+                  },
+                  "value": {
+                    "type": "string",
+                    "examples": ["123456789012345678","RF865613749"]
+                  }
+                }
+              },
+              "debtor": {
+                "type": "object",
+                "required": ["fullName", "taxCode"],
+                "properties": {
+                  "fullName": {
+                    "type": "string",
+                    "examples": ["Giuseppe Bianchi"]
+                  },
+                  "taxCode": {
+                    "type": "string",
+                    "examples": ["BNCGSP70A12F205X"]
+                  }
+                }
+              },
+              "payee": {
+                "type": "object",
+                "required": ["name", "taxCode"],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "examples": ["Comune di Controguerra","Comune di Milano"]
+                  },
+                  "taxCode": {
+                    "type": "string",
+                    "examples": ["82001760675","01199250158"]
+                  }
+                }
+              },
+              "subject": {
+                "type": "string",
+                "examples": ["TARI 2022"]
+              },
+              "amount": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "amountPartial": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

@@ -18,7 +18,7 @@
 		<kotlinx-coroutines.version>1.6.2</kotlinx-coroutines.version>
 		<spring-cloud-azure.version>4.0.0</spring-cloud-azure.version>
 		<jacoco.version>0.8.8</jacoco.version>
-		<pagopa-ecommerce-commons.version>0.8.7</pagopa-ecommerce-commons.version>
+		<pagopa-ecommerce-commons.version>0.8.9</pagopa-ecommerce-commons.version>
 		<sonar.coverage.exclusions> <!-- the members of the following list should be in the same line -->
 			**/it/pagopa/transactions/**
 		</sonar.coverage.exclusions>
@@ -267,6 +267,7 @@
 							<sourceDirs>
 								<sourceDir>${project.basedir}/src/main/kotlin</sourceDir>
 								<sourceDir>${project.build.directory}/generated-sources/openapi/src/main/java</sourceDir>
+								<sourceDir>${project.build.directory}/generated-sources/jsonschema2pojo</sourceDir>
 								<sourceDir>${project.basedir}/src/main/java</sourceDir>
 							</sourceDirs>
 						</configuration>
@@ -332,6 +333,63 @@
 							<modelPackage>it.pagopa.generated.ecommerce.gateway.v1.dto</modelPackage>
 							<apiPackage>it.pagopa.generated.ecommerce.gateway.v1.api</apiPackage>
 							<modelNameSuffix>dto</modelNameSuffix>
+						</configuration>
+					</execution>
+					<execution>
+						<id>notifications-service-api</id>
+						<goals>
+							<goal>generate</goal>
+						</goals>
+						<configuration>
+							<inputSpec>https://raw.githubusercontent.com/pagopa/pagopa-infra/main/src/domains/ecommerce-app/api/ecommerce-notifications-service/v1/_openapi.json.tpl</inputSpec>
+							<generatorName>java</generatorName>
+							<library>webclient</library>
+							<generateApiDocumentation>false</generateApiDocumentation>
+							<generateApiTests>false</generateApiTests>
+							<generateModelTests>false</generateModelTests>
+							<generateSupportingFiles>true</generateSupportingFiles>
+							<configOptions>
+								<swaggerAnnotations>false</swaggerAnnotations>
+								<openApiNullable>false</openApiNullable>
+							</configOptions>
+							<modelPackage>it.pagopa.generated.notifications.v1.dto</modelPackage>
+							<apiPackage>it.pagopa.generated.notifications.v1.api</apiPackage>
+							<modelNameSuffix>dto</modelNameSuffix>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.jsonschema2pojo</groupId>
+				<artifactId>jsonschema2pojo-maven-plugin</artifactId>
+				<version>1.1.2</version>
+				<executions>
+					<execution>
+						<id>success-template</id>
+						<goals>
+							<goal>generate</goal>
+						</goals>
+						<configuration>
+							<sourcePaths>
+								<sourcePath>${basedir}/src/main/resources/schemas/templates/success.json</sourcePath>
+							</sourcePaths>
+							<targetPackage>it.pagopa.generated.notifications.templates.success</targetPackage>
+							<classNameSuffix>Template</classNameSuffix>
+							<includeConstructors>true</includeConstructors>
+						</configuration>
+					</execution>
+					<execution>
+						<id>ko-template</id>
+						<goals>
+							<goal>generate</goal>
+						</goals>
+						<configuration>
+							<sourcePaths>
+								<sourcePath>${basedir}/src/main/resources/schemas/templates/ko.json</sourcePath>
+							</sourcePaths>
+							<targetPackage>it.pagopa.generated.notifications.templates.ko</targetPackage>
+							<classNameSuffix>Template</classNameSuffix>
+							<includeConstructors>true</includeConstructors>
 						</configuration>
 					</execution>
 				</executions>
