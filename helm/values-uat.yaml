@@ -13,7 +13,7 @@ microservice-chart:
     deployment:
       create: true
       image:
-        repository: pagopaucommonacr.azurecr.io/pagopaecommerceeventdispatcher
+        repository: pagopaucommonacr.azurecr.io/pagopaecommerceeventdispatcherservice
         tag: "latest"
         pullPolicy: Always
     envConfig:
@@ -52,7 +52,7 @@ microservice-chart:
       NOTIFICATIONS_SERVICE_API_KEY: notifications-service-api-key
       PERSONAL_DATA_VAULT_API_KEY: personal-data-vault-api-key
   image:
-    repository: pagopaucommonacr.azurecr.io/pagopaecommerceeventdispatcher
+    repository: pagopaucommonacr.azurecr.io/pagopaecommerceeventdispatcherservice
     tag: "0.1.2"
     pullPolicy: Always
   livenessProbe:
