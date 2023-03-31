@@ -716,7 +716,8 @@ class TransactionExpirationQueueConsumerTests {
       transactionAuthorizationCompletedEvent(AuthorizationResultDto.OK)
     val closedEvent = transactionClosedEvent(TransactionClosureData.Outcome.OK)
     val addUserReceiptEvent =
-      transactionUserReceiptAddedEvent(TransactionUserReceiptData.Outcome.KO)
+      transactionUserReceiptAddedEvent(
+        transactionUserReceiptData(TransactionUserReceiptData.Outcome.OK))
     val expiredEvent =
       transactionExpiredEvent(
         reduceEvents(
