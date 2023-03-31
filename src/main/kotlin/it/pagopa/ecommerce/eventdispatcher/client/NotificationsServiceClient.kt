@@ -45,28 +45,6 @@ class NotificationsServiceClient(
       .doOnError { e: Throwable -> logger.error(e.toString()) }
   }
 
-  fun sendSuccessEmail(
-    successTemplateRequest: SuccessTemplateRequest
-  ): Mono<NotificationEmailResponseDto> {
-    return sendNotificationEmail(
-      NotificationEmailRequestDto()
-        .language(successTemplateRequest.language)
-        .subject(successTemplateRequest.subject)
-        .to(successTemplateRequest.to)
-        .templateId(SuccessTemplateRequest.TEMPLATE_ID)
-        .parameters(successTemplateRequest.templateParameters))
-  }
-
-  fun sendKoEmail(koTemplateRequest: KoTemplateRequest): Mono<NotificationEmailResponseDto> {
-    return sendNotificationEmail(
-      NotificationEmailRequestDto()
-        .language(koTemplateRequest.language)
-        .subject(koTemplateRequest.subject)
-        .to(koTemplateRequest.to)
-        .templateId(KoTemplateRequest.TEMPLATE_ID)
-        .parameters(koTemplateRequest.templateParameters))
-  }
-
   data class SuccessTemplateRequest(
     val to: String,
     val subject: String,
