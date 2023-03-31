@@ -13,7 +13,7 @@ microservice-chart:
     deployment:
       create: true
       image:
-        repository: pagopaucommonacr.azurecr.io/pagopaecommerceeventdispatcher
+        repository: pagopaucommonacr.azurecr.io/pagopaecommerceeventdispatcherservice
         tag: "latest"
         pullPolicy: Always
     envConfig:
@@ -45,7 +45,7 @@ microservice-chart:
       NODO_CONNECTION_STRING: nodo-connection-string
       QUEUE_CONNECTION_STRING: ecommerce-storage-connection-string
   image:
-    repository: pagopaucommonacr.azurecr.io/pagopaecommerceeventdispatcher
+    repository: pagopaucommonacr.azurecr.io/pagopaecommerceeventdispatcherservice
     tag: "0.1.2"
     pullPolicy: Always
   livenessProbe:
