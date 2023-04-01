@@ -14,7 +14,7 @@ class QueuesConsumerConfig {
   @Bean
   @InboundChannelAdapter(
     channel = "transactionclosureschannel",
-    poller = [Poller(fixedDelay = "1000", maxMessagesPerPoll = "4")])
+    poller = [Poller(fixedDelay = "1000", maxMessagesPerPoll = "10")])
   fun storageQueueClosuresMessageSource(
     storageQueueTemplate: StorageQueueTemplate,
     @Value("\${azurestorage.queues.transactionclosepayment.name}") queueNameClosureEvents: String
@@ -25,7 +25,7 @@ class QueuesConsumerConfig {
   @Bean
   @InboundChannelAdapter(
     channel = "transactionretryclosureschannel",
-    poller = [Poller(fixedDelay = "1000", maxMessagesPerPoll = "4")])
+    poller = [Poller(fixedDelay = "1000", maxMessagesPerPoll = "10")])
   fun storageQueueRetryClosuresMessageSource(
     storageQueueTemplate: StorageQueueTemplate,
     @Value("\${azurestorage.queues.transactionclosepaymentretry.name}")
@@ -37,7 +37,7 @@ class QueuesConsumerConfig {
   @Bean
   @InboundChannelAdapter(
     channel = "transactionexpiredchannel",
-    poller = [Poller(fixedDelay = "1000", maxMessagesPerPoll = "4")])
+    poller = [Poller(fixedDelay = "1000", maxMessagesPerPoll = "10")])
   fun storageQueueExpirationsMessageSource(
     storageQueueTemplate: StorageQueueTemplate,
     @Value("\${azurestorage.queues.transactionexpiration.name}") queueNameClosureEvents: String
@@ -48,7 +48,7 @@ class QueuesConsumerConfig {
   @Bean
   @InboundChannelAdapter(
     channel = "transactionrefundretrychannel",
-    poller = [Poller(fixedDelay = "1000", maxMessagesPerPoll = "4")])
+    poller = [Poller(fixedDelay = "1000", maxMessagesPerPoll = "10")])
   fun storageQueueRefundRetryMessageSource(
     storageQueueTemplate: StorageQueueTemplate,
     @Value("\${azurestorage.queues.transactionrefundretry.name}") queueNameRefundRetryEvents: String
@@ -59,7 +59,7 @@ class QueuesConsumerConfig {
   @Bean
   @InboundChannelAdapter(
     channel = "transactionsrefundchannel",
-    poller = [Poller(fixedDelay = "1000", maxMessagesPerPoll = "4")])
+    poller = [Poller(fixedDelay = "1000", maxMessagesPerPoll = "10")])
   fun storageQueueRefundMessageSource(
     storageQueueTemplate: StorageQueueTemplate,
     @Value("\${azurestorage.queues.transactionsrefund.name}") queueNameRefundRetryEvents: String
