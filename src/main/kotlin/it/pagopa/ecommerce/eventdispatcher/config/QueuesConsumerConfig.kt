@@ -69,7 +69,8 @@ class QueuesConsumerConfig {
 
   @Bean
   @InboundChannelAdapter(
-    channel = "transactionretrynotificationschannel", poller = [Poller(fixedDelay = "1000")])
+    channel = "transactionretrynotificationschannel",
+    poller = [Poller(fixedDelay = "1000", maxMessagesPerPoll = "10")])
   fun storageQueueRetryNotificationsMessageSource(
     storageQueueTemplate: StorageQueueTemplate,
     @Value("\${azurestorage.queues.transactionnotificationretry.name}")
