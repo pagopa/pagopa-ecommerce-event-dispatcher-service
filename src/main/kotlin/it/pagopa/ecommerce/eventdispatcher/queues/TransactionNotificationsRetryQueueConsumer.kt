@@ -68,19 +68,13 @@ class TransactionNotificationsRetryQueueConsumer(
   fun messageReceiver(
     @Payload payload: ByteArray,
     @Header(AzureHeaders.CHECKPOINTER) checkPointer: Checkpointer
-  ) = messageReceiver(payload, checkPointer, EmptyTransaction())
-
-  fun messageReceiver(
-    payload: ByteArray,
-    checkPointer: Checkpointer,
-    emptyTransaction: EmptyTransaction
   ): Mono<Void> {
     val checkpoint = checkPointer.success()
     val binaryData = BinaryData.fromBytes(payload)
     val transactionId = getTransactionIdFromPayload(binaryData)
     val retryCount = getRetryCountFromPayload(binaryData)
     val baseTransaction =
-      reduceEvents(transactionId, transactionsEventStoreRepository, emptyTransaction)
+      reduceEvents(transactionId, transactionsEventStoreRepository, EmptyTransaction())
     val notificationResendPipeline =
       baseTransaction
         .flatMap {
@@ -103,24 +97,23 @@ class TransactionNotificationsRetryQueueConsumer(
             .flatMap { updateTransactionStatus(tx) }
             .then()
             .onErrorResume { exception ->
-              baseTransaction.flatMap { baseTransaction ->
-                logger.error(
-                  "Got exception while retrying user receipt mail sending for transaction with id ${baseTransaction.transactionId}!",
-                  exception)
-                retryCount
-                  .flatMap { retryCount ->
-                    notificationRetryService.enqueueRetryEvent(baseTransaction, retryCount)
-                  }
-                  .onErrorResume(NoRetryAttemptsLeftException::class.java) { exception ->
-                    logger.error(
-                      "No more attempts left for closure retry, refunding transaction", exception)
-                    /*
-                     * The refund process is started only iff the Nodo sent sendPaymentResult with outcome KO
-                     */
-                    refundTransactionPipeline(tx).then()
-                  }
-                  .then()
-              }
+              logger.error(
+                "Got exception while retrying user receipt mail sending for transaction with id ${tx.transactionId}!",
+                exception)
+              retryCount
+                .flatMap { retryCount ->
+                  notificationRetryService.enqueueRetryEvent(tx, retryCount)
+                }
+                .onErrorResume(NoRetryAttemptsLeftException::class.java) { enqueueException ->
+                  logger.error(
+                    "No more attempts left for closure retry, refunding transaction",
+                    enqueueException)
+                  /*
+                   * The refund process is started only iff the Nodo sent sendPaymentResult with outcome KO
+                   */
+                  refundTransactionPipeline(tx).then()
+                }
+                .then()
             }
         }
     return checkpoint.then(notificationResendPipeline).then()
