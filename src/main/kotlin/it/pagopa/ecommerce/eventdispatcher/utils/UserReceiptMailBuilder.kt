@@ -68,7 +68,9 @@ class UserReceiptMailBuilder(@Autowired private val confidentialMailUtils: Confi
                 .value()
                 .toString()
                 .lowercase(Locale.getDefault()),
-              dateTimeToHumanReadableString(OffsetDateTime.now(), Locale.forLanguageTag(language)),
+              dateTimeToHumanReadableString(
+                baseTransactionWithRequestedUserReceipt.creationDate.toOffsetDateTime(),
+                Locale.forLanguageTag(language)),
               amountToHumanReadableString(
                 baseTransactionWithRequestedUserReceipt.paymentNotices
                   .stream()
@@ -131,8 +133,7 @@ class UserReceiptMailBuilder(@Autowired private val confidentialMailUtils: Confi
                     RefNumberTemplate(Type.CODICE_AVVISO, paymentNotice.rptId().noticeId),
                     null,
                     PayeeTemplate(
-                      transactionUserReceiptData.paymentMethodLogoUri
-                        .toString(), // TODO che mettere qui
+                      transactionUserReceiptData.receivingOfficeName,
                       paymentNotice.rptId().fiscalCode),
                     transactionUserReceiptData.paymentDescription,
                     amountToHumanReadableString(paymentNotice.transactionAmount().value()))
@@ -145,7 +146,7 @@ class UserReceiptMailBuilder(@Autowired private val confidentialMailUtils: Confi
                   .sum())))))
   }
 
-  private fun amountToHumanReadableString(amount: Int): String {
+  fun amountToHumanReadableString(amount: Int): String {
     val repr = amount.toString()
     val centsSeparationIndex = 0.coerceAtLeast(repr.length - 2)
     var cents = repr.substring(centsSeparationIndex)
@@ -159,7 +160,7 @@ class UserReceiptMailBuilder(@Autowired private val confidentialMailUtils: Confi
     return "${euros},${cents}"
   }
 
-  private fun dateTimeToHumanReadableString(dateTime: OffsetDateTime, locale: Locale): String {
+  fun dateTimeToHumanReadableString(dateTime: OffsetDateTime, locale: Locale): String {
     val formatter = DateTimeFormatter.ofPattern("dd LLLL yyyy, kk:mm:ss").withLocale(locale)
     return dateTime.format(formatter)
   }
