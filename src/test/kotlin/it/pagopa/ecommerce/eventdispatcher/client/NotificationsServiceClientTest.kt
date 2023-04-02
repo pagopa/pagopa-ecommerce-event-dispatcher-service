@@ -26,7 +26,7 @@ class NotificationsServiceClientTest {
   private val client = NotificationsServiceClient(defaultApi, apiKey)
 
   @Test
-  fun shouldReturnEmailOutcome() {
+  fun `should return email outcome`() {
     val notificationEmailRequest =
       NotificationEmailRequestDto()
         .language("it-IT")
@@ -43,7 +43,7 @@ class NotificationsServiceClientTest {
   }
 
   @Test
-  fun shouldReturnEmailOutcomeWithSuccessTemplate() {
+  fun `should return email outcome with success template`() {
     val successTemplateRequest =
       NotificationsServiceClient.SuccessTemplateRequest(
         "foo@example.com",
@@ -81,7 +81,7 @@ class NotificationsServiceClientTest {
   }
 
   @Test
-  fun shouldReturnEmailOutcomeWithKoTemplate() {
+  fun `should return email outcome with KO template`() {
     val koTemplateRequest =
       NotificationsServiceClient.KoTemplateRequest(
         "foo@example.com",
@@ -104,7 +104,7 @@ class NotificationsServiceClientTest {
   }
 
   @Test
-  fun shouldReturnMonoErrorForExceptionDuringNotificationServiceInvocation() {
+  fun `should return Mono error for exception during notificationService invocation`() {
     val koTemplateRequest =
       NotificationsServiceClient.KoTemplateRequest(
         "foo@example.com",
@@ -130,7 +130,7 @@ class NotificationsServiceClientTest {
   }
 
   @Test
-  fun shouldReturnMonoErrorForExceptionThrownDuringNotificationServiceInvocation() {
+  fun `should return Mono error for exception thrown during notificationService invocation`() {
     val koTemplateRequest =
       NotificationsServiceClient.KoTemplateRequest(
         "foo@example.com",
