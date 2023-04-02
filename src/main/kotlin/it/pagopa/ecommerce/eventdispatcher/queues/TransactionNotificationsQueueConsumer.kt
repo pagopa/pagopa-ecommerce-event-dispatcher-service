@@ -8,12 +8,10 @@ import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v1.pojos.*
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.eventdispatcher.client.NotificationsServiceClient
-import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.NotificationRetryService
-import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryService
 import it.pagopa.ecommerce.eventdispatcher.utils.UserReceiptMailBuilder
 import it.pagopa.generated.notifications.templates.success.*
 import java.util.*
@@ -35,11 +33,6 @@ class TransactionNotificationsQueueConsumer(
     TransactionsEventStoreRepository<TransactionUserReceiptData>,
   @Autowired private val transactionsViewRepository: TransactionsViewRepository,
   @Autowired private val notificationRetryService: NotificationRetryService,
-  @Autowired
-  private val transactionsRefundedEventStoreRepository:
-    TransactionsEventStoreRepository<TransactionRefundedData>,
-  @Autowired private val paymentGatewayClient: PaymentGatewayClient,
-  @Autowired private val refundRetryService: RefundRetryService,
   @Autowired private val userReceiptMailBuilder: UserReceiptMailBuilder,
   @Autowired private val notificationsServiceClient: NotificationsServiceClient
 ) {
@@ -79,32 +72,30 @@ class TransactionNotificationsQueueConsumer(
             Mono.just(it)
           }
         }
-        .cast(BaseTransactionWithUserReceipt::class.java)
+        .cast(BaseTransactionWithRequestedUserReceipt::class.java)
         .flatMap { tx ->
           mono { userReceiptMailBuilder.buildNotificationEmailRequestDto(tx) }
             .flatMap { notificationsServiceClient.sendNotificationEmail(it) }
             .flatMap { updateTransactionStatus(tx) }
             .then()
             .onErrorResume { exception ->
-              baseTransaction.flatMap { baseTransaction ->
-                logger.error(
-                  "Got exception while retrying user receipt mail sending for transaction with id ${baseTransaction.transactionId}!",
-                  exception)
+              logger.error(
+                "Got exception while retrying user receipt mail sending for transaction with id ${tx.transactionId}!",
+                exception)
 
-                notificationRetryService
-                  .enqueueRetryEvent(baseTransaction, 0)
-                  .doOnError { exception ->
-                    logger.error("Exception enqueueing notification retry event", exception)
-                  }
-                  .then()
-              }
+              notificationRetryService
+                .enqueueRetryEvent(tx, 0)
+                .doOnError { retryException ->
+                  logger.error("Exception enqueueing notification retry event", retryException)
+                }
+                .then()
             }
         }
     return checkpoint.then(notificationResendPipeline).then()
   }
 
   private fun updateTransactionStatus(
-    transaction: BaseTransactionWithUserReceipt,
+    transaction: BaseTransactionWithRequestedUserReceipt,
   ): Mono<TransactionUserReceiptAddedEvent> {
     val newStatus =
       when (transaction.transactionUserReceiptData.responseOutcome!!) {
