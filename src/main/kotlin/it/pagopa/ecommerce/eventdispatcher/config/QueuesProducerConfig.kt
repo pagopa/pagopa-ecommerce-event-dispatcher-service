@@ -28,7 +28,7 @@ class QueuesProducerConfig {
   @Bean
   fun notificationRetryQueueAsyncClient(
     @Value("\${azurestorage.connectionstring}") storageConnectionString: String,
-    @Value("\${azurestorage.queues.transactionclosepaymentretry.name}") queueEventInitName: String,
+    @Value("\${azurestorage.queues.transactionnotificationretry.name}") queueEventInitName: String,
   ): QueueAsyncClient {
     return buildQueueAsyncClient(storageConnectionString, queueEventInitName)
   }

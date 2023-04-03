@@ -14,7 +14,6 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewReposito
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.NotificationRetryService
 import it.pagopa.ecommerce.eventdispatcher.utils.UserReceiptMailBuilder
 import it.pagopa.generated.notifications.templates.success.*
-import java.util.*
 import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -24,76 +23,83 @@ import org.springframework.messaging.handler.annotation.Header
 import org.springframework.messaging.handler.annotation.Payload
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
+import java.util.*
 
 @Service
 class TransactionNotificationsQueueConsumer(
-  @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,
-  @Autowired
-  private val transactionUserReceiptRepository:
+    @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,
+    @Autowired
+    private val transactionUserReceiptRepository:
     TransactionsEventStoreRepository<TransactionUserReceiptData>,
-  @Autowired private val transactionsViewRepository: TransactionsViewRepository,
-  @Autowired private val notificationRetryService: NotificationRetryService,
-  @Autowired private val userReceiptMailBuilder: UserReceiptMailBuilder,
-  @Autowired private val notificationsServiceClient: NotificationsServiceClient
+    @Autowired private val transactionsViewRepository: TransactionsViewRepository,
+    @Autowired private val notificationRetryService: NotificationRetryService,
+    @Autowired private val userReceiptMailBuilder: UserReceiptMailBuilder,
+    @Autowired private val notificationsServiceClient: NotificationsServiceClient
 ) {
-  var logger: Logger = LoggerFactory.getLogger(TransactionNotificationsQueueConsumer::class.java)
+    var logger: Logger = LoggerFactory.getLogger(TransactionNotificationsQueueConsumer::class.java)
 
-  private fun getTransactionIdFromPayload(data: BinaryData) =
-    data.toObjectAsync(TransactionUserReceiptAddedEvent::class.java).map { it.transactionId }
+    private fun getTransactionIdFromPayload(data: BinaryData) =
+        data.toObjectAsync(TransactionUserReceiptRequestedEvent::class.java).map { it.transactionId }
 
-  @ServiceActivator(inputChannel = "transactionnotificationschannel", outputChannel = "nullChannel")
-  fun messageReceiver(
-    @Payload payload: ByteArray,
-    @Header(AzureHeaders.CHECKPOINTER) checkPointer: Checkpointer
-  ) = messageReceiver(payload, checkPointer, EmptyTransaction())
+    @ServiceActivator(inputChannel = "transactionnotificationschannel", outputChannel = "nullChannel")
+    fun messageReceiver(
+        @Payload payload: ByteArray,
+        @Header(AzureHeaders.CHECKPOINTER) checkPointer: Checkpointer
+    ) = messageReceiver(payload, checkPointer, EmptyTransaction())
 
-  fun messageReceiver(
-    payload: ByteArray,
-    checkPointer: Checkpointer,
-    emptyTransaction: EmptyTransaction
-  ): Mono<Void> {
-    val checkpoint = checkPointer.success()
-    val binaryData = BinaryData.fromBytes(payload)
-    val transactionId = getTransactionIdFromPayload(binaryData)
-    val baseTransaction =
-      reduceEvents(transactionId, transactionsEventStoreRepository, emptyTransaction)
-    val notificationResendPipeline =
-      baseTransaction
-        .flatMap {
-          logger.info("Status for transaction ${it.transactionId.value}: ${it.status}")
+    fun messageReceiver(
+        payload: ByteArray,
+        checkPointer: Checkpointer,
+        emptyTransaction: EmptyTransaction
+    ): Mono<Void> {
+        val checkpoint = checkPointer.success()
+        val binaryData = BinaryData.fromBytes(payload)
+        val transactionId = getTransactionIdFromPayload(binaryData)
+        val baseTransaction =
+            reduceEvents(transactionId, transactionsEventStoreRepository, emptyTransaction)
+        val notificationResendPipeline =
+            baseTransaction
+                .flatMap {
+                    logger.info("Status for transaction ${it.transactionId.value}: ${it.status}")
 
-          if (it.status != TransactionStatusDto.NOTIFICATION_REQUESTED) {
-            Mono.error(
-              BadTransactionStatusException(
-                transactionId = it.transactionId,
-                expected = TransactionStatusDto.NOTIFICATION_REQUESTED,
-                actual = it.status))
-          } else {
-            Mono.just(it)
-          }
-        }
-        .cast(BaseTransactionWithRequestedUserReceipt::class.java)
-        .flatMap { tx ->
-          mono { userReceiptMailBuilder.buildNotificationEmailRequestDto(tx) }
-            .flatMap { notificationsServiceClient.sendNotificationEmail(it) }
-            .flatMap {
-              updateNotifiedTransactionStatus(
-                tx, transactionsViewRepository, transactionUserReceiptRepository)
-            }
-            .then()
-            .onErrorResume { exception ->
-              logger.error(
-                "Got exception while retrying user receipt mail sending for transaction with id ${tx.transactionId}!",
-                exception)
-
-              notificationRetryService
-                .enqueueRetryEvent(tx, 0)
-                .doOnError { retryException ->
-                  logger.error("Exception enqueueing notification retry event", retryException)
+                    if (it.status != TransactionStatusDto.NOTIFICATION_REQUESTED) {
+                        Mono.error(
+                            BadTransactionStatusException(
+                                transactionId = it.transactionId,
+                                expected = TransactionStatusDto.NOTIFICATION_REQUESTED,
+                                actual = it.status
+                            )
+                        )
+                    } else {
+                        Mono.just(it)
+                    }
                 }
-                .then()
-            }
-        }
-    return checkpoint.then(notificationResendPipeline).then()
-  }
+                .cast(BaseTransactionWithRequestedUserReceipt::class.java)
+                .flatMap { tx ->
+                    mono { userReceiptMailBuilder.buildNotificationEmailRequestDto(tx) }
+                        .flatMap { notificationsServiceClient.sendNotificationEmail(it) }
+                        .flatMap {
+                            updateNotifiedTransactionStatus(
+                                tx, transactionsViewRepository, transactionUserReceiptRepository
+                            )
+                        }
+                        .then()
+                        .onErrorResume { exception ->
+                            logger.error(
+                                "Got exception while retrying user receipt mail sending for transaction with id ${tx.transactionId}!",
+                                exception
+                            )
+                            updateNotificationErrorTransactionStatus(
+                                tx, transactionsViewRepository, transactionUserReceiptRepository
+                            )
+                                .flatMap {
+                                    notificationRetryService.enqueueRetryEvent(tx, 0).doOnError { retryException ->
+                                        logger.error("Exception enqueueing notification retry event", retryException)
+                                    }
+                                }
+                                .then()
+                        }
+                }
+        return checkpoint.then(notificationResendPipeline).then()
+    }
 }
