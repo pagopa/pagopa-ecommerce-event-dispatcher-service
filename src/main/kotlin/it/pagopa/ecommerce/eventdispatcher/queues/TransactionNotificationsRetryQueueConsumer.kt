@@ -94,7 +94,10 @@ class TransactionNotificationsRetryQueueConsumer(
         .flatMap { tx ->
           mono { userReceiptMailBuilder.buildNotificationEmailRequestDto(tx) }
             .flatMap { notificationsServiceClient.sendNotificationEmail(it) }
-            .flatMap { updateTransactionStatus(tx) }
+            .flatMap {
+              updateNotifiedTransactionStatus(
+                tx, transactionsViewRepository, transactionUserReceiptRepository)
+            }
             .then()
             .onErrorResume { exception ->
               logger.error(
@@ -140,27 +143,5 @@ class TransactionNotificationsRetryQueueConsumer(
           paymentGatewayClient,
           refundRetryService)
       }
-  }
-
-  private fun updateTransactionStatus(
-    transaction: TransactionWithUserReceiptError,
-  ): Mono<TransactionUserReceiptAddedEvent> {
-    val newStatus =
-      when (transaction.transactionUserReceiptData.responseOutcome!!) {
-        TransactionUserReceiptData.Outcome.OK -> TransactionStatusDto.NOTIFIED_OK
-        TransactionUserReceiptData.Outcome.KO -> TransactionStatusDto.NOTIFIED_KO
-      }
-    val event =
-      TransactionUserReceiptAddedEvent(
-        transaction.transactionId.value.toString(), transaction.transactionUserReceiptData)
-    logger.info("Updating transaction {} status to {}", transaction.transactionId.value, newStatus)
-
-    return transactionsViewRepository
-      .findByTransactionId(transaction.transactionId.value.toString())
-      .flatMap { tx ->
-        tx.status = newStatus
-        transactionsViewRepository.save(tx)
-      }
-      .flatMap { transactionUserReceiptRepository.save(event) }
   }
 }

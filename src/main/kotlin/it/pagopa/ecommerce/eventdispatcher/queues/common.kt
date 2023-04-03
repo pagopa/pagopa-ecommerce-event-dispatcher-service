@@ -4,6 +4,7 @@ import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithRequestedAuthorization
+import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithRequestedUserReceipt
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.utils.v1.TransactionUtils
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
@@ -205,3 +206,27 @@ fun reduceEvents(
     .flatMapMany { transactionsEventStoreRepository.findByTransactionId(it) }
     .reduce(emptyTransaction, it.pagopa.ecommerce.commons.domain.v1.Transaction::applyEvent)
     .cast(BaseTransaction::class.java)
+
+fun updateNotifiedTransactionStatus(
+  transaction: BaseTransactionWithRequestedUserReceipt,
+  transactionsViewRepository: TransactionsViewRepository,
+  transactionUserReceiptRepository: TransactionsEventStoreRepository<TransactionUserReceiptData>
+): Mono<TransactionUserReceiptAddedEvent> {
+  val newStatus =
+    when (transaction.transactionUserReceiptData.responseOutcome!!) {
+      TransactionUserReceiptData.Outcome.OK -> TransactionStatusDto.NOTIFIED_OK
+      TransactionUserReceiptData.Outcome.KO -> TransactionStatusDto.NOTIFIED_KO
+    }
+  val event =
+    TransactionUserReceiptAddedEvent(
+      transaction.transactionId.value.toString(), transaction.transactionUserReceiptData)
+  logger.info("Updating transaction {} status to {}", transaction.transactionId.value, newStatus)
+
+  return transactionsViewRepository
+    .findByTransactionId(transaction.transactionId.value.toString())
+    .flatMap { tx ->
+      tx.status = newStatus
+      transactionsViewRepository.save(tx)
+    }
+    .flatMap { transactionUserReceiptRepository.save(event) }
+}
