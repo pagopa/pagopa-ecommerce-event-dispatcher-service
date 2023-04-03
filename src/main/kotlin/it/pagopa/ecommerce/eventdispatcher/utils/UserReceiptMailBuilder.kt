@@ -9,7 +9,7 @@ import it.pagopa.generated.notifications.templates.ko.KoTemplate
 import it.pagopa.generated.notifications.templates.success.*
 import it.pagopa.generated.notifications.templates.success.RefNumberTemplate.Type
 import it.pagopa.generated.notifications.v1.dto.NotificationEmailRequestDto
-import java.time.OffsetDateTime
+import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.*
 import org.springframework.beans.factory.annotation.Autowired
@@ -69,7 +69,7 @@ class UserReceiptMailBuilder(@Autowired private val confidentialMailUtils: Confi
                 .toString()
                 .lowercase(Locale.getDefault()),
               dateTimeToHumanReadableString(
-                baseTransactionWithRequestedUserReceipt.creationDate.toOffsetDateTime(),
+                baseTransactionWithRequestedUserReceipt.creationDate,
                 Locale.forLanguageTag(language)),
               amountToHumanReadableString(
                 baseTransactionWithRequestedUserReceipt.paymentNotices
@@ -106,7 +106,8 @@ class UserReceiptMailBuilder(@Autowired private val confidentialMailUtils: Confi
                 .toString()
                 .lowercase(Locale.getDefault()),
               dateTimeToHumanReadableString(
-                transactionUserReceiptData.paymentDate, Locale.forLanguageTag(language)),
+                ZonedDateTime.parse(transactionUserReceiptData.paymentDate),
+                Locale.forLanguageTag(language)),
               amountToHumanReadableString(
                 baseTransactionWithRequestedUserReceipt.paymentNotices
                   .stream()
@@ -160,7 +161,7 @@ class UserReceiptMailBuilder(@Autowired private val confidentialMailUtils: Confi
     return "${euros},${cents}"
   }
 
-  fun dateTimeToHumanReadableString(dateTime: OffsetDateTime, locale: Locale): String {
+  fun dateTimeToHumanReadableString(dateTime: ZonedDateTime, locale: Locale): String {
     val formatter = DateTimeFormatter.ofPattern("dd LLLL yyyy, kk:mm:ss").withLocale(locale)
     return dateTime.format(formatter)
   }
