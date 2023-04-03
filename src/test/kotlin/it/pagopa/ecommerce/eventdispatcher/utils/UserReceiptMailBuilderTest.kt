@@ -15,8 +15,8 @@ import it.pagopa.generated.notifications.templates.success.*
 import it.pagopa.generated.notifications.v1.dto.NotificationEmailRequestDto
 import java.time.LocalDateTime
 import java.time.Month
-import java.time.OffsetDateTime
 import java.time.ZoneOffset
+import java.time.ZonedDateTime
 import java.util.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
@@ -65,7 +65,7 @@ class UserReceiptMailBuilderTest {
           baseTransaction.transactionAuthorizationRequestData.fee)
       val dateString =
         userReceiptMailBuilder.dateTimeToHumanReadableString(
-          baseTransaction.transactionUserReceiptData.paymentDate,
+          ZonedDateTime.parse(baseTransaction.transactionUserReceiptData.paymentDate),
           Locale.forLanguageTag(TransactionTestUtils.LANGUAGE))
       val successTemplateRequest =
         NotificationsServiceClient.SuccessTemplateRequest(
@@ -149,8 +149,7 @@ class UserReceiptMailBuilderTest {
             .reduce { a, b -> a + b })
       val dateString =
         userReceiptMailBuilder.dateTimeToHumanReadableString(
-          baseTransaction.creationDate.toOffsetDateTime(),
-          Locale.forLanguageTag(TransactionTestUtils.LANGUAGE))
+          baseTransaction.creationDate, Locale.forLanguageTag(TransactionTestUtils.LANGUAGE))
       val koTemplateRequest =
         NotificationsServiceClient.KoTemplateRequest(
           TransactionTestUtils.EMAIL_STRING,
@@ -192,7 +191,7 @@ class UserReceiptMailBuilderTest {
   fun `Should convert date to human readable string successfully`() {
     val locale = Locale.ITALY
     val offsetDateTime =
-      OffsetDateTime.of(LocalDateTime.of(2023, Month.JANUARY, 1, 1, 0), ZoneOffset.UTC)
+      ZonedDateTime.of(LocalDateTime.of(2023, Month.JANUARY, 1, 1, 0), ZoneOffset.UTC)
     val humanReadableDate =
       userReceiptMailBuilder.dateTimeToHumanReadableString(offsetDateTime, locale)
     assertEquals("01 gennaio 2023, 01:00:00", humanReadableDate)
