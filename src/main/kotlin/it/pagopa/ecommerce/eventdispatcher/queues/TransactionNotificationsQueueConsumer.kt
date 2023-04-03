@@ -91,9 +91,7 @@ class TransactionNotificationsQueueConsumer(
                             )
                         }
                         .flatMap {
-                            /*
-                             * The refund process is started only iff the Nodo sent sendPaymentResult with outcome KO
-                             */
+
                             notificationRefundTransactionPipeline(
                                 tx,
                                 transactionsRefundedEventStoreRepository,
