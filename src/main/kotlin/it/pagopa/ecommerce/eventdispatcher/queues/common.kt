@@ -4,6 +4,7 @@ import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithRequestedAuthorization
+import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithRequestedUserReceipt
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.utils.v1.TransactionUtils
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
@@ -212,3 +213,75 @@ fun reduceEvents(
     .flatMapMany { transactionsEventStoreRepository.findByTransactionId(it) }
     .reduce(emptyTransaction, it.pagopa.ecommerce.commons.domain.v1.Transaction::applyEvent)
     .cast(BaseTransaction::class.java)
+
+fun updateNotifiedTransactionStatus(
+  transaction: BaseTransactionWithRequestedUserReceipt,
+  transactionsViewRepository: TransactionsViewRepository,
+  transactionUserReceiptRepository: TransactionsEventStoreRepository<TransactionUserReceiptData>
+): Mono<TransactionUserReceiptAddedEvent> {
+  val newStatus =
+    when (transaction.transactionUserReceiptData.responseOutcome!!) {
+      TransactionUserReceiptData.Outcome.OK -> TransactionStatusDto.NOTIFIED_OK
+      TransactionUserReceiptData.Outcome.KO -> TransactionStatusDto.NOTIFIED_KO
+    }
+  val event =
+    TransactionUserReceiptAddedEvent(
+      transaction.transactionId.value.toString(), transaction.transactionUserReceiptData)
+  logger.info("Updating transaction {} status to {}", transaction.transactionId.value, newStatus)
+
+  return transactionsViewRepository
+    .findByTransactionId(transaction.transactionId.value.toString())
+    .flatMap { tx ->
+      tx.status = newStatus
+      transactionsViewRepository.save(tx)
+    }
+    .flatMap { transactionUserReceiptRepository.save(event) }
+}
+
+fun updateNotificationErrorTransactionStatus(
+  transaction: BaseTransactionWithRequestedUserReceipt,
+  transactionsViewRepository: TransactionsViewRepository,
+  transactionUserReceiptRepository: TransactionsEventStoreRepository<TransactionUserReceiptData>
+): Mono<TransactionUserReceiptAddErrorEvent> {
+  val newStatus = TransactionStatusDto.NOTIFICATION_ERROR
+  val event =
+    TransactionUserReceiptAddErrorEvent(
+      transaction.transactionId.value.toString(), transaction.transactionUserReceiptData)
+  logger.info("Updating transaction {} status to {}", transaction.transactionId.value, newStatus)
+
+  return transactionsViewRepository
+    .findByTransactionId(transaction.transactionId.value.toString())
+    .flatMap { tx ->
+      tx.status = newStatus
+      transactionsViewRepository.save(tx)
+    }
+    .flatMap { transactionUserReceiptRepository.save(event) }
+}
+
+fun notificationRefundTransactionPipeline(
+  transaction: BaseTransactionWithRequestedUserReceipt,
+  transactionsRefundedEventStoreRepository:
+    TransactionsEventStoreRepository<TransactionRefundedData>,
+  transactionsViewRepository: TransactionsViewRepository,
+  paymentGatewayClient: PaymentGatewayClient,
+  refundRetryService: RefundRetryService,
+): Mono<BaseTransaction> {
+  val userReceiptOutcome = transaction.transactionUserReceiptData.responseOutcome
+  val toBeRefunded = userReceiptOutcome == TransactionUserReceiptData.Outcome.KO
+  logger.info(
+    "Transaction Nodo sendPaymentResult response outcome: $userReceiptOutcome --> to be refunded: $toBeRefunded")
+  return Mono.just(transaction)
+    .filter { toBeRefunded }
+    .flatMap { tx ->
+      updateTransactionToRefundRequested(
+        tx, transactionsRefundedEventStoreRepository, transactionsViewRepository)
+    }
+    .flatMap {
+      refundTransaction(
+        transaction,
+        transactionsRefundedEventStoreRepository,
+        transactionsViewRepository,
+        paymentGatewayClient,
+        refundRetryService)
+    }
+}

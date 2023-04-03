@@ -94,7 +94,18 @@ class TransactionNotificationsRetryQueueConsumer(
         .flatMap { tx ->
           mono { userReceiptMailBuilder.buildNotificationEmailRequestDto(tx) }
             .flatMap { notificationsServiceClient.sendNotificationEmail(it) }
-            .flatMap { updateTransactionStatus(tx) }
+            .flatMap {
+              updateNotifiedTransactionStatus(
+                  tx, transactionsViewRepository, transactionUserReceiptRepository)
+                .flatMap {
+                  notificationRefundTransactionPipeline(
+                    tx,
+                    transactionsRefundedEventStoreRepository,
+                    transactionsViewRepository,
+                    paymentGatewayClient,
+                    refundRetryService)
+                }
+            }
             .then()
             .onErrorResume { exception ->
               logger.error(
@@ -106,61 +117,19 @@ class TransactionNotificationsRetryQueueConsumer(
                 }
                 .onErrorResume(NoRetryAttemptsLeftException::class.java) { enqueueException ->
                   logger.error(
-                    "No more attempts left for closure retry, refunding transaction",
-                    enqueueException)
-                  /*
-                   * The refund process is started only iff the Nodo sent sendPaymentResult with outcome KO
-                   */
-                  refundTransactionPipeline(tx).then()
+                    "No more attempts left for user receipt send retry", enqueueException)
+
+                  notificationRefundTransactionPipeline(
+                      tx,
+                      transactionsRefundedEventStoreRepository,
+                      transactionsViewRepository,
+                      paymentGatewayClient,
+                      refundRetryService)
+                    .then()
                 }
                 .then()
             }
         }
     return checkpoint.then(notificationResendPipeline).then()
-  }
-
-  private fun refundTransactionPipeline(
-    transaction: TransactionWithUserReceiptError,
-  ): Mono<BaseTransaction> {
-    val userReceiptOutcome = transaction.transactionUserReceiptData.responseOutcome
-    val toBeRefunded = userReceiptOutcome == TransactionUserReceiptData.Outcome.KO
-    logger.info(
-      "Transaction Nodo sendPaymentResult response outcome: $userReceiptOutcome --> to be refunded: $toBeRefunded")
-    return Mono.just(transaction)
-      .filter { toBeRefunded }
-      .flatMap { tx ->
-        updateTransactionToRefundRequested(
-          tx, transactionsRefundedEventStoreRepository, transactionsViewRepository)
-      }
-      .flatMap {
-        refundTransaction(
-          transaction,
-          transactionsRefundedEventStoreRepository,
-          transactionsViewRepository,
-          paymentGatewayClient,
-          refundRetryService)
-      }
-  }
-
-  private fun updateTransactionStatus(
-    transaction: TransactionWithUserReceiptError,
-  ): Mono<TransactionUserReceiptAddedEvent> {
-    val newStatus =
-      when (transaction.transactionUserReceiptData.responseOutcome!!) {
-        TransactionUserReceiptData.Outcome.OK -> TransactionStatusDto.NOTIFIED_OK
-        TransactionUserReceiptData.Outcome.KO -> TransactionStatusDto.NOTIFIED_KO
-      }
-    val event =
-      TransactionUserReceiptAddedEvent(
-        transaction.transactionId.value.toString(), transaction.transactionUserReceiptData)
-    logger.info("Updating transaction {} status to {}", transaction.transactionId.value, newStatus)
-
-    return transactionsViewRepository
-      .findByTransactionId(transaction.transactionId.value.toString())
-      .flatMap { tx ->
-        tx.status = newStatus
-        transactionsViewRepository.save(tx)
-      }
-      .flatMap { transactionUserReceiptRepository.save(event) }
   }
 }
