@@ -114,13 +114,18 @@ class TransactionNotificationsRetryQueueConsumer(
                                 }
                                 .onErrorResume(NoRetryAttemptsLeftException::class.java) { enqueueException ->
                                     logger.error(
-                                        "No more attempts left for user receipt send retry",
-                                        enqueueException
+                                        "No more attempts left for user receipt send retry", enqueueException
                                     )
                                     /*
                                      * The refund process is started only iff the Nodo sent sendPaymentResult with outcome KO
                                      */
-                                    refundTransactionPipeline(tx).then()
+                                    notificationRefundTransactionPipeline(
+                                        tx,
+                                        transactionsRefundedEventStoreRepository,
+                                        transactionsViewRepository,
+                                        paymentGatewayClient,
+                                        refundRetryService
+                                    ).then()
                                 }
                                 .then()
                         }
@@ -128,29 +133,5 @@ class TransactionNotificationsRetryQueueConsumer(
         return checkpoint.then(notificationResendPipeline).then()
     }
 
-    private fun refundTransactionPipeline(
-        transaction: TransactionWithUserReceiptError,
-    ): Mono<BaseTransaction> {
-        val userReceiptOutcome = transaction.transactionUserReceiptData.responseOutcome
-        val toBeRefunded = userReceiptOutcome == TransactionUserReceiptData.Outcome.KO
-        logger.info(
-            "Transaction Nodo sendPaymentResult response outcome: $userReceiptOutcome --> to be refunded: $toBeRefunded"
-        )
-        return Mono.just(transaction)
-            .filter { toBeRefunded }
-            .flatMap { tx ->
-                updateTransactionToRefundRequested(
-                    tx, transactionsRefundedEventStoreRepository, transactionsViewRepository
-                )
-            }
-            .flatMap {
-                refundTransaction(
-                    transaction,
-                    transactionsRefundedEventStoreRepository,
-                    transactionsViewRepository,
-                    paymentGatewayClient,
-                    refundRetryService
-                )
-            }
-    }
+
 }

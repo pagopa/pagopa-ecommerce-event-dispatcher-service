@@ -186,9 +186,11 @@ fun refundTransaction(
         }
         .onErrorResume { exception ->
             logger.error(
-        "Transaction requestRefund error for transaction ${tx.transactionId.value} : ${exception.message}")
-                        updateTransactionToRefundError(
-          tx, transactionsEventStoreRepository, transactionsViewRepository)
+                "Transaction requestRefund error for transaction ${tx.transactionId.value} : ${exception.message}"
+            )
+            updateTransactionToRefundError(
+                tx, transactionsEventStoreRepository, transactionsViewRepository
+            )
                 .flatMap { refundRetryService.enqueueRetryEvent(it, retryCount) }
                 .thenReturn(tx)
         }
@@ -279,4 +281,35 @@ fun updateNotificationErrorTransactionStatus(
             transactionsViewRepository.save(tx)
         }
         .flatMap { transactionUserReceiptRepository.save(event) }
+}
+
+fun notificationRefundTransactionPipeline(
+    transaction: BaseTransactionWithRequestedUserReceipt,
+    transactionsRefundedEventStoreRepository:
+    TransactionsEventStoreRepository<TransactionRefundedData>,
+    transactionsViewRepository: TransactionsViewRepository,
+    paymentGatewayClient: PaymentGatewayClient,
+    refundRetryService: RefundRetryService,
+): Mono<BaseTransaction> {
+    val userReceiptOutcome = transaction.transactionUserReceiptData.responseOutcome
+    val toBeRefunded = userReceiptOutcome == TransactionUserReceiptData.Outcome.KO
+    logger.info(
+        "Transaction Nodo sendPaymentResult response outcome: $userReceiptOutcome --> to be refunded: $toBeRefunded"
+    )
+    return Mono.just(transaction)
+        .filter { toBeRefunded }
+        .flatMap { tx ->
+            updateTransactionToRefundRequested(
+                tx, transactionsRefundedEventStoreRepository, transactionsViewRepository
+            )
+        }
+        .flatMap {
+            refundTransaction(
+                transaction,
+                transactionsRefundedEventStoreRepository,
+                transactionsViewRepository,
+                paymentGatewayClient,
+                refundRetryService
+            )
+        }
 }

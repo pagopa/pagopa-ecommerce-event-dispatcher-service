@@ -8,10 +8,12 @@ import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v1.pojos.*
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.eventdispatcher.client.NotificationsServiceClient
+import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.NotificationRetryService
+import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryService
 import it.pagopa.ecommerce.eventdispatcher.utils.UserReceiptMailBuilder
 import it.pagopa.generated.notifications.templates.success.*
 import kotlinx.coroutines.reactor.mono
@@ -34,7 +36,12 @@ class TransactionNotificationsQueueConsumer(
     @Autowired private val transactionsViewRepository: TransactionsViewRepository,
     @Autowired private val notificationRetryService: NotificationRetryService,
     @Autowired private val userReceiptMailBuilder: UserReceiptMailBuilder,
-    @Autowired private val notificationsServiceClient: NotificationsServiceClient
+    @Autowired private val notificationsServiceClient: NotificationsServiceClient,
+    @Autowired
+    private val transactionsRefundedEventStoreRepository:
+    TransactionsEventStoreRepository<TransactionRefundedData>,
+    @Autowired private val paymentGatewayClient: PaymentGatewayClient,
+    @Autowired private val refundRetryService: RefundRetryService,
 ) {
     var logger: Logger = LoggerFactory.getLogger(TransactionNotificationsQueueConsumer::class.java)
 
@@ -83,7 +90,18 @@ class TransactionNotificationsQueueConsumer(
                                 tx, transactionsViewRepository, transactionUserReceiptRepository
                             )
                         }
-                        .then()
+                        .flatMap {
+                            /*
+                             * The refund process is started only iff the Nodo sent sendPaymentResult with outcome KO
+                             */
+                            notificationRefundTransactionPipeline(
+                                tx,
+                                transactionsRefundedEventStoreRepository,
+                                transactionsViewRepository,
+                                paymentGatewayClient,
+                                refundRetryService
+                            )
+                        }.then()
                         .onErrorResume { exception ->
                             logger.error(
                                 "Got exception while retrying user receipt mail sending for transaction with id ${tx.transactionId}!",
