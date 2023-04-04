@@ -114,7 +114,7 @@ class UserReceiptMailBuilder(@Autowired private val confidentialMailUtils: Confi
                   .mapToInt { paymentNotice: PaymentNotice ->
                     paymentNotice.transactionAmount().value()
                   }
-                  .sum()),
+                  .sum() + transactionAuthorizationRequestData.fee),
               PspTemplate(
                 transactionAuthorizationRequestData.pspBusinessName,
                 FeeTemplate(amountToHumanReadableString(transactionAuthorizationRequestData.fee))),
