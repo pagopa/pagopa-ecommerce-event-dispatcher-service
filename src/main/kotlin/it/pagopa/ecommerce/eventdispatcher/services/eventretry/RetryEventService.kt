@@ -2,10 +2,7 @@ package it.pagopa.ecommerce.eventdispatcher.services.eventretry
 
 import com.azure.core.util.BinaryData
 import com.azure.storage.queue.QueueAsyncClient
-import it.pagopa.ecommerce.commons.documents.v1.PaymentNotice
-import it.pagopa.ecommerce.commons.documents.v1.Transaction
-import it.pagopa.ecommerce.commons.documents.v1.TransactionEvent
-import it.pagopa.ecommerce.commons.documents.v1.TransactionRetriedData
+import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.TransactionId
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
@@ -72,7 +69,14 @@ abstract class RetryEventService<E>(
                   notice.rptId.value,
                   notice.transactionDescription.value,
                   notice.transactionAmount.value,
-                  notice.paymentContextCode.value)
+                  notice.paymentContextCode.value,
+                  notice.transferList.map { item ->
+                    PaymentTransferInformation(
+                      item.paFiscalCode,
+                      item.digitalStamp,
+                      item.transferAmount,
+                      item.transferCategory)
+                  })
               },
               TransactionUtils.getTransactionFee(transaction).orElse(null),
               transaction.email,

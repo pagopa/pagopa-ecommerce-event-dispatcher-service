@@ -182,7 +182,11 @@ fun paymentNoticeDocuments(
       notice.rptId.value,
       notice.transactionDescription.value,
       notice.transactionAmount.value,
-      notice.paymentContextCode.value)
+      notice.paymentContextCode.value,
+      notice.transferList.map { item ->
+        PaymentTransferInformation(
+          item.paFiscalCode, item.digitalStamp, item.transferAmount, item.transferCategory)
+      })
   }
 }
 
