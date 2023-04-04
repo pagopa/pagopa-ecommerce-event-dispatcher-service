@@ -125,7 +125,9 @@ class TransactionClosePaymentRetryQueueConsumerTests {
         .willAnswer { Mono.just(it.arguments[0]) }
       given(
           nodeService.closePayment(
-            UUID.fromString(uuidFromStringWorkaround), ClosePaymentRequestV2Dto.OutcomeEnum.OK))
+            UUID.fromString(uuidFromStringWorkaround),
+            ClosePaymentRequestV2Dto.OutcomeEnum.OK,
+            "authorizationCode"))
         .willReturn(
           ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK })
 
@@ -146,7 +148,10 @@ class TransactionClosePaymentRetryQueueConsumerTests {
         /* Asserts */
         verify(checkpointer, Mockito.times(1)).success()
         verify(nodeService, Mockito.times(1))
-          .closePayment(UUID.fromString(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.OK)
+          .closePayment(
+            UUID.fromString(TRANSACTION_ID),
+            ClosePaymentRequestV2Dto.OutcomeEnum.OK,
+            "authorizationCode")
         verify(transactionClosedEventRepository, Mockito.times(1))
           .save(
             any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
@@ -639,7 +644,9 @@ class TransactionClosePaymentRetryQueueConsumerTests {
     given(transactionClosedEventRepository.save(any())).willReturn(Mono.just(expectedClosureEvent))
     given(
         nodeService.closePayment(
-          UUID.fromString(uuidFromStringWorkaround), ClosePaymentRequestV2Dto.OutcomeEnum.OK))
+          UUID.fromString(uuidFromStringWorkaround),
+          ClosePaymentRequestV2Dto.OutcomeEnum.OK,
+          "authorizationCode"))
       .willReturn(
         ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK })
 
@@ -660,7 +667,10 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       /* Asserts */
       verify(checkpointer, Mockito.times(1)).success()
       verify(nodeService, Mockito.times(1))
-        .closePayment(UUID.fromString(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.OK)
+        .closePayment(
+          UUID.fromString(TRANSACTION_ID),
+          ClosePaymentRequestV2Dto.OutcomeEnum.OK,
+          "authorizationCode")
       verify(transactionClosedEventRepository, Mockito.times(1))
         .save(
           any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
@@ -752,7 +762,9 @@ class TransactionClosePaymentRetryQueueConsumerTests {
         .willReturn(Mono.just(PostePayRefundResponseDto().refundOutcome("OK")))
       given(
           nodeService.closePayment(
-            UUID.fromString(uuidFromStringWorkaround), ClosePaymentRequestV2Dto.OutcomeEnum.OK))
+            UUID.fromString(uuidFromStringWorkaround),
+            ClosePaymentRequestV2Dto.OutcomeEnum.OK,
+            "authorizationCode"))
         .willReturn(
           ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.KO })
 
@@ -773,7 +785,10 @@ class TransactionClosePaymentRetryQueueConsumerTests {
         /* Asserts */
         verify(checkpointer, Mockito.times(1)).success()
         verify(nodeService, Mockito.times(1))
-          .closePayment(UUID.fromString(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.OK)
+          .closePayment(
+            UUID.fromString(TRANSACTION_ID),
+            ClosePaymentRequestV2Dto.OutcomeEnum.OK,
+            "authorizationCode")
         verify(paymentGatewayClient, times(1)).requestRefund(any())
         verify(transactionClosedEventRepository, Mockito.times(1)).save(any())
         verify(transactionsRefundedEventStoreRepository, Mockito.times(2)).save(any())
@@ -851,7 +866,9 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       .willReturn(Mono.just(PostePayRefundResponseDto().refundOutcome("OK")))
     given(
         nodeService.closePayment(
-          UUID.fromString(uuidFromStringWorkaround), ClosePaymentRequestV2Dto.OutcomeEnum.OK))
+          UUID.fromString(uuidFromStringWorkaround),
+          ClosePaymentRequestV2Dto.OutcomeEnum.OK,
+          "authorizationCode"))
       .willReturn(
         ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.KO })
     given(closureRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture()))
@@ -874,7 +891,10 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       /* Asserts */
       verify(checkpointer, Mockito.times(1)).success()
       verify(nodeService, Mockito.times(1))
-        .closePayment(UUID.fromString(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.OK)
+        .closePayment(
+          UUID.fromString(TRANSACTION_ID),
+          ClosePaymentRequestV2Dto.OutcomeEnum.OK,
+          "authorizationCode")
       verify(paymentGatewayClient, times(0)).requestRefund(any())
       verify(transactionClosedEventRepository, Mockito.times(1)).save(any())
       verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).save(any())
@@ -949,7 +969,9 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       .willReturn(Mono.just(PostePayRefundResponseDto().refundOutcome("OK")))
     given(
         nodeService.closePayment(
-          UUID.fromString(uuidFromStringWorkaround), ClosePaymentRequestV2Dto.OutcomeEnum.OK))
+          UUID.fromString(uuidFromStringWorkaround),
+          ClosePaymentRequestV2Dto.OutcomeEnum.OK,
+          "authorizationCode"))
       .willReturn(
         ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.KO })
     given(closureRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture()))
@@ -972,7 +994,10 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       /* Asserts */
       verify(checkpointer, Mockito.times(1)).success()
       verify(nodeService, Mockito.times(1))
-        .closePayment(UUID.fromString(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.OK)
+        .closePayment(
+          UUID.fromString(TRANSACTION_ID),
+          ClosePaymentRequestV2Dto.OutcomeEnum.OK,
+          "authorizationCode")
       verify(paymentGatewayClient, times(0)).requestRefund(any())
       verify(transactionClosedEventRepository, Mockito.times(1)).save(any())
       verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).save(any())
@@ -1041,7 +1066,9 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       .willReturn(Mono.just(PostePayRefundResponseDto().refundOutcome("OK")))
     given(
         nodeService.closePayment(
-          UUID.fromString(uuidFromStringWorkaround), ClosePaymentRequestV2Dto.OutcomeEnum.OK))
+          UUID.fromString(uuidFromStringWorkaround),
+          ClosePaymentRequestV2Dto.OutcomeEnum.OK,
+          "authorizationCode"))
       .willThrow(RuntimeException("Nodo error"))
 
     given(closureRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture()))
@@ -1067,7 +1094,10 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       /* Asserts */
       verify(checkpointer, Mockito.times(1)).success()
       verify(nodeService, Mockito.times(1))
-        .closePayment(UUID.fromString(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.OK)
+        .closePayment(
+          UUID.fromString(TRANSACTION_ID),
+          ClosePaymentRequestV2Dto.OutcomeEnum.OK,
+          "authorizationCode")
       verify(paymentGatewayClient, times(1)).requestRefund(any())
       verify(transactionClosedEventRepository, Mockito.times(0)).save(any())
       verify(transactionsRefundedEventStoreRepository, Mockito.times(2)).save(any())
@@ -1138,7 +1168,9 @@ class TransactionClosePaymentRetryQueueConsumerTests {
         .willReturn(Mono.just(PostePayRefundResponseDto().refundOutcome("OK")))
       given(
           nodeService.closePayment(
-            UUID.fromString(uuidFromStringWorkaround), ClosePaymentRequestV2Dto.OutcomeEnum.OK))
+            UUID.fromString(uuidFromStringWorkaround),
+            ClosePaymentRequestV2Dto.OutcomeEnum.OK,
+            "authorizationCode"))
         .willThrow(RuntimeException("Nodo error"))
 
       given(closureRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture()))
@@ -1160,7 +1192,10 @@ class TransactionClosePaymentRetryQueueConsumerTests {
         /* Asserts */
         verify(checkpointer, Mockito.times(1)).success()
         verify(nodeService, Mockito.times(1))
-          .closePayment(UUID.fromString(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.OK)
+          .closePayment(
+            UUID.fromString(TRANSACTION_ID),
+            ClosePaymentRequestV2Dto.OutcomeEnum.OK,
+            "authorizationCode")
         verify(paymentGatewayClient, times(0)).requestRefund(any())
         verify(transactionClosedEventRepository, Mockito.times(0)).save(any())
         verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).save(any())

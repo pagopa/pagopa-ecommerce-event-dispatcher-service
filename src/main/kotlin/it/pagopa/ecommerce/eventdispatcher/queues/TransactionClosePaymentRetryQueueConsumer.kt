@@ -3,6 +3,7 @@ package it.pagopa.ecommerce.eventdispatcher.queues
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
+import io.vavr.Tuple
 import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
@@ -115,7 +116,7 @@ class TransactionClosePaymentRetryQueueConsumer(
                      * retrying a closure for a transaction canceled by the user (not authorized) so here
                      * we have to perform a closePayment KO request to Nodo
                      */
-                    ClosePaymentRequestV2Dto.OutcomeEnum.KO
+                    Either.left(ClosePaymentRequestV2Dto.OutcomeEnum.KO)
                   },
                   {
                     /*
@@ -125,8 +126,14 @@ class TransactionClosePaymentRetryQueueConsumer(
                     trxWithAuthorizationCompleted ->
                     when (trxWithAuthorizationCompleted.transactionAuthorizationCompletedData
                       .authorizationResultDto) {
-                      AuthorizationResultDto.OK -> ClosePaymentRequestV2Dto.OutcomeEnum.OK
-                      AuthorizationResultDto.KO -> ClosePaymentRequestV2Dto.OutcomeEnum.KO
+                      AuthorizationResultDto.OK ->
+                        Either.right(
+                          Tuple.of(
+                            ClosePaymentRequestV2Dto.OutcomeEnum.OK,
+                            trxWithAuthorizationCompleted.transactionAuthorizationCompletedData
+                              .authorizationCode))
+                      AuthorizationResultDto.KO ->
+                        Either.left(ClosePaymentRequestV2Dto.OutcomeEnum.KO)
                       else ->
                         throw RuntimeException(
                           "authorizationResult in status update event is null!")
@@ -137,11 +144,17 @@ class TransactionClosePaymentRetryQueueConsumer(
                 RuntimeException(
                   "Unexpected transactionAtPreviousStep: ${tx.transactionAtPreviousState}")
               }
-          mono { nodeService.closePayment(tx.transactionId.value, closureOutcome) }
+
+          closureOutcome
+            .fold(
+              { left -> mono { nodeService.closePayment(tx.transactionId.value, left) } },
+              { right ->
+                mono { nodeService.closePayment(tx.transactionId.value, right._1(), right._2()) }
+              })
             .flatMap { closePaymentResponse ->
               updateTransactionStatus(
                 transaction = tx,
-                closureOutcome = closureOutcome,
+                closureOutcome = closureOutcome.fold({ left -> left }, { right -> right._1() }),
                 closePaymentResponseDto = closePaymentResponse,
                 canceledByUser = canceledByUser,
                 wasAuthorized = wasAuthorized)
