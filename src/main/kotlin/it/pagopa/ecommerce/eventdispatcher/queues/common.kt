@@ -184,12 +184,9 @@ fun paymentNoticeDocuments(
       notice.transactionDescription.value,
       notice.transactionAmount.value,
       notice.paymentContextCode.value,
-      notice.transferList.map { transferInfo ->
+      notice.transferList.map { item ->
         PaymentTransferInformation(
-          transferInfo.paFiscalCode,
-          transferInfo.digitalStamp,
-          transferInfo.transferAmount,
-          transferInfo.transferCategory)
+          item.paFiscalCode, item.digitalStamp, item.transferAmount, item.transferCategory)
       })
   }
 }
