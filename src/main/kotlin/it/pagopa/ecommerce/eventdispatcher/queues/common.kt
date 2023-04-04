@@ -25,7 +25,7 @@ fun updateTransactionToExpired(
   transaction: BaseTransaction,
   transactionsExpiredEventStoreRepository: TransactionsEventStoreRepository<TransactionExpiredData>,
   transactionsViewRepository: TransactionsViewRepository,
-  refundable: Boolean
+  wasAuthorizationRequested: Boolean
 ): Mono<BaseTransaction> {
 
   return transactionsExpiredEventStoreRepository
@@ -39,7 +39,7 @@ fun updateTransactionToExpired(
           paymentNoticeDocuments(transaction.paymentNotices),
           TransactionUtils.getTransactionFee(transaction).orElse(null),
           transaction.email,
-          getExpiredTransactionStatus(refundable),
+          getExpiredTransactionStatus(wasAuthorizationRequested),
           transaction.clientId,
           transaction.creationDate.toString())))
     .doOnSuccess {
@@ -52,8 +52,8 @@ fun updateTransactionToExpired(
     .thenReturn(transaction)
 }
 
-fun getExpiredTransactionStatus(refundable: Boolean) =
-  if (refundable) {
+fun getExpiredTransactionStatus(wasAuthorizationRequested: Boolean) =
+  if (wasAuthorizationRequested) {
     TransactionStatusDto.EXPIRED
   } else {
     TransactionStatusDto.EXPIRED_NOT_AUTHORIZED
@@ -194,8 +194,21 @@ fun paymentNoticeDocuments(
   }
 }
 
-fun isTransactionRefundable(tx: BaseTransaction): Boolean =
-  tx is BaseTransactionWithRequestedAuthorization
+fun isTransactionRefundable(tx: BaseTransaction): Boolean {
+  val wasAuthorizationRequested = wasAuthorizationRequested(tx)
+  val wasSendPaymentResultOutcomeOK =
+    if (tx is BaseTransactionWithRequestedUserReceipt) {
+      tx.transactionUserReceiptData.responseOutcome == TransactionUserReceiptData.Outcome.OK
+    } else {
+      false
+    }
+  val isTransactionRefundable = wasAuthorizationRequested && !wasSendPaymentResultOutcomeOK
+  logger.info(
+    "Transaction with if ${tx.transactionId} : was authorization requested: $wasAuthorizationRequested, was send payment result outcome OK : $wasSendPaymentResultOutcomeOK --> is refundable: $isTransactionRefundable")
+  return isTransactionRefundable
+}
+
+fun wasAuthorizationRequested(tx: BaseTransaction) = tx is BaseTransactionWithRequestedAuthorization
 
 fun isTransactionExpired(tx: BaseTransaction): Boolean = tx.status == TransactionStatusDto.EXPIRED
 
