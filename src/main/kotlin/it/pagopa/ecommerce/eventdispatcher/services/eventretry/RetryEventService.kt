@@ -2,15 +2,12 @@ package it.pagopa.ecommerce.eventdispatcher.services.eventretry
 
 import com.azure.core.util.BinaryData
 import com.azure.storage.queue.QueueAsyncClient
-import it.pagopa.ecommerce.commons.documents.v1.Transaction
-import it.pagopa.ecommerce.commons.documents.v1.TransactionEvent
-import it.pagopa.ecommerce.commons.documents.v1.TransactionRetriedData
+import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.TransactionId
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.utils.v1.TransactionUtils
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
-import it.pagopa.ecommerce.eventdispatcher.queues.paymentNoticeDocuments
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import java.time.Duration
@@ -66,7 +63,21 @@ abstract class RetryEventService<E>(
           .save(
             Transaction(
               transaction.transactionId.value.toString(),
-              paymentNoticeDocuments(transaction.paymentNotices),
+              transaction.paymentNotices.map { notice ->
+                PaymentNotice(
+                  notice.paymentToken.value,
+                  notice.rptId.value,
+                  notice.transactionDescription.value,
+                  notice.transactionAmount.value,
+                  notice.paymentContextCode.value,
+                  notice.transferList.map { item ->
+                    PaymentTransferInformation(
+                      item.paFiscalCode,
+                      item.digitalStamp,
+                      item.transferAmount,
+                      item.transferCategory)
+                  })
+              },
               TransactionUtils.getTransactionFee(transaction).orElse(null),
               transaction.email,
               newStatus,
