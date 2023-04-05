@@ -106,7 +106,7 @@ class TransactionClosePaymentRetryQueueConsumer(
           val transactionAtPreviousState = tx.transactionAtPreviousState()
           val canceledByUser = wasTransactionCanceledByUser(transactionAtPreviousState)
           val wasAuthorized = wasTransactionAuthorized(transactionAtPreviousState)
-          val closureOutcome =
+          val closureOutcomeAuthorizationCode =
             tx
               .transactionAtPreviousState()
               .map {
@@ -145,14 +145,16 @@ class TransactionClosePaymentRetryQueueConsumer(
                   "Unexpected transactionAtPreviousStep: ${tx.transactionAtPreviousState}")
               }
 
+          val closureOutcome = closureOutcomeAuthorizationCode._1()
+          val authorizationCode = closureOutcomeAuthorizationCode._2()
+
           mono {
-              nodeService.closePayment(
-                tx.transactionId.value, closureOutcome._1(), closureOutcome._2())
+              nodeService.closePayment(tx.transactionId.value, closureOutcome, authorizationCode)
             }
             .flatMap { closePaymentResponse ->
               updateTransactionStatus(
                 transaction = tx,
-                closureOutcome = closureOutcome._1(),
+                closureOutcome = closureOutcome,
                 closePaymentResponseDto = closePaymentResponse,
                 canceledByUser = canceledByUser,
                 wasAuthorized = wasAuthorized)

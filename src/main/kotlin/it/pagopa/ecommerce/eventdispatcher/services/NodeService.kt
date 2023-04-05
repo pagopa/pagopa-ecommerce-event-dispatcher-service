@@ -72,7 +72,9 @@ class NodeService(
         .switchIfEmpty(
           mono { authEvent }
             .map { ev ->
-              val timestamp = OffsetDateTime.now()
+              val timestamp =
+                OffsetDateTime
+                  .now() // FIXME this timestamp should the one coming from authorizationResultDto
               ClosePaymentRequestV2Dto().apply {
                 paymentTokens = activatedEvent.data.paymentNotices.map { it.paymentToken }
                 outcome = transactionOutcome
