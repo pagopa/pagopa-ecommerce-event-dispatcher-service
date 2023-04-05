@@ -6,6 +6,8 @@ import it.pagopa.generated.ecommerce.gateway.v1.ApiClient as GatewayApiClient
 import it.pagopa.generated.ecommerce.gateway.v1.api.PaymentTransactionsControllerApi
 import it.pagopa.generated.ecommerce.nodo.v2.ApiClient as NodoApiClient
 import it.pagopa.generated.ecommerce.nodo.v2.api.NodoApi
+import it.pagopa.generated.notifications.v1.ApiClient
+import it.pagopa.generated.notifications.v1.api.DefaultApi
 import java.util.concurrent.TimeUnit
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
@@ -42,11 +44,11 @@ class WebClientConfig {
 
   @Bean(name = ["paymentTransactionGatewayWebClient"])
   fun paymentTransactionGateayWebClient(
-    @Value("\${paymentTransactionsGateway.uri}") paymentTransactionGatewayUri: String?,
+    @Value("\${paymentTransactionsGateway.uri}") paymentTransactionGatewayUri: String,
     @Value("\${paymentTransactionsGateway.readTimeout}") paymentTransactionGatewayReadTimeout: Int,
     @Value("\${paymentTransactionsGateway.connectionTimeout}")
     paymentTransactionGatewayConnectionTimeout: Int
-  ): PaymentTransactionsControllerApi? {
+  ): PaymentTransactionsControllerApi {
     val httpClient =
       HttpClient.create()
         .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, paymentTransactionGatewayConnectionTimeout)
@@ -58,9 +60,30 @@ class WebClientConfig {
     val webClient =
       GatewayApiClient.buildWebClientBuilder()
         .clientConnector(ReactorClientHttpConnector(httpClient))
-        .baseUrl(paymentTransactionGatewayUri!!)
+        .baseUrl(paymentTransactionGatewayUri)
         .build()
     return PaymentTransactionsControllerApi(
       GatewayApiClient(webClient).setBasePath(paymentTransactionGatewayUri))
+  }
+
+  @Bean(name = ["notificationsServiceWebClient"])
+  fun notificationsServiceWebClient(
+    @Value("\${notificationsService.uri}") notificationsServiceUri: String,
+    @Value("\${notificationsService.readTimeout}") notificationsServiceReadTimeout: Int,
+    @Value("\${notificationsService.connectionTimeout}") notificationsServiceConnectionTimeout: Int
+  ): DefaultApi {
+    val httpClient =
+      HttpClient.create()
+        .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, notificationsServiceConnectionTimeout)
+        .doOnConnected { connection: Connection ->
+          connection.addHandlerLast(
+            ReadTimeoutHandler(notificationsServiceReadTimeout.toLong(), TimeUnit.MILLISECONDS))
+        }
+    val webClient =
+      ApiClient.buildWebClientBuilder()
+        .clientConnector(ReactorClientHttpConnector(httpClient))
+        .baseUrl(notificationsServiceUri)
+        .build()
+    return DefaultApi(ApiClient(webClient).setBasePath(notificationsServiceUri))
   }
 }

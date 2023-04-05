@@ -715,8 +715,12 @@ class TransactionExpirationQueueConsumerTests {
     val authorizationCompletedEvent =
       transactionAuthorizationCompletedEvent(AuthorizationResultDto.OK)
     val closedEvent = transactionClosedEvent(TransactionClosureData.Outcome.OK)
+    val userReceiptRequestedEvent =
+      transactionUserReceiptRequestedEvent(
+        transactionUserReceiptData(TransactionUserReceiptData.Outcome.OK))
     val addUserReceiptEvent =
-      transactionUserReceiptAddedEvent(TransactionUserReceiptData.Outcome.KO)
+      transactionUserReceiptAddedEvent(
+        transactionUserReceiptData(TransactionUserReceiptData.Outcome.OK))
     val expiredEvent =
       transactionExpiredEvent(
         reduceEvents(
@@ -724,6 +728,7 @@ class TransactionExpirationQueueConsumerTests {
           authorizationRequestedEvent,
           authorizationCompletedEvent,
           closedEvent,
+          userReceiptRequestedEvent,
           addUserReceiptEvent))
 
     val gatewayClientResponse = PostePayRefundResponseDto().apply { refundOutcome = "OK" }
@@ -741,6 +746,7 @@ class TransactionExpirationQueueConsumerTests {
           authorizationCompletedEvent as TransactionEvent<Any>,
           closedEvent as TransactionEvent<Any>,
           addUserReceiptEvent as TransactionEvent<Any>,
+          userReceiptRequestedEvent as TransactionEvent<Any>,
           expiredEvent as TransactionEvent<Any>,
         ))
 
@@ -792,4 +798,180 @@ class TransactionExpirationQueueConsumerTests {
         "Unexpected event code on idx: $idx")
     }
   }
+
+  @Test
+  fun `messageReceiver calls refund on transaction in NOTIFICATION_ERROR status and send payment result outcome KO`() =
+    runTest {
+      val transactionExpirationQueueConsumer =
+        TransactionExpirationQueueConsumer(
+          paymentGatewayClient,
+          transactionsEventStoreRepository,
+          transactionsExpiredEventStoreRepository,
+          transactionsRefundedEventStoreRepository,
+          transactionsViewRepository,
+          transactionUtils,
+          refundRetryService)
+      val transactionUserReceiptData =
+        transactionUserReceiptData(TransactionUserReceiptData.Outcome.KO)
+      val activatedEvent = transactionActivateEvent()
+      val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
+      val authorizationCompletedEvent =
+        transactionAuthorizationCompletedEvent(AuthorizationResultDto.OK)
+      val closedEvent = transactionClosedEvent(TransactionClosureData.Outcome.OK)
+      val userReceiptRequestedEvent =
+        transactionUserReceiptRequestedEvent(transactionUserReceiptData)
+      val userReceiptErrorEvent = transactionUserReceiptAddErrorEvent(transactionUserReceiptData)
+
+      val gatewayClientResponse = PostePayRefundResponseDto().apply { refundOutcome = "OK" }
+
+      /* preconditions */
+      given(checkpointer.success()).willReturn(Mono.empty())
+      given(
+          transactionsEventStoreRepository.findByTransactionId(
+            any(),
+          ))
+        .willReturn(
+          Flux.just(
+            activatedEvent as TransactionEvent<Any>,
+            authorizationRequestedEvent as TransactionEvent<Any>,
+            authorizationCompletedEvent as TransactionEvent<Any>,
+            closedEvent as TransactionEvent<Any>,
+            userReceiptRequestedEvent as TransactionEvent<Any>,
+            userReceiptErrorEvent as TransactionEvent<Any>))
+
+      given(
+          transactionsExpiredEventStoreRepository.save(
+            transactionExpiredEventStoreCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
+      given(
+          transactionsRefundedEventStoreRepository.save(
+            transactionRefundEventStoreCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
+      given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
+        Mono.just(it.arguments[0])
+      }
+      given(paymentGatewayClient.requestRefund(any())).willReturn(Mono.just(gatewayClientResponse))
+
+      /* test */
+      StepVerifier.create(
+          transactionExpirationQueueConsumer.messageReceiver(
+            BinaryData.fromObject(activatedEvent).toBytes(), checkpointer))
+        .expectNext()
+        .expectComplete()
+        .verify()
+
+      /* Asserts */
+      verify(checkpointer, times(1)).success()
+      verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
+      verify(paymentGatewayClient, times(1)).requestRefund(any())
+      verify(transactionsRefundedEventStoreRepository, times(2)).save(any())
+      verify(transactionsViewRepository, times(3)).save(any())
+      /*
+       * check view update statuses and events stored into event store
+       */
+      val expectedRefundEventStatuses =
+        listOf(
+          TransactionEventCode.TRANSACTION_REFUND_REQUESTED_EVENT,
+          TransactionEventCode.TRANSACTION_REFUNDED_EVENT)
+      val viewExpectedStatuses =
+        listOf(
+          TransactionStatusDto.EXPIRED,
+          TransactionStatusDto.REFUND_REQUESTED,
+          TransactionStatusDto.REFUNDED)
+      viewExpectedStatuses.forEachIndexed { idx, expectedStatus ->
+        assertEquals(
+          expectedStatus,
+          transactionViewRepositoryCaptor.allValues[idx].status,
+          "Unexpected view status on idx: $idx")
+      }
+
+      expectedRefundEventStatuses.forEachIndexed { idx, expectedStatus ->
+        assertEquals(
+          expectedStatus,
+          transactionRefundEventStoreCaptor.allValues[idx].eventCode,
+          "Unexpected event code on idx: $idx")
+      }
+      val expiredEvent = transactionExpiredEventStoreCaptor.value
+      assertEquals(TransactionEventCode.TRANSACTION_EXPIRED_EVENT, expiredEvent.eventCode)
+      assertEquals(
+        TransactionStatusDto.NOTIFICATION_ERROR, expiredEvent.data.statusBeforeExpiration)
+    }
+
+  @Test
+  fun `messageReceiver should not calls refund on transaction in NOTIFICATION_ERROR status and send payment result outcome OK`() =
+    runTest {
+      val transactionExpirationQueueConsumer =
+        TransactionExpirationQueueConsumer(
+          paymentGatewayClient,
+          transactionsEventStoreRepository,
+          transactionsExpiredEventStoreRepository,
+          transactionsRefundedEventStoreRepository,
+          transactionsViewRepository,
+          transactionUtils,
+          refundRetryService)
+      val transactionUserReceiptData =
+        transactionUserReceiptData(TransactionUserReceiptData.Outcome.OK)
+      val activatedEvent = transactionActivateEvent()
+      val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
+      val authorizationCompletedEvent =
+        transactionAuthorizationCompletedEvent(AuthorizationResultDto.OK)
+      val closedEvent = transactionClosedEvent(TransactionClosureData.Outcome.OK)
+      val userReceiptRequestedEvent =
+        transactionUserReceiptRequestedEvent(transactionUserReceiptData)
+      val userReceiptErrorEvent = transactionUserReceiptAddErrorEvent(transactionUserReceiptData)
+
+      val gatewayClientResponse = PostePayRefundResponseDto().apply { refundOutcome = "OK" }
+
+      /* preconditions */
+      given(checkpointer.success()).willReturn(Mono.empty())
+      given(
+          transactionsEventStoreRepository.findByTransactionId(
+            any(),
+          ))
+        .willReturn(
+          Flux.just(
+            activatedEvent as TransactionEvent<Any>,
+            authorizationRequestedEvent as TransactionEvent<Any>,
+            authorizationCompletedEvent as TransactionEvent<Any>,
+            closedEvent as TransactionEvent<Any>,
+            userReceiptRequestedEvent as TransactionEvent<Any>,
+            userReceiptErrorEvent as TransactionEvent<Any>))
+
+      given(
+          transactionsExpiredEventStoreRepository.save(
+            transactionExpiredEventStoreCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
+      given(
+          transactionsRefundedEventStoreRepository.save(
+            transactionRefundEventStoreCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
+      given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
+        Mono.just(it.arguments[0])
+      }
+      given(paymentGatewayClient.requestRefund(any())).willReturn(Mono.just(gatewayClientResponse))
+
+      /* test */
+      StepVerifier.create(
+          transactionExpirationQueueConsumer.messageReceiver(
+            BinaryData.fromObject(activatedEvent).toBytes(), checkpointer))
+        .expectNext()
+        .expectComplete()
+        .verify()
+
+      /* Asserts */
+      verify(checkpointer, times(1)).success()
+      verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
+      verify(paymentGatewayClient, times(0)).requestRefund(any())
+      verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
+      verify(transactionsViewRepository, times(1)).save(any())
+      /*
+       * check view update statuses and events stored into event store
+       */
+
+      assertEquals(TransactionStatusDto.EXPIRED, transactionViewRepositoryCaptor.value.status)
+      val expiredEvent = transactionExpiredEventStoreCaptor.value
+      assertEquals(TransactionEventCode.TRANSACTION_EXPIRED_EVENT, expiredEvent.eventCode)
+      assertEquals(
+        TransactionStatusDto.NOTIFICATION_ERROR, expiredEvent.data.statusBeforeExpiration)
+    }
 }
