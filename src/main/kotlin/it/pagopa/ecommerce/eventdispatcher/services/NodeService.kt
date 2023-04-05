@@ -32,14 +32,8 @@ class NodeService(
 
   suspend fun closePayment(
     transactionId: UUID,
-    transactionOutcome: ClosePaymentRequestV2Dto.OutcomeEnum
-  ): ClosePaymentResponseDto {
-    return closePayment(transactionId, transactionOutcome, null)
-  }
-  suspend fun closePayment(
-    transactionId: UUID,
     transactionOutcome: ClosePaymentRequestV2Dto.OutcomeEnum,
-    authorizationCode: String?
+    authorizationCode: Optional<String>
   ): ClosePaymentResponseDto {
     val transactionActivatedEventCode = TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
 
@@ -93,7 +87,7 @@ class NodeService(
                 additionalPaymentInformations =
                   mapOf(
                     "outcome_payment_gateway" to transactionOutcome.value,
-                    "authorization_code" to authorizationCode,
+                    "authorization_code" to authorizationCode.orElseGet { "" },
                     "tipoVersamento" to "CP",
                     "rrn" to "123456789",
                     "fee" to ev.data.fee.toBigDecimal().toString(),

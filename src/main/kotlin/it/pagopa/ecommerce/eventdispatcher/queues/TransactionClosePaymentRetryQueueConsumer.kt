@@ -116,7 +116,7 @@ class TransactionClosePaymentRetryQueueConsumer(
                      * retrying a closure for a transaction canceled by the user (not authorized) so here
                      * we have to perform a closePayment KO request to Nodo
                      */
-                    Either.left(ClosePaymentRequestV2Dto.OutcomeEnum.KO)
+                    Tuple.of(ClosePaymentRequestV2Dto.OutcomeEnum.KO, Optional.empty())
                   },
                   {
                     /*
@@ -127,13 +127,13 @@ class TransactionClosePaymentRetryQueueConsumer(
                     when (trxWithAuthorizationCompleted.transactionAuthorizationCompletedData
                       .authorizationResultDto) {
                       AuthorizationResultDto.OK ->
-                        Either.right(
-                          Tuple.of(
-                            ClosePaymentRequestV2Dto.OutcomeEnum.OK,
+                        Tuple.of(
+                          ClosePaymentRequestV2Dto.OutcomeEnum.OK,
+                          Optional.ofNullable(
                             trxWithAuthorizationCompleted.transactionAuthorizationCompletedData
                               .authorizationCode))
                       AuthorizationResultDto.KO ->
-                        Either.left(ClosePaymentRequestV2Dto.OutcomeEnum.KO)
+                        Tuple.of(ClosePaymentRequestV2Dto.OutcomeEnum.KO, Optional.empty())
                       else ->
                         throw RuntimeException(
                           "authorizationResult in status update event is null!")
@@ -145,16 +145,14 @@ class TransactionClosePaymentRetryQueueConsumer(
                   "Unexpected transactionAtPreviousStep: ${tx.transactionAtPreviousState}")
               }
 
-          closureOutcome
-            .fold(
-              { left -> mono { nodeService.closePayment(tx.transactionId.value, left) } },
-              { right ->
-                mono { nodeService.closePayment(tx.transactionId.value, right._1(), right._2()) }
-              })
+          mono {
+              nodeService.closePayment(
+                tx.transactionId.value, closureOutcome._1(), closureOutcome._2())
+            }
             .flatMap { closePaymentResponse ->
               updateTransactionStatus(
                 transaction = tx,
-                closureOutcome = closureOutcome.fold({ left -> left }, { right -> right._1() }),
+                closureOutcome = closureOutcome._1(),
                 closePaymentResponseDto = closePaymentResponse,
                 canceledByUser = canceledByUser,
                 wasAuthorized = wasAuthorized)

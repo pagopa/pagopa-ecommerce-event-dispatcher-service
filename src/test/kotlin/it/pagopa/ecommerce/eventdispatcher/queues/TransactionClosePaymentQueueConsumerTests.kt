@@ -103,7 +103,9 @@ class TransactionClosePaymentQueueConsumerTests {
       .willAnswer { Mono.just(it.arguments[0]) }
     given(
         nodeService.closePayment(
-          UUID.fromString(uuidFromStringWorkaround), ClosePaymentRequestV2Dto.OutcomeEnum.KO))
+          UUID.fromString(uuidFromStringWorkaround),
+          ClosePaymentRequestV2Dto.OutcomeEnum.KO,
+          Optional.empty()))
       .willReturn(
         ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK })
 
@@ -124,7 +126,10 @@ class TransactionClosePaymentQueueConsumerTests {
       /* Asserts */
       verify(checkpointer, Mockito.times(1)).success()
       verify(nodeService, Mockito.times(1))
-        .closePayment(UUID.fromString(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.KO)
+        .closePayment(
+          UUID.fromString(TRANSACTION_ID),
+          ClosePaymentRequestV2Dto.OutcomeEnum.KO,
+          Optional.empty())
       verify(transactionClosedEventRepository, Mockito.times(1))
         .save(
           any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
@@ -176,7 +181,9 @@ class TransactionClosePaymentQueueConsumerTests {
       .willAnswer { Mono.just(it.arguments[0]) }
     given(
         nodeService.closePayment(
-          UUID.fromString(uuidFromStringWorkaround), ClosePaymentRequestV2Dto.OutcomeEnum.KO))
+          UUID.fromString(uuidFromStringWorkaround),
+          ClosePaymentRequestV2Dto.OutcomeEnum.KO,
+          Optional.empty()))
       .willReturn(
         ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.KO })
 
@@ -197,7 +204,10 @@ class TransactionClosePaymentQueueConsumerTests {
       /* Asserts */
       verify(checkpointer, Mockito.times(1)).success()
       verify(nodeService, Mockito.times(1))
-        .closePayment(UUID.fromString(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.KO)
+        .closePayment(
+          UUID.fromString(TRANSACTION_ID),
+          ClosePaymentRequestV2Dto.OutcomeEnum.KO,
+          Optional.empty())
       verify(transactionClosedEventRepository, Mockito.times(1))
         .save(
           any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
@@ -244,7 +254,9 @@ class TransactionClosePaymentQueueConsumerTests {
       .willReturn(Mono.just(transactionDocument))
     given(
         nodeService.closePayment(
-          UUID.fromString(uuidFromStringWorkaround), ClosePaymentRequestV2Dto.OutcomeEnum.KO))
+          UUID.fromString(uuidFromStringWorkaround),
+          ClosePaymentRequestV2Dto.OutcomeEnum.KO,
+          Optional.empty()))
       .willThrow(RuntimeException("Nodo error"))
 
     given(
@@ -273,7 +285,7 @@ class TransactionClosePaymentQueueConsumerTests {
 
       /* Asserts */
       verify(checkpointer, Mockito.times(1)).success()
-      verify(nodeService, Mockito.times(1)).closePayment(any(), any())
+      verify(nodeService, Mockito.times(1)).closePayment(any(), any(), any())
       verify(transactionClosedEventRepository, Mockito.times(0))
         .save(
           any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
@@ -314,7 +326,7 @@ class TransactionClosePaymentQueueConsumerTests {
 
     /* Asserts */
     verify(checkpointer, Mockito.times(1)).success()
-    verify(nodeService, Mockito.times(0)).closePayment(any(), any())
+    verify(nodeService, Mockito.times(0)).closePayment(any(), any(), any())
     verify(transactionClosedEventRepository, Mockito.times(0)).save(any())
     verify(transactionsViewRepository, Mockito.times(0)).save(any())
     verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any())
