@@ -118,7 +118,8 @@ class UserReceiptMailBuilder(@Autowired private val confidentialMailUtils: Confi
               PspTemplate(
                 transactionAuthorizationRequestData.pspBusinessName,
                 FeeTemplate(amountToHumanReadableString(transactionAuthorizationRequestData.fee))),
-              transactionAuthorizationRequestData.authorizationRequestId,
+              transactionAuthorizationRequestData
+                .authorizationRequestId, // FIXME: put here RRN received from PGS
               transactionAuthorizationCompletedData.authorizationCode,
               PaymentMethodTemplate(
                 transactionAuthorizationRequestData.paymentMethodName,
