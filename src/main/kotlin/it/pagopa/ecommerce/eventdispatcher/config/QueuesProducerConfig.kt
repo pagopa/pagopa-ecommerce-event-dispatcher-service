@@ -14,10 +14,7 @@ class QueuesProducerConfig {
     @Value("\${azurestorage.connectionstring}") storageConnectionString: String,
     @Value("\${azurestorage.queues.transactionrefundretry.name}") queueEventInitName: String,
   ): QueueAsyncClient {
-    return QueueClientBuilder()
-      .connectionString(storageConnectionString)
-      .queueName(queueEventInitName)
-      .buildAsyncClient()
+    return buildQueueAsyncClient(storageConnectionString, queueEventInitName)
   }
 
   @Bean
@@ -25,9 +22,20 @@ class QueuesProducerConfig {
     @Value("\${azurestorage.connectionstring}") storageConnectionString: String,
     @Value("\${azurestorage.queues.transactionclosepaymentretry.name}") queueEventInitName: String,
   ): QueueAsyncClient {
-    return QueueClientBuilder()
-      .connectionString(storageConnectionString)
-      .queueName(queueEventInitName)
-      .buildAsyncClient()
+    return buildQueueAsyncClient(storageConnectionString, queueEventInitName)
   }
+
+  @Bean
+  fun notificationRetryQueueAsyncClient(
+    @Value("\${azurestorage.connectionstring}") storageConnectionString: String,
+    @Value("\${azurestorage.queues.transactionnotificationretry.name}") queueEventInitName: String,
+  ): QueueAsyncClient {
+    return buildQueueAsyncClient(storageConnectionString, queueEventInitName)
+  }
+
+  private fun buildQueueAsyncClient(storageConnectionString: String, queueName: String) =
+    QueueClientBuilder()
+      .connectionString(storageConnectionString)
+      .queueName(queueName)
+      .buildAsyncClient()
 }

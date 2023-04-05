@@ -1,0 +1,29 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "$id": "templates/ko/schema.json",
+  "type": "object",
+  "properties": {
+    "transaction": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "timestamp": {
+          "type": "string"
+        },
+        "amount": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "timestamp",
+        "amount"
+      ]
+    }
+  },
+  "required": [
+    "transaction"
+  ]
+}
