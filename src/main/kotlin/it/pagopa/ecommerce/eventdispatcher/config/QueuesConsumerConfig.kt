@@ -78,4 +78,15 @@ class QueuesConsumerConfig {
   ): StorageQueueMessageSource {
     return StorageQueueMessageSource(queueNameClosureEvents, storageQueueTemplate)
   }
+
+  @Bean
+  @InboundChannelAdapter(
+    channel = "transactionnotificationschannel",
+    poller = [Poller(fixedDelay = "1000", maxMessagesPerPoll = "10")])
+  fun storageQueueNotificationsMessageSource(
+    storageQueueTemplate: StorageQueueTemplate,
+    @Value("\${azurestorage.queues.transactionnotification.name}") queueNameClosureEvents: String
+  ): StorageQueueMessageSource {
+    return StorageQueueMessageSource(queueNameClosureEvents, storageQueueTemplate)
+  }
 }

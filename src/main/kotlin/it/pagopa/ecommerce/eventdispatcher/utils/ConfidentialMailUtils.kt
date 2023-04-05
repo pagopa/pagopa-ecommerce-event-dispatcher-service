@@ -15,10 +15,9 @@ class ConfidentialMailUtils(
 
   private val logger = LoggerFactory.getLogger(ConfidentialMailUtils::class.java)
 
-  suspend fun toEmail(encrypted: Confidential<Email>): Email {
-    return emailConfidentialDataManager
+  suspend fun toEmail(encrypted: Confidential<Email>): Email =
+    emailConfidentialDataManager
       .decrypt(encrypted) { Email(it) }
       .doOnError { logger.error("Exception decrypting confidential data", it) }
       .awaitSingle()
-  }
 }
