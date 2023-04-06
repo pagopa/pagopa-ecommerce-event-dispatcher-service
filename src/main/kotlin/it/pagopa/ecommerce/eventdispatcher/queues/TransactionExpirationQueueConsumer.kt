@@ -60,7 +60,12 @@ class TransactionExpirationQueueConsumer(
     val baseTransaction = reduceEvents(transactionId, transactionsEventStoreRepository)
     val refundPipeline =
       baseTransaction
-        .filter { transactionUtils.isTransientStatus(it.status) }
+        .filter {
+          val isTransient = transactionUtils.isTransientStatus(it.status)
+          logger.info(
+            "Transaction ${it.transactionId.value} in status ${it.status}, is transient: $isTransient")
+          isTransient
+        }
         .flatMap { tx ->
           val refundable = isTransactionRefundable(tx)
           val wasAuthorizationRequested = wasAuthorizationRequested(tx)
