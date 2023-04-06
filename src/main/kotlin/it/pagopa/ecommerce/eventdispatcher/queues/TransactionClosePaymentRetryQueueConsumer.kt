@@ -106,7 +106,7 @@ class TransactionClosePaymentRetryQueueConsumer(
           val transactionAtPreviousState = tx.transactionAtPreviousState()
           val canceledByUser = wasTransactionCanceledByUser(transactionAtPreviousState)
           val wasAuthorized = wasTransactionAuthorized(transactionAtPreviousState)
-          val closureOutcomeAuthorizationCode =
+          val closureOutcomeAndAuthorizationCode =
             tx
               .transactionAtPreviousState()
               .map {
@@ -129,9 +129,10 @@ class TransactionClosePaymentRetryQueueConsumer(
                       AuthorizationResultDto.OK ->
                         Tuple.of(
                           ClosePaymentRequestV2Dto.OutcomeEnum.OK,
-                          Optional.ofNullable(
+                          /* This field is always populated in case of an OK outcome */
+                          Optional.of(
                             trxWithAuthorizationCompleted.transactionAuthorizationCompletedData
-                              .authorizationCode))
+                              .authorizationCode!!))
                       AuthorizationResultDto.KO ->
                         Tuple.of(ClosePaymentRequestV2Dto.OutcomeEnum.KO, Optional.empty())
                       else ->
@@ -145,8 +146,8 @@ class TransactionClosePaymentRetryQueueConsumer(
                   "Unexpected transactionAtPreviousStep: ${tx.transactionAtPreviousState}")
               }
 
-          val closureOutcome = closureOutcomeAuthorizationCode._1()
-          val authorizationCode = closureOutcomeAuthorizationCode._2()
+          val closureOutcome = closureOutcomeAndAuthorizationCode._1()
+          val authorizationCode = closureOutcomeAndAuthorizationCode._2()
 
           mono {
               nodeService.closePayment(tx.transactionId.value, closureOutcome, authorizationCode)
