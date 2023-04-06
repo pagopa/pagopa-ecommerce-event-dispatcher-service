@@ -23,7 +23,7 @@ fun getMockedClosePaymentRequest(
       "requestId",
       "pspBusinessName",
       "authorizationRequestId",
-    )
+      TransactionAuthorizationRequestData.PaymentGateway.VPOS)
 
   return ClosePaymentRequestV2Dto().apply {
     paymentTokens = listOf(UUID.randomUUID().toString())

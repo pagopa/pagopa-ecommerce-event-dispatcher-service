@@ -167,8 +167,13 @@ fun refundTransaction(
     .onErrorResume { exception ->
       logger.error(
         "Transaction requestRefund error for transaction ${tx.transactionId.value} : ${exception.message}")
-      updateTransactionToRefundError(
-          tx, transactionsEventStoreRepository, transactionsViewRepository)
+      if (retryCount == 0) {
+          // refund error event written only the first time
+          updateTransactionToRefundError(
+            tx, transactionsEventStoreRepository, transactionsViewRepository)
+        } else {
+          Mono.just(tx)
+        }
         .flatMap { refundRetryService.enqueueRetryEvent(it, retryCount) }
         .thenReturn(tx)
     }
