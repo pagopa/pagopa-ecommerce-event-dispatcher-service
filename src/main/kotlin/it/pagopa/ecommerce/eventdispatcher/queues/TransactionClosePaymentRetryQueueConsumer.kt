@@ -3,6 +3,7 @@ package it.pagopa.ecommerce.eventdispatcher.queues
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
+import io.vavr.Tuple
 import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
@@ -105,7 +106,7 @@ class TransactionClosePaymentRetryQueueConsumer(
           val transactionAtPreviousState = tx.transactionAtPreviousState()
           val canceledByUser = wasTransactionCanceledByUser(transactionAtPreviousState)
           val wasAuthorized = wasTransactionAuthorized(transactionAtPreviousState)
-          val closureOutcome =
+          val closureOutcomeAndAuthorizationCode =
             tx
               .transactionAtPreviousState()
               .map {
@@ -115,7 +116,7 @@ class TransactionClosePaymentRetryQueueConsumer(
                      * retrying a closure for a transaction canceled by the user (not authorized) so here
                      * we have to perform a closePayment KO request to Nodo
                      */
-                    ClosePaymentRequestV2Dto.OutcomeEnum.KO
+                    Tuple.of(ClosePaymentRequestV2Dto.OutcomeEnum.KO, Optional.empty())
                   },
                   {
                     /*
@@ -125,8 +126,15 @@ class TransactionClosePaymentRetryQueueConsumer(
                     trxWithAuthorizationCompleted ->
                     when (trxWithAuthorizationCompleted.transactionAuthorizationCompletedData
                       .authorizationResultDto) {
-                      AuthorizationResultDto.OK -> ClosePaymentRequestV2Dto.OutcomeEnum.OK
-                      AuthorizationResultDto.KO -> ClosePaymentRequestV2Dto.OutcomeEnum.KO
+                      AuthorizationResultDto.OK ->
+                        Tuple.of(
+                          ClosePaymentRequestV2Dto.OutcomeEnum.OK,
+                          /* This field is always populated in case of an OK outcome */
+                          Optional.of(
+                            trxWithAuthorizationCompleted.transactionAuthorizationCompletedData
+                              .authorizationCode!!))
+                      AuthorizationResultDto.KO ->
+                        Tuple.of(ClosePaymentRequestV2Dto.OutcomeEnum.KO, Optional.empty())
                       else ->
                         throw RuntimeException(
                           "authorizationResult in status update event is null!")
@@ -137,7 +145,13 @@ class TransactionClosePaymentRetryQueueConsumer(
                 RuntimeException(
                   "Unexpected transactionAtPreviousStep: ${tx.transactionAtPreviousState}")
               }
-          mono { nodeService.closePayment(tx.transactionId.value, closureOutcome) }
+
+          val closureOutcome = closureOutcomeAndAuthorizationCode._1()
+          val authorizationCode = closureOutcomeAndAuthorizationCode._2()
+
+          mono {
+              nodeService.closePayment(tx.transactionId.value, closureOutcome, authorizationCode)
+            }
             .flatMap { closePaymentResponse ->
               updateTransactionStatus(
                 transaction = tx,

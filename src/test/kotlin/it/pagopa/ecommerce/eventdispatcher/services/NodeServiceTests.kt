@@ -69,7 +69,8 @@ class NodeServiceTests {
       /* test */
       assertEquals(
         closePaymentResponse,
-        nodeService.closePayment(UUID.fromString(transactionId), transactionOutcome))
+        nodeService.closePayment(
+          UUID.fromString(transactionId), transactionOutcome, Optional.of("authorizationCode")))
     }
 
   @Test
@@ -107,7 +108,8 @@ class NodeServiceTests {
       /* test */
       assertEquals(
         closePaymentResponse,
-        nodeService.closePayment(UUID.fromString(transactionId), transactionOutcome))
+        nodeService.closePayment(
+          UUID.fromString(transactionId), transactionOutcome, Optional.empty()))
     }
 
   @Test
@@ -136,7 +138,8 @@ class NodeServiceTests {
       /* test */
 
       assertThrows<TransactionEventNotFoundException> {
-        nodeService.closePayment(transactionId, transactionOutcome)
+        nodeService.closePayment(
+          transactionId, transactionOutcome, Optional.of("authorizationCode"))
       }
     }
 
@@ -168,7 +171,8 @@ class NodeServiceTests {
       /* test */
 
       assertThrows<TransactionEventsPreconditionsNotMatchedException> {
-        nodeService.closePayment(transactionId, transactionOutcome)
+        nodeService.closePayment(
+          transactionId, transactionOutcome, Optional.of("authorizationCode"))
       }
     }
 
@@ -202,7 +206,8 @@ class NodeServiceTests {
       /* test */
 
       assertThrows<TransactionEventsInconsistentException> {
-        nodeService.closePayment(transactionId, transactionOutcome)
+        nodeService.closePayment(
+          transactionId, transactionOutcome, Optional.of("authorizationCode"))
       }
     }
 }

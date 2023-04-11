@@ -16,6 +16,7 @@ import it.pagopa.ecommerce.eventdispatcher.services.NodeService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.ClosureRetryService
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
+import java.util.*
 import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -80,7 +81,7 @@ class TransactionClosePaymentQueueConsumer(
         .flatMap { tx ->
           mono {
               nodeService.closePayment(
-                tx.transactionId.value, ClosePaymentRequestV2Dto.OutcomeEnum.KO)
+                tx.transactionId.value, ClosePaymentRequestV2Dto.OutcomeEnum.KO, Optional.empty())
             }
             .flatMap { closePaymentResponse ->
               updateTransactionStatus(

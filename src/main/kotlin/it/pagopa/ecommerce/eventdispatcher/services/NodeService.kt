@@ -1,7 +1,9 @@
 package it.pagopa.ecommerce.eventdispatcher.services
 
 import io.vavr.Tuple
-import it.pagopa.ecommerce.commons.documents.v1.*
+import it.pagopa.ecommerce.commons.documents.v1.TransactionActivatedEvent
+import it.pagopa.ecommerce.commons.documents.v1.TransactionAuthorizationRequestedEvent
+import it.pagopa.ecommerce.commons.documents.v1.TransactionUserCanceledEvent
 import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
 import it.pagopa.ecommerce.eventdispatcher.client.NodeClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.TransactionEventNotFoundException
@@ -27,9 +29,11 @@ class NodeService(
   @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>
 ) {
   var logger: Logger = LoggerFactory.getLogger(NodeService::class.java)
+
   suspend fun closePayment(
     transactionId: UUID,
-    transactionOutcome: ClosePaymentRequestV2Dto.OutcomeEnum
+    transactionOutcome: ClosePaymentRequestV2Dto.OutcomeEnum,
+    authorizationCode: Optional<String>
   ): ClosePaymentResponseDto {
     val transactionActivatedEventCode = TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
 
@@ -68,6 +72,9 @@ class NodeService(
         .switchIfEmpty(
           mono { authEvent }
             .map { ev ->
+              val timestamp =
+                OffsetDateTime
+                  .now() // FIXME this timestamp should the one coming from authorizationResultDto
               ClosePaymentRequestV2Dto().apply {
                 paymentTokens = activatedEvent.data.paymentNotices.map { it.paymentToken }
                 outcome = transactionOutcome
@@ -78,8 +85,16 @@ class NodeService(
                 this.transactionId = transactionId.toString()
                 totalAmount = (ev.data.amount.plus(ev.data.fee)).toBigDecimal()
                 fee = ev.data.fee.toBigDecimal()
-                timestampOperation = OffsetDateTime.now()
-                additionalPaymentInformations = mapOf()
+                timestampOperation = timestamp
+                additionalPaymentInformations =
+                  mapOf(
+                    "outcome_payment_gateway" to transactionOutcome.value,
+                    "authorization_code" to authorizationCode.orElseGet { "" },
+                    "tipoVersamento" to "CP",
+                    "rrn" to "123456789",
+                    "fee" to ev.data.fee.toBigDecimal().toString(),
+                    "timestampOperation" to timestamp.toString(), // 2023-04-03T15:42:22.826Z
+                    "totalAmount" to (ev.data.amount.plus(ev.data.fee)).toBigDecimal().toString())
               }
             }
             .filter(Objects::nonNull)
