@@ -255,7 +255,8 @@ class NodeServiceTests {
     val closePaymentRequestV2Dto = closePaymentRequestCaptor.value
     val expectedTimestamp =
       closePaymentRequestV2Dto.timestampOperation!!
-        .truncatedTo(ChronoUnit.SECONDS)!!
+        .toLocalDateTime()
+        .truncatedTo(ChronoUnit.SECONDS)
         .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
     assertEquals(
       expectedTimestamp,
