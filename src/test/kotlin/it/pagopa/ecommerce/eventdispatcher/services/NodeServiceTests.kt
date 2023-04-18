@@ -8,8 +8,11 @@ import it.pagopa.ecommerce.eventdispatcher.exceptions.TransactionEventNotFoundEx
 import it.pagopa.ecommerce.eventdispatcher.exceptions.TransactionEventsInconsistentException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.TransactionEventsPreconditionsNotMatchedException
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
+import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto.OutcomeEnum
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 import java.util.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
@@ -17,10 +20,10 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
+import org.mockito.*
 import org.mockito.BDDMockito.given
-import org.mockito.InjectMocks
-import org.mockito.Mock
 import org.mockito.kotlin.any
+import org.mockito.kotlin.capture
 import org.springframework.test.context.junit.jupiter.SpringExtension
 import reactor.core.publisher.Mono
 
@@ -33,6 +36,8 @@ class NodeServiceTests {
   @Mock lateinit var nodeClient: NodeClient
 
   @Mock lateinit var transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>
+
+  @Captor private lateinit var closePaymentRequestCaptor: ArgumentCaptor<ClosePaymentRequestV2Dto>
 
   @Test
   fun `closePayment returns successfully for close payment on authorization requested transaction`() =
@@ -210,4 +215,50 @@ class NodeServiceTests {
           transactionId, transactionOutcome, Optional.of("authorizationCode"))
       }
     }
+
+  @Test
+  fun `ClosePaymentRequestV2Dto has additional properties valued correctly`() = runTest {
+    val transactionOutcome = OutcomeEnum.OK
+
+    val activatedEvent = transactionActivateEvent()
+    val authEvent = transactionAuthorizationRequestedEvent()
+
+    val transactionId = activatedEvent.transactionId
+
+    val closePaymentResponse =
+      ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
+
+    /* preconditions */
+    given(
+        transactionsEventStoreRepository.findByTransactionIdAndEventCode(
+          transactionId.toString(), TransactionEventCode.TRANSACTION_ACTIVATED_EVENT))
+      .willReturn(Mono.just(activatedEvent as TransactionEvent<Any>))
+
+    given(
+        transactionsEventStoreRepository.findByTransactionIdAndEventCode(
+          transactionId.toString(), TransactionEventCode.TRANSACTION_USER_CANCELED_EVENT))
+      .willReturn(Mono.empty())
+
+    given(
+        transactionsEventStoreRepository.findByTransactionIdAndEventCode(
+          transactionId.toString(), TransactionEventCode.TRANSACTION_AUTHORIZATION_REQUESTED_EVENT))
+      .willReturn(Mono.just(authEvent as TransactionEvent<Any>))
+
+    given(nodeClient.closePayment(capture(closePaymentRequestCaptor)))
+      .willReturn(Mono.just(closePaymentResponse))
+
+    /* test */
+    assertEquals(
+      closePaymentResponse,
+      nodeService.closePayment(
+        UUID.fromString(transactionId), transactionOutcome, Optional.of("authorizationCode")))
+    val closePaymentRequestV2Dto = closePaymentRequestCaptor.value
+    val expectedTimestamp =
+      closePaymentRequestV2Dto.timestampOperation!!
+        .truncatedTo(ChronoUnit.SECONDS)!!
+        .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+    assertEquals(
+      expectedTimestamp,
+      closePaymentRequestV2Dto.additionalPaymentInformations!!["timestampOperation"])
+  }
 }

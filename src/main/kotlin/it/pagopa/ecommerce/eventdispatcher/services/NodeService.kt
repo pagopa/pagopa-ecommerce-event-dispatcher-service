@@ -13,6 +13,8 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRe
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
 import java.time.OffsetDateTime
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 import java.util.*
 import kotlinx.coroutines.reactor.awaitSingle
 import kotlinx.coroutines.reactor.awaitSingleOrNull
@@ -93,7 +95,12 @@ class NodeService(
                     "tipoVersamento" to "CP",
                     "rrn" to "123456789",
                     "fee" to ev.data.fee.toBigDecimal().toString(),
-                    "timestampOperation" to timestamp.toString(), // 2023-04-03T15:42:22.826Z
+                    // bug CHK-1410: date formatted to yyyy-MM-ddTHH:mm:ss truncating millis
+                    "timestampOperation" to
+                      timestamp
+                        .toLocalDateTime()
+                        .truncatedTo(ChronoUnit.SECONDS)
+                        .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
                     "totalAmount" to (ev.data.amount.plus(ev.data.fee)).toBigDecimal().toString())
               }
             }
