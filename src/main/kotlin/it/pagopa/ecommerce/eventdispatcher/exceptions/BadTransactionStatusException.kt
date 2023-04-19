@@ -9,4 +9,4 @@ class BadTransactionStatusException(
   val actual: TransactionStatusDto
 ) :
   RuntimeException(
-    "Transaction with id ${transactionId.value} was expected in status $expected but is in status $actual")
+    "Transaction with id ${transactionId.value()} was expected in status $expected but is in status $actual")

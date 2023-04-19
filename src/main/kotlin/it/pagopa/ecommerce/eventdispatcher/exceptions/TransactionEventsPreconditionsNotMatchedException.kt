@@ -1,10 +1,10 @@
 package it.pagopa.ecommerce.eventdispatcher.exceptions
 
 import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
-import java.util.*
+import it.pagopa.ecommerce.commons.domain.v1.TransactionId
 
 class TransactionEventsPreconditionsNotMatchedException(
-  transactionId: UUID,
+  transactionId: TransactionId,
   transactionEventCode: List<TransactionEventCode>
 ) :
   RuntimeException(

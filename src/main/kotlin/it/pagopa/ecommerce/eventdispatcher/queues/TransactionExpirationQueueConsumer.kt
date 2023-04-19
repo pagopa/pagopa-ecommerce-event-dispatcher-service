@@ -63,7 +63,7 @@ class TransactionExpirationQueueConsumer(
         .filter {
           val isTransient = transactionUtils.isTransientStatus(it.status)
           logger.info(
-            "Transaction ${it.transactionId.value} in status ${it.status}, is transient: $isTransient")
+            "Transaction ${it.transactionId.value()} in status ${it.status}, is transient: $isTransient")
           isTransient
         }
         .flatMap { tx ->
@@ -71,7 +71,7 @@ class TransactionExpirationQueueConsumer(
           val wasAuthorizationRequested = wasAuthorizationRequested(tx)
           val isTransactionExpired = isTransactionExpired(tx)
           logger.info(
-            "Transaction ${tx.transactionId.value} in status ${tx.status}, refundable: $refundable, expired: $isTransactionExpired")
+            "Transaction ${tx.transactionId.value()} in status ${tx.status}, refundable: $refundable, expired: $isTransactionExpired")
           if (!isTransactionExpired) {
             updateTransactionToExpired(
               tx,

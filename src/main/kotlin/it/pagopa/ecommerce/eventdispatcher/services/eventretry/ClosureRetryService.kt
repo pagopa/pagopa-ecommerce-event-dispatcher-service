@@ -31,7 +31,7 @@ class ClosureRetryService(
     transactionId: TransactionId,
     transactionRetriedData: TransactionRetriedData
   ): TransactionClosureRetriedEvent =
-    TransactionClosureRetriedEvent(transactionId.value.toString(), transactionRetriedData)
+    TransactionClosureRetriedEvent(transactionId.value(), transactionRetriedData)
 
   override fun newTransactionStatus(): TransactionStatusDto = TransactionStatusDto.CLOSURE_ERROR
 }

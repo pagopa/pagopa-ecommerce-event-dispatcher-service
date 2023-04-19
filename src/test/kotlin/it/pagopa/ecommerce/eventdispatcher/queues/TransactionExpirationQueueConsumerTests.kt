@@ -8,13 +8,10 @@ import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.utils.v1.TransactionUtils
-import it.pagopa.ecommerce.commons.v1.TransactionTestUtils
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils.*
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
-import it.pagopa.ecommerce.eventdispatcher.services.NodeService
-import it.pagopa.ecommerce.eventdispatcher.services.RefundService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryService
 import it.pagopa.generated.ecommerce.gateway.v1.dto.PostePayRefundResponseDto
 import java.time.ZonedDateTime
@@ -26,10 +23,7 @@ import org.mockito.ArgumentCaptor
 import org.mockito.Captor
 import org.mockito.Mock
 import org.mockito.Mockito
-import org.mockito.kotlin.any
-import org.mockito.kotlin.given
-import org.mockito.kotlin.times
-import org.mockito.kotlin.verify
+import org.mockito.kotlin.*
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.test.context.TestPropertySource
@@ -43,10 +37,6 @@ import reactor.test.StepVerifier
 class TransactionExpirationQueueConsumerTests {
 
   @Mock private lateinit var checkpointer: Checkpointer
-
-  @Mock private lateinit var nodeService: NodeService
-
-  @Mock private lateinit var refundService: RefundService
 
   @Mock private lateinit var transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>
 
@@ -105,6 +95,11 @@ class TransactionExpirationQueueConsumerTests {
       Mono.just(it.arguments[0])
     }
 
+    given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+      .willReturn(
+        Mono.just(
+          transactionDocument(TransactionStatusDto.NOTIFICATION_ERROR, ZonedDateTime.now())))
+
     /* test */
     StepVerifier.create(
         transactionExpirationQueueConsumer.messageReceiver(
@@ -129,10 +124,10 @@ class TransactionExpirationQueueConsumerTests {
         transactionUtils,
         refundRetryService)
 
-    val activatedEvent = TransactionTestUtils.transactionActivateEvent()
+    val activatedEvent = transactionActivateEvent()
     val transactionId = activatedEvent.transactionId
 
-    val refundRetriedEvent = TransactionTestUtils.transactionRefundRetriedEvent(0)
+    val refundRetriedEvent = transactionRefundRetriedEvent(0)
 
     /* preconditions */
     given(checkpointer.success()).willReturn(Mono.empty())
@@ -145,6 +140,10 @@ class TransactionExpirationQueueConsumerTests {
     given(transactionsExpiredEventStoreRepository.save(any())).willAnswer {
       Mono.just(it.arguments[0])
     }
+
+    given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+      .willReturn(
+        Mono.just(transactionDocument(TransactionStatusDto.ACTIVATED, ZonedDateTime.now())))
 
     /* test */
     StepVerifier.create(
@@ -176,17 +175,9 @@ class TransactionExpirationQueueConsumerTests {
     val refundedEvent =
       transactionRefundedEvent(transactionActivated(ZonedDateTime.now().toString()))
 
-    val transactionId = activatedEvent.transactionId
-
     val transaction =
-      Transaction(
-        transactionId,
-        activatedEvent.data.paymentNotices,
-        activatedEvent.data.paymentNotices.sumOf { it.amount },
-        activatedEvent.data.email,
-        TransactionStatusDto.EXPIRED,
-        activatedEvent.data.clientId,
-        activatedEvent.creationDate)
+      transactionDocument(
+        TransactionStatusDto.EXPIRED, ZonedDateTime.parse(activatedEvent.creationDate))
 
     val gatewayClientResponse = PostePayRefundResponseDto()
     gatewayClientResponse.refundOutcome = "OK"
@@ -206,7 +197,10 @@ class TransactionExpirationQueueConsumerTests {
     given(transactionsRefundedEventStoreRepository.save(any())).willReturn(Mono.just(refundedEvent))
     given(transactionsViewRepository.save(any())).willReturn(Mono.just(transaction))
     given(paymentGatewayClient.requestRefund(any())).willReturn(Mono.just(gatewayClientResponse))
-
+    given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+      .willReturn(
+        Mono.just(
+          transactionDocument(TransactionStatusDto.NOTIFICATION_ERROR, ZonedDateTime.now())))
     /* test */
     StepVerifier.create(
         transactionExpirationQueueConsumer.messageReceiver(
@@ -246,7 +240,10 @@ class TransactionExpirationQueueConsumerTests {
     given(transactionsExpiredEventStoreRepository.save(any())).willReturn(Mono.just(expiredEvent))
     given(transactionsRefundedEventStoreRepository.save(any())).willReturn(Mono.empty())
     given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
-
+    given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+      .willReturn(
+        Mono.just(
+          transactionDocument(TransactionStatusDto.NOTIFICATION_ERROR, ZonedDateTime.now())))
     /* test */
     StepVerifier.create(
         transactionExpirationQueueConsumer.messageReceiver(
@@ -277,18 +274,6 @@ class TransactionExpirationQueueConsumerTests {
     val expiredEvent = transactionExpiredEvent(transactionActivated(ZonedDateTime.now().toString()))
     val refundedEvent =
       transactionRefundedEvent(transactionActivated(ZonedDateTime.now().toString()))
-
-    val transactionId = activatedEvent.transactionId
-
-    val transaction =
-      Transaction(
-        transactionId,
-        activatedEvent.data.paymentNotices,
-        activatedEvent.data.paymentNotices.sumOf { it.amount },
-        activatedEvent.data.email,
-        TransactionStatusDto.EXPIRED,
-        activatedEvent.data.clientId,
-        activatedEvent.creationDate)
 
     val gatewayClientResponse = PostePayRefundResponseDto()
     gatewayClientResponse.refundOutcome = "KO"
@@ -384,15 +369,6 @@ class TransactionExpirationQueueConsumerTests {
       val activatedEvent = transactionActivateEvent()
       val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
       EmptyTransaction().applyEvent(activatedEvent).applyEvent(authorizationRequestedEvent)
-      val expiredEvent =
-        transactionExpiredEvent(reduceEvents(activatedEvent, authorizationRequestedEvent))
-      val refundRequestedEvent =
-        transactionRefundRequestedEvent(
-          reduceEvents(activatedEvent, authorizationRequestedEvent, expiredEvent))
-      val refundedEvent =
-        transactionRefundedEvent(
-          reduceEvents(
-            activatedEvent, authorizationRequestedEvent, expiredEvent, refundRequestedEvent))
 
       val gatewayClientResponse = PostePayRefundResponseDto()
       gatewayClientResponse.refundOutcome = "KO"
@@ -422,6 +398,17 @@ class TransactionExpirationQueueConsumerTests {
       given(paymentGatewayClient.requestRefund(any())).willReturn(Mono.just(gatewayClientResponse))
       given(refundRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture()))
         .willReturn(Mono.empty())
+
+      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturnConsecutively(
+          listOf(
+            Mono.just(
+              transactionDocument(
+                TransactionStatusDto.AUTHORIZATION_COMPLETED, ZonedDateTime.now())),
+            Mono.just(transactionDocument(TransactionStatusDto.EXPIRED, ZonedDateTime.now())),
+            Mono.just(
+              transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now()))))
+
       /* test */
       StepVerifier.create(
           transactionExpirationQueueConsumer.messageReceiver(
@@ -509,6 +496,16 @@ class TransactionExpirationQueueConsumerTests {
       }
       given(paymentGatewayClient.requestRefund(any())).willReturn(Mono.just(gatewayClientResponse))
 
+      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturnConsecutively(
+          listOf(
+            Mono.just(
+              transactionDocument(
+                TransactionStatusDto.AUTHORIZATION_COMPLETED, ZonedDateTime.now())),
+            Mono.just(transactionDocument(TransactionStatusDto.EXPIRED, ZonedDateTime.now())),
+            Mono.just(
+              transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now()))))
+
       /* test */
       StepVerifier.create(
           transactionExpirationQueueConsumer.messageReceiver(
@@ -591,6 +588,10 @@ class TransactionExpirationQueueConsumerTests {
       }
       given(paymentGatewayClient.requestRefund(any())).willReturn(Mono.just(gatewayClientResponse))
 
+      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturn(
+          Mono.just(transactionDocument(TransactionStatusDto.ACTIVATED, ZonedDateTime.now())))
+
       /* test */
       StepVerifier.create(
           transactionExpirationQueueConsumer.messageReceiver(
@@ -659,6 +660,13 @@ class TransactionExpirationQueueConsumerTests {
         Mono.just(it.arguments[0])
       }
       given(paymentGatewayClient.requestRefund(any())).willReturn(Mono.just(gatewayClientResponse))
+
+      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturnConsecutively(
+          listOf(
+            Mono.just(transactionDocument(TransactionStatusDto.EXPIRED, ZonedDateTime.now())),
+            Mono.just(
+              transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now()))))
 
       /* test */
       StepVerifier.create(
@@ -761,6 +769,13 @@ class TransactionExpirationQueueConsumerTests {
     }
     given(paymentGatewayClient.requestRefund(any())).willReturn(Mono.just(gatewayClientResponse))
 
+    given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+      .willReturnConsecutively(
+        listOf(
+          Mono.just(transactionDocument(TransactionStatusDto.EXPIRED, ZonedDateTime.now())),
+          Mono.just(
+            transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now()))))
+
     /* test */
     StepVerifier.create(
         transactionExpirationQueueConsumer.messageReceiver(
@@ -847,10 +862,27 @@ class TransactionExpirationQueueConsumerTests {
           transactionsRefundedEventStoreRepository.save(
             transactionRefundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
+      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturnConsecutively(
+          listOf(
+            Mono.just(
+              transactionDocument(TransactionStatusDto.NOTIFICATION_ERROR, ZonedDateTime.now())),
+            Mono.just(transactionDocument(TransactionStatusDto.EXPIRED, ZonedDateTime.now())),
+            Mono.just(
+              transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now()))))
       given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
         Mono.just(it.arguments[0])
       }
       given(paymentGatewayClient.requestRefund(any())).willReturn(Mono.just(gatewayClientResponse))
+
+      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturnConsecutively(
+          listOf(
+            Mono.just(
+              transactionDocument(TransactionStatusDto.NOTIFICATION_ERROR, ZonedDateTime.now())),
+            Mono.just(transactionDocument(TransactionStatusDto.EXPIRED, ZonedDateTime.now())),
+            Mono.just(
+              transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now()))))
 
       /* test */
       StepVerifier.create(
@@ -949,6 +981,15 @@ class TransactionExpirationQueueConsumerTests {
         Mono.just(it.arguments[0])
       }
       given(paymentGatewayClient.requestRefund(any())).willReturn(Mono.just(gatewayClientResponse))
+
+      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturnConsecutively(
+          listOf(
+            Mono.just(
+              transactionDocument(TransactionStatusDto.NOTIFICATION_ERROR, ZonedDateTime.now())),
+            Mono.just(transactionDocument(TransactionStatusDto.EXPIRED, ZonedDateTime.now())),
+            Mono.just(
+              transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now()))))
 
       /* test */
       StepVerifier.create(

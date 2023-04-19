@@ -49,8 +49,7 @@ class TransactionClosePaymentQueueConsumer(
   fun messageReceiver(
     @Payload payload: ByteArray,
     @Header(AzureHeaders.CHECKPOINTER) checkPointer: Checkpointer
-  ) =
-    messageReceiver(payload, checkPointer, it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction())
+  ) = messageReceiver(payload, checkPointer, EmptyTransaction())
 
   fun messageReceiver(
     payload: ByteArray,
@@ -65,7 +64,7 @@ class TransactionClosePaymentQueueConsumer(
     val closurePipeline =
       baseTransaction
         .flatMap {
-          logger.info("Status for transaction ${it.transactionId.value}: ${it.status}")
+          logger.info("Status for transaction ${it.transactionId.value()}: ${it.status}")
 
           if (it.status != TransactionStatusDto.CANCELLATION_REQUESTED) {
             Mono.error(
@@ -81,7 +80,7 @@ class TransactionClosePaymentQueueConsumer(
         .flatMap { tx ->
           mono {
               nodeService.closePayment(
-                tx.transactionId.value, ClosePaymentRequestV2Dto.OutcomeEnum.KO, Optional.empty())
+                tx.transactionId, ClosePaymentRequestV2Dto.OutcomeEnum.KO, Optional.empty())
             }
             .flatMap { closePaymentResponse ->
               updateTransactionStatus(
@@ -101,7 +100,7 @@ class TransactionClosePaymentQueueConsumer(
                   }
                   .flatMap {
                     transactionsViewRepository.findByTransactionId(
-                      baseTransaction.transactionId.value.toString())
+                      baseTransaction.transactionId.value())
                   }
                   .flatMap { tx ->
                     tx.status = TransactionStatusDto.CLOSURE_ERROR
@@ -135,8 +134,7 @@ class TransactionClosePaymentQueueConsumer(
       }
 
     val event =
-      TransactionClosedEvent(
-        transaction.transactionId.value.toString(), TransactionClosureData(outcome))
+      TransactionClosedEvent(transaction.transactionId.value(), TransactionClosureData(outcome))
 
     /*
      * the transaction was canceled by the user then it
@@ -144,10 +142,11 @@ class TransactionClosePaymentQueueConsumer(
      */
     val newStatus = TransactionStatusDto.CANCELED
 
-    logger.info("Updating transaction {} status to {}", transaction.transactionId.value, newStatus)
+    logger.info(
+      "Updating transaction {} status to {}", transaction.transactionId.value(), newStatus)
 
     val transactionUpdate =
-      transactionsViewRepository.findByTransactionId(transaction.transactionId.value.toString())
+      transactionsViewRepository.findByTransactionId(transaction.transactionId.value())
 
     return transactionClosureSentEventRepository.save(event).flatMap { closedEvent ->
       transactionUpdate
