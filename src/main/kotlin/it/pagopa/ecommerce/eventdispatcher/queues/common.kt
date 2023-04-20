@@ -6,7 +6,6 @@ import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithRequestedAuthorization
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithRequestedUserReceipt
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
-import it.pagopa.ecommerce.commons.utils.v1.TransactionUtils
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.queues.QueueCommonsLogger.logger
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
@@ -31,23 +30,19 @@ fun updateTransactionToExpired(
   return transactionsExpiredEventStoreRepository
     .save(
       TransactionExpiredEvent(
-        transaction.transactionId.value.toString(), TransactionExpiredData(transaction.status)))
+        transaction.transactionId.value(), TransactionExpiredData(transaction.status)))
     .then(
-      transactionsViewRepository.save(
-        Transaction(
-          transaction.transactionId.value.toString(),
-          paymentNoticeDocuments(transaction.paymentNotices),
-          TransactionUtils.getTransactionFee(transaction).orElse(null),
-          transaction.email,
-          getExpiredTransactionStatus(wasAuthorizationRequested),
-          transaction.clientId,
-          transaction.creationDate.toString())))
+      transactionsViewRepository.findByTransactionId(transaction.transactionId.value()).flatMap { tx
+        ->
+        tx.status = getExpiredTransactionStatus(wasAuthorizationRequested)
+        transactionsViewRepository.save(tx)
+      })
     .doOnSuccess {
-      logger.info("Transaction expired for transaction ${transaction.transactionId.value}")
+      logger.info("Transaction expired for transaction ${transaction.transactionId.value()}")
     }
     .doOnError {
       logger.error(
-        "Transaction expired error for transaction ${transaction.transactionId.value} : ${it.message}")
+        "Transaction expired error for transaction ${transaction.transactionId.value()} : ${it.message}")
     }
     .thenReturn(transaction)
 }
@@ -70,7 +65,7 @@ fun updateTransactionToRefundRequested(
     transactionsRefundedEventStoreRepository,
     transactionsViewRepository,
     TransactionRefundRequestedEvent(
-      transaction.transactionId.value.toString(), TransactionRefundedData(transaction.status)),
+      transaction.transactionId.value(), TransactionRefundedData(transaction.status)),
     TransactionStatusDto.REFUND_REQUESTED)
 }
 
@@ -85,7 +80,7 @@ fun updateTransactionToRefundError(
     transactionsRefundedEventStoreRepository,
     transactionsViewRepository,
     TransactionRefundErrorEvent(
-      transaction.transactionId.value.toString(), TransactionRefundedData(transaction.status)),
+      transaction.transactionId.value(), TransactionRefundedData(transaction.status)),
     TransactionStatusDto.REFUND_ERROR)
 }
 
@@ -100,7 +95,7 @@ fun updateTransactionToRefunded(
     transactionsRefundedEventStoreRepository,
     transactionsViewRepository,
     TransactionRefundedEvent(
-      transaction.transactionId.value.toString(), TransactionRefundedData(transaction.status)),
+      transaction.transactionId.value(), TransactionRefundedData(transaction.status)),
     TransactionStatusDto.REFUNDED)
 }
 
@@ -115,18 +110,14 @@ fun updateTransactionWithRefundEvent(
   return transactionsRefundedEventStoreRepository
     .save(event)
     .then(
-      transactionsViewRepository.save(
-        Transaction(
-          transaction.transactionId.value.toString(),
-          paymentNoticeDocuments(transaction.paymentNotices),
-          TransactionUtils.getTransactionFee(transaction).orElse(null),
-          transaction.email,
-          status,
-          transaction.clientId,
-          transaction.creationDate.toString())))
+      transactionsViewRepository.findByTransactionId(transaction.transactionId.value()).flatMap { tx
+        ->
+        tx.status = status
+        transactionsViewRepository.save(tx)
+      })
     .doOnSuccess {
       logger.info(
-        "Updated event for transaction with id ${transaction.transactionId.value} to status $status")
+        "Updated event for transaction with id ${transaction.transactionId.value()} to status $status")
     }
     .thenReturn(transaction)
 }
@@ -166,7 +157,7 @@ fun refundTransaction(
     }
     .onErrorResume { exception ->
       logger.error(
-        "Transaction requestRefund error for transaction ${tx.transactionId.value} : ${exception.message}")
+        "Transaction requestRefund error for transaction ${tx.transactionId.value()} : ${exception.message}")
       if (retryCount == 0) {
           // refund error event written only the first time
           updateTransactionToRefundError(
@@ -177,23 +168,6 @@ fun refundTransaction(
         .flatMap { refundRetryService.enqueueRetryEvent(it, retryCount) }
         .thenReturn(tx)
     }
-}
-
-fun paymentNoticeDocuments(
-  paymentNotices: List<it.pagopa.ecommerce.commons.domain.v1.PaymentNotice>
-): List<PaymentNotice> {
-  return paymentNotices.map { notice ->
-    PaymentNotice(
-      notice.paymentToken.value,
-      notice.rptId.value,
-      notice.transactionDescription.value,
-      notice.transactionAmount.value,
-      notice.paymentContextCode.value,
-      notice.transferList.map { item ->
-        PaymentTransferInformation(
-          item.paFiscalCode, item.digitalStamp, item.transferAmount, item.transferCategory)
-      })
-  }
 }
 
 fun isTransactionRefundable(tx: BaseTransaction): Boolean {
@@ -241,11 +215,11 @@ fun updateNotifiedTransactionStatus(
     }
   val event =
     TransactionUserReceiptAddedEvent(
-      transaction.transactionId.value.toString(), transaction.transactionUserReceiptData)
-  logger.info("Updating transaction {} status to {}", transaction.transactionId.value, newStatus)
+      transaction.transactionId.value(), transaction.transactionUserReceiptData)
+  logger.info("Updating transaction {} status to {}", transaction.transactionId.value(), newStatus)
 
   return transactionsViewRepository
-    .findByTransactionId(transaction.transactionId.value.toString())
+    .findByTransactionId(transaction.transactionId.value())
     .flatMap { tx ->
       tx.status = newStatus
       transactionsViewRepository.save(tx)
@@ -261,11 +235,11 @@ fun updateNotificationErrorTransactionStatus(
   val newStatus = TransactionStatusDto.NOTIFICATION_ERROR
   val event =
     TransactionUserReceiptAddErrorEvent(
-      transaction.transactionId.value.toString(), transaction.transactionUserReceiptData)
-  logger.info("Updating transaction {} status to {}", transaction.transactionId.value, newStatus)
+      transaction.transactionId.value(), transaction.transactionUserReceiptData)
+  logger.info("Updating transaction {} status to {}", transaction.transactionId.value(), newStatus)
 
   return transactionsViewRepository
-    .findByTransactionId(transaction.transactionId.value.toString())
+    .findByTransactionId(transaction.transactionId.value())
     .flatMap { tx ->
       tx.status = newStatus
       transactionsViewRepository.save(tx)

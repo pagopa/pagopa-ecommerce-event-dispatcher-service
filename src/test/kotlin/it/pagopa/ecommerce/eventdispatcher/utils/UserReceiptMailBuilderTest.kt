@@ -79,7 +79,7 @@ class UserReceiptMailBuilderTest {
           TransactionTestUtils.LANGUAGE,
           SuccessTemplate(
             TransactionTemplate(
-              baseTransaction.transactionId.value.toString(),
+              baseTransaction.transactionId.value(),
               dateString,
               totalAmountWithFeeString,
               PspTemplate(TransactionTestUtils.PSP_BUSINESS_NAME, FeeTemplate(feeString)),
@@ -160,7 +160,7 @@ class UserReceiptMailBuilderTest {
           TransactionTestUtils.LANGUAGE,
           KoTemplate(
             it.pagopa.generated.notifications.templates.ko.TransactionTemplate(
-              baseTransaction.transactionId.value.toString(), dateString, amountString)))
+              baseTransaction.transactionId.value(), dateString, amountString)))
       val expected =
         NotificationEmailRequestDto()
           .language(koTemplateRequest.language)

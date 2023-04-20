@@ -124,7 +124,7 @@ class TransactionNotificationsQueueConsumerTest {
       .expectNext()
       .verifyComplete()
     verify(checkpointer, times(1)).success()
-    verify(transactionsEventStoreRepository, times(1)).findByTransactionId(any())
+    verify(transactionsEventStoreRepository, times(1)).findByTransactionId(TRANSACTION_ID)
     verify(notificationsServiceClient, times(1)).sendNotificationEmail(any())
     verify(notificationRetryService, times(0)).enqueueRetryEvent(any(), any())
     verify(transactionsViewRepository, times(1)).save(any())
@@ -177,13 +177,22 @@ class TransactionNotificationsQueueConsumerTest {
         .willAnswer { Mono.just(it.arguments[0]) }
       given(paymentGatewayClient.requestRefund(any()))
         .willReturn(Mono.just(PostePayRefundResponseDto().refundOutcome("OK")))
+      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturnConsecutively(
+          listOf(
+            Mono.just(
+              transactionDocument(TransactionStatusDto.NOTIFICATION_ERROR, ZonedDateTime.now())),
+            Mono.just(transactionDocument(TransactionStatusDto.EXPIRED, ZonedDateTime.now())),
+            Mono.just(
+              transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now()))))
+
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
             BinaryData.fromObject(notificationRequested).toBytes(), checkpointer))
         .expectNext()
         .verifyComplete()
       verify(checkpointer, times(1)).success()
-      verify(transactionsEventStoreRepository, times(1)).findByTransactionId(any())
+      verify(transactionsEventStoreRepository, times(1)).findByTransactionId(TRANSACTION_ID)
       verify(transactionRefundRepository, times(2)).save(any())
       verify(paymentGatewayClient, times(1)).requestRefund(any())
       verify(notificationRetryService, times(0)).enqueueRetryEvent(any(), any())
@@ -255,13 +264,22 @@ class TransactionNotificationsQueueConsumerTest {
       given(paymentGatewayClient.requestRefund(any()))
         .willReturn(Mono.error(RuntimeException("Error performing refunding")))
       given(refundRetryService.enqueueRetryEvent(any(), any())).willReturn(Mono.empty())
+      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturnConsecutively(
+          listOf(
+            Mono.just(
+              transactionDocument(TransactionStatusDto.NOTIFICATION_ERROR, ZonedDateTime.now())),
+            Mono.just(transactionDocument(TransactionStatusDto.EXPIRED, ZonedDateTime.now())),
+            Mono.just(
+              transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now()))))
+
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
             BinaryData.fromObject(notificationRequested).toBytes(), checkpointer))
         .expectNext()
         .verifyComplete()
       verify(checkpointer, times(1)).success()
-      verify(transactionsEventStoreRepository, times(1)).findByTransactionId(any())
+      verify(transactionsEventStoreRepository, times(1)).findByTransactionId(TRANSACTION_ID)
       verify(notificationsServiceClient, times(1)).sendNotificationEmail(any())
       verify(notificationRetryService, times(0)).enqueueRetryEvent(any(), any())
       verify(transactionRefundRepository, times(2)).save(any())
@@ -315,7 +333,7 @@ class TransactionNotificationsQueueConsumerTest {
         transactionDocument(TransactionStatusDto.NOTIFICATION_REQUESTED, ZonedDateTime.now())
       Hooks.onOperatorDebug()
       given(checkpointer.success()).willReturn(Mono.empty())
-      given(transactionsEventStoreRepository.findByTransactionId(any()))
+      given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(Flux.fromIterable(events))
       given(userReceiptMailBuilder.buildNotificationEmailRequestDto(baseTransaction))
         .willReturn(NotificationEmailRequestDto())
@@ -376,7 +394,7 @@ class TransactionNotificationsQueueConsumerTest {
         transactionDocument(TransactionStatusDto.NOTIFICATION_REQUESTED, ZonedDateTime.now())
       Hooks.onOperatorDebug()
       given(checkpointer.success()).willReturn(Mono.empty())
-      given(transactionsEventStoreRepository.findByTransactionId(any()))
+      given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(Flux.fromIterable(events))
       given(userReceiptMailBuilder.buildNotificationEmailRequestDto(baseTransaction))
         .willReturn(NotificationEmailRequestDto())
@@ -442,7 +460,7 @@ class TransactionNotificationsQueueConsumerTest {
         transactionDocument(TransactionStatusDto.NOTIFICATION_REQUESTED, ZonedDateTime.now())
       Hooks.onOperatorDebug()
       given(checkpointer.success()).willReturn(Mono.empty())
-      given(transactionsEventStoreRepository.findByTransactionId(any()))
+      given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(Flux.fromIterable(events))
       given(userReceiptMailBuilder.buildNotificationEmailRequestDto(baseTransaction))
         .willReturn(NotificationEmailRequestDto())
@@ -505,7 +523,7 @@ class TransactionNotificationsQueueConsumerTest {
       .expectError(BadTransactionStatusException::class.java)
       .verify()
     verify(checkpointer, times(1)).success()
-    verify(transactionsEventStoreRepository, times(1)).findByTransactionId(any())
+    verify(transactionsEventStoreRepository, times(1)).findByTransactionId(TRANSACTION_ID)
     verify(notificationsServiceClient, times(0)).sendNotificationEmail(any())
     verify(notificationRetryService, times(0)).enqueueRetryEvent(any(), any())
     verify(transactionsViewRepository, times(0)).save(any())

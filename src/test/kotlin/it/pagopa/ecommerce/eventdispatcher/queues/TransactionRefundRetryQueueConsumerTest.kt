@@ -12,6 +12,7 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRe
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryService
 import it.pagopa.generated.ecommerce.gateway.v1.dto.PostePayRefundResponseDto
+import java.time.ZonedDateTime
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
@@ -102,6 +103,11 @@ class TransactionRefundRetryQueueConsumerTest {
     given(paymentGatewayClient.requestRefund(any())).willReturn(Mono.just(gatewayClientResponse))
     given(refundRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture()))
       .willReturn(Mono.empty())
+    given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
+      .willReturn(
+        Mono.just(
+          TransactionTestUtils.transactionDocument(
+            TransactionStatusDto.REFUND_ERROR, ZonedDateTime.now())))
     /* test */
     StepVerifier.create(
         transactionRefundRetryQueueConsumer.messageReceiver(
@@ -171,6 +177,11 @@ class TransactionRefundRetryQueueConsumerTest {
       given(paymentGatewayClient.requestRefund(any())).willReturn(Mono.just(gatewayClientResponse))
       given(refundRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture()))
         .willReturn(Mono.empty())
+      given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
+        .willReturn(
+          Mono.just(
+            TransactionTestUtils.transactionDocument(
+              TransactionStatusDto.REFUND_ERROR, ZonedDateTime.now())))
       /* test */
       StepVerifier.create(
           transactionRefundRetryQueueConsumer.messageReceiver(

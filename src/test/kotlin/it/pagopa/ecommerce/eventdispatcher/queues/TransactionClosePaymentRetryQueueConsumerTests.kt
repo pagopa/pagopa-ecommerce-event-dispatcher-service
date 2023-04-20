@@ -106,17 +106,11 @@ class TransactionClosePaymentRetryQueueConsumerTests {
         transactionDocument(
           TransactionStatusDto.CLOSURE_ERROR, ZonedDateTime.parse(activationEvent.creationDate))
 
-      val uuidFromStringWorkaround =
-        "00000000-0000-0000-0000-000000000000" // FIXME: Workaround for static mocking apparently
-      // not working
-      val expectedClosureEvent =
-        TransactionClosedEvent(
-          uuidFromStringWorkaround, TransactionClosureData(TransactionClosureData.Outcome.OK))
-
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
-      given(transactionsEventStoreRepository.findByTransactionId(any())).willReturn(events.toFlux())
-      given(transactionsViewRepository.findByTransactionId(any()))
+      given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturn(events.toFlux())
+      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(Mono.just(transactionDocument))
       given(transactionsViewRepository.save(viewArgumentCaptor.capture())).willAnswer {
         Mono.just(it.arguments[0])
@@ -125,7 +119,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
         .willAnswer { Mono.just(it.arguments[0]) }
       given(
           nodeService.closePayment(
-            UUID.fromString(uuidFromStringWorkaround),
+            TransactionId(TRANSACTION_ID),
             ClosePaymentRequestV2Dto.OutcomeEnum.OK,
             Optional.of("authorizationCode")))
         .willReturn(
@@ -133,40 +127,33 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
       /* test */
 
-      val closureEventId = UUID.fromString(expectedClosureEvent.id)
+      StepVerifier.create(
+          transactionClosureErrorEventsConsumer.messageReceiver(
+            BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer))
+        .expectNext()
+        .verifyComplete()
 
-      Mockito.mockStatic(UUID::class.java).use { uuid ->
-        uuid.`when`<Any>(UUID::randomUUID).thenReturn(closureEventId)
-        uuid.`when`<Any> { UUID.fromString(any()) }.thenCallRealMethod()
-
-        StepVerifier.create(
-            transactionClosureErrorEventsConsumer.messageReceiver(
-              BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer))
-          .expectNext()
-          .verifyComplete()
-
-        /* Asserts */
-        verify(checkpointer, Mockito.times(1)).success()
-        verify(nodeService, Mockito.times(1))
-          .closePayment(
-            UUID.fromString(TRANSACTION_ID),
-            ClosePaymentRequestV2Dto.OutcomeEnum.OK,
-            Optional.of("authorizationCode"))
-        verify(transactionClosedEventRepository, Mockito.times(1))
-          .save(
-            any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
-        // mocking
-        verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransaction)
-        verify(paymentGatewayClient, times(0)).requestRefund(any())
-        verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any())
-        assertEquals(TransactionStatusDto.CLOSED, viewArgumentCaptor.value.status)
-        assertEquals(
-          TransactionEventCode.TRANSACTION_CLOSED_EVENT,
-          closedEventStoreRepositoryCaptor.value.eventCode)
-        assertEquals(
-          TransactionClosureData.Outcome.OK,
-          closedEventStoreRepositoryCaptor.value.data.responseOutcome)
-      }
+      /* Asserts */
+      verify(checkpointer, Mockito.times(1)).success()
+      verify(nodeService, Mockito.times(1))
+        .closePayment(
+          TransactionId(TRANSACTION_ID),
+          ClosePaymentRequestV2Dto.OutcomeEnum.OK,
+          Optional.of("authorizationCode"))
+      verify(transactionClosedEventRepository, Mockito.times(1))
+        .save(
+          any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
+      // mocking
+      verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransaction)
+      verify(paymentGatewayClient, times(0)).requestRefund(any())
+      verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any())
+      assertEquals(TransactionStatusDto.CLOSED, viewArgumentCaptor.value.status)
+      assertEquals(
+        TransactionEventCode.TRANSACTION_CLOSED_EVENT,
+        closedEventStoreRepositoryCaptor.value.eventCode)
+      assertEquals(
+        TransactionClosureData.Outcome.OK,
+        closedEventStoreRepositoryCaptor.value.data.responseOutcome)
     }
 
   @Test
@@ -179,10 +166,6 @@ class TransactionClosePaymentRetryQueueConsumerTests {
         transactionAuthorizationCompletedEvent(AuthorizationResultDto.KO) as TransactionEvent<Any>
       val closureErrorEvent = transactionClosureErrorEvent() as TransactionEvent<Any>
 
-      val uuidFromStringWorkaround =
-        "00000000-0000-0000-0000-000000000000" // FIXME: Workaround for static mocking apparently
-      // not working
-
       val events =
         listOf(
           activationEvent,
@@ -198,14 +181,11 @@ class TransactionClosePaymentRetryQueueConsumerTests {
         transactionDocument(
           TransactionStatusDto.CLOSURE_ERROR, ZonedDateTime.parse(activationEvent.creationDate))
 
-      val expectedClosureEvent =
-        TransactionClosureFailedEvent(
-          activationEvent.transactionId, TransactionClosureData(TransactionClosureData.Outcome.OK))
-
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
-      given(transactionsEventStoreRepository.findByTransactionId(any())).willReturn(events.toFlux())
-      given(transactionsViewRepository.findByTransactionId(any()))
+      given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturn(events.toFlux())
+      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(Mono.just(transactionDocument))
       given(transactionsViewRepository.save(viewArgumentCaptor.capture())).willAnswer {
         Mono.just(it.arguments[0])
@@ -214,7 +194,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
         .willAnswer { Mono.just(it.arguments[0]) }
       given(
           nodeService.closePayment(
-            UUID.fromString(uuidFromStringWorkaround),
+            TransactionId(TRANSACTION_ID),
             ClosePaymentRequestV2Dto.OutcomeEnum.KO,
             Optional.empty()))
         .willReturn(
@@ -222,40 +202,31 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
       /* test */
 
-      val closureEventId = UUID.fromString(expectedClosureEvent.id)
+      StepVerifier.create(
+          transactionClosureErrorEventsConsumer.messageReceiver(
+            BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer))
+        .expectNext()
+        .verifyComplete()
 
-      Mockito.mockStatic(UUID::class.java).use { uuid ->
-        uuid.`when`<Any>(UUID::randomUUID).thenReturn(closureEventId)
-        uuid.`when`<Any> { UUID.fromString(any()) }.thenCallRealMethod()
-
-        StepVerifier.create(
-            transactionClosureErrorEventsConsumer.messageReceiver(
-              BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer))
-          .expectNext()
-          .verifyComplete()
-
-        /* Asserts */
-        verify(checkpointer, Mockito.times(1)).success()
-        verify(nodeService, Mockito.times(1))
-          .closePayment(
-            UUID.fromString(TRANSACTION_ID),
-            ClosePaymentRequestV2Dto.OutcomeEnum.KO,
-            Optional.empty())
-        verify(transactionClosedEventRepository, Mockito.times(1))
-          .save(
-            any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
-        // mocking
-        verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransaction)
-        verify(paymentGatewayClient, times(0)).requestRefund(any())
-        verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any())
-        assertEquals(TransactionStatusDto.UNAUTHORIZED, viewArgumentCaptor.value.status)
-        assertEquals(
-          TransactionEventCode.TRANSACTION_CLOSURE_FAILED_EVENT,
-          closedEventStoreRepositoryCaptor.value.eventCode)
-        assertEquals(
-          TransactionClosureData.Outcome.KO,
-          closedEventStoreRepositoryCaptor.value.data.responseOutcome)
-      }
+      /* Asserts */
+      verify(checkpointer, Mockito.times(1)).success()
+      verify(nodeService, Mockito.times(1))
+        .closePayment(
+          TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.KO, Optional.empty())
+      verify(transactionClosedEventRepository, Mockito.times(1))
+        .save(
+          any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
+      // mocking
+      verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransaction)
+      verify(paymentGatewayClient, times(0)).requestRefund(any())
+      verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any())
+      assertEquals(TransactionStatusDto.UNAUTHORIZED, viewArgumentCaptor.value.status)
+      assertEquals(
+        TransactionEventCode.TRANSACTION_CLOSURE_FAILED_EVENT,
+        closedEventStoreRepositoryCaptor.value.eventCode)
+      assertEquals(
+        TransactionClosureData.Outcome.KO,
+        closedEventStoreRepositoryCaptor.value.data.responseOutcome)
     }
 
   @Test
@@ -268,10 +239,6 @@ class TransactionClosePaymentRetryQueueConsumerTests {
         transactionAuthorizationCompletedEvent(AuthorizationResultDto.KO) as TransactionEvent<Any>
       val closureErrorEvent = transactionClosureErrorEvent() as TransactionEvent<Any>
 
-      val uuidFromStringWorkaround =
-        "00000000-0000-0000-0000-000000000000" // FIXME: Workaround for static mocking apparently
-      // not working
-
       val events =
         listOf(
           activationEvent,
@@ -287,14 +254,11 @@ class TransactionClosePaymentRetryQueueConsumerTests {
         transactionDocument(
           TransactionStatusDto.CLOSURE_ERROR, ZonedDateTime.parse(activationEvent.creationDate))
 
-      val expectedClosureEvent =
-        TransactionClosureFailedEvent(
-          activationEvent.transactionId, TransactionClosureData(TransactionClosureData.Outcome.OK))
-
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
-      given(transactionsEventStoreRepository.findByTransactionId(any())).willReturn(events.toFlux())
-      given(transactionsViewRepository.findByTransactionId(any()))
+      given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturn(events.toFlux())
+      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(Mono.just(transactionDocument))
       given(transactionsViewRepository.save(viewArgumentCaptor.capture())).willAnswer {
         Mono.just(it.arguments[0])
@@ -303,7 +267,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
         .willAnswer { Mono.just(it.arguments[0]) }
       given(
           nodeService.closePayment(
-            UUID.fromString(uuidFromStringWorkaround),
+            TransactionId(TRANSACTION_ID),
             ClosePaymentRequestV2Dto.OutcomeEnum.KO,
             Optional.empty()))
         .willReturn(
@@ -311,40 +275,31 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
       /* test */
 
-      val closureEventId = UUID.fromString(expectedClosureEvent.id)
+      StepVerifier.create(
+          transactionClosureErrorEventsConsumer.messageReceiver(
+            BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer))
+        .expectNext()
+        .verifyComplete()
 
-      Mockito.mockStatic(UUID::class.java).use { uuid ->
-        uuid.`when`<Any>(UUID::randomUUID).thenReturn(closureEventId)
-        uuid.`when`<Any> { UUID.fromString(any()) }.thenCallRealMethod()
-
-        StepVerifier.create(
-            transactionClosureErrorEventsConsumer.messageReceiver(
-              BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer))
-          .expectNext()
-          .verifyComplete()
-
-        /* Asserts */
-        verify(checkpointer, Mockito.times(1)).success()
-        verify(nodeService, Mockito.times(1))
-          .closePayment(
-            UUID.fromString(TRANSACTION_ID),
-            ClosePaymentRequestV2Dto.OutcomeEnum.KO,
-            Optional.empty())
-        verify(transactionClosedEventRepository, Mockito.times(1))
-          .save(
-            any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
-        // mocking
-        verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransaction)
-        verify(paymentGatewayClient, times(0)).requestRefund(any())
-        verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any())
-        assertEquals(TransactionStatusDto.UNAUTHORIZED, viewArgumentCaptor.value.status)
-        assertEquals(
-          TransactionEventCode.TRANSACTION_CLOSURE_FAILED_EVENT,
-          closedEventStoreRepositoryCaptor.value.eventCode)
-        assertEquals(
-          TransactionClosureData.Outcome.OK,
-          closedEventStoreRepositoryCaptor.value.data.responseOutcome)
-      }
+      /* Asserts */
+      verify(checkpointer, Mockito.times(1)).success()
+      verify(nodeService, Mockito.times(1))
+        .closePayment(
+          TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.KO, Optional.empty())
+      verify(transactionClosedEventRepository, Mockito.times(1))
+        .save(
+          any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
+      // mocking
+      verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransaction)
+      verify(paymentGatewayClient, times(0)).requestRefund(any())
+      verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any())
+      assertEquals(TransactionStatusDto.UNAUTHORIZED, viewArgumentCaptor.value.status)
+      assertEquals(
+        TransactionEventCode.TRANSACTION_CLOSURE_FAILED_EVENT,
+        closedEventStoreRepositoryCaptor.value.eventCode)
+      assertEquals(
+        TransactionClosureData.Outcome.OK,
+        closedEventStoreRepositoryCaptor.value.data.responseOutcome)
     }
 
   @Test
@@ -354,10 +309,6 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       val userCanceledEvent = transactionUserCanceledEvent() as TransactionEvent<Any>
       val closureErrorEvent = transactionClosureErrorEvent() as TransactionEvent<Any>
 
-      val uuidFromStringWorkaround =
-        "00000000-0000-0000-0000-000000000000" // FIXME: Workaround for static mocking apparently
-      // not working
-
       val events = listOf(activationEvent, userCanceledEvent, closureErrorEvent)
 
       val expectedUpdatedTransaction =
@@ -368,14 +319,11 @@ class TransactionClosePaymentRetryQueueConsumerTests {
         transactionDocument(
           TransactionStatusDto.CLOSURE_ERROR, ZonedDateTime.parse(activationEvent.creationDate))
 
-      val expectedClosureEvent =
-        TransactionClosureFailedEvent(
-          activationEvent.transactionId, TransactionClosureData(TransactionClosureData.Outcome.OK))
-
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
-      given(transactionsEventStoreRepository.findByTransactionId(any())).willReturn(events.toFlux())
-      given(transactionsViewRepository.findByTransactionId(any()))
+      given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturn(events.toFlux())
+      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(Mono.just(transactionDocument))
       given(transactionsViewRepository.save(viewArgumentCaptor.capture())).willAnswer {
         Mono.just(it.arguments[0])
@@ -384,7 +332,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
         .willAnswer { Mono.just(it.arguments[0]) }
       given(
           nodeService.closePayment(
-            UUID.fromString(uuidFromStringWorkaround),
+            TransactionId(TRANSACTION_ID),
             ClosePaymentRequestV2Dto.OutcomeEnum.KO,
             Optional.empty()))
         .willReturn(
@@ -392,40 +340,31 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
       /* test */
 
-      val closureEventId = UUID.fromString(expectedClosureEvent.id)
+      StepVerifier.create(
+          transactionClosureErrorEventsConsumer.messageReceiver(
+            BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer))
+        .expectNext()
+        .verifyComplete()
 
-      Mockito.mockStatic(UUID::class.java).use { uuid ->
-        uuid.`when`<Any>(UUID::randomUUID).thenReturn(closureEventId)
-        uuid.`when`<Any> { UUID.fromString(any()) }.thenCallRealMethod()
-
-        StepVerifier.create(
-            transactionClosureErrorEventsConsumer.messageReceiver(
-              BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer))
-          .expectNext()
-          .verifyComplete()
-
-        /* Asserts */
-        verify(checkpointer, Mockito.times(1)).success()
-        verify(nodeService, Mockito.times(1))
-          .closePayment(
-            UUID.fromString(TRANSACTION_ID),
-            ClosePaymentRequestV2Dto.OutcomeEnum.KO,
-            Optional.empty())
-        verify(transactionClosedEventRepository, Mockito.times(1))
-          .save(
-            any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
-        // mocking
-        verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransaction)
-        verify(paymentGatewayClient, times(0)).requestRefund(any())
-        verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any())
-        assertEquals(TransactionStatusDto.CANCELED, viewArgumentCaptor.value.status)
-        assertEquals(
-          TransactionEventCode.TRANSACTION_CLOSED_EVENT,
-          closedEventStoreRepositoryCaptor.value.eventCode)
-        assertEquals(
-          TransactionClosureData.Outcome.KO,
-          closedEventStoreRepositoryCaptor.value.data.responseOutcome)
-      }
+      /* Asserts */
+      verify(checkpointer, Mockito.times(1)).success()
+      verify(nodeService, Mockito.times(1))
+        .closePayment(
+          TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.KO, Optional.empty())
+      verify(transactionClosedEventRepository, Mockito.times(1))
+        .save(
+          any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
+      // mocking
+      verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransaction)
+      verify(paymentGatewayClient, times(0)).requestRefund(any())
+      verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any())
+      assertEquals(TransactionStatusDto.CANCELED, viewArgumentCaptor.value.status)
+      assertEquals(
+        TransactionEventCode.TRANSACTION_CLOSED_EVENT,
+        closedEventStoreRepositoryCaptor.value.eventCode)
+      assertEquals(
+        TransactionClosureData.Outcome.KO,
+        closedEventStoreRepositoryCaptor.value.data.responseOutcome)
     }
 
   @Test
@@ -435,10 +374,6 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       val userCanceledEvent = transactionUserCanceledEvent() as TransactionEvent<Any>
       val closureErrorEvent = transactionClosureErrorEvent() as TransactionEvent<Any>
 
-      val uuidFromStringWorkaround =
-        "00000000-0000-0000-0000-000000000000" // FIXME: Workaround for static mocking apparently
-      // not working
-
       val events = listOf(activationEvent, userCanceledEvent, closureErrorEvent)
 
       val expectedUpdatedTransaction =
@@ -449,14 +384,11 @@ class TransactionClosePaymentRetryQueueConsumerTests {
         transactionDocument(
           TransactionStatusDto.CLOSURE_ERROR, ZonedDateTime.parse(activationEvent.creationDate))
 
-      val expectedClosureEvent =
-        TransactionClosureFailedEvent(
-          activationEvent.transactionId, TransactionClosureData(TransactionClosureData.Outcome.OK))
-
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
-      given(transactionsEventStoreRepository.findByTransactionId(any())).willReturn(events.toFlux())
-      given(transactionsViewRepository.findByTransactionId(any()))
+      given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturn(events.toFlux())
+      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(Mono.just(transactionDocument))
       given(transactionsViewRepository.save(viewArgumentCaptor.capture())).willAnswer {
         Mono.just(it.arguments[0])
@@ -465,7 +397,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
         .willAnswer { Mono.just(it.arguments[0]) }
       given(
           nodeService.closePayment(
-            UUID.fromString(uuidFromStringWorkaround),
+            TransactionId(TRANSACTION_ID),
             ClosePaymentRequestV2Dto.OutcomeEnum.KO,
             Optional.empty()))
         .willReturn(
@@ -473,40 +405,31 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
       /* test */
 
-      val closureEventId = UUID.fromString(expectedClosureEvent.id)
+      StepVerifier.create(
+          transactionClosureErrorEventsConsumer.messageReceiver(
+            BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer))
+        .expectNext()
+        .verifyComplete()
 
-      Mockito.mockStatic(UUID::class.java).use { uuid ->
-        uuid.`when`<Any>(UUID::randomUUID).thenReturn(closureEventId)
-        uuid.`when`<Any> { UUID.fromString(any()) }.thenCallRealMethod()
-
-        StepVerifier.create(
-            transactionClosureErrorEventsConsumer.messageReceiver(
-              BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer))
-          .expectNext()
-          .verifyComplete()
-
-        /* Asserts */
-        verify(checkpointer, Mockito.times(1)).success()
-        verify(nodeService, Mockito.times(1))
-          .closePayment(
-            UUID.fromString(TRANSACTION_ID),
-            ClosePaymentRequestV2Dto.OutcomeEnum.KO,
-            Optional.empty())
-        verify(transactionClosedEventRepository, Mockito.times(1))
-          .save(
-            any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
-        // mocking
-        verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransaction)
-        verify(paymentGatewayClient, times(0)).requestRefund(any())
-        verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any())
-        assertEquals(TransactionStatusDto.CANCELED, viewArgumentCaptor.value.status)
-        assertEquals(
-          TransactionEventCode.TRANSACTION_CLOSED_EVENT,
-          closedEventStoreRepositoryCaptor.value.eventCode)
-        assertEquals(
-          TransactionClosureData.Outcome.OK,
-          closedEventStoreRepositoryCaptor.value.data.responseOutcome)
-      }
+      /* Asserts */
+      verify(checkpointer, Mockito.times(1)).success()
+      verify(nodeService, Mockito.times(1))
+        .closePayment(
+          TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.KO, Optional.empty())
+      verify(transactionClosedEventRepository, Mockito.times(1))
+        .save(
+          any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
+      // mocking
+      verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransaction)
+      verify(paymentGatewayClient, times(0)).requestRefund(any())
+      verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any())
+      assertEquals(TransactionStatusDto.CANCELED, viewArgumentCaptor.value.status)
+      assertEquals(
+        TransactionEventCode.TRANSACTION_CLOSED_EVENT,
+        closedEventStoreRepositoryCaptor.value.eventCode)
+      assertEquals(
+        TransactionClosureData.Outcome.OK,
+        closedEventStoreRepositoryCaptor.value.data.responseOutcome)
     }
 
   @Test
@@ -518,10 +441,6 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       val authorizationCompletedEvent =
         transactionAuthorizationCompletedEvent(null) as TransactionEvent<Any>
       val closureErrorEvent = transactionClosureErrorEvent() as TransactionEvent<Any>
-
-      val uuidFromStringWorkaround =
-        "00000000-0000-0000-0000-000000000000" // FIXME: Workaround for static mocking apparently
-      // not working
 
       val events =
         listOf(
@@ -544,15 +463,16 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
-      given(transactionsEventStoreRepository.findByTransactionId(any())).willReturn(events.toFlux())
-      given(transactionsViewRepository.findByTransactionId(any()))
+      given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturn(events.toFlux())
+      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(Mono.just(transactionDocument))
       given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
       given(transactionClosedEventRepository.save(any()))
         .willReturn(Mono.just(expectedClosureEvent))
       given(
           nodeService.closePayment(
-            UUID.fromString(uuidFromStringWorkaround),
+            TransactionId(TRANSACTION_ID),
             ClosePaymentRequestV2Dto.OutcomeEnum.KO,
             Optional.empty()))
         .willReturn(
@@ -560,33 +480,24 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
       /* test */
 
-      val closureEventId = UUID.fromString(expectedClosureEvent.id)
+      StepVerifier.create(
+          transactionClosureErrorEventsConsumer.messageReceiver(
+            BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer))
+        .expectError(java.lang.RuntimeException::class.java)
+        .verify()
 
-      Mockito.mockStatic(UUID::class.java).use { uuid ->
-        uuid.`when`<Any>(UUID::randomUUID).thenReturn(closureEventId)
-        uuid.`when`<Any> { UUID.fromString(any()) }.thenCallRealMethod()
-
-        StepVerifier.create(
-            transactionClosureErrorEventsConsumer.messageReceiver(
-              BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer))
-          .expectError(java.lang.RuntimeException::class.java)
-          .verify()
-
-        /* Asserts */
-        verify(checkpointer, Mockito.times(1)).success()
-        verify(nodeService, Mockito.times(0))
-          .closePayment(
-            UUID.fromString(TRANSACTION_ID),
-            ClosePaymentRequestV2Dto.OutcomeEnum.KO,
-            Optional.empty())
-        verify(transactionClosedEventRepository, Mockito.times(0))
-          .save(
-            any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
-        // mocking
-        verify(transactionsViewRepository, Mockito.times(0)).save(expectedUpdatedTransaction)
-        verify(paymentGatewayClient, times(0)).requestRefund(any())
-        verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any())
-      }
+      /* Asserts */
+      verify(checkpointer, Mockito.times(1)).success()
+      verify(nodeService, Mockito.times(0))
+        .closePayment(
+          TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.KO, Optional.empty())
+      verify(transactionClosedEventRepository, Mockito.times(0))
+        .save(
+          any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
+      // mocking
+      verify(transactionsViewRepository, Mockito.times(0)).save(expectedUpdatedTransaction)
+      verify(paymentGatewayClient, times(0)).requestRefund(any())
+      verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any())
     }
 
   @Test
@@ -597,18 +508,14 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       val transactionWithClosureError: TransactionWithClosureError = mock()
       val fakeTransactionAtPreviousState = transactionActivated(ZonedDateTime.now().toString())
 
-      val uuidFromStringWorkaround =
-        "00000000-0000-0000-0000-000000000000" // FIXME: Workaround for static mocking apparently
-      // not working
-
       val events = listOf(activatedEvent as TransactionEvent<Any>)
 
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
-      given(transactionsEventStoreRepository.findByTransactionId(any())).willReturn(events.toFlux())
+      given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturn(events.toFlux())
       given(emptyTransactionMock.applyEvent(any())).willReturn(transactionWithClosureError)
-      given(transactionWithClosureError.transactionId)
-        .willReturn(TransactionId(UUID.fromString(TRANSACTION_ID)))
+      given(transactionWithClosureError.transactionId).willReturn(TransactionId(TRANSACTION_ID))
       given(transactionWithClosureError.status).willReturn(TransactionStatusDto.CLOSURE_ERROR)
       given(transactionWithClosureError.transactionAtPreviousState)
         .willReturn(fakeTransactionAtPreviousState)
@@ -625,9 +532,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       verify(checkpointer, Mockito.times(1)).success()
       verify(nodeService, Mockito.times(0))
         .closePayment(
-          UUID.fromString(TRANSACTION_ID),
-          ClosePaymentRequestV2Dto.OutcomeEnum.KO,
-          Optional.empty())
+          TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.KO, Optional.empty())
       verify(transactionClosedEventRepository, Mockito.times(0)).save(any())
       verify(paymentGatewayClient, times(0)).requestRefund(any())
       verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any())
@@ -656,23 +561,19 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       transactionDocument(
         TransactionStatusDto.CLOSURE_ERROR, ZonedDateTime.parse(activationEvent.creationDate))
 
-    val uuidFromStringWorkaround =
-      "00000000-0000-0000-0000-000000000000" // FIXME: Workaround for static mocking apparently not
-    // working
-    val expectedClosureEvent =
-      TransactionClosedEvent(
-        uuidFromStringWorkaround, TransactionClosureData(TransactionClosureData.Outcome.OK))
+    val expectedClosureEvent = transactionClosedEvent(TransactionClosureData.Outcome.OK)
 
     /* preconditions */
     given(checkpointer.success()).willReturn(Mono.empty())
-    given(transactionsEventStoreRepository.findByTransactionId(any())).willReturn(events.toFlux())
-    given(transactionsViewRepository.findByTransactionId(any()))
+    given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+      .willReturn(events.toFlux())
+    given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
       .willReturn(Mono.just(transactionDocument))
     given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
     given(transactionClosedEventRepository.save(any())).willReturn(Mono.just(expectedClosureEvent))
     given(
         nodeService.closePayment(
-          UUID.fromString(uuidFromStringWorkaround),
+          TransactionId(TRANSACTION_ID),
           ClosePaymentRequestV2Dto.OutcomeEnum.OK,
           Optional.of("authorizationCode")))
       .willReturn(
@@ -680,33 +581,25 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
     /* test */
 
-    val closureEventId = UUID.fromString(expectedClosureEvent.id)
+    StepVerifier.create(
+        transactionClosureErrorEventsConsumer.messageReceiver(
+          BinaryData.fromObject(closureRetriedEvent).toBytes(), checkpointer))
+      .expectNext()
+      .verifyComplete()
 
-    Mockito.mockStatic(UUID::class.java).use { uuid ->
-      uuid.`when`<Any>(UUID::randomUUID).thenReturn(closureEventId)
-      uuid.`when`<Any> { UUID.fromString(any()) }.thenCallRealMethod()
-
-      StepVerifier.create(
-          transactionClosureErrorEventsConsumer.messageReceiver(
-            BinaryData.fromObject(closureRetriedEvent).toBytes(), checkpointer))
-        .expectNext()
-        .verifyComplete()
-
-      /* Asserts */
-      verify(checkpointer, Mockito.times(1)).success()
-      verify(nodeService, Mockito.times(1))
-        .closePayment(
-          UUID.fromString(TRANSACTION_ID),
-          ClosePaymentRequestV2Dto.OutcomeEnum.OK,
-          Optional.of("authorizationCode"))
-      verify(transactionClosedEventRepository, Mockito.times(1))
-        .save(
-          any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
-      // mocking
-      verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransaction)
-      verify(paymentGatewayClient, times(0)).requestRefund(any())
-      verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any())
-    }
+    /* Asserts */
+    verify(checkpointer, Mockito.times(1)).success()
+    verify(nodeService, Mockito.times(1))
+      .closePayment(
+        TransactionId(TRANSACTION_ID),
+        ClosePaymentRequestV2Dto.OutcomeEnum.OK,
+        Optional.of("authorizationCode"))
+    verify(transactionClosedEventRepository, Mockito.times(1))
+      .save(any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
+    // mocking
+    verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransaction)
+    verify(paymentGatewayClient, times(0)).requestRefund(any())
+    verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any())
   }
 
   @Test
@@ -725,8 +618,9 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
     /* preconditions */
     given(checkpointer.success()).willReturn(Mono.empty())
-    given(transactionsEventStoreRepository.findByTransactionId(any())).willReturn(events.toFlux())
-    given(transactionsViewRepository.findByTransactionId(any()))
+    given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+      .willReturn(events.toFlux())
+    given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
       .willReturn(Mono.just(transactionDocument))
 
     /* test */
@@ -761,22 +655,24 @@ class TransactionClosePaymentRetryQueueConsumerTests {
         listOf(
           activationEvent, authorizationRequestEvent, authorizationCompleteEvent, closureErrorEvent)
 
-      val transactionDocument =
-        transactionDocument(
-          TransactionStatusDto.CLOSURE_ERROR, ZonedDateTime.parse(activationEvent.creationDate))
-
-      val uuidFromStringWorkaround =
-        "00000000-0000-0000-0000-000000000000" // FIXME: Workaround for static mocking apparently
-      // not working
-      val expectedClosureEvent =
-        TransactionClosedEvent(
-          uuidFromStringWorkaround, TransactionClosureData(TransactionClosureData.Outcome.OK))
-
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
-      given(transactionsEventStoreRepository.findByTransactionId(any())).willReturn(events.toFlux())
-      given(transactionsViewRepository.findByTransactionId(any()))
-        .willReturn(Mono.just(transactionDocument))
+      given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturn(events.toFlux())
+      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturnConsecutively(
+          listOf(
+            Mono.just(
+              transactionDocument(
+                TransactionStatusDto.CLOSURE_ERROR,
+                ZonedDateTime.parse(activationEvent.creationDate))),
+            Mono.just(
+              transactionDocument(
+                TransactionStatusDto.CLOSED, ZonedDateTime.parse(activationEvent.creationDate))),
+            Mono.just(
+              transactionDocument(
+                TransactionStatusDto.REFUND_REQUESTED,
+                ZonedDateTime.parse(activationEvent.creationDate)))))
       given(transactionsViewRepository.save(viewArgumentCaptor.capture())).willAnswer {
         Mono.just(it.arguments[0])
       }
@@ -790,7 +686,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
         .willReturn(Mono.just(PostePayRefundResponseDto().refundOutcome("OK")))
       given(
           nodeService.closePayment(
-            UUID.fromString(uuidFromStringWorkaround),
+            TransactionId(TRANSACTION_ID),
             ClosePaymentRequestV2Dto.OutcomeEnum.OK,
             Optional.of("authorizationCode")))
         .willReturn(
@@ -798,58 +694,51 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
       /* test */
 
-      val closureEventId = UUID.fromString(expectedClosureEvent.id)
+      StepVerifier.create(
+          transactionClosureErrorEventsConsumer.messageReceiver(
+            BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer))
+        .expectNext()
+        .verifyComplete()
 
-      Mockito.mockStatic(UUID::class.java).use { uuid ->
-        uuid.`when`<Any>(UUID::randomUUID).thenReturn(closureEventId)
-        uuid.`when`<Any> { UUID.fromString(any()) }.thenCallRealMethod()
+      /* Asserts */
+      verify(checkpointer, Mockito.times(1)).success()
+      verify(nodeService, Mockito.times(1))
+        .closePayment(
+          TransactionId(TRANSACTION_ID),
+          ClosePaymentRequestV2Dto.OutcomeEnum.OK,
+          Optional.of("authorizationCode"))
+      verify(paymentGatewayClient, times(1)).requestRefund(any())
+      verify(transactionClosedEventRepository, Mockito.times(1)).save(any())
+      verify(transactionsRefundedEventStoreRepository, Mockito.times(2)).save(any())
+      verify(transactionsViewRepository, Mockito.times(3)).save(any())
+      verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any())
 
-        StepVerifier.create(
-            transactionClosureErrorEventsConsumer.messageReceiver(
-              BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer))
-          .expectNext()
-          .verifyComplete()
-
-        /* Asserts */
-        verify(checkpointer, Mockito.times(1)).success()
-        verify(nodeService, Mockito.times(1))
-          .closePayment(
-            UUID.fromString(TRANSACTION_ID),
-            ClosePaymentRequestV2Dto.OutcomeEnum.OK,
-            Optional.of("authorizationCode"))
-        verify(paymentGatewayClient, times(1)).requestRefund(any())
-        verify(transactionClosedEventRepository, Mockito.times(1)).save(any())
-        verify(transactionsRefundedEventStoreRepository, Mockito.times(2)).save(any())
-        verify(transactionsViewRepository, Mockito.times(3)).save(any())
-        verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any())
-
-        val expectedViewUpdateStatuses =
-          listOf(
-            TransactionStatusDto.CLOSED,
-            TransactionStatusDto.REFUND_REQUESTED,
-            TransactionStatusDto.REFUNDED)
-        val expectedEventsCodes =
-          listOf(
-            TransactionEventCode.TRANSACTION_REFUND_REQUESTED_EVENT,
-            TransactionEventCode.TRANSACTION_REFUNDED_EVENT)
-        expectedViewUpdateStatuses.forEachIndexed { idx, transactionStatusDto ->
-          assertEquals(
-            transactionStatusDto,
-            viewArgumentCaptor.allValues[idx].status,
-            "Unexpected view status update at idx: $idx")
-        }
+      val expectedViewUpdateStatuses =
+        listOf(
+          TransactionStatusDto.CLOSED,
+          TransactionStatusDto.REFUND_REQUESTED,
+          TransactionStatusDto.REFUNDED)
+      val expectedEventsCodes =
+        listOf(
+          TransactionEventCode.TRANSACTION_REFUND_REQUESTED_EVENT,
+          TransactionEventCode.TRANSACTION_REFUNDED_EVENT)
+      expectedViewUpdateStatuses.forEachIndexed { idx, transactionStatusDto ->
         assertEquals(
-          TransactionEventCode.TRANSACTION_CLOSED_EVENT,
-          closedEventStoreRepositoryCaptor.value.eventCode)
+          transactionStatusDto,
+          viewArgumentCaptor.allValues[idx].status,
+          "Unexpected view status update at idx: $idx")
+      }
+      assertEquals(
+        TransactionEventCode.TRANSACTION_CLOSED_EVENT,
+        closedEventStoreRepositoryCaptor.value.eventCode)
+      assertEquals(
+        TransactionClosureData.Outcome.KO,
+        closedEventStoreRepositoryCaptor.value.data.responseOutcome)
+      expectedEventsCodes.forEachIndexed { idx, transactionEventCode ->
         assertEquals(
-          TransactionClosureData.Outcome.KO,
-          closedEventStoreRepositoryCaptor.value.data.responseOutcome)
-        expectedEventsCodes.forEachIndexed { idx, transactionEventCode ->
-          assertEquals(
-            transactionEventCode,
-            refundedEventStoreRepositoryCaptor.allValues[idx].eventCode,
-            "Unexpected event at idx: $idx")
-        }
+          transactionEventCode,
+          refundedEventStoreRepositoryCaptor.allValues[idx].eventCode,
+          "Unexpected event at idx: $idx")
       }
     }
 
@@ -866,22 +755,15 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       listOf(
         activationEvent, authorizationRequestEvent, authorizationCompleteEvent, closureErrorEvent)
 
-    val transactionDocument =
-      transactionDocument(
-        TransactionStatusDto.CLOSURE_ERROR, ZonedDateTime.parse(activationEvent.creationDate))
-
-    val uuidFromStringWorkaround =
-      "00000000-0000-0000-0000-000000000000" // FIXME: Workaround for static mocking apparently
-    // not working
-    val expectedClosureEvent =
-      TransactionClosedEvent(
-        uuidFromStringWorkaround, TransactionClosureData(TransactionClosureData.Outcome.OK))
-
     /* preconditions */
     given(checkpointer.success()).willReturn(Mono.empty())
-    given(transactionsEventStoreRepository.findByTransactionId(any())).willReturn(events.toFlux())
-    given(transactionsViewRepository.findByTransactionId(any()))
-      .willReturn(Mono.just(transactionDocument))
+    given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+      .willReturn(events.toFlux())
+    given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+      .willReturn(
+        Mono.just(
+          transactionDocument(
+            TransactionStatusDto.CLOSURE_ERROR, ZonedDateTime.parse(activationEvent.creationDate))))
     given(transactionsViewRepository.save(viewArgumentCaptor.capture())).willReturn {
       Mono.error(RuntimeException("Error updating view"))
     }
@@ -894,7 +776,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       .willReturn(Mono.just(PostePayRefundResponseDto().refundOutcome("OK")))
     given(
         nodeService.closePayment(
-          UUID.fromString(uuidFromStringWorkaround),
+          TransactionId(TRANSACTION_ID),
           ClosePaymentRequestV2Dto.OutcomeEnum.OK,
           Optional.of("authorizationCode")))
       .willReturn(
@@ -904,51 +786,44 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
     /* test */
 
-    val closureEventId = UUID.fromString(expectedClosureEvent.id)
+    StepVerifier.create(
+        transactionClosureErrorEventsConsumer.messageReceiver(
+          BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer))
+      .expectNext()
+      .verifyComplete()
 
-    Mockito.mockStatic(UUID::class.java).use { uuid ->
-      uuid.`when`<Any>(UUID::randomUUID).thenReturn(closureEventId)
-      uuid.`when`<Any> { UUID.fromString(any()) }.thenCallRealMethod()
+    /* Asserts */
+    verify(checkpointer, Mockito.times(1)).success()
+    verify(nodeService, Mockito.times(1))
+      .closePayment(
+        TransactionId(TRANSACTION_ID),
+        ClosePaymentRequestV2Dto.OutcomeEnum.OK,
+        Optional.of("authorizationCode"))
+    verify(paymentGatewayClient, times(0)).requestRefund(any())
+    verify(transactionClosedEventRepository, Mockito.times(1)).save(any())
+    verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).save(any())
+    verify(transactionsViewRepository, Mockito.times(1)).save(any())
 
-      StepVerifier.create(
-          transactionClosureErrorEventsConsumer.messageReceiver(
-            BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer))
-        .expectNext()
-        .verifyComplete()
+    verify(closureRetryService, times(1)).enqueueRetryEvent(any(), any())
 
-      /* Asserts */
-      verify(checkpointer, Mockito.times(1)).success()
-      verify(nodeService, Mockito.times(1))
-        .closePayment(
-          UUID.fromString(TRANSACTION_ID),
-          ClosePaymentRequestV2Dto.OutcomeEnum.OK,
-          Optional.of("authorizationCode"))
-      verify(paymentGatewayClient, times(0)).requestRefund(any())
-      verify(transactionClosedEventRepository, Mockito.times(1)).save(any())
-      verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).save(any())
-      verify(transactionsViewRepository, Mockito.times(1)).save(any())
+    val expectedViewUpdateStatuses =
+      listOf(
+        TransactionStatusDto.CLOSED,
+      )
 
-      verify(closureRetryService, times(1)).enqueueRetryEvent(any(), any())
-
-      val expectedViewUpdateStatuses =
-        listOf(
-          TransactionStatusDto.CLOSED,
-        )
-
-      expectedViewUpdateStatuses.forEachIndexed { idx, transactionStatusDto ->
-        assertEquals(
-          transactionStatusDto,
-          viewArgumentCaptor.allValues[idx].status,
-          "Unexpected view status update at idx: $idx")
-      }
+    expectedViewUpdateStatuses.forEachIndexed { idx, transactionStatusDto ->
       assertEquals(
-        TransactionEventCode.TRANSACTION_CLOSED_EVENT,
-        closedEventStoreRepositoryCaptor.value.eventCode)
-      assertEquals(
-        TransactionClosureData.Outcome.KO,
-        closedEventStoreRepositoryCaptor.value.data.responseOutcome)
-      assertEquals(0, retryCountCaptor.value)
+        transactionStatusDto,
+        viewArgumentCaptor.allValues[idx].status,
+        "Unexpected view status update at idx: $idx")
     }
+    assertEquals(
+      TransactionEventCode.TRANSACTION_CLOSED_EVENT,
+      closedEventStoreRepositoryCaptor.value.eventCode)
+    assertEquals(
+      TransactionClosureData.Outcome.KO,
+      closedEventStoreRepositoryCaptor.value.data.responseOutcome)
+    assertEquals(0, retryCountCaptor.value)
   }
 
   @Test
@@ -973,17 +848,11 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       transactionDocument(
         TransactionStatusDto.CLOSURE_ERROR, ZonedDateTime.parse(activationEvent.creationDate))
 
-    val uuidFromStringWorkaround =
-      "00000000-0000-0000-0000-000000000000" // FIXME: Workaround for static mocking apparently
-    // not working
-    val expectedClosureEvent =
-      TransactionClosedEvent(
-        uuidFromStringWorkaround, TransactionClosureData(TransactionClosureData.Outcome.OK))
-
     /* preconditions */
     given(checkpointer.success()).willReturn(Mono.empty())
-    given(transactionsEventStoreRepository.findByTransactionId(any())).willReturn(events.toFlux())
-    given(transactionsViewRepository.findByTransactionId(any()))
+    given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+      .willReturn(events.toFlux())
+    given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
       .willReturn(Mono.just(transactionDocument))
     given(transactionsViewRepository.save(viewArgumentCaptor.capture())).willReturn {
       Mono.error(RuntimeException("Error updating view"))
@@ -997,7 +866,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       .willReturn(Mono.just(PostePayRefundResponseDto().refundOutcome("OK")))
     given(
         nodeService.closePayment(
-          UUID.fromString(uuidFromStringWorkaround),
+          TransactionId(TRANSACTION_ID),
           ClosePaymentRequestV2Dto.OutcomeEnum.OK,
           Optional.of("authorizationCode")))
       .willReturn(
@@ -1007,51 +876,44 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
     /* test */
 
-    val closureEventId = UUID.fromString(expectedClosureEvent.id)
+    StepVerifier.create(
+        transactionClosureErrorEventsConsumer.messageReceiver(
+          BinaryData.fromObject(closureRetriedEvent).toBytes(), checkpointer))
+      .expectNext()
+      .verifyComplete()
 
-    Mockito.mockStatic(UUID::class.java).use { uuid ->
-      uuid.`when`<Any>(UUID::randomUUID).thenReturn(closureEventId)
-      uuid.`when`<Any> { UUID.fromString(any()) }.thenCallRealMethod()
+    /* Asserts */
+    verify(checkpointer, Mockito.times(1)).success()
+    verify(nodeService, Mockito.times(1))
+      .closePayment(
+        TransactionId(TRANSACTION_ID),
+        ClosePaymentRequestV2Dto.OutcomeEnum.OK,
+        Optional.of("authorizationCode"))
+    verify(paymentGatewayClient, times(0)).requestRefund(any())
+    verify(transactionClosedEventRepository, Mockito.times(1)).save(any())
+    verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).save(any())
+    verify(transactionsViewRepository, Mockito.times(1)).save(any())
 
-      StepVerifier.create(
-          transactionClosureErrorEventsConsumer.messageReceiver(
-            BinaryData.fromObject(closureRetriedEvent).toBytes(), checkpointer))
-        .expectNext()
-        .verifyComplete()
+    verify(closureRetryService, times(1)).enqueueRetryEvent(any(), any())
 
-      /* Asserts */
-      verify(checkpointer, Mockito.times(1)).success()
-      verify(nodeService, Mockito.times(1))
-        .closePayment(
-          UUID.fromString(TRANSACTION_ID),
-          ClosePaymentRequestV2Dto.OutcomeEnum.OK,
-          Optional.of("authorizationCode"))
-      verify(paymentGatewayClient, times(0)).requestRefund(any())
-      verify(transactionClosedEventRepository, Mockito.times(1)).save(any())
-      verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).save(any())
-      verify(transactionsViewRepository, Mockito.times(1)).save(any())
+    val expectedViewUpdateStatuses =
+      listOf(
+        TransactionStatusDto.CLOSED,
+      )
 
-      verify(closureRetryService, times(1)).enqueueRetryEvent(any(), any())
-
-      val expectedViewUpdateStatuses =
-        listOf(
-          TransactionStatusDto.CLOSED,
-        )
-
-      expectedViewUpdateStatuses.forEachIndexed { idx, transactionStatusDto ->
-        assertEquals(
-          transactionStatusDto,
-          viewArgumentCaptor.allValues[idx].status,
-          "Unexpected view status update at idx: $idx")
-      }
+    expectedViewUpdateStatuses.forEachIndexed { idx, transactionStatusDto ->
       assertEquals(
-        TransactionEventCode.TRANSACTION_CLOSED_EVENT,
-        closedEventStoreRepositoryCaptor.value.eventCode)
-      assertEquals(
-        TransactionClosureData.Outcome.KO,
-        closedEventStoreRepositoryCaptor.value.data.responseOutcome)
-      assertEquals(1, retryCountCaptor.value)
+        transactionStatusDto,
+        viewArgumentCaptor.allValues[idx].status,
+        "Unexpected view status update at idx: $idx")
     }
+    assertEquals(
+      TransactionEventCode.TRANSACTION_CLOSED_EVENT,
+      closedEventStoreRepositoryCaptor.value.eventCode)
+    assertEquals(
+      TransactionClosureData.Outcome.KO,
+      closedEventStoreRepositoryCaptor.value.data.responseOutcome)
+    assertEquals(1, retryCountCaptor.value)
   }
 
   @Test
@@ -1067,21 +929,21 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       listOf(
         activationEvent, authorizationRequestEvent, authorizationCompleteEvent, closureErrorEvent)
 
-    val transactionDocument =
-      transactionDocument(
-        TransactionStatusDto.CLOSURE_ERROR, ZonedDateTime.parse(activationEvent.creationDate))
-
-    val uuidFromStringWorkaround = "00000000-0000-0000-0000-000000000000"
-    // not working
-    val expectedClosureEvent =
-      TransactionClosedEvent(
-        uuidFromStringWorkaround, TransactionClosureData(TransactionClosureData.Outcome.OK))
-
     /* preconditions */
     given(checkpointer.success()).willReturn(Mono.empty())
-    given(transactionsEventStoreRepository.findByTransactionId(any())).willReturn(events.toFlux())
-    given(transactionsViewRepository.findByTransactionId(any()))
-      .willReturn(Mono.just(transactionDocument))
+    given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+      .willReturn(events.toFlux())
+    given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+      .willReturnConsecutively(
+        listOf(
+          Mono.just(
+            transactionDocument(
+              TransactionStatusDto.CLOSURE_ERROR,
+              ZonedDateTime.parse(activationEvent.creationDate))),
+          Mono.just(
+            transactionDocument(
+              TransactionStatusDto.REFUND_REQUESTED,
+              ZonedDateTime.parse(activationEvent.creationDate)))))
     given(transactionsViewRepository.save(viewArgumentCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
@@ -1094,7 +956,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       .willReturn(Mono.just(PostePayRefundResponseDto().refundOutcome("OK")))
     given(
         nodeService.closePayment(
-          UUID.fromString(uuidFromStringWorkaround),
+          TransactionId(TRANSACTION_ID),
           ClosePaymentRequestV2Dto.OutcomeEnum.OK,
           Optional.of("authorizationCode")))
       .willThrow(RuntimeException("Nodo error"))
@@ -1107,50 +969,43 @@ class TransactionClosePaymentRetryQueueConsumerTests {
             transactionId = TransactionId(UUID.randomUUID()))))
     /* test */
 
-    val closureEventId = UUID.fromString(expectedClosureEvent.id)
+    StepVerifier.create(
+        transactionClosureErrorEventsConsumer.messageReceiver(
+          BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer))
+      .expectNext()
+      .verifyComplete()
 
-    Mockito.mockStatic(UUID::class.java).use { uuid ->
-      uuid.`when`<Any>(UUID::randomUUID).thenReturn(closureEventId)
-      uuid.`when`<Any> { UUID.fromString(any()) }.thenCallRealMethod()
+    /* Asserts */
+    verify(checkpointer, Mockito.times(1)).success()
+    verify(nodeService, Mockito.times(1))
+      .closePayment(
+        TransactionId(TRANSACTION_ID),
+        ClosePaymentRequestV2Dto.OutcomeEnum.OK,
+        Optional.of("authorizationCode"))
+    verify(paymentGatewayClient, times(1)).requestRefund(any())
+    verify(transactionClosedEventRepository, Mockito.times(0)).save(any())
+    verify(transactionsRefundedEventStoreRepository, Mockito.times(2)).save(any())
+    verify(transactionsViewRepository, Mockito.times(2)).save(any())
+    verify(closureRetryService, times(1)).enqueueRetryEvent(any(), any())
 
-      StepVerifier.create(
-          transactionClosureErrorEventsConsumer.messageReceiver(
-            BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer))
-        .expectNext()
-        .verifyComplete()
+    val expectedViewUpdateStatuses =
+      listOf(TransactionStatusDto.REFUND_REQUESTED, TransactionStatusDto.REFUNDED)
+    val expectedEventsCodes =
+      listOf(
+        TransactionEventCode.TRANSACTION_REFUND_REQUESTED_EVENT,
+        TransactionEventCode.TRANSACTION_REFUNDED_EVENT)
+    expectedViewUpdateStatuses.forEachIndexed { idx, transactionStatusDto ->
+      assertEquals(
+        transactionStatusDto,
+        viewArgumentCaptor.allValues[idx].status,
+        "Unexpected view status update at idx: $idx")
+    }
 
-      /* Asserts */
-      verify(checkpointer, Mockito.times(1)).success()
-      verify(nodeService, Mockito.times(1))
-        .closePayment(
-          UUID.fromString(TRANSACTION_ID),
-          ClosePaymentRequestV2Dto.OutcomeEnum.OK,
-          Optional.of("authorizationCode"))
-      verify(paymentGatewayClient, times(1)).requestRefund(any())
-      verify(transactionClosedEventRepository, Mockito.times(0)).save(any())
-      verify(transactionsRefundedEventStoreRepository, Mockito.times(2)).save(any())
-      verify(transactionsViewRepository, Mockito.times(2)).save(any())
-      verify(closureRetryService, times(1)).enqueueRetryEvent(any(), any())
-
-      val expectedViewUpdateStatuses =
-        listOf(TransactionStatusDto.REFUND_REQUESTED, TransactionStatusDto.REFUNDED)
-      val expectedEventsCodes =
-        listOf(
-          TransactionEventCode.TRANSACTION_REFUND_REQUESTED_EVENT,
-          TransactionEventCode.TRANSACTION_REFUNDED_EVENT)
-      expectedViewUpdateStatuses.forEachIndexed { idx, transactionStatusDto ->
-        assertEquals(
-          transactionStatusDto,
-          viewArgumentCaptor.allValues[idx].status,
-          "Unexpected view status update at idx: $idx")
-      }
-
-      expectedEventsCodes.forEachIndexed { idx, transactionEventCode ->
-        assertEquals(
-          transactionEventCode,
-          refundedEventStoreRepositoryCaptor.allValues[idx].eventCode,
-          "Unexpected event at idx: $idx")
-      }
+    expectedEventsCodes.forEachIndexed { idx, transactionEventCode ->
+      assertEquals(
+        transactionEventCode,
+        refundedEventStoreRepositoryCaptor.allValues[idx].eventCode,
+        "Unexpected event at idx: $idx")
     }
   }
 
@@ -1172,16 +1027,11 @@ class TransactionClosePaymentRetryQueueConsumerTests {
         transactionDocument(
           TransactionStatusDto.CLOSURE_ERROR, ZonedDateTime.parse(activationEvent.creationDate))
 
-      val uuidFromStringWorkaround = "00000000-0000-0000-0000-000000000000"
-      // not working
-      val expectedClosureEvent =
-        TransactionClosedEvent(
-          uuidFromStringWorkaround, TransactionClosureData(TransactionClosureData.Outcome.OK))
-
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
-      given(transactionsEventStoreRepository.findByTransactionId(any())).willReturn(events.toFlux())
-      given(transactionsViewRepository.findByTransactionId(any()))
+      given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturn(events.toFlux())
+      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(Mono.just(transactionDocument))
       given(transactionsViewRepository.save(viewArgumentCaptor.capture())).willAnswer {
         Mono.just(it.arguments[0])
@@ -1196,7 +1046,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
         .willReturn(Mono.just(PostePayRefundResponseDto().refundOutcome("OK")))
       given(
           nodeService.closePayment(
-            UUID.fromString(uuidFromStringWorkaround),
+            TransactionId(TRANSACTION_ID),
             ClosePaymentRequestV2Dto.OutcomeEnum.OK,
             Optional.of("authorizationCode")))
         .willThrow(RuntimeException("Nodo error"))
@@ -1205,30 +1055,23 @@ class TransactionClosePaymentRetryQueueConsumerTests {
         .willReturn(Mono.error(RuntimeException("Error enqueuing retry event")))
       /* test */
 
-      val closureEventId = UUID.fromString(expectedClosureEvent.id)
+      StepVerifier.create(
+          transactionClosureErrorEventsConsumer.messageReceiver(
+            BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer))
+        .expectError(java.lang.RuntimeException::class.java)
+        .verify()
 
-      Mockito.mockStatic(UUID::class.java).use { uuid ->
-        uuid.`when`<Any>(UUID::randomUUID).thenReturn(closureEventId)
-        uuid.`when`<Any> { UUID.fromString(any()) }.thenCallRealMethod()
-
-        StepVerifier.create(
-            transactionClosureErrorEventsConsumer.messageReceiver(
-              BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer))
-          .expectError(java.lang.RuntimeException::class.java)
-          .verify()
-
-        /* Asserts */
-        verify(checkpointer, Mockito.times(1)).success()
-        verify(nodeService, Mockito.times(1))
-          .closePayment(
-            UUID.fromString(TRANSACTION_ID),
-            ClosePaymentRequestV2Dto.OutcomeEnum.OK,
-            Optional.of("authorizationCode"))
-        verify(paymentGatewayClient, times(0)).requestRefund(any())
-        verify(transactionClosedEventRepository, Mockito.times(0)).save(any())
-        verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).save(any())
-        verify(transactionsViewRepository, Mockito.times(0)).save(any())
-        verify(closureRetryService, times(1)).enqueueRetryEvent(any(), any())
-      }
+      /* Asserts */
+      verify(checkpointer, Mockito.times(1)).success()
+      verify(nodeService, Mockito.times(1))
+        .closePayment(
+          TransactionId(TRANSACTION_ID),
+          ClosePaymentRequestV2Dto.OutcomeEnum.OK,
+          Optional.of("authorizationCode"))
+      verify(paymentGatewayClient, times(0)).requestRefund(any())
+      verify(transactionClosedEventRepository, Mockito.times(0)).save(any())
+      verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).save(any())
+      verify(transactionsViewRepository, Mockito.times(0)).save(any())
+      verify(closureRetryService, times(1)).enqueueRetryEvent(any(), any())
     }
 }

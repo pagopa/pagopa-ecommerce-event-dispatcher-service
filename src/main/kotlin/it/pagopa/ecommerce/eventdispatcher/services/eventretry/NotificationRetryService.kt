@@ -31,7 +31,7 @@ class NotificationRetryService(
     transactionId: TransactionId,
     transactionRetriedData: TransactionRetriedData
   ): TransactionUserReceiptAddRetriedEvent =
-    TransactionUserReceiptAddRetriedEvent(transactionId.value.toString(), transactionRetriedData)
+    TransactionUserReceiptAddRetriedEvent(transactionId.value(), transactionRetriedData)
 
   override fun newTransactionStatus(): TransactionStatusDto =
     TransactionStatusDto.NOTIFICATION_ERROR

@@ -5,6 +5,7 @@ import it.pagopa.ecommerce.commons.documents.v1.TransactionActivatedEvent
 import it.pagopa.ecommerce.commons.documents.v1.TransactionAuthorizationRequestedEvent
 import it.pagopa.ecommerce.commons.documents.v1.TransactionUserCanceledEvent
 import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
+import it.pagopa.ecommerce.commons.domain.v1.TransactionId
 import it.pagopa.ecommerce.eventdispatcher.client.NodeClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.TransactionEventNotFoundException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.TransactionEventsInconsistentException
@@ -33,15 +34,14 @@ class NodeService(
   var logger: Logger = LoggerFactory.getLogger(NodeService::class.java)
 
   suspend fun closePayment(
-    transactionId: UUID,
+    transactionId: TransactionId,
     transactionOutcome: ClosePaymentRequestV2Dto.OutcomeEnum,
     authorizationCode: Optional<String>
   ): ClosePaymentResponseDto {
     val transactionActivatedEventCode = TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
-
     val activatedEvent =
       transactionsEventStoreRepository
-        .findByTransactionIdAndEventCode(transactionId.toString(), transactionActivatedEventCode)
+        .findByTransactionIdAndEventCode(transactionId.value(), transactionActivatedEventCode)
         .cast(TransactionActivatedEvent::class.java)
         .awaitSingleOrNull()
         ?: throw TransactionEventNotFoundException(transactionId, transactionActivatedEventCode)
@@ -50,14 +50,14 @@ class NodeService(
     val userCanceledEvent =
       transactionsEventStoreRepository
         .findByTransactionIdAndEventCode(
-          transactionId.toString(), TransactionEventCode.TRANSACTION_USER_CANCELED_EVENT)
+          transactionId.value(), TransactionEventCode.TRANSACTION_USER_CANCELED_EVENT)
         .cast(TransactionUserCanceledEvent::class.java)
         .awaitSingleOrNull()
 
     val authEvent =
       transactionsEventStoreRepository
         .findByTransactionIdAndEventCode(
-          transactionId.toString(), TransactionEventCode.TRANSACTION_AUTHORIZATION_REQUESTED_EVENT)
+          transactionId.value(), TransactionEventCode.TRANSACTION_AUTHORIZATION_REQUESTED_EVENT)
         .cast(TransactionAuthorizationRequestedEvent::class.java)
         .awaitSingleOrNull()
 

@@ -80,9 +80,8 @@ class RefundRetryServiceTests {
     given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
-    given(transactionsViewRepository.findByTransactionId(any())).willAnswer {
-      Mono.just(transactionDocument)
-    }
+    given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
+      .willAnswer { Mono.just(transactionDocument) }
     given(transactionsViewRepository.save(viewRepositoryCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
@@ -97,7 +96,8 @@ class RefundRetryServiceTests {
       .verifyComplete()
 
     verify(eventStoreRepository, times(1)).save(any())
-    verify(transactionsViewRepository, times(1)).findByTransactionId(any())
+    verify(transactionsViewRepository, times(1))
+      .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(1)).save(any())
     verify(refundRetryQueueAsyncClient, times(1))
       .sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull())
@@ -130,9 +130,8 @@ class RefundRetryServiceTests {
     given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
-    given(transactionsViewRepository.findByTransactionId(any())).willAnswer {
-      Mono.just(transactionDocument)
-    }
+    given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
+      .willAnswer { Mono.just(transactionDocument) }
     given(transactionsViewRepository.save(viewRepositoryCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
@@ -145,7 +144,8 @@ class RefundRetryServiceTests {
       .verifyComplete()
 
     verify(eventStoreRepository, times(1)).save(any())
-    verify(transactionsViewRepository, times(1)).findByTransactionId(any())
+    verify(transactionsViewRepository, times(1))
+      .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(1)).save(any())
     verify(refundRetryQueueAsyncClient, times(1))
       .sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull())
@@ -179,9 +179,8 @@ class RefundRetryServiceTests {
     given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
-    given(transactionsViewRepository.findByTransactionId(any())).willAnswer {
-      Mono.just(transactionDocument)
-    }
+    given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
+      .willAnswer { Mono.just(transactionDocument) }
     given(transactionsViewRepository.save(viewRepositoryCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
@@ -194,7 +193,8 @@ class RefundRetryServiceTests {
       .verify()
 
     verify(eventStoreRepository, times(0)).save(any())
-    verify(transactionsViewRepository, times(0)).findByTransactionId(any())
+    verify(transactionsViewRepository, times(0))
+      .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(0)).save(any())
     verify(refundRetryQueueAsyncClient, times(0))
       .sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull())
@@ -221,9 +221,8 @@ class RefundRetryServiceTests {
     given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
       Mono.error<TransactionEvent<Any>>(RuntimeException("Error saving event into event store"))
     }
-    given(transactionsViewRepository.findByTransactionId(any())).willAnswer {
-      Mono.just(transactionDocument)
-    }
+    given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
+      .willAnswer { Mono.just(transactionDocument) }
     given(transactionsViewRepository.save(viewRepositoryCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
@@ -236,7 +235,8 @@ class RefundRetryServiceTests {
       .verify()
 
     verify(eventStoreRepository, times(1)).save(any())
-    verify(transactionsViewRepository, times(0)).findByTransactionId(any())
+    verify(transactionsViewRepository, times(0))
+      .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(0)).save(any())
     verify(refundRetryQueueAsyncClient, times(0))
       .sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull())
@@ -261,9 +261,8 @@ class RefundRetryServiceTests {
     given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
-    given(transactionsViewRepository.findByTransactionId(any())).willAnswer {
-      Mono.error<Transaction>(RuntimeException("Error finding transaction by id"))
-    }
+    given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
+      .willAnswer { Mono.error<Transaction>(RuntimeException("Error finding transaction by id")) }
     given(transactionsViewRepository.save(viewRepositoryCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
@@ -276,7 +275,8 @@ class RefundRetryServiceTests {
       .verify()
 
     verify(eventStoreRepository, times(1)).save(any())
-    verify(transactionsViewRepository, times(1)).findByTransactionId(any())
+    verify(transactionsViewRepository, times(1))
+      .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(0)).save(any())
     verify(refundRetryQueueAsyncClient, times(0))
       .sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull())
@@ -303,9 +303,8 @@ class RefundRetryServiceTests {
     given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
-    given(transactionsViewRepository.findByTransactionId(any())).willAnswer {
-      Mono.just(transactionDocument)
-    }
+    given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
+      .willAnswer { Mono.just(transactionDocument) }
     given(transactionsViewRepository.save(viewRepositoryCaptor.capture())).willAnswer {
       Mono.error<Transaction>(RuntimeException("Error updating transaction view"))
     }
@@ -318,7 +317,8 @@ class RefundRetryServiceTests {
       .verify()
 
     verify(eventStoreRepository, times(1)).save(any())
-    verify(transactionsViewRepository, times(1)).findByTransactionId(any())
+    verify(transactionsViewRepository, times(1))
+      .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(1)).save(any())
     verify(refundRetryQueueAsyncClient, times(0))
       .sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull())
