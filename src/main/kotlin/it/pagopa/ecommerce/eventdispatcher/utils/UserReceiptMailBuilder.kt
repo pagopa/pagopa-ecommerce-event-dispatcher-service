@@ -109,8 +109,8 @@ class UserReceiptMailBuilder(@Autowired private val confidentialMailUtils: Confi
             PspTemplate(
               transactionAuthorizationRequestData.pspBusinessName,
               FeeTemplate(amountToHumanReadableString(transactionAuthorizationRequestData.fee))),
-            Optional.ofNullable(transactionAuthorizationCompletedData.rrn)
-              .orElse(transactionAuthorizationRequestData.authorizationRequestId),
+            transactionAuthorizationCompletedData.rrn
+              ?: transactionAuthorizationRequestData.authorizationRequestId,
             transactionAuthorizationCompletedData.authorizationCode,
             PaymentMethodTemplate(
               transactionAuthorizationRequestData.paymentMethodName,
