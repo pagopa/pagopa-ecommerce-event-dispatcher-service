@@ -83,7 +83,8 @@ class UserReceiptMailBuilderTest {
               dateString,
               totalAmountWithFeeString,
               PspTemplate(TransactionTestUtils.PSP_BUSINESS_NAME, FeeTemplate(feeString)),
-              baseTransaction.transactionAuthorizationRequestData.authorizationRequestId,
+              Optional.ofNullable(baseTransaction.transactionAuthorizationCompletedData.rrn)
+                .orElse(baseTransaction.transactionAuthorizationRequestData.authorizationRequestId),
               baseTransaction.transactionAuthorizationCompletedData.authorizationCode,
               PaymentMethodTemplate(
                 TransactionTestUtils.PAYMENT_METHOD_NAME,
