@@ -137,16 +137,16 @@ class UserReceiptMailBuilderTest {
         listOf<TransactionEvent<*>>(
           TransactionTestUtils.transactionActivateEvent() as TransactionEvent<*>,
           TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<*>,
-          TransactionTestUtils.transactionAuthorizationCompletedEvent(AuthorizationResultDto.OK, null)
-                  as TransactionEvent<*>,
+          TransactionTestUtils.transactionAuthorizationCompletedEvent(
+            AuthorizationResultDto.OK, null) as TransactionEvent<*>,
           TransactionTestUtils.transactionClosedEvent(TransactionClosureData.Outcome.OK)
-                  as TransactionEvent<*>,
+            as TransactionEvent<*>,
           TransactionTestUtils.transactionUserReceiptRequestedEvent(
             TransactionTestUtils.transactionUserReceiptData(TransactionUserReceiptData.Outcome.OK)),
         )
       val baseTransaction =
         TransactionTestUtils.reduceEvents(*events.toTypedArray())
-                as BaseTransactionWithRequestedUserReceipt
+          as BaseTransactionWithRequestedUserReceipt
       val totalAmountWithFeeString =
         userReceiptMailBuilder.amountToHumanReadableString(
           baseTransaction.paymentNotices
