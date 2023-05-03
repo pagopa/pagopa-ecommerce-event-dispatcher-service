@@ -1,9 +1,9 @@
 package it.pagopa.ecommerce.eventdispatcher.exceptions
 
 import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
-import java.util.*
+import it.pagopa.ecommerce.commons.domain.v1.TransactionId
 
 class TransactionEventNotFoundException(
-  transactionId: UUID,
+  transactionId: TransactionId,
   transactionEventCode: TransactionEventCode
 ) : RuntimeException("Event $transactionEventCode not found for transaction $transactionId")

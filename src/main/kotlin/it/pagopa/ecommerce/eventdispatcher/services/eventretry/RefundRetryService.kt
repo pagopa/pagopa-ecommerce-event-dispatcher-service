@@ -31,7 +31,7 @@ class RefundRetryService(
     transactionId: TransactionId,
     transactionRetriedData: TransactionRetriedData
   ): TransactionRefundRetriedEvent =
-    TransactionRefundRetriedEvent(transactionId.value.toString(), transactionRetriedData)
+    TransactionRefundRetriedEvent(transactionId.value(), transactionRetriedData)
 
   override fun newTransactionStatus(): TransactionStatusDto = TransactionStatusDto.REFUND_ERROR
 }

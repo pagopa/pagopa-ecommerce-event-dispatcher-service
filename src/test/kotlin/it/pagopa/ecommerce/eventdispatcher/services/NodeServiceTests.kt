@@ -2,6 +2,7 @@ package it.pagopa.ecommerce.eventdispatcher.services
 
 import it.pagopa.ecommerce.commons.documents.v1.TransactionEvent
 import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
+import it.pagopa.ecommerce.commons.domain.v1.TransactionId
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils.*
 import it.pagopa.ecommerce.eventdispatcher.client.NodeClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.TransactionEventNotFoundException
@@ -48,25 +49,23 @@ class NodeServiceTests {
       val authEvent = transactionAuthorizationRequestedEvent()
 
       val transactionId = activatedEvent.transactionId
-
       val closePaymentResponse =
         ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
 
       /* preconditions */
       given(
           transactionsEventStoreRepository.findByTransactionIdAndEventCode(
-            transactionId.toString(), TransactionEventCode.TRANSACTION_ACTIVATED_EVENT))
+            transactionId, TransactionEventCode.TRANSACTION_ACTIVATED_EVENT))
         .willReturn(Mono.just(activatedEvent as TransactionEvent<Any>))
 
       given(
           transactionsEventStoreRepository.findByTransactionIdAndEventCode(
-            transactionId.toString(), TransactionEventCode.TRANSACTION_USER_CANCELED_EVENT))
+            transactionId, TransactionEventCode.TRANSACTION_USER_CANCELED_EVENT))
         .willReturn(Mono.empty())
 
       given(
           transactionsEventStoreRepository.findByTransactionIdAndEventCode(
-            transactionId.toString(),
-            TransactionEventCode.TRANSACTION_AUTHORIZATION_REQUESTED_EVENT))
+            transactionId, TransactionEventCode.TRANSACTION_AUTHORIZATION_REQUESTED_EVENT))
         .willReturn(Mono.just(authEvent as TransactionEvent<Any>))
 
       given(nodeClient.closePayment(any())).willReturn(Mono.just(closePaymentResponse))
@@ -75,7 +74,7 @@ class NodeServiceTests {
       assertEquals(
         closePaymentResponse,
         nodeService.closePayment(
-          UUID.fromString(transactionId), transactionOutcome, Optional.of("authorizationCode")))
+          TransactionId(transactionId), transactionOutcome, Optional.of("authorizationCode")))
     }
 
   @Test
@@ -114,13 +113,13 @@ class NodeServiceTests {
       assertEquals(
         closePaymentResponse,
         nodeService.closePayment(
-          UUID.fromString(transactionId), transactionOutcome, Optional.empty()))
+          TransactionId(transactionId), transactionOutcome, Optional.empty()))
     }
 
   @Test
   fun `closePayment throws TransactionEventNotFoundException on transaction event not found`() =
     runTest {
-      val transactionId = UUID.randomUUID()
+      val transactionId = TRANSACTION_ID
       val transactionOutcome = OutcomeEnum.OK
 
       /* preconditions */
@@ -144,14 +143,14 @@ class NodeServiceTests {
 
       assertThrows<TransactionEventNotFoundException> {
         nodeService.closePayment(
-          transactionId, transactionOutcome, Optional.of("authorizationCode"))
+          TransactionId(transactionId), transactionOutcome, Optional.of("authorizationCode"))
       }
     }
 
   @Test
   fun `closePayment throws TransactionPreconditionsNotMatchedException on transaction event auth requested and user canceled request not found`() =
     runTest {
-      val transactionId = UUID.randomUUID()
+      val transactionId = TRANSACTION_ID
       val transactionOutcome = OutcomeEnum.OK
 
       val activatedEvent = transactionActivateEvent()
@@ -177,14 +176,14 @@ class NodeServiceTests {
 
       assertThrows<TransactionEventsPreconditionsNotMatchedException> {
         nodeService.closePayment(
-          transactionId, transactionOutcome, Optional.of("authorizationCode"))
+          TransactionId(transactionId), transactionOutcome, Optional.of("authorizationCode"))
       }
     }
 
   @Test
   fun `closePayment throws TransactionEventsInconsistentException on transaction event auth requested and user canceled request both found`() =
     runTest {
-      val transactionId = UUID.randomUUID()
+      val transactionId = TRANSACTION_ID
       val transactionOutcome = OutcomeEnum.OK
 
       val activatedEvent = transactionActivateEvent()
@@ -212,7 +211,7 @@ class NodeServiceTests {
 
       assertThrows<TransactionEventsInconsistentException> {
         nodeService.closePayment(
-          transactionId, transactionOutcome, Optional.of("authorizationCode"))
+          TransactionId(transactionId), transactionOutcome, Optional.of("authorizationCode"))
       }
     }
 
@@ -251,7 +250,7 @@ class NodeServiceTests {
     assertEquals(
       closePaymentResponse,
       nodeService.closePayment(
-        UUID.fromString(transactionId), transactionOutcome, Optional.of("authorizationCode")))
+        TransactionId(transactionId), transactionOutcome, Optional.of("authorizationCode")))
     val closePaymentRequestV2Dto = closePaymentRequestCaptor.value
     val expectedTimestamp =
       closePaymentRequestV2Dto.timestampOperation!!

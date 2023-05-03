@@ -67,7 +67,7 @@ class TransactionNotificationsQueueConsumer(
     val notificationResendPipeline =
       baseTransaction
         .flatMap {
-          logger.info("Status for transaction ${it.transactionId.value}: ${it.status}")
+          logger.info("Status for transaction ${it.transactionId.value()}: ${it.status}")
 
           if (it.status != TransactionStatusDto.NOTIFICATION_REQUESTED) {
             Mono.error(

@@ -74,7 +74,7 @@ class TransactionsRefundQueueConsumer(
             .flatMap { Mono.empty() }
         }
         .doOnNext {
-          logger.info("Handling refund request for transaction with id ${it.transactionId.value}")
+          logger.info("Handling refund request for transaction with id ${it.transactionId.value()}")
         }
         .cast(BaseTransactionWithRefundRequested::class.java)
         .flatMap { tx ->

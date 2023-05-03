@@ -8,4 +8,4 @@ class NoRetryAttemptsLeftException(
   val eventCode: TransactionEventCode
 ) :
   RuntimeException(
-    "No attempts left for retry event $eventCode for transaction id: ${transactionId.value}")
+    "No attempts left for retry event $eventCode for transaction id: ${transactionId.value()}")

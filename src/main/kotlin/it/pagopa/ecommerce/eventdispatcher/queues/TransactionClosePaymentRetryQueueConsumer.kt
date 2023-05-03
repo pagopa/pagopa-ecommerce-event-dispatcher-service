@@ -89,7 +89,7 @@ class TransactionClosePaymentRetryQueueConsumer(
     val closurePipeline =
       baseTransaction
         .flatMap {
-          logger.info("Status for transaction ${it.transactionId.value}: ${it.status}")
+          logger.info("Status for transaction ${it.transactionId.value()}: ${it.status}")
 
           if (it.status != TransactionStatusDto.CLOSURE_ERROR) {
             Mono.error(
@@ -149,9 +149,7 @@ class TransactionClosePaymentRetryQueueConsumer(
           val closureOutcome = closureOutcomeAndAuthorizationCode._1()
           val authorizationCode = closureOutcomeAndAuthorizationCode._2()
 
-          mono {
-              nodeService.closePayment(tx.transactionId.value, closureOutcome, authorizationCode)
-            }
+          mono { nodeService.closePayment(tx.transactionId, closureOutcome, authorizationCode) }
             .flatMap { closePaymentResponse ->
               updateTransactionStatus(
                 transaction = tx,
@@ -274,12 +272,12 @@ class TransactionClosePaymentRetryQueueConsumer(
       if (!wasAuthorized && !canceledByUser) {
         Either.left(
           TransactionClosureFailedEvent(
-            transaction.transactionId.value.toString(), TransactionClosureData(outcome)))
+            transaction.transactionId.value(), TransactionClosureData(outcome)))
       } else {
 
         Either.right(
           TransactionClosedEvent(
-            transaction.transactionId.value.toString(), TransactionClosureData(outcome)))
+            transaction.transactionId.value(), TransactionClosureData(outcome)))
       }
 
     /*
@@ -295,10 +293,11 @@ class TransactionClosePaymentRetryQueueConsumer(
           ClosePaymentRequestV2Dto.OutcomeEnum.KO -> TransactionStatusDto.UNAUTHORIZED
         }
       }
-    logger.info("Updating transaction {} status to {}", transaction.transactionId.value, newStatus)
+    logger.info(
+      "Updating transaction {} status to {}", transaction.transactionId.value(), newStatus)
 
     val transactionUpdate =
-      transactionsViewRepository.findByTransactionId(transaction.transactionId.value.toString())
+      transactionsViewRepository.findByTransactionId(transaction.transactionId.value())
 
     val saveEvent =
       event.bimap(
