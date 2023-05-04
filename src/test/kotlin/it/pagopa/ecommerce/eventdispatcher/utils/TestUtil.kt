@@ -1,6 +1,7 @@
 package it.pagopa.ecommerce.eventdispatcher.utils
 
 import it.pagopa.ecommerce.commons.documents.v1.TransactionAuthorizationRequestData
+import it.pagopa.ecommerce.commons.v1.TransactionTestUtils
 import it.pagopa.generated.ecommerce.gateway.v1.dto.PostePayRefundResponseDto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import java.time.OffsetDateTime
@@ -23,7 +24,8 @@ fun getMockedClosePaymentRequest(
       "requestId",
       "pspBusinessName",
       "authorizationRequestId",
-      TransactionAuthorizationRequestData.PaymentGateway.VPOS)
+      TransactionAuthorizationRequestData.PaymentGateway.VPOS,
+      TransactionTestUtils.LOGO_URI)
 
   return ClosePaymentRequestV2Dto().apply {
     paymentTokens = listOf(UUID.randomUUID().toString())

@@ -114,7 +114,7 @@ class UserReceiptMailBuilder(@Autowired private val confidentialMailUtils: Confi
             transactionAuthorizationCompletedData.authorizationCode,
             PaymentMethodTemplate(
               transactionAuthorizationRequestData.paymentMethodName,
-              transactionUserReceiptData.paymentMethodLogoUri.toString(),
+              transactionAuthorizationRequestData.logo.toString(),
               null,
               false)),
           UserTemplate(null, emailAddress),
