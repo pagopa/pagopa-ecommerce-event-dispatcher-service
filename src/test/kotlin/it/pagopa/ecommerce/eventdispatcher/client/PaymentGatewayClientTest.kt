@@ -211,7 +211,7 @@ class PaymentGatewayClientTest {
     // test
     val exc =
       assertThrows(Exception::class.java) {
-        paymentGatewayClient.requestVPosRefund(testUIID).block()
+        paymentGatewayClient.requestXPayRefund(testUIID).block()
       }
 
     assertInstanceOf(Exception::class.java, exc)
