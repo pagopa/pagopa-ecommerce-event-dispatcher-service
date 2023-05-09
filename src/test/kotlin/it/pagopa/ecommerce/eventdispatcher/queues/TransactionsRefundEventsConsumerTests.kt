@@ -21,7 +21,6 @@ import kotlinx.coroutines.reactor.mono
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.ArgumentCaptor
 import org.mockito.Captor
@@ -305,7 +304,7 @@ class TransactionsRefundEventsConsumerTests {
     val refundRequestedEvent =
       TransactionRefundRequestedEvent(
         TRANSACTION_ID, TransactionRefundedData(TransactionStatusDto.REFUND_REQUESTED))
-              as TransactionEvent<Any>
+        as TransactionEvent<Any>
 
     val gatewayClientResponse =
       XPayRefundResponse200Dto().apply { status = XPayRefundResponse200Dto.StatusEnum.CREATED }
@@ -338,8 +337,8 @@ class TransactionsRefundEventsConsumerTests {
     /* test */
 
     StepVerifier.create(
-      transactionRefundedEventsConsumer.messageReceiver(
-        BinaryData.fromObject(refundRequestedEvent).toBytes(), checkpointer))
+        transactionRefundedEventsConsumer.messageReceiver(
+          BinaryData.fromObject(refundRequestedEvent).toBytes(), checkpointer))
       .expectNext()
       .verifyComplete()
 
