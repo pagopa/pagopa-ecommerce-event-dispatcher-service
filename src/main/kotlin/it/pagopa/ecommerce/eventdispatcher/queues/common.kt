@@ -11,6 +11,10 @@ import it.pagopa.ecommerce.eventdispatcher.queues.QueueCommonsLogger.logger
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryService
+import it.pagopa.generated.ecommerce.gateway.v1.dto.PostePayRefundResponseDto
+import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
+import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto.StatusEnum
+import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
 import java.util.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -136,23 +140,35 @@ fun refundTransaction(
       val authorizationRequestId =
         transaction.transactionAuthorizationRequestData.authorizationRequestId
 
-      paymentGatewayClient.requestRefund(UUID.fromString(authorizationRequestId)).map {
-        refundResponse ->
-        Pair(refundResponse, transaction)
+      when(transaction.transactionAuthorizationRequestData.paymentGateway){
+        TransactionAuthorizationRequestData.PaymentGateway.XPAY ->
+          paymentGatewayClient.requestXPayRefund(UUID.fromString(authorizationRequestId)).map {
+            refundResponse ->
+          Pair(refundResponse, transaction)
+        }
+          TransactionAuthorizationRequestData.PaymentGateway.VPOS ->
+            paymentGatewayClient.requestVPosRefund(UUID.fromString(authorizationRequestId)).map {
+                refundResponse ->
+              Pair(refundResponse, transaction)
+            }
+          TransactionAuthorizationRequestData.PaymentGateway.POSTEPAY ->
+            paymentGatewayClient.requestPostepayRefund(UUID.fromString(authorizationRequestId)).map {
+              refundResponse ->
+            Pair(refundResponse, transaction)
+          }
       }
     }
     .flatMap {
       val (refundResponse, transaction) = it
-      logger.info(
-        "Transaction requestRefund for transaction ${transaction.transactionId} with outcome ${refundResponse.refundOutcome}")
-      when (refundResponse.refundOutcome) {
-        "OK" ->
-          updateTransactionToRefunded(
-            transaction, transactionsEventStoreRepository, transactionsViewRepository)
-        else ->
-          Mono.error(
-            RuntimeException(
-              "Refund error for transaction ${transaction.transactionId} with outcome  ${refundResponse.refundOutcome}"))
+
+      if(refundResponse is VposDeleteResponseDto) {
+        return@flatMap handleRefundResponse(transaction, refundResponse, transactionsEventStoreRepository, transactionsViewRepository)
+      } else if (refundResponse is XPayRefundResponse200Dto){
+        return@flatMap handleRefundResponse(transaction, refundResponse, transactionsEventStoreRepository, transactionsViewRepository)
+      }else {
+        return@flatMap Mono.error(
+          RuntimeException(
+            "Refund error for transaction ${transaction.transactionId}"))
       }
     }
     .onErrorResume { exception ->
@@ -168,6 +184,46 @@ fun refundTransaction(
         .flatMap { refundRetryService.enqueueRetryEvent(it, retryCount) }
         .thenReturn(tx)
     }
+}
+
+fun handleRefundResponse(
+  transaction: BaseTransactionWithRequestedAuthorization,
+  refundResponse: VposDeleteResponseDto,
+  transactionsEventStoreRepository: TransactionsEventStoreRepository<TransactionRefundedData>,
+  transactionsViewRepository: TransactionsViewRepository
+): Mono<BaseTransaction> {
+  logger.info(
+    "Transaction requestRefund for transaction ${transaction.transactionId} transaction status ${refundResponse.status}"
+  )
+
+  if (refundResponse.status.equals(StatusEnum.CANCELLED)){
+    return updateTransactionToRefunded(
+      transaction, transactionsEventStoreRepository, transactionsViewRepository)
+  } else {
+    return Mono.error(
+      RuntimeException(
+        "Refund error for transaction ${transaction.transactionId} transaction status ${refundResponse.status}"))
+  }
+}
+
+fun handleRefundResponse(
+  transaction: BaseTransactionWithRequestedAuthorization,
+  refundResponse: XPayRefundResponse200Dto,
+  transactionsEventStoreRepository: TransactionsEventStoreRepository<TransactionRefundedData>,
+  transactionsViewRepository: TransactionsViewRepository
+): Mono<BaseTransaction> {
+  logger.info(
+    "Transaction requestRefund for transaction ${transaction.transactionId} transaction status ${refundResponse.status}"
+  )
+
+  if (refundResponse.status.equals(XPayRefundResponse200Dto.StatusEnum.CANCELLED)){
+    return updateTransactionToRefunded(
+      transaction, transactionsEventStoreRepository, transactionsViewRepository)
+  } else {
+    return Mono.error(
+      RuntimeException(
+        "Refund error for transaction ${transaction.transactionId} transaction status ${refundResponse.status}"))
+  }
 }
 
 fun isTransactionRefundable(tx: BaseTransaction): Boolean {
