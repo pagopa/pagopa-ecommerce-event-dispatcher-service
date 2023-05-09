@@ -13,7 +13,7 @@ import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryService
-import it.pagopa.generated.ecommerce.gateway.v1.dto.PostePayRefundResponseDto
+import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import java.time.ZonedDateTime
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
@@ -179,8 +179,8 @@ class TransactionExpirationQueueConsumerTests {
       transactionDocument(
         TransactionStatusDto.EXPIRED, ZonedDateTime.parse(activatedEvent.creationDate))
 
-    val gatewayClientResponse = PostePayRefundResponseDto()
-    gatewayClientResponse.refundOutcome = "OK"
+    val gatewayClientResponse = VposDeleteResponseDto()
+    gatewayClientResponse.status(VposDeleteResponseDto.StatusEnum.CANCELLED)
 
     /* preconditions */
     given(checkpointer.success()).willReturn(Mono.empty())
@@ -196,7 +196,8 @@ class TransactionExpirationQueueConsumerTests {
     given(transactionsExpiredEventStoreRepository.save(any())).willReturn(Mono.just(expiredEvent))
     given(transactionsRefundedEventStoreRepository.save(any())).willReturn(Mono.just(refundedEvent))
     given(transactionsViewRepository.save(any())).willReturn(Mono.just(transaction))
-    given(paymentGatewayClient.requestRefund(any())).willReturn(Mono.just(gatewayClientResponse))
+    given(paymentGatewayClient.requestVPosRefund(any()))
+      .willReturn(Mono.just(gatewayClientResponse))
     given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
       .willReturn(
         Mono.just(
@@ -211,7 +212,7 @@ class TransactionExpirationQueueConsumerTests {
 
     /* Asserts */
     verify(checkpointer, times(1)).success()
-    verify(paymentGatewayClient, times(1)).requestRefund(any())
+    verify(paymentGatewayClient, times(1)).requestVPosRefund(any())
   }
 
   @Test
@@ -254,7 +255,7 @@ class TransactionExpirationQueueConsumerTests {
 
     /* Asserts */
     verify(checkpointer, times(1)).success()
-    verify(paymentGatewayClient, times(0)).requestRefund(any())
+    verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
   }
 
   @Test
@@ -275,8 +276,8 @@ class TransactionExpirationQueueConsumerTests {
     val refundedEvent =
       transactionRefundedEvent(transactionActivated(ZonedDateTime.now().toString()))
 
-    val gatewayClientResponse = PostePayRefundResponseDto()
-    gatewayClientResponse.refundOutcome = "KO"
+    val gatewayClientResponse = VposDeleteResponseDto()
+    gatewayClientResponse.status(VposDeleteResponseDto.StatusEnum.CREATED)
 
     /* preconditions */
     given(checkpointer.success()).willReturn(Mono.empty())
@@ -323,8 +324,8 @@ class TransactionExpirationQueueConsumerTests {
     val refundedEvent =
       transactionRefundedEvent(transactionActivated(ZonedDateTime.now().toString()))
 
-    val gatewayClientResponse = PostePayRefundResponseDto()
-    gatewayClientResponse.refundOutcome = "KO"
+    val gatewayClientResponse = VposDeleteResponseDto()
+    gatewayClientResponse.status(VposDeleteResponseDto.StatusEnum.CREATED)
 
     /* preconditions */
     given(checkpointer.success()).willReturn(Mono.empty())
@@ -370,8 +371,8 @@ class TransactionExpirationQueueConsumerTests {
       val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
       EmptyTransaction().applyEvent(activatedEvent).applyEvent(authorizationRequestedEvent)
 
-      val gatewayClientResponse = PostePayRefundResponseDto()
-      gatewayClientResponse.refundOutcome = "KO"
+      val gatewayClientResponse = VposDeleteResponseDto()
+      gatewayClientResponse.status(VposDeleteResponseDto.StatusEnum.CREATED)
 
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
@@ -395,7 +396,8 @@ class TransactionExpirationQueueConsumerTests {
       given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
         Mono.just(it.arguments[0])
       }
-      given(paymentGatewayClient.requestRefund(any())).willReturn(Mono.just(gatewayClientResponse))
+      given(paymentGatewayClient.requestVPosRefund(any()))
+        .willReturn(Mono.just(gatewayClientResponse))
       given(refundRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture()))
         .willReturn(Mono.empty())
 
@@ -420,7 +422,7 @@ class TransactionExpirationQueueConsumerTests {
       /* Asserts */
       verify(checkpointer, times(1)).success()
       verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
-      verify(paymentGatewayClient, times(1)).requestRefund(any())
+      verify(paymentGatewayClient, times(1)).requestVPosRefund(any())
       verify(transactionsRefundedEventStoreRepository, times(2)).save(any())
       verify(transactionsViewRepository, times(3)).save(any())
       assertEquals(0, retryCountCaptor.value)
@@ -469,8 +471,8 @@ class TransactionExpirationQueueConsumerTests {
       val activatedEvent = transactionActivateEvent()
       val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
 
-      val gatewayClientResponse = PostePayRefundResponseDto()
-      gatewayClientResponse.refundOutcome = "OK"
+      val gatewayClientResponse = VposDeleteResponseDto()
+      gatewayClientResponse.status(VposDeleteResponseDto.StatusEnum.CANCELLED)
 
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
@@ -494,7 +496,8 @@ class TransactionExpirationQueueConsumerTests {
       given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
         Mono.just(it.arguments[0])
       }
-      given(paymentGatewayClient.requestRefund(any())).willReturn(Mono.just(gatewayClientResponse))
+      given(paymentGatewayClient.requestVPosRefund(any()))
+        .willReturn(Mono.just(gatewayClientResponse))
 
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturnConsecutively(
@@ -517,7 +520,7 @@ class TransactionExpirationQueueConsumerTests {
       /* Asserts */
       verify(checkpointer, times(1)).success()
       verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
-      verify(paymentGatewayClient, times(1)).requestRefund(any())
+      verify(paymentGatewayClient, times(1)).requestVPosRefund(any())
       verify(transactionsRefundedEventStoreRepository, times(2)).save(any())
       verify(transactionsViewRepository, times(3)).save(any())
       /*
@@ -564,8 +567,8 @@ class TransactionExpirationQueueConsumerTests {
 
       val activatedEvent = transactionActivateEvent()
 
-      val gatewayClientResponse = PostePayRefundResponseDto()
-      gatewayClientResponse.refundOutcome = "OK"
+      val gatewayClientResponse = VposDeleteResponseDto()
+      gatewayClientResponse.status(VposDeleteResponseDto.StatusEnum.CANCELLED)
 
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
@@ -586,7 +589,8 @@ class TransactionExpirationQueueConsumerTests {
       given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
         Mono.just(it.arguments[0])
       }
-      given(paymentGatewayClient.requestRefund(any())).willReturn(Mono.just(gatewayClientResponse))
+      given(paymentGatewayClient.requestVPosRefund(any()))
+        .willReturn(Mono.just(gatewayClientResponse))
 
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(
@@ -603,7 +607,7 @@ class TransactionExpirationQueueConsumerTests {
       /* Asserts */
       verify(checkpointer, times(1)).success()
       verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
-      verify(paymentGatewayClient, times(0)).requestRefund(any())
+      verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
       verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
       verify(transactionsViewRepository, times(1)).save(any())
       verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
@@ -633,8 +637,8 @@ class TransactionExpirationQueueConsumerTests {
       val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
       val expiredEvent =
         transactionExpiredEvent(reduceEvents(activatedEvent, authorizationRequestedEvent))
-      val gatewayClientResponse = PostePayRefundResponseDto()
-      gatewayClientResponse.refundOutcome = "OK"
+      val gatewayClientResponse = VposDeleteResponseDto()
+      gatewayClientResponse.status(VposDeleteResponseDto.StatusEnum.CANCELLED)
 
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
@@ -659,7 +663,8 @@ class TransactionExpirationQueueConsumerTests {
       given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
         Mono.just(it.arguments[0])
       }
-      given(paymentGatewayClient.requestRefund(any())).willReturn(Mono.just(gatewayClientResponse))
+      given(paymentGatewayClient.requestVPosRefund(any()))
+        .willReturn(Mono.just(gatewayClientResponse))
 
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturnConsecutively(
@@ -679,7 +684,7 @@ class TransactionExpirationQueueConsumerTests {
       /* Asserts */
       verify(checkpointer, times(1)).success()
       verify(transactionsExpiredEventStoreRepository, times(0)).save(any())
-      verify(paymentGatewayClient, times(1)).requestRefund(any())
+      verify(paymentGatewayClient, times(1)).requestVPosRefund(any())
       verify(transactionsRefundedEventStoreRepository, times(2)).save(any())
       verify(transactionsViewRepository, times(2)).save(any())
       /*
@@ -739,7 +744,8 @@ class TransactionExpirationQueueConsumerTests {
           userReceiptRequestedEvent,
           addUserReceiptEvent))
 
-    val gatewayClientResponse = PostePayRefundResponseDto().apply { refundOutcome = "OK" }
+    val gatewayClientResponse = VposDeleteResponseDto()
+    gatewayClientResponse.status(VposDeleteResponseDto.StatusEnum.CANCELLED)
 
     /* preconditions */
     given(checkpointer.success()).willReturn(Mono.empty())
@@ -767,7 +773,8 @@ class TransactionExpirationQueueConsumerTests {
     given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
-    given(paymentGatewayClient.requestRefund(any())).willReturn(Mono.just(gatewayClientResponse))
+    given(paymentGatewayClient.requestVPosRefund(any()))
+      .willReturn(Mono.just(gatewayClientResponse))
 
     given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
       .willReturnConsecutively(
@@ -787,7 +794,7 @@ class TransactionExpirationQueueConsumerTests {
     /* Asserts */
     verify(checkpointer, times(1)).success()
     verify(transactionsExpiredEventStoreRepository, times(0)).save(any())
-    verify(paymentGatewayClient, times(1)).requestRefund(any())
+    verify(paymentGatewayClient, times(1)).requestVPosRefund(any())
     verify(transactionsRefundedEventStoreRepository, times(2)).save(any())
     verify(transactionsViewRepository, times(2)).save(any())
     /*
@@ -837,7 +844,8 @@ class TransactionExpirationQueueConsumerTests {
         transactionUserReceiptRequestedEvent(transactionUserReceiptData)
       val userReceiptErrorEvent = transactionUserReceiptAddErrorEvent(transactionUserReceiptData)
 
-      val gatewayClientResponse = PostePayRefundResponseDto().apply { refundOutcome = "OK" }
+      val gatewayClientResponse = VposDeleteResponseDto()
+      gatewayClientResponse.status(VposDeleteResponseDto.StatusEnum.CANCELLED)
 
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
@@ -873,7 +881,8 @@ class TransactionExpirationQueueConsumerTests {
       given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
         Mono.just(it.arguments[0])
       }
-      given(paymentGatewayClient.requestRefund(any())).willReturn(Mono.just(gatewayClientResponse))
+      given(paymentGatewayClient.requestVPosRefund(any()))
+        .willReturn(Mono.just(gatewayClientResponse))
 
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturnConsecutively(
@@ -895,7 +904,7 @@ class TransactionExpirationQueueConsumerTests {
       /* Asserts */
       verify(checkpointer, times(1)).success()
       verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
-      verify(paymentGatewayClient, times(1)).requestRefund(any())
+      verify(paymentGatewayClient, times(1)).requestVPosRefund(any())
       verify(transactionsRefundedEventStoreRepository, times(2)).save(any())
       verify(transactionsViewRepository, times(3)).save(any())
       /*
@@ -952,7 +961,8 @@ class TransactionExpirationQueueConsumerTests {
         transactionUserReceiptRequestedEvent(transactionUserReceiptData)
       val userReceiptErrorEvent = transactionUserReceiptAddErrorEvent(transactionUserReceiptData)
 
-      val gatewayClientResponse = PostePayRefundResponseDto().apply { refundOutcome = "OK" }
+      val gatewayClientResponse = VposDeleteResponseDto()
+      gatewayClientResponse.status(VposDeleteResponseDto.StatusEnum.CANCELLED)
 
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
@@ -980,7 +990,8 @@ class TransactionExpirationQueueConsumerTests {
       given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
         Mono.just(it.arguments[0])
       }
-      given(paymentGatewayClient.requestRefund(any())).willReturn(Mono.just(gatewayClientResponse))
+      given(paymentGatewayClient.requestVPosRefund(any()))
+        .willReturn(Mono.just(gatewayClientResponse))
 
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturnConsecutively(
@@ -1002,7 +1013,7 @@ class TransactionExpirationQueueConsumerTests {
       /* Asserts */
       verify(checkpointer, times(1)).success()
       verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
-      verify(paymentGatewayClient, times(0)).requestRefund(any())
+      verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
       verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
       verify(transactionsViewRepository, times(1)).save(any())
       /*
@@ -1045,7 +1056,8 @@ class TransactionExpirationQueueConsumerTests {
           closedEvent,
           userReceiptRequestedEvent,
           userReceiptErrorEvent))
-    val gatewayClientResponse = PostePayRefundResponseDto().apply { refundOutcome = "OK" }
+    val gatewayClientResponse = VposDeleteResponseDto()
+    gatewayClientResponse.status(VposDeleteResponseDto.StatusEnum.CANCELLED)
 
     /* preconditions */
     given(checkpointer.success()).willReturn(Mono.empty())
@@ -1072,7 +1084,8 @@ class TransactionExpirationQueueConsumerTests {
     given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
-    given(paymentGatewayClient.requestRefund(any())).willReturn(Mono.just(gatewayClientResponse))
+    given(paymentGatewayClient.requestVPosRefund(any()))
+      .willReturn(Mono.just(gatewayClientResponse))
 
     /* test */
     StepVerifier.create(
@@ -1085,7 +1098,7 @@ class TransactionExpirationQueueConsumerTests {
     /* Asserts */
     verify(checkpointer, times(1)).success()
     verify(transactionsExpiredEventStoreRepository, times(0)).save(any())
-    verify(paymentGatewayClient, times(0)).requestRefund(any())
+    verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
     verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
     verify(transactionsViewRepository, times(0)).save(any())
   }
@@ -1129,7 +1142,8 @@ class TransactionExpirationQueueConsumerTests {
           userReceiptRequestedEvent,
           userReceiptErrorEvent,
           refundRequestedEvent))
-    val gatewayClientResponse = PostePayRefundResponseDto().apply { refundOutcome = "OK" }
+    val gatewayClientResponse = VposDeleteResponseDto()
+    gatewayClientResponse.status(VposDeleteResponseDto.StatusEnum.CANCELLED)
 
     /* preconditions */
     given(checkpointer.success()).willReturn(Mono.empty())
@@ -1157,7 +1171,8 @@ class TransactionExpirationQueueConsumerTests {
     given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
-    given(paymentGatewayClient.requestRefund(any())).willReturn(Mono.just(gatewayClientResponse))
+    given(paymentGatewayClient.requestVPosRefund(any()))
+      .willReturn(Mono.just(gatewayClientResponse))
 
     /* test */
     StepVerifier.create(
@@ -1170,7 +1185,7 @@ class TransactionExpirationQueueConsumerTests {
     /* Asserts */
     verify(checkpointer, times(1)).success()
     verify(transactionsExpiredEventStoreRepository, times(0)).save(any())
-    verify(paymentGatewayClient, times(0)).requestRefund(any())
+    verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
     verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
     verify(transactionsViewRepository, times(0)).save(any())
   }

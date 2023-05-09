@@ -18,7 +18,7 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewReposito
 import it.pagopa.ecommerce.eventdispatcher.services.NodeService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.ClosureRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryService
-import it.pagopa.generated.ecommerce.gateway.v1.dto.PostePayRefundResponseDto
+import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
 import java.time.ZonedDateTime
@@ -145,7 +145,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
           any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
       // mocking
       verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransaction)
-      verify(paymentGatewayClient, times(0)).requestRefund(any())
+      verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
       verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any())
       assertEquals(TransactionStatusDto.CLOSED, viewArgumentCaptor.value.status)
       assertEquals(
@@ -218,7 +218,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
           any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
       // mocking
       verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransaction)
-      verify(paymentGatewayClient, times(0)).requestRefund(any())
+      verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
       verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any())
       assertEquals(TransactionStatusDto.UNAUTHORIZED, viewArgumentCaptor.value.status)
       assertEquals(
@@ -291,7 +291,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
           any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
       // mocking
       verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransaction)
-      verify(paymentGatewayClient, times(0)).requestRefund(any())
+      verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
       verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any())
       assertEquals(TransactionStatusDto.UNAUTHORIZED, viewArgumentCaptor.value.status)
       assertEquals(
@@ -356,7 +356,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
           any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
       // mocking
       verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransaction)
-      verify(paymentGatewayClient, times(0)).requestRefund(any())
+      verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
       verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any())
       assertEquals(TransactionStatusDto.CANCELED, viewArgumentCaptor.value.status)
       assertEquals(
@@ -421,7 +421,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
           any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
       // mocking
       verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransaction)
-      verify(paymentGatewayClient, times(0)).requestRefund(any())
+      verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
       verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any())
       assertEquals(TransactionStatusDto.CANCELED, viewArgumentCaptor.value.status)
       assertEquals(
@@ -496,7 +496,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
           any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
       // mocking
       verify(transactionsViewRepository, Mockito.times(0)).save(expectedUpdatedTransaction)
-      verify(paymentGatewayClient, times(0)).requestRefund(any())
+      verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
       verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any())
     }
 
@@ -534,7 +534,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
         .closePayment(
           TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.KO, Optional.empty())
       verify(transactionClosedEventRepository, Mockito.times(0)).save(any())
-      verify(paymentGatewayClient, times(0)).requestRefund(any())
+      verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
       verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any())
     }
 
@@ -598,7 +598,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       .save(any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
     // mocking
     verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransaction)
-    verify(paymentGatewayClient, times(0)).requestRefund(any())
+    verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
     verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any())
   }
 
@@ -637,7 +637,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
     verify(nodeService, Mockito.times(0)).closePayment(any(), any(), any())
     verify(transactionClosedEventRepository, Mockito.times(0)).save(any())
     verify(transactionsViewRepository, Mockito.times(0)).save(any())
-    verify(paymentGatewayClient, times(0)).requestRefund(any())
+    verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
     verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any())
   }
 
@@ -682,8 +682,9 @@ class TransactionClosePaymentRetryQueueConsumerTests {
           transactionsRefundedEventStoreRepository.save(
             refundedEventStoreRepositoryCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
-      given(paymentGatewayClient.requestRefund(any()))
-        .willReturn(Mono.just(PostePayRefundResponseDto().refundOutcome("OK")))
+      given(paymentGatewayClient.requestVPosRefund(any()))
+        .willReturn(
+          Mono.just(VposDeleteResponseDto().status(VposDeleteResponseDto.StatusEnum.CANCELLED)))
       given(
           nodeService.closePayment(
             TransactionId(TRANSACTION_ID),
@@ -707,7 +708,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
           TransactionId(TRANSACTION_ID),
           ClosePaymentRequestV2Dto.OutcomeEnum.OK,
           Optional.of("authorizationCode"))
-      verify(paymentGatewayClient, times(1)).requestRefund(any())
+      verify(paymentGatewayClient, times(1)).requestVPosRefund(any())
       verify(transactionClosedEventRepository, Mockito.times(1)).save(any())
       verify(transactionsRefundedEventStoreRepository, Mockito.times(2)).save(any())
       verify(transactionsViewRepository, Mockito.times(3)).save(any())
@@ -772,8 +773,9 @@ class TransactionClosePaymentRetryQueueConsumerTests {
     given(
         transactionsRefundedEventStoreRepository.save(refundedEventStoreRepositoryCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
-    given(paymentGatewayClient.requestRefund(any()))
-      .willReturn(Mono.just(PostePayRefundResponseDto().refundOutcome("OK")))
+    given(paymentGatewayClient.requestVPosRefund(any()))
+      .willReturn(
+        Mono.just(VposDeleteResponseDto().status(VposDeleteResponseDto.StatusEnum.CANCELLED)))
     given(
         nodeService.closePayment(
           TransactionId(TRANSACTION_ID),
@@ -799,7 +801,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
         TransactionId(TRANSACTION_ID),
         ClosePaymentRequestV2Dto.OutcomeEnum.OK,
         Optional.of("authorizationCode"))
-    verify(paymentGatewayClient, times(0)).requestRefund(any())
+    verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
     verify(transactionClosedEventRepository, Mockito.times(1)).save(any())
     verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).save(any())
     verify(transactionsViewRepository, Mockito.times(1)).save(any())
@@ -862,8 +864,9 @@ class TransactionClosePaymentRetryQueueConsumerTests {
     given(
         transactionsRefundedEventStoreRepository.save(refundedEventStoreRepositoryCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
-    given(paymentGatewayClient.requestRefund(any()))
-      .willReturn(Mono.just(PostePayRefundResponseDto().refundOutcome("OK")))
+    given(paymentGatewayClient.requestVPosRefund(any()))
+      .willReturn(
+        Mono.just(VposDeleteResponseDto().status(VposDeleteResponseDto.StatusEnum.CANCELLED)))
     given(
         nodeService.closePayment(
           TransactionId(TRANSACTION_ID),
@@ -889,7 +892,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
         TransactionId(TRANSACTION_ID),
         ClosePaymentRequestV2Dto.OutcomeEnum.OK,
         Optional.of("authorizationCode"))
-    verify(paymentGatewayClient, times(0)).requestRefund(any())
+    verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
     verify(transactionClosedEventRepository, Mockito.times(1)).save(any())
     verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).save(any())
     verify(transactionsViewRepository, Mockito.times(1)).save(any())
@@ -952,8 +955,9 @@ class TransactionClosePaymentRetryQueueConsumerTests {
     given(
         transactionsRefundedEventStoreRepository.save(refundedEventStoreRepositoryCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
-    given(paymentGatewayClient.requestRefund(any()))
-      .willReturn(Mono.just(PostePayRefundResponseDto().refundOutcome("OK")))
+    given(paymentGatewayClient.requestVPosRefund(any()))
+      .willReturn(
+        Mono.just(VposDeleteResponseDto().status(VposDeleteResponseDto.StatusEnum.CANCELLED)))
     given(
         nodeService.closePayment(
           TransactionId(TRANSACTION_ID),
@@ -982,7 +986,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
         TransactionId(TRANSACTION_ID),
         ClosePaymentRequestV2Dto.OutcomeEnum.OK,
         Optional.of("authorizationCode"))
-    verify(paymentGatewayClient, times(1)).requestRefund(any())
+    verify(paymentGatewayClient, times(1)).requestVPosRefund(any())
     verify(transactionClosedEventRepository, Mockito.times(0)).save(any())
     verify(transactionsRefundedEventStoreRepository, Mockito.times(2)).save(any())
     verify(transactionsViewRepository, Mockito.times(2)).save(any())
@@ -1042,8 +1046,9 @@ class TransactionClosePaymentRetryQueueConsumerTests {
           transactionsRefundedEventStoreRepository.save(
             refundedEventStoreRepositoryCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
-      given(paymentGatewayClient.requestRefund(any()))
-        .willReturn(Mono.just(PostePayRefundResponseDto().refundOutcome("OK")))
+      given(paymentGatewayClient.requestVPosRefund(any()))
+        .willReturn(
+          Mono.just(VposDeleteResponseDto().status(VposDeleteResponseDto.StatusEnum.CANCELLED)))
       given(
           nodeService.closePayment(
             TransactionId(TRANSACTION_ID),
@@ -1068,7 +1073,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
           TransactionId(TRANSACTION_ID),
           ClosePaymentRequestV2Dto.OutcomeEnum.OK,
           Optional.of("authorizationCode"))
-      verify(paymentGatewayClient, times(0)).requestRefund(any())
+      verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
       verify(transactionClosedEventRepository, Mockito.times(0)).save(any())
       verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).save(any())
       verify(transactionsViewRepository, Mockito.times(0)).save(any())
