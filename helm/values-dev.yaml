@@ -97,6 +97,10 @@ microservice-chart:
     NOTIFICATION_RETRY_EVENT_BASE_INTERVAL_SECONDS: "600"
     NOTIFICATION_RETRY_EVENT_MAX_ATTEMPTS: "3"
     PERSONAL_DATA_VAULT_API_BASE_PATH: "https://api.uat.tokenizer.pdv.pagopa.it/tokenizer/v1"
+    ELASTIC_APM_SERVICE_NAME: pagopa-ecommerce-event-dispatcher-service
+    ELASTIC_APM_APPLICATION_PACKAGES: it.pagopa.ecommerce.eventdispatcher
+    ELASTIC_APM_SERVER_URL: http://quickstart-apm-http.elastic-system.svc:8200
+    ELASTIC_APM_LOG_SENDING: "true"
   envSecret:
     ECOMMERCE_STORAGE_QUEUE_KEY: ecommerce-storage-account-key
     MONGO_PASSWORD: mongo-ecommerce-password
@@ -105,6 +109,7 @@ microservice-chart:
     QUEUE_CONNECTION_STRING: ecommerce-storage-connection-string
     NOTIFICATIONS_SERVICE_API_KEY: notifications-service-api-key
     PERSONAL_DATA_VAULT_API_KEY: personal-data-vault-api-key
+    ELASTIC_APM_SECRET_TOKEN: elastic-apm-secret-token
   keyvault:
     name: "pagopa-d-ecommerce-kv"
     tenantId: "7788edaf-0346-4068-9d79-c868aed15b3d"
