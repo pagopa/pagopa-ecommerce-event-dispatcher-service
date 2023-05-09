@@ -3,7 +3,6 @@ package it.pagopa.ecommerce.eventdispatcher.config
 import io.netty.channel.ChannelOption
 import io.netty.handler.timeout.ReadTimeoutHandler
 import it.pagopa.generated.ecommerce.gateway.v1.ApiClient as GatewayApiClient
-import it.pagopa.generated.ecommerce.gateway.v1.api.PaymentTransactionsControllerApi
 import it.pagopa.generated.ecommerce.gateway.v1.api.VposApi
 import it.pagopa.generated.ecommerce.gateway.v1.api.XPayApi
 import it.pagopa.generated.ecommerce.nodo.v2.ApiClient as NodoApiClient
@@ -42,30 +41,6 @@ class WebClientConfig {
     val nodoApiClient = NodoApiClient(webClient).apply { basePath = nodoUri }
 
     return NodoApi(nodoApiClient)
-  }
-
-  @Bean(name = ["paymentTransactionGatewayWebClient"])
-  fun paymentTransactionGateayWebClient(
-    @Value("\${paymentTransactionsGateway.uri}") paymentTransactionGatewayUri: String,
-    @Value("\${paymentTransactionsGateway.readTimeout}") paymentTransactionGatewayReadTimeout: Int,
-    @Value("\${paymentTransactionsGateway.connectionTimeout}")
-    paymentTransactionGatewayConnectionTimeout: Int
-  ): PaymentTransactionsControllerApi {
-    val httpClient =
-      HttpClient.create()
-        .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, paymentTransactionGatewayConnectionTimeout)
-        .doOnConnected { connection: Connection ->
-          connection.addHandlerLast(
-            ReadTimeoutHandler(
-              paymentTransactionGatewayReadTimeout.toLong(), TimeUnit.MILLISECONDS))
-        }
-    val webClient =
-      GatewayApiClient.buildWebClientBuilder()
-        .clientConnector(ReactorClientHttpConnector(httpClient))
-        .baseUrl(paymentTransactionGatewayUri)
-        .build()
-    return PaymentTransactionsControllerApi(
-      GatewayApiClient(webClient).setBasePath(paymentTransactionGatewayUri))
   }
 
   @Bean(name = ["VposApiWebClient"])

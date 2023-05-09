@@ -150,11 +150,10 @@ fun refundTransaction(
             refundResponse ->
             Pair(refundResponse, transaction)
           }
-        TransactionAuthorizationRequestData.PaymentGateway.POSTEPAY ->
-          paymentGatewayClient.requestPostepayRefund(UUID.fromString(authorizationRequestId)).map {
-            refundResponse ->
-            Pair(refundResponse, transaction)
-          }
+        else ->
+          Mono.error(
+            RuntimeException(
+              "Refund error for transaction ${transaction.transactionId} - unsupported payment-gateway"))
       }
     }
     .flatMap {
