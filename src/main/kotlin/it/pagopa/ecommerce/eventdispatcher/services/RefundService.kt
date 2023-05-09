@@ -1,6 +1,5 @@
 package it.pagopa.ecommerce.eventdispatcher.services
 
-import it.pagopa.ecommerce.commons.documents.v1.TransactionAuthorizationRequestData.PaymentGateway
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.generated.ecommerce.gateway.v1.dto.PostePayRefundResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
@@ -23,6 +22,6 @@ class RefundService {
   }
 
   fun requestXpayRefund(requestID: String): Mono<XPayRefundResponse200Dto> {
-   return paymentGatewayClient.requestXPayRefund(UUID.fromString(requestID))
+    return paymentGatewayClient.requestXPayRefund(UUID.fromString(requestID))
   }
 }

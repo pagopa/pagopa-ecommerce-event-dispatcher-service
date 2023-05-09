@@ -11,7 +11,6 @@ import it.pagopa.ecommerce.eventdispatcher.queues.QueueCommonsLogger.logger
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryService
-import it.pagopa.generated.ecommerce.gateway.v1.dto.PostePayRefundResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto.StatusEnum
 import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
@@ -140,20 +139,20 @@ fun refundTransaction(
       val authorizationRequestId =
         transaction.transactionAuthorizationRequestData.authorizationRequestId
 
-      when(transaction.transactionAuthorizationRequestData.paymentGateway){
+      when (transaction.transactionAuthorizationRequestData.paymentGateway) {
         TransactionAuthorizationRequestData.PaymentGateway.XPAY ->
           paymentGatewayClient.requestXPayRefund(UUID.fromString(authorizationRequestId)).map {
             refundResponse ->
-          Pair(refundResponse, transaction)
-        }
-          TransactionAuthorizationRequestData.PaymentGateway.VPOS ->
-            paymentGatewayClient.requestVPosRefund(UUID.fromString(authorizationRequestId)).map {
-                refundResponse ->
-              Pair(refundResponse, transaction)
-            }
-          TransactionAuthorizationRequestData.PaymentGateway.POSTEPAY ->
-            paymentGatewayClient.requestPostepayRefund(UUID.fromString(authorizationRequestId)).map {
-              refundResponse ->
+            Pair(refundResponse, transaction)
+          }
+        TransactionAuthorizationRequestData.PaymentGateway.VPOS ->
+          paymentGatewayClient.requestVPosRefund(UUID.fromString(authorizationRequestId)).map {
+            refundResponse ->
+            Pair(refundResponse, transaction)
+          }
+        TransactionAuthorizationRequestData.PaymentGateway.POSTEPAY ->
+          paymentGatewayClient.requestPostepayRefund(UUID.fromString(authorizationRequestId)).map {
+            refundResponse ->
             Pair(refundResponse, transaction)
           }
       }
@@ -161,14 +160,15 @@ fun refundTransaction(
     .flatMap {
       val (refundResponse, transaction) = it
 
-      if(refundResponse is VposDeleteResponseDto) {
-        return@flatMap handleRefundResponse(transaction, refundResponse, transactionsEventStoreRepository, transactionsViewRepository)
-      } else if (refundResponse is XPayRefundResponse200Dto){
-        return@flatMap handleRefundResponse(transaction, refundResponse, transactionsEventStoreRepository, transactionsViewRepository)
-      }else {
+      if (refundResponse is VposDeleteResponseDto) {
+        return@flatMap handleRefundResponse(
+          transaction, refundResponse, transactionsEventStoreRepository, transactionsViewRepository)
+      } else if (refundResponse is XPayRefundResponse200Dto) {
+        return@flatMap handleRefundResponse(
+          transaction, refundResponse, transactionsEventStoreRepository, transactionsViewRepository)
+      } else {
         return@flatMap Mono.error(
-          RuntimeException(
-            "Refund error for transaction ${transaction.transactionId}"))
+          RuntimeException("Refund error for transaction ${transaction.transactionId}"))
       }
     }
     .onErrorResume { exception ->
@@ -193,10 +193,9 @@ fun handleRefundResponse(
   transactionsViewRepository: TransactionsViewRepository
 ): Mono<BaseTransaction> {
   logger.info(
-    "Transaction requestRefund for transaction ${transaction.transactionId} transaction status ${refundResponse.status}"
-  )
+    "Transaction requestRefund for transaction ${transaction.transactionId} transaction status ${refundResponse.status}")
 
-  if (refundResponse.status.equals(StatusEnum.CANCELLED)){
+  if (refundResponse.status.equals(StatusEnum.CANCELLED)) {
     return updateTransactionToRefunded(
       transaction, transactionsEventStoreRepository, transactionsViewRepository)
   } else {
@@ -213,10 +212,9 @@ fun handleRefundResponse(
   transactionsViewRepository: TransactionsViewRepository
 ): Mono<BaseTransaction> {
   logger.info(
-    "Transaction requestRefund for transaction ${transaction.transactionId} transaction status ${refundResponse.status}"
-  )
+    "Transaction requestRefund for transaction ${transaction.transactionId} transaction status ${refundResponse.status}")
 
-  if (refundResponse.status.equals(XPayRefundResponse200Dto.StatusEnum.CANCELLED)){
+  if (refundResponse.status.equals(XPayRefundResponse200Dto.StatusEnum.CANCELLED)) {
     return updateTransactionToRefunded(
       transaction, transactionsEventStoreRepository, transactionsViewRepository)
   } else {

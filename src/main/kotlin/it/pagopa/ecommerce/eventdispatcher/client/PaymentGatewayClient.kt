@@ -23,13 +23,9 @@ class PaymentGatewayClient {
   @Qualifier("paymentTransactionGatewayWebClient")
   private lateinit var paymentTransactionsControllerApi: PaymentTransactionsControllerApi
 
-  @Autowired
-  @Qualifier("VposApiWebClient")
-  private lateinit var vposApi: VposApi
+  @Autowired @Qualifier("VposApiWebClient") private lateinit var vposApi: VposApi
 
-  @Autowired
-  @Qualifier("XpayApiWebClient")
-  private lateinit var xpayApi: XPayApi
+  @Autowired @Qualifier("XpayApiWebClient") private lateinit var xpayApi: XPayApi
 
   fun requestPostepayRefund(requestId: UUID): Mono<PostePayRefundResponseDto> {
     return paymentTransactionsControllerApi.refundRequest(requestId).onErrorMap(
