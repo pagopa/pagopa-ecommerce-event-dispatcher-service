@@ -159,15 +159,15 @@ fun refundTransaction(
     .flatMap {
       val (refundResponse, transaction) = it
 
-      return@flatMap if (refundResponse is VposDeleteResponseDto) {
-        handleRefundResponse(
-          transaction, refundResponse, transactionsEventStoreRepository, transactionsViewRepository)
-      } else if (refundResponse is XPayRefundResponse200Dto) {
+      when(refundResponse){
+        is VposDeleteResponseDto ->
           handleRefundResponse(
             transaction, refundResponse, transactionsEventStoreRepository, transactionsViewRepository)
-      } else {
-          Mono.error(
-            RuntimeException("Refund error for transaction ${transaction.transactionId}"))
+        is XPayRefundResponse200Dto ->
+          handleRefundResponse(
+                transaction, refundResponse, transactionsEventStoreRepository, transactionsViewRepository)
+        else -> Mono.error(
+          RuntimeException("Refund error for transaction ${transaction.transactionId}"))
       }
     }
     .onErrorResume { exception ->
