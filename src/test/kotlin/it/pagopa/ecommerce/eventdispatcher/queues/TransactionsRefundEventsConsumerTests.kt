@@ -134,7 +134,7 @@ class TransactionsRefundEventsConsumerTests {
     val refundRequestedEvent =
       TransactionRefundRequestedEvent(
         TRANSACTION_ID, TransactionRefundedData(TransactionStatusDto.REFUND_REQUESTED))
-              as TransactionEvent<Any>
+        as TransactionEvent<Any>
 
     val gatewayClientResponse =
       XPayRefundResponse200Dto().apply { status = XPayRefundResponse200Dto.StatusEnum.CANCELLED }
@@ -165,8 +165,8 @@ class TransactionsRefundEventsConsumerTests {
 
     /* test */
     StepVerifier.create(
-      transactionRefundedEventsConsumer.messageReceiver(
-        BinaryData.fromObject(refundRequestedEvent).toBytes(), checkpointer))
+        transactionRefundedEventsConsumer.messageReceiver(
+          BinaryData.fromObject(refundRequestedEvent).toBytes(), checkpointer))
       .expectNext()
       .verifyComplete()
 
