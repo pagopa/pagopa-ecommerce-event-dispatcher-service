@@ -177,4 +177,43 @@ class PaymentGatewayClientTest {
 
     assertInstanceOf(BadGatewayException::class.java, exc)
   }
+
+  @Test
+  fun pgsClient_Exception_503_vpos() {
+    val testUIID: UUID = UUID.randomUUID()
+
+    // preconditions
+    Mockito.`when`(vposApi.requestPaymentsVposRequestIdDelete(testUIID.toString()))
+      .thenReturn(
+        Mono.error(
+          WebClientResponseException.ServiceUnavailable.create(
+            503, "", HttpHeaders.EMPTY, ByteArray(0), Charset.defaultCharset())))
+
+    // test
+    val exc =
+      assertThrows(Exception::class.java) {
+        paymentGatewayClient.requestVPosRefund(testUIID).block()
+      }
+
+    assertInstanceOf(Exception::class.java, exc)
+  }
+  @Test
+  fun pgsClient_Exception_503_xpay() {
+    val testUIID: UUID = UUID.randomUUID()
+
+    // preconditions
+    Mockito.`when`(xpayApi.refundXpayRequest(testUIID))
+      .thenReturn(
+        Mono.error(
+          WebClientResponseException.ServiceUnavailable.create(
+            503, "", HttpHeaders.EMPTY, ByteArray(0), Charset.defaultCharset())))
+
+    // test
+    val exc =
+      assertThrows(Exception::class.java) {
+        paymentGatewayClient.requestVPosRefund(testUIID).block()
+      }
+
+    assertInstanceOf(Exception::class.java, exc)
+  }
 }

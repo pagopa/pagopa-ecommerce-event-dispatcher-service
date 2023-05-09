@@ -3,6 +3,7 @@ package it.pagopa.ecommerce.eventdispatcher.service
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.services.RefundService
 import it.pagopa.ecommerce.eventdispatcher.utils.getMockedVPosRefundRequest
+import it.pagopa.ecommerce.eventdispatcher.utils.getMockedXPayRefundRequest
 import java.util.*
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -21,7 +22,7 @@ class RefundServiceTest {
   @InjectMocks private lateinit var refundService: RefundService
 
   @Test
-  fun requestRefund_200() {
+  fun requestRefund_200_vpos() {
     val testUUID: UUID = UUID.randomUUID()
 
     // Precondition
@@ -30,6 +31,21 @@ class RefundServiceTest {
 
     // Test
     val response = refundService.requestVposRefund(testUUID.toString()).block()
+
+    // Assertions
+    assertEquals("CANCELLED", response?.status?.value)
+  }
+
+  @Test
+  fun requestRefund_200_xpay() {
+    val testUUID: UUID = UUID.randomUUID()
+
+    // Precondition
+    Mockito.`when`(paymentGatewayClient.requestXPayRefund(testUUID))
+      .thenReturn(Mono.just(getMockedXPayRefundRequest(testUUID.toString())))
+
+    // Test
+    val response = refundService.requestXpayRefund(testUUID.toString()).block()
 
     // Assertions
     assertEquals("CANCELLED", response?.status?.value)
