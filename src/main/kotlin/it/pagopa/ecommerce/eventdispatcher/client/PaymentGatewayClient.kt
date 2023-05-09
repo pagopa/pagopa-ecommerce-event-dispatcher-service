@@ -31,7 +31,7 @@ class PaymentGatewayClient {
   @Qualifier("XpayApiWebClient")
   private lateinit var xpayApi: XPayApi
 
-  fun requestRefund(requestId: UUID): Mono<PostePayRefundResponseDto> {
+  fun requestPostepayRefund(requestId: UUID): Mono<PostePayRefundResponseDto> {
     return paymentTransactionsControllerApi.refundRequest(requestId).onErrorMap(
       WebClientResponseException::class.java) { exception: WebClientResponseException ->
       when (exception.statusCode) {

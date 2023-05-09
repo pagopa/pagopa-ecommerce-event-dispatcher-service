@@ -88,8 +88,7 @@ class WebClientConfig {
         .clientConnector(ReactorClientHttpConnector(httpClient))
         .baseUrl(paymentTransactionGatewayUri)
         .build()
-    return VposApi(
-      GatewayApiClient(webClient).setBasePath(paymentTransactionGatewayUri))
+    return VposApi(GatewayApiClient(webClient).setBasePath(paymentTransactionGatewayUri))
   }
 
   @Bean(name = ["XpayApiWebClient"])
@@ -112,8 +111,7 @@ class WebClientConfig {
         .clientConnector(ReactorClientHttpConnector(httpClient))
         .baseUrl(paymentTransactionGatewayUri)
         .build()
-    return XPayApi(
-      GatewayApiClient(webClient).setBasePath(paymentTransactionGatewayUri))
+    return XPayApi(GatewayApiClient(webClient).setBasePath(paymentTransactionGatewayUri))
   }
 
   @Bean(name = ["notificationsServiceWebClient"])
