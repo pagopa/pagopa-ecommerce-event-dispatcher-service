@@ -266,4 +266,83 @@ class NodeServiceTests {
       expectedTimestamp,
       closePaymentRequestV2Dto.additionalPaymentInformations!!.timestampOperation)
   }
+
+  @Test
+  fun `closePayment returns successfully for close payment after authorization Completed from PGS KO`() =
+    runTest {
+      val transactionOutcome = OutcomeEnum.KO
+
+      val activatedEvent = transactionActivateEvent()
+      val authEvent = transactionAuthorizationRequestedEvent()
+
+      val transactionId = activatedEvent.transactionId
+      val closePaymentResponse =
+        ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
+
+      /* preconditions */
+      given(
+          transactionsEventStoreRepository.findByTransactionIdAndEventCode(
+            transactionId, TransactionEventCode.TRANSACTION_ACTIVATED_EVENT))
+        .willReturn(Mono.just(activatedEvent as TransactionEvent<Any>))
+
+      given(
+          transactionsEventStoreRepository.findByTransactionIdAndEventCode(
+            transactionId, TransactionEventCode.TRANSACTION_USER_CANCELED_EVENT))
+        .willReturn(Mono.empty())
+
+      given(
+          transactionsEventStoreRepository.findByTransactionIdAndEventCode(
+            transactionId, TransactionEventCode.TRANSACTION_AUTHORIZATION_REQUESTED_EVENT))
+        .willReturn(Mono.just(authEvent as TransactionEvent<Any>))
+
+      given(nodeClient.closePayment(any())).willReturn(Mono.just(closePaymentResponse))
+
+      /* test */
+      assertEquals(
+        closePaymentResponse,
+        nodeService.closePayment(
+          TransactionId(transactionId), transactionOutcome, Optional.of("authorizationCode")))
+    }
+
+  @Test
+  fun `closePayment returns error for close payment missing authorization completed event`() =
+    runTest {
+      val transactionOutcome = OutcomeEnum.OK
+
+      val activatedEvent = transactionActivateEvent()
+      val authEvent = transactionAuthorizationRequestedEvent()
+
+      val transactionId = activatedEvent.transactionId
+      val closePaymentResponse =
+        ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
+
+      /* preconditions */
+      given(
+          transactionsEventStoreRepository.findByTransactionIdAndEventCode(
+            transactionId, TransactionEventCode.TRANSACTION_ACTIVATED_EVENT))
+        .willReturn(Mono.just(activatedEvent as TransactionEvent<Any>))
+
+      given(
+          transactionsEventStoreRepository.findByTransactionIdAndEventCode(
+            transactionId, TransactionEventCode.TRANSACTION_USER_CANCELED_EVENT))
+        .willReturn(Mono.empty())
+
+      given(
+          transactionsEventStoreRepository.findByTransactionIdAndEventCode(
+            transactionId, TransactionEventCode.TRANSACTION_AUTHORIZATION_REQUESTED_EVENT))
+        .willReturn(Mono.just(authEvent as TransactionEvent<Any>))
+
+      given(
+          transactionsEventStoreRepository.findByTransactionIdAndEventCode(
+            transactionId, TransactionEventCode.TRANSACTION_AUTHORIZATION_COMPLETED_EVENT))
+        .willReturn(Mono.empty())
+
+      given(nodeClient.closePayment(any())).willReturn(Mono.just(closePaymentResponse))
+
+      /* test */
+      assertThrows<TransactionEventNotFoundException> {
+        nodeService.closePayment(
+          TransactionId(transactionId), transactionOutcome, Optional.of("authorizationCode"))
+      }
+    }
 }
