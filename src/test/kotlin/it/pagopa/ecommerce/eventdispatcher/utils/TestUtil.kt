@@ -2,7 +2,8 @@ package it.pagopa.ecommerce.eventdispatcher.utils
 
 import it.pagopa.ecommerce.commons.documents.v1.TransactionAuthorizationRequestData
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils
-import it.pagopa.generated.ecommerce.gateway.v1.dto.PostePayRefundResponseDto
+import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
+import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import java.time.OffsetDateTime
 import java.util.*
@@ -40,21 +41,36 @@ fun getMockedClosePaymentRequest(
   }
 }
 
-fun getMockedRefundRequest(
+fun getMockedXPayRefundRequest(
   paymentId: String?,
-  result: String = "success"
-): PostePayRefundResponseDto {
+  result: String = "success",
+): XPayRefundResponse200Dto {
   if (result == "success") {
-    return PostePayRefundResponseDto()
+    return XPayRefundResponse200Dto()
       .requestId(UUID.randomUUID().toString())
-      .refundOutcome(result)
+      .status(XPayRefundResponse200Dto.StatusEnum.CANCELLED)
       .error("")
-      .paymentId(paymentId ?: UUID.randomUUID().toString())
   } else {
-    return PostePayRefundResponseDto()
+    return XPayRefundResponse200Dto()
       .requestId(UUID.randomUUID().toString())
-      .refundOutcome(result)
-      .error(result)
-      .paymentId(paymentId ?: UUID.randomUUID().toString())
+      .status(XPayRefundResponse200Dto.StatusEnum.CREATED)
+      .error("err")
+  }
+}
+
+fun getMockedVPosRefundRequest(
+  paymentId: String?,
+  result: String = "success",
+): VposDeleteResponseDto {
+  if (result == "success") {
+    return VposDeleteResponseDto()
+      .requestId(UUID.randomUUID().toString())
+      .status(VposDeleteResponseDto.StatusEnum.CANCELLED)
+      .error("")
+  } else {
+    return VposDeleteResponseDto()
+      .requestId(UUID.randomUUID().toString())
+      .status(VposDeleteResponseDto.StatusEnum.CREATED)
+      .error("err")
   }
 }

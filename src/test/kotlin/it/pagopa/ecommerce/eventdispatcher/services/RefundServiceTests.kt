@@ -1,7 +1,7 @@
 package it.pagopa.ecommerce.eventdispatcher.services
 
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
-import it.pagopa.ecommerce.eventdispatcher.utils.getMockedRefundRequest
+import it.pagopa.ecommerce.eventdispatcher.utils.getMockedVPosRefundRequest
 import java.util.*
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -24,13 +24,13 @@ class RefundServiceTests {
     val testUUID: UUID = UUID.randomUUID()
 
     // Precondition
-    Mockito.`when`(paymentGatewayClient.requestRefund(testUUID))
-      .thenReturn(Mono.just(getMockedRefundRequest(testUUID.toString())))
+    Mockito.`when`(paymentGatewayClient.requestVPosRefund(testUUID))
+      .thenReturn(Mono.just(getMockedVPosRefundRequest(testUUID.toString())))
 
     // Test
-    val response = refundService.requestRefund(testUUID.toString()).block()
+    val response = refundService.requestVposRefund(testUUID.toString()).block()
 
     // Assertions
-    assertEquals("success", response?.refundOutcome)
+    assertEquals("CANCELLED", response?.status?.value)
   }
 }
