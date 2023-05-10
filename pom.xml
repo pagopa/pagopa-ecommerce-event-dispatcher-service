@@ -319,7 +319,7 @@
 							<goal>generate</goal>
 						</goals>
 						<configuration>
-							<inputSpec>https://raw.githubusercontent.com/pagopa/pagopa-payment-transactions-gateway/754e4a78e81fb67716b67694645cd394a235040c/api-specs/api_spec_PGS.yaml</inputSpec>
+							<inputSpec>https://raw.githubusercontent.com/pagopa/pagopa-payment-transactions-gateway/develop/api-specs/api_spec_PGS.yaml</inputSpec>
 							<generatorName>java</generatorName>
 							<library>webclient</library>
 							<generateApiDocumentation>false</generateApiDocumentation>

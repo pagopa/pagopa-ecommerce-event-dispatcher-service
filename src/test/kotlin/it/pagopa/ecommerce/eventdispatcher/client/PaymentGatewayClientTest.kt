@@ -2,8 +2,10 @@ package it.pagopa.ecommerce.eventdispatcher.client
 
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadGatewayException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.TransactionNotFound
-import it.pagopa.ecommerce.eventdispatcher.utils.getMockedRefundRequest
-import it.pagopa.generated.ecommerce.gateway.v1.api.PaymentTransactionsControllerApi
+import it.pagopa.ecommerce.eventdispatcher.utils.getMockedVPosRefundRequest
+import it.pagopa.ecommerce.eventdispatcher.utils.getMockedXPayRefundRequest
+import it.pagopa.generated.ecommerce.gateway.v1.api.VposApi
+import it.pagopa.generated.ecommerce.gateway.v1.api.XPayApi
 import java.nio.charset.Charset
 import java.util.*
 import org.junit.jupiter.api.Assertions.*
@@ -21,31 +23,47 @@ import reactor.core.publisher.Mono
 @TestPropertySource(locations = ["classpath:application.test.properties"])
 class PaymentGatewayClientTest {
 
-  @Mock private lateinit var paymentTransactionsControllerApi: PaymentTransactionsControllerApi
+  @Mock private lateinit var vposApi: VposApi
+  @Mock private lateinit var xpayApi: XPayApi
 
   @InjectMocks private lateinit var paymentGatewayClient: PaymentGatewayClient
 
   @Test
-  fun pgsClient_requestRefund_200() {
+  fun pgsClient_requestRefund_200_xpay() {
     val testUIID: UUID = UUID.randomUUID()
 
     // preconditions
-    Mockito.`when`(paymentTransactionsControllerApi.refundRequest(testUIID))
-      .thenReturn(Mono.just(getMockedRefundRequest(testUIID.toString())))
+    Mockito.`when`(xpayApi.refundXpayRequest(testUIID))
+      .thenReturn(Mono.just(getMockedXPayRefundRequest(testUIID.toString())))
 
     // test
-    val response = paymentGatewayClient.requestRefund(testUIID).block()
+    val response = paymentGatewayClient.requestXPayRefund(testUIID).block()
 
     // asserts
-    assertEquals("success", response?.refundOutcome)
+    assertEquals("CANCELLED", response?.status?.value)
   }
 
   @Test
-  fun pgsClient_requestRefund_404() {
+  fun pgsClient_requestRefund_200_vpos() {
     val testUIID: UUID = UUID.randomUUID()
 
     // preconditions
-    Mockito.`when`(paymentTransactionsControllerApi.refundRequest(testUIID))
+    Mockito.`when`(vposApi.requestPaymentsVposRequestIdDelete(testUIID.toString()))
+      .thenReturn(Mono.just(getMockedVPosRefundRequest(testUIID.toString())))
+
+    // test
+    val response = paymentGatewayClient.requestVPosRefund(testUIID).block()
+
+    // asserts
+    assertEquals("CANCELLED", response?.status?.value)
+  }
+
+  @Test
+  fun pgsClient_requestRefund_404_xpay() {
+    val testUIID: UUID = UUID.randomUUID()
+
+    // preconditions
+    Mockito.`when`(xpayApi.refundXpayRequest(testUIID))
       .thenReturn(
         Mono.error(
           WebClientResponseException.BadRequest.create(
@@ -53,17 +71,39 @@ class PaymentGatewayClientTest {
 
     // test
     val exc =
-      assertThrows(Exception::class.java) { paymentGatewayClient.requestRefund(testUIID).block() }
+      assertThrows(Exception::class.java) {
+        paymentGatewayClient.requestXPayRefund(testUIID).block()
+      }
 
     assertInstanceOf(TransactionNotFound::class.java, exc)
   }
 
   @Test
-  fun pgsClient_requestRefund_504() {
+  fun pgsClient_requestRefund_404_vpos() {
     val testUIID: UUID = UUID.randomUUID()
 
     // preconditions
-    Mockito.`when`(paymentTransactionsControllerApi.refundRequest(testUIID))
+    Mockito.`when`(vposApi.requestPaymentsVposRequestIdDelete(testUIID.toString()))
+      .thenReturn(
+        Mono.error(
+          WebClientResponseException.BadRequest.create(
+            404, "", HttpHeaders.EMPTY, ByteArray(0), Charset.defaultCharset())))
+
+    // test
+    val exc =
+      assertThrows(Exception::class.java) {
+        paymentGatewayClient.requestVPosRefund(testUIID).block()
+      }
+
+    assertInstanceOf(TransactionNotFound::class.java, exc)
+  }
+
+  @Test
+  fun pgsClient_requestRefund_504_xpay() {
+    val testUIID: UUID = UUID.randomUUID()
+
+    // preconditions
+    Mockito.`when`(xpayApi.refundXpayRequest(testUIID))
       .thenReturn(
         Mono.error(
           WebClientResponseException.GatewayTimeout.create(
@@ -71,16 +111,39 @@ class PaymentGatewayClientTest {
 
     // test
     val exc =
-      assertThrows(Exception::class.java) { paymentGatewayClient.requestRefund(testUIID).block() }
+      assertThrows(Exception::class.java) {
+        paymentGatewayClient.requestXPayRefund(testUIID).block()
+      }
 
     assertTrue(exc.message?.contains("GatewayTimeoutException") ?: false)
   }
+
   @Test
-  fun pgsClient_requestRefund_500() {
+  fun pgsClient_requestRefund_504_vpos() {
     val testUIID: UUID = UUID.randomUUID()
 
     // preconditions
-    Mockito.`when`(paymentTransactionsControllerApi.refundRequest(testUIID))
+    Mockito.`when`(vposApi.requestPaymentsVposRequestIdDelete(testUIID.toString()))
+      .thenReturn(
+        Mono.error(
+          WebClientResponseException.GatewayTimeout.create(
+            504, "Gateway timeout", HttpHeaders.EMPTY, ByteArray(0), Charset.defaultCharset())))
+
+    // test
+    val exc =
+      assertThrows(Exception::class.java) {
+        paymentGatewayClient.requestVPosRefund(testUIID).block()
+      }
+
+    assertTrue(exc.message?.contains("GatewayTimeoutException") ?: false)
+  }
+
+  @Test
+  fun pgsClient_requestRefund_500_xpay() {
+    val testUIID: UUID = UUID.randomUUID()
+
+    // preconditions
+    Mockito.`when`(xpayApi.refundXpayRequest(testUIID))
       .thenReturn(
         Mono.error(
           WebClientResponseException.InternalServerError.create(
@@ -88,8 +151,69 @@ class PaymentGatewayClientTest {
 
     // test
     val exc =
-      assertThrows(Exception::class.java) { paymentGatewayClient.requestRefund(testUIID).block() }
+      assertThrows(Exception::class.java) {
+        paymentGatewayClient.requestXPayRefund(testUIID).block()
+      }
 
     assertInstanceOf(BadGatewayException::class.java, exc)
+  }
+
+  @Test
+  fun pgsClient_requestRefund_500_vpos() {
+    val testUIID: UUID = UUID.randomUUID()
+
+    // preconditions
+    Mockito.`when`(vposApi.requestPaymentsVposRequestIdDelete(testUIID.toString()))
+      .thenReturn(
+        Mono.error(
+          WebClientResponseException.InternalServerError.create(
+            500, "", HttpHeaders.EMPTY, ByteArray(0), Charset.defaultCharset())))
+
+    // test
+    val exc =
+      assertThrows(Exception::class.java) {
+        paymentGatewayClient.requestVPosRefund(testUIID).block()
+      }
+
+    assertInstanceOf(BadGatewayException::class.java, exc)
+  }
+
+  @Test
+  fun pgsClient_Exception_503_vpos() {
+    val testUIID: UUID = UUID.randomUUID()
+
+    // preconditions
+    Mockito.`when`(vposApi.requestPaymentsVposRequestIdDelete(testUIID.toString()))
+      .thenReturn(
+        Mono.error(
+          WebClientResponseException.ServiceUnavailable.create(
+            503, "", HttpHeaders.EMPTY, ByteArray(0), Charset.defaultCharset())))
+
+    // test
+    val exc =
+      assertThrows(Exception::class.java) {
+        paymentGatewayClient.requestVPosRefund(testUIID).block()
+      }
+
+    assertInstanceOf(Exception::class.java, exc)
+  }
+  @Test
+  fun pgsClient_Exception_503_xpay() {
+    val testUIID: UUID = UUID.randomUUID()
+
+    // preconditions
+    Mockito.`when`(xpayApi.refundXpayRequest(testUIID))
+      .thenReturn(
+        Mono.error(
+          WebClientResponseException.ServiceUnavailable.create(
+            503, "", HttpHeaders.EMPTY, ByteArray(0), Charset.defaultCharset())))
+
+    // test
+    val exc =
+      assertThrows(Exception::class.java) {
+        paymentGatewayClient.requestXPayRefund(testUIID).block()
+      }
+
+    assertInstanceOf(Exception::class.java, exc)
   }
 }
