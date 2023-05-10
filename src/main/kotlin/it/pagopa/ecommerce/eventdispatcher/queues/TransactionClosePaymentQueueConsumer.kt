@@ -79,8 +79,7 @@ class TransactionClosePaymentQueueConsumer(
         .cast(TransactionWithCancellationRequested::class.java)
         .flatMap { tx ->
           mono {
-              nodeService.closePayment(
-                tx.transactionId, ClosePaymentRequestV2Dto.OutcomeEnum.KO, Optional.empty())
+              nodeService.closePayment(tx.transactionId, ClosePaymentRequestV2Dto.OutcomeEnum.KO)
             }
             .flatMap { closePaymentResponse ->
               updateTransactionStatus(

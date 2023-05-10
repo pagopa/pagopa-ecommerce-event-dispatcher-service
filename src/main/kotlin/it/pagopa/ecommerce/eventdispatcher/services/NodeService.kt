@@ -38,8 +38,7 @@ class NodeService(
 
   suspend fun closePayment(
     transactionId: TransactionId,
-    transactionOutcome: ClosePaymentRequestV2Dto.OutcomeEnum,
-    authorizationCode: Optional<String>
+    transactionOutcome: ClosePaymentRequestV2Dto.OutcomeEnum
   ): ClosePaymentResponseDto {
     val transactionActivatedEventCode = TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
     val activatedEvent =

@@ -77,8 +77,7 @@ class NodeServiceTests {
       /* test */
       assertEquals(
         closePaymentResponse,
-        nodeService.closePayment(
-          TransactionId(transactionId), transactionOutcome, Optional.of("authorizationCode")))
+        nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
     }
 
   @Test
@@ -116,8 +115,7 @@ class NodeServiceTests {
       /* test */
       assertEquals(
         closePaymentResponse,
-        nodeService.closePayment(
-          TransactionId(transactionId), transactionOutcome, Optional.empty()))
+        nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
     }
 
   @Test
@@ -146,8 +144,7 @@ class NodeServiceTests {
       /* test */
 
       assertThrows<TransactionEventNotFoundException> {
-        nodeService.closePayment(
-          TransactionId(transactionId), transactionOutcome, Optional.of("authorizationCode"))
+        nodeService.closePayment(TransactionId(transactionId), transactionOutcome)
       }
     }
 
@@ -179,8 +176,7 @@ class NodeServiceTests {
       /* test */
 
       assertThrows<TransactionEventsPreconditionsNotMatchedException> {
-        nodeService.closePayment(
-          TransactionId(transactionId), transactionOutcome, Optional.of("authorizationCode"))
+        nodeService.closePayment(TransactionId(transactionId), transactionOutcome)
       }
     }
 
@@ -214,8 +210,7 @@ class NodeServiceTests {
       /* test */
 
       assertThrows<TransactionEventsInconsistentException> {
-        nodeService.closePayment(
-          TransactionId(transactionId), transactionOutcome, Optional.of("authorizationCode"))
+        nodeService.closePayment(TransactionId(transactionId), transactionOutcome)
       }
     }
 
@@ -258,8 +253,7 @@ class NodeServiceTests {
     /* test */
     assertEquals(
       closePaymentResponse,
-      nodeService.closePayment(
-        TransactionId(transactionId), transactionOutcome, Optional.of("authorizationCode")))
+      nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
     val closePaymentRequestV2Dto = closePaymentRequestCaptor.value
     val expectedTimestamp = closePaymentRequestV2Dto.timestampOperation
     assertEquals(
@@ -300,8 +294,7 @@ class NodeServiceTests {
       /* test */
       assertEquals(
         closePaymentResponse,
-        nodeService.closePayment(
-          TransactionId(transactionId), transactionOutcome, Optional.of("authorizationCode")))
+        nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
     }
 
   @Test
@@ -341,8 +334,7 @@ class NodeServiceTests {
 
       /* test */
       assertThrows<TransactionEventNotFoundException> {
-        nodeService.closePayment(
-          TransactionId(transactionId), transactionOutcome, Optional.of("authorizationCode"))
+        nodeService.closePayment(TransactionId(transactionId), transactionOutcome)
       }
     }
 }
