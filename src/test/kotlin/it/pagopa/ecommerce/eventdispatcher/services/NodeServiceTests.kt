@@ -12,8 +12,6 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRe
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto.OutcomeEnum
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
-import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoUnit
 import java.util.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
@@ -47,6 +45,7 @@ class NodeServiceTests {
 
       val activatedEvent = transactionActivateEvent()
       val authEvent = transactionAuthorizationRequestedEvent()
+      val authCompletedEvent = transactionAuthorizationCompletedEvent()
 
       val transactionId = activatedEvent.transactionId
       val closePaymentResponse =
@@ -67,6 +66,12 @@ class NodeServiceTests {
           transactionsEventStoreRepository.findByTransactionIdAndEventCode(
             transactionId, TransactionEventCode.TRANSACTION_AUTHORIZATION_REQUESTED_EVENT))
         .willReturn(Mono.just(authEvent as TransactionEvent<Any>))
+
+      given(
+        transactionsEventStoreRepository.findByTransactionIdAndEventCode(
+          transactionId, TransactionEventCode.TRANSACTION_AUTHORIZATION_COMPLETED_EVENT))
+        .willReturn(Mono.just(authCompletedEvent as TransactionEvent<Any>))
+
 
       given(nodeClient.closePayment(any())).willReturn(Mono.just(closePaymentResponse))
 
@@ -221,7 +226,7 @@ class NodeServiceTests {
 
     val activatedEvent = transactionActivateEvent()
     val authEvent = transactionAuthorizationRequestedEvent()
-
+    val authCompletdEvent = transactionAuthorizationCompletedEvent()
     val transactionId = activatedEvent.transactionId
 
     val closePaymentResponse =
@@ -243,6 +248,11 @@ class NodeServiceTests {
           transactionId.toString(), TransactionEventCode.TRANSACTION_AUTHORIZATION_REQUESTED_EVENT))
       .willReturn(Mono.just(authEvent as TransactionEvent<Any>))
 
+    given(
+        transactionsEventStoreRepository.findByTransactionIdAndEventCode(
+          transactionId.toString(), TransactionEventCode.TRANSACTION_AUTHORIZATION_COMPLETED_EVENT))
+      .willReturn(Mono.just(authCompletdEvent as TransactionEvent<Any>))
+
     given(nodeClient.closePayment(capture(closePaymentRequestCaptor)))
       .willReturn(Mono.just(closePaymentResponse))
 
@@ -252,13 +262,9 @@ class NodeServiceTests {
       nodeService.closePayment(
         TransactionId(transactionId), transactionOutcome, Optional.of("authorizationCode")))
     val closePaymentRequestV2Dto = closePaymentRequestCaptor.value
-    val expectedTimestamp =
-      closePaymentRequestV2Dto.timestampOperation!!
-        .toLocalDateTime()
-        .truncatedTo(ChronoUnit.SECONDS)
-        .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+    val expectedTimestamp = closePaymentRequestV2Dto.timestampOperation
     assertEquals(
       expectedTimestamp,
-      closePaymentRequestV2Dto.additionalPaymentInformations!!["timestampOperation"])
+      closePaymentRequestV2Dto.additionalPaymentInformations!!.timestampOperation)
   }
 }

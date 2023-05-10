@@ -2,6 +2,7 @@ package it.pagopa.ecommerce.eventdispatcher.services
 
 import io.vavr.Tuple
 import it.pagopa.ecommerce.commons.documents.v1.TransactionActivatedEvent
+import it.pagopa.ecommerce.commons.documents.v1.TransactionAuthorizationCompletedEvent
 import it.pagopa.ecommerce.commons.documents.v1.TransactionAuthorizationRequestedEvent
 import it.pagopa.ecommerce.commons.documents.v1.TransactionUserCanceledEvent
 import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
@@ -11,11 +12,11 @@ import it.pagopa.ecommerce.eventdispatcher.exceptions.TransactionEventNotFoundEx
 import it.pagopa.ecommerce.eventdispatcher.exceptions.TransactionEventsInconsistentException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.TransactionEventsPreconditionsNotMatchedException
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
+import it.pagopa.generated.ecommerce.nodo.v2.dto.AdditionalPaymentInformationsDto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoUnit
 import java.util.*
 import kotlinx.coroutines.reactor.awaitSingle
 import kotlinx.coroutines.reactor.awaitSingleOrNull
@@ -25,6 +26,8 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
+
+const val TIPO_VERSAMENTO_CP = "CP"
 
 @Service
 class NodeService(
@@ -74,34 +77,53 @@ class NodeService(
         .switchIfEmpty(
           mono { authEvent }
             .map { ev ->
-              val timestamp =
-                OffsetDateTime
-                  .now() // FIXME this timestamp should the one coming from authorizationResultDto
-              ClosePaymentRequestV2Dto().apply {
-                paymentTokens = activatedEvent.data.paymentNotices.map { it.paymentToken }
-                outcome = transactionOutcome
-                idPSP = ev.data.pspId
-                paymentMethod = ev.data.paymentTypeCode
-                idBrokerPSP = ev.data.brokerName
-                idChannel = ev.data.pspChannelCode
-                this.transactionId = transactionId.toString()
-                totalAmount = (ev.data.amount.plus(ev.data.fee)).toBigDecimal()
-                fee = ev.data.fee.toBigDecimal()
-                timestampOperation = timestamp
-                additionalPaymentInformations =
-                  mapOf(
-                    "outcome_payment_gateway" to transactionOutcome.value,
-                    "authorization_code" to authorizationCode.orElseGet { "" },
-                    "tipoVersamento" to "CP",
-                    "rrn" to "123456789",
-                    "fee" to ev.data.fee.toBigDecimal().toString(),
-                    // bug CHK-1410: date formatted to yyyy-MM-ddTHH:mm:ss truncating millis
-                    "timestampOperation" to
-                      timestamp
-                        .toLocalDateTime()
-                        .truncatedTo(ChronoUnit.SECONDS)
-                        .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
-                    "totalAmount" to (ev.data.amount.plus(ev.data.fee)).toBigDecimal().toString())
+              when (transactionOutcome) {
+                ClosePaymentRequestV2Dto.OutcomeEnum.KO ->
+                  ClosePaymentRequestV2Dto().apply {
+                    paymentTokens = activatedEvent.data.paymentNotices.map { it.paymentToken }
+                    outcome = transactionOutcome
+                    this.transactionId = transactionId.toString()
+                  }
+                ClosePaymentRequestV2Dto.OutcomeEnum.OK -> {
+                  val authCompletedEvent =
+                    transactionsEventStoreRepository
+                      .findByTransactionIdAndEventCode(
+                        transactionId.value(),
+                        TransactionEventCode.TRANSACTION_AUTHORIZATION_COMPLETED_EVENT)
+                      .cast(TransactionAuthorizationCompletedEvent::class.java)
+                      .block()
+                      ?: throw TransactionEventNotFoundException(
+                        transactionId, transactionActivatedEventCode)
+                  ClosePaymentRequestV2Dto().apply {
+                    paymentTokens = activatedEvent.data.paymentNotices.map { it.paymentToken }
+                    outcome = transactionOutcome
+                    idPSP = ev.data.pspId
+                    paymentMethod = ev.data.paymentTypeCode
+                    idBrokerPSP = ev.data.brokerName
+                    idChannel = ev.data.pspChannelCode
+                    this.transactionId = transactionId.toString()
+                    totalAmount = (ev.data.amount.plus(ev.data.fee)).toBigDecimal()
+                    fee = ev.data.fee.toBigDecimal()
+                    this.timestampOperation =
+                      OffsetDateTime.parse(
+                        authCompletedEvent.data.timestampOperation,
+                        DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                    additionalPaymentInformations =
+                      AdditionalPaymentInformationsDto().apply {
+                        tipoVersamento = TIPO_VERSAMENTO_CP
+                        outcomePaymentGateway =
+                          AdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.valueOf(
+                            authCompletedEvent.data.authorizationResultDto.toString())
+                        this.authorizationCode = authCompletedEvent.data.authorizationCode
+                        fee = ev.data.fee.toBigDecimal()
+                        this.timestampOperation =
+                          OffsetDateTime.parse(
+                            authCompletedEvent.data.timestampOperation,
+                            DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                        rrn = authCompletedEvent.data.rrn
+                      }
+                  }
+                }
               }
             }
             .filter(Objects::nonNull)
