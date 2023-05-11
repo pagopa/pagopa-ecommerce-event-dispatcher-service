@@ -6,9 +6,7 @@ import it.pagopa.ecommerce.eventdispatcher.client.NodeClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
 import it.pagopa.ecommerce.eventdispatcher.queues.reduceEvents
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
-import it.pagopa.generated.ecommerce.nodo.v2.dto.AdditionalPaymentInformationsDto
-import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
-import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
+import it.pagopa.generated.ecommerce.nodo.v2.dto.*
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.reactor.awaitSingle
@@ -46,6 +44,33 @@ class NodeService(
                   paymentTokens = it.paymentNotices.map { el -> el.paymentToken.value }
                   outcome = transactionOutcome
                   this.transactionId = transactionId.toString()
+                  transactionDetails =
+                    TransactionDetailsDto().apply {
+                      transaction = TransactionDto().apply {
+                        this.transactionId = transactionId.toString()
+                        transactionStatus = "Confermato"
+                        fee = authCompleted.transactionAuthorizationRequestData.fee.toBigDecimal()
+                        amount = authCompleted.transactionAuthorizationRequestData.amount.toBigDecimal()
+                        grandTotal = (authCompleted.transactionAuthorizationRequestData.amount.plus(
+                          authCompleted.transactionAuthorizationRequestData.fee))
+                          .toBigDecimal()
+                        rrn = authCompleted.transactionAuthorizationCompletedData.rrn
+                        authorizationCode = authCompleted.transactionAuthorizationCompletedData.authorizationCode
+                        creationDate = OffsetDateTime.parse(it.creationDate.toString(), DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                        psp = PspDto().apply {
+                          idPsp = authCompleted.transactionAuthorizationRequestData.pspId
+                          idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
+                          businessName = authCompleted.transactionAuthorizationRequestData.pspBusinessName
+                        }
+                      }
+                      info = InfoDto().apply {
+                        type = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
+                        brandLogo = authCompleted.transactionAuthorizationRequestData.logo.path
+                      }
+                      user = UserDto().apply {
+                        type = UserDto.TypeEnum.GUEST
+                      }
+                    }
                 }
               ClosePaymentRequestV2Dto.OutcomeEnum.OK ->
                 if (it is TransactionWithClosureError) {
@@ -92,6 +117,33 @@ class NodeService(
                                   .timestampOperation,
                                 DateTimeFormatter.ISO_OFFSET_DATE_TIME)
                             rrn = authCompleted.transactionAuthorizationCompletedData.rrn
+                          }
+                        transactionDetails =
+                          TransactionDetailsDto().apply {
+                            transaction = TransactionDto().apply {
+                              this.transactionId = transactionId.toString()
+                              transactionStatus = "Confermato"
+                              fee = authCompleted.transactionAuthorizationRequestData.fee.toBigDecimal()
+                              amount = authCompleted.transactionAuthorizationRequestData.amount.toBigDecimal()
+                              grandTotal = (authCompleted.transactionAuthorizationRequestData.amount.plus(
+                                authCompleted.transactionAuthorizationRequestData.fee))
+                                .toBigDecimal()
+                              rrn = authCompleted.transactionAuthorizationCompletedData.rrn
+                              authorizationCode = authCompleted.transactionAuthorizationCompletedData.authorizationCode
+                              creationDate = OffsetDateTime.parse(it.creationDate.toString(), DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                              psp = PspDto().apply {
+                                idPsp = authCompleted.transactionAuthorizationRequestData.pspId
+                                idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
+                                businessName = authCompleted.transactionAuthorizationRequestData.pspBusinessName
+                              }
+                            }
+                            info = InfoDto().apply {
+                              type = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
+                              brandLogo = authCompleted.transactionAuthorizationRequestData.logo.path
+                            }
+                            user = UserDto().apply {
+                              type = UserDto.TypeEnum.GUEST
+                            }
                           }
                       }
                     }
