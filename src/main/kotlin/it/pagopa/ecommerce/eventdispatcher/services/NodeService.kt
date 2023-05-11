@@ -116,8 +116,7 @@ class NodeService(
               transactionId = it.transactionId,
               expected =
                 listOf(
-                  TransactionStatusDto.CLOSURE_ERROR,
-                  TransactionStatusDto.CANCELLATION_REQUESTED),
+                  TransactionStatusDto.CLOSURE_ERROR, TransactionStatusDto.CANCELLATION_REQUESTED),
               actual = it.status)
           }
         }
