@@ -70,7 +70,7 @@ class TransactionClosePaymentQueueConsumer(
             Mono.error(
               BadTransactionStatusException(
                 transactionId = it.transactionId,
-                expected = TransactionStatusDto.CANCELLATION_REQUESTED,
+                expected = listOf(TransactionStatusDto.CANCELLATION_REQUESTED),
                 actual = it.status))
           } else {
             Mono.just(it)

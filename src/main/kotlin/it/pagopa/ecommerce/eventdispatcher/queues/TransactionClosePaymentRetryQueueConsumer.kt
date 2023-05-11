@@ -94,7 +94,7 @@ class TransactionClosePaymentRetryQueueConsumer(
             Mono.error(
               BadTransactionStatusException(
                 transactionId = it.transactionId,
-                expected = TransactionStatusDto.CLOSURE_ERROR,
+                expected = listOf(TransactionStatusDto.CLOSURE_ERROR),
                 actual = it.status))
           } else {
             Mono.just(it)

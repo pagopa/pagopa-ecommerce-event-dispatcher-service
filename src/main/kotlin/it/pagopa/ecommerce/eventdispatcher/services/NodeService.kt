@@ -114,7 +114,10 @@ class NodeService(
           else -> {
             throw BadTransactionStatusException(
               transactionId = it.transactionId,
-              expected = TransactionStatusDto.CLOSURE_ERROR, // fix multiple status
+              expected =
+                listOf(
+                  TransactionStatusDto.CLOSURE_ERROR,
+                  TransactionStatusDto.CANCELLATION_REQUESTED),
               actual = it.status)
           }
         }
