@@ -12,7 +12,6 @@ import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.reactor.awaitSingle
-import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -38,45 +37,53 @@ class NodeService(
         Mono.just(transactionId.value()), transactionsEventStoreRepository, EmptyTransaction())
 
     val closePaymentRequest =
-      baseTransaction.flatMap {
+      baseTransaction.map {
         when (it.status) {
           TransactionStatusDto.CLOSURE_ERROR -> {
             when (transactionOutcome) {
               ClosePaymentRequestV2Dto.OutcomeEnum.KO ->
-                mono {
-                  ClosePaymentRequestV2Dto().apply {
-                    paymentTokens = it.paymentNotices.map { el -> el.paymentToken.value }
-                    outcome = transactionOutcome
-                    this.transactionId = transactionId.toString()
-                  }
+                ClosePaymentRequestV2Dto().apply {
+                  paymentTokens = it.paymentNotices.map { el -> el.paymentToken.value }
+                  outcome = transactionOutcome
+                  this.transactionId = transactionId.toString()
                 }
               ClosePaymentRequestV2Dto.OutcomeEnum.OK ->
-                mono { it }
-                  .cast(TransactionWithClosureError::class.java)
-                  .flatMap { baseT ->
-                    val transactionAtPreviousState = baseT.transactionAtPreviousState()
-                    mono {
-                      transactionAtPreviousState
-                        .map { event ->
-                          val authCompleted = event.get()
-                          ClosePaymentRequestV2Dto().apply {
-                            paymentTokens =
-                              authCompleted.paymentNotices.map { paymentNotice ->
-                                paymentNotice.paymentToken.value
-                              }
-                            outcome = transactionOutcome
-                            idPSP = authCompleted.transactionAuthorizationRequestData.pspId
-                            paymentMethod =
-                              authCompleted.transactionAuthorizationRequestData.paymentTypeCode
-                            idBrokerPSP =
-                              authCompleted.transactionAuthorizationRequestData.brokerName
-                            idChannel =
-                              authCompleted.transactionAuthorizationRequestData.pspChannelCode
-                            this.transactionId = transactionId.toString()
-                            totalAmount =
-                              (authCompleted.transactionAuthorizationRequestData.amount.plus(
-                                  authCompleted.transactionAuthorizationRequestData.fee))
-                                .toBigDecimal()
+                if (it is TransactionWithClosureError) {
+                  val transactionAtPreviousState = it.transactionAtPreviousState()
+                  transactionAtPreviousState
+                    .map { event ->
+                      val authCompleted = event.get()
+                      ClosePaymentRequestV2Dto().apply {
+                        paymentTokens =
+                          authCompleted.paymentNotices.map { paymentNotice ->
+                            paymentNotice.paymentToken.value
+                          }
+                        outcome = transactionOutcome
+                        idPSP = authCompleted.transactionAuthorizationRequestData.pspId
+                        paymentMethod =
+                          authCompleted.transactionAuthorizationRequestData.paymentTypeCode
+                        idBrokerPSP = authCompleted.transactionAuthorizationRequestData.brokerName
+                        idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
+                        this.transactionId = transactionId.toString()
+                        totalAmount =
+                          (authCompleted.transactionAuthorizationRequestData.amount.plus(
+                              authCompleted.transactionAuthorizationRequestData.fee))
+                            .toBigDecimal()
+                        fee = authCompleted.transactionAuthorizationRequestData.fee.toBigDecimal()
+                        this.timestampOperation =
+                          OffsetDateTime.parse(
+                            authCompleted.transactionAuthorizationCompletedData.timestampOperation,
+                            DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                        additionalPaymentInformations =
+                          AdditionalPaymentInformationsDto().apply {
+                            tipoVersamento = TIPO_VERSAMENTO_CP
+                            outcomePaymentGateway =
+                              AdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.valueOf(
+                                authCompleted.transactionAuthorizationCompletedData
+                                  .authorizationResultDto
+                                  .toString())
+                            this.authorizationCode =
+                              authCompleted.transactionAuthorizationCompletedData.authorizationCode
                             fee =
                               authCompleted.transactionAuthorizationRequestData.fee.toBigDecimal()
                             this.timestampOperation =
@@ -84,53 +91,31 @@ class NodeService(
                                 authCompleted.transactionAuthorizationCompletedData
                                   .timestampOperation,
                                 DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-                            additionalPaymentInformations =
-                              AdditionalPaymentInformationsDto().apply {
-                                tipoVersamento = TIPO_VERSAMENTO_CP
-                                outcomePaymentGateway =
-                                  AdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum
-                                    .valueOf(
-                                      authCompleted.transactionAuthorizationCompletedData
-                                        .authorizationResultDto
-                                        .toString())
-                                this.authorizationCode =
-                                  authCompleted.transactionAuthorizationCompletedData
-                                    .authorizationCode
-                                fee =
-                                  authCompleted.transactionAuthorizationRequestData.fee
-                                    .toBigDecimal()
-                                this.timestampOperation =
-                                  OffsetDateTime.parse(
-                                    authCompleted.transactionAuthorizationCompletedData
-                                      .timestampOperation,
-                                    DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-                                rrn = authCompleted.transactionAuthorizationCompletedData.rrn
-                              }
+                            rrn = authCompleted.transactionAuthorizationCompletedData.rrn
                           }
-                        }
-                        .orElseThrow {
-                          RuntimeException(
-                            "Unexpected transactionAtPreviousStep: ${baseT.transactionAtPreviousState}")
-                        }
+                      }
                     }
-                  }
+                    .orElseThrow {
+                      RuntimeException(
+                        "Unexpected transactionAtPreviousStep: ${it.transactionAtPreviousState}")
+                    }
+                } else {
+                  throw RuntimeException(
+                    "Unexpected error while casting request into TransactionWithClosureError")
+                }
             }
           }
           TransactionStatusDto.CANCELLATION_REQUESTED ->
-            mono {
-              ClosePaymentRequestV2Dto().apply {
-                paymentTokens = it.paymentNotices.map { el -> el.paymentToken.value }
-                outcome = transactionOutcome
-                this.transactionId = transactionId.toString()
-              }
+            ClosePaymentRequestV2Dto().apply {
+              paymentTokens = it.paymentNotices.map { el -> el.paymentToken.value }
+              outcome = transactionOutcome
+              this.transactionId = transactionId.toString()
             }
           else -> {
-            Mono.error {
-              BadTransactionStatusException(
-                transactionId = it.transactionId,
-                expected = TransactionStatusDto.CLOSURE_ERROR, // fix multiple status
-                actual = it.status)
-            }
+            throw BadTransactionStatusException(
+              transactionId = it.transactionId,
+              expected = TransactionStatusDto.CLOSURE_ERROR, // fix multiple status
+              actual = it.status)
           }
         }
       }
