@@ -11,10 +11,9 @@ import it.pagopa.ecommerce.eventdispatcher.client.NodeClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.TransactionEventNotFoundException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.TransactionEventsInconsistentException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.TransactionEventsPreconditionsNotMatchedException
+import it.pagopa.ecommerce.eventdispatcher.queues.wasAuthorizationRequested
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
-import it.pagopa.generated.ecommerce.nodo.v2.dto.AdditionalPaymentInformationsDto
-import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
-import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
+import it.pagopa.generated.ecommerce.nodo.v2.dto.*
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import java.util.*
@@ -63,6 +62,14 @@ class NodeService(
         .cast(TransactionAuthorizationRequestedEvent::class.java)
         .awaitSingleOrNull()
 
+    val authCompletedEvent =
+      transactionsEventStoreRepository
+        .findByTransactionIdAndEventCode(
+          transactionId.value(),
+          TransactionEventCode.TRANSACTION_AUTHORIZATION_COMPLETED_EVENT)
+        .cast(TransactionAuthorizationCompletedEvent::class.java)
+        .awaitSingleOrNull()
+
     val closePaymentRequest =
       mono { userCanceledEvent }
         .map {
@@ -82,17 +89,36 @@ class NodeService(
                     paymentTokens = activatedEvent.data.paymentNotices.map { it.paymentToken }
                     outcome = transactionOutcome
                     this.transactionId = transactionId.toString()
+                    transactionDetails =
+                      TransactionDetailsDto().apply {
+                        transaction = TransactionDto().apply {
+                          //transactionId = ev.transactionId
+                          transactionStatus = "Confermato"
+                          fee = ev.data.fee.toBigDecimal()
+                          amount = ev.data.amount.toBigDecimal()
+                          grandTotal = (ev.data.fee + ev.data.amount).toBigDecimal()
+                          rrn = authCompletedEvent!!.data.rrn
+                          authorizationCode = authCompletedEvent.data.authorizationCode
+                          creationDate = OffsetDateTime.parse(activatedEvent.creationDate, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                          psp = PspDto().apply {
+                            idPsp = ev.data.pspId
+                            idChannel = ev.data.pspChannelCode
+                            businessName = ev.data.pspBusinessName
+                          }
+                        }.transactionId(ev.transactionId)
+                        info = InfoDto().apply {
+                          type = ev.data.paymentTypeCode
+                          brandLogo = ev.data.logo.path
+                        }
+                        user = UserDto().apply {
+                          type = UserDto.TypeEnum.GUEST
+                        }
+                      }
                   }
                 ClosePaymentRequestV2Dto.OutcomeEnum.OK -> {
-                  val authCompletedEvent =
-                    transactionsEventStoreRepository
-                      .findByTransactionIdAndEventCode(
-                        transactionId.value(),
-                        TransactionEventCode.TRANSACTION_AUTHORIZATION_COMPLETED_EVENT)
-                      .cast(TransactionAuthorizationCompletedEvent::class.java)
-                      .block()
-                      ?: throw TransactionEventNotFoundException(
-                        transactionId, transactionActivatedEventCode)
+                  if(authEvent != null && authCompletedEvent == null && userCanceledEvent == null) {
+                    throw TransactionEventNotFoundException(transactionId, TransactionEventCode.TRANSACTION_AUTHORIZATION_COMPLETED_EVENT)
+                  }
                   ClosePaymentRequestV2Dto().apply {
                     paymentTokens = activatedEvent.data.paymentNotices.map { it.paymentToken }
                     outcome = transactionOutcome
@@ -105,7 +131,7 @@ class NodeService(
                     fee = ev.data.fee.toBigDecimal()
                     this.timestampOperation =
                       OffsetDateTime.parse(
-                        authCompletedEvent.data.timestampOperation,
+                        authCompletedEvent!!.data.timestampOperation,
                         DateTimeFormatter.ISO_OFFSET_DATE_TIME)
                     additionalPaymentInformations =
                       AdditionalPaymentInformationsDto().apply {
@@ -120,6 +146,31 @@ class NodeService(
                             authCompletedEvent.data.timestampOperation,
                             DateTimeFormatter.ISO_OFFSET_DATE_TIME)
                         rrn = authCompletedEvent.data.rrn
+                      }
+                    transactionDetails =
+                      TransactionDetailsDto().apply {
+                        transaction = TransactionDto().apply {
+                          //transactionId = ev.transactionId
+                          transactionStatus = "Confermato"
+                          fee = ev.data.fee.toBigDecimal()
+                          amount = ev.data.amount.toBigDecimal()
+                          grandTotal = (ev.data.fee + ev.data.amount).toBigDecimal()
+                          rrn = authCompletedEvent.data.rrn
+                          authorizationCode = authCompletedEvent.data.authorizationCode
+                          creationDate = OffsetDateTime.parse(activatedEvent.creationDate, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                          psp = PspDto().apply {
+                            idPsp = ev.data.pspId
+                            idChannel = ev.data.pspChannelCode
+                            businessName = ev.data.pspBusinessName
+                          }
+                        }.transactionId(ev.transactionId)
+                        info = InfoDto().apply {
+                          type = ev.data.paymentTypeCode
+                          brandLogo = ev.data.logo.path
+                        }
+                        user = UserDto().apply {
+                          type = UserDto.TypeEnum.GUEST
+                        }
                       }
                   }
                 }
