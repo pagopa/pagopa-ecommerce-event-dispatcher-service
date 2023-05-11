@@ -2,20 +2,20 @@ package it.pagopa.ecommerce.eventdispatcher.config
 
 import io.netty.channel.ChannelOption
 import io.netty.handler.timeout.ReadTimeoutHandler
-import it.pagopa.generated.ecommerce.gateway.v1.ApiClient as GatewayApiClient
 import it.pagopa.generated.ecommerce.gateway.v1.api.VposApi
 import it.pagopa.generated.ecommerce.gateway.v1.api.XPayApi
-import it.pagopa.generated.ecommerce.nodo.v2.ApiClient as NodoApiClient
 import it.pagopa.generated.ecommerce.nodo.v2.api.NodoApi
 import it.pagopa.generated.notifications.v1.ApiClient
 import it.pagopa.generated.notifications.v1.api.DefaultApi
-import java.util.concurrent.TimeUnit
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.client.reactive.ReactorClientHttpConnector
 import reactor.netty.Connection
 import reactor.netty.http.client.HttpClient
+import java.util.concurrent.TimeUnit
+import it.pagopa.generated.ecommerce.gateway.v1.ApiClient as GatewayApiClient
+import it.pagopa.generated.ecommerce.nodo.v2.ApiClient as NodoApiClient
 
 @Configuration
 class WebClientConfig {
@@ -48,7 +48,8 @@ class WebClientConfig {
     @Value("\${paymentTransactionsGateway.uri}") paymentTransactionGatewayUri: String,
     @Value("\${paymentTransactionsGateway.readTimeout}") paymentTransactionGatewayReadTimeout: Int,
     @Value("\${paymentTransactionsGateway.connectionTimeout}")
-    paymentTransactionGatewayConnectionTimeout: Int
+    paymentTransactionGatewayConnectionTimeout: Int,
+    @Value("\${paymentTransactionsGateway.apiKey}") paymentTransactionGatewayApiKey: String
   ): VposApi {
     val httpClient =
       HttpClient.create()
@@ -63,7 +64,12 @@ class WebClientConfig {
         .clientConnector(ReactorClientHttpConnector(httpClient))
         .baseUrl(paymentTransactionGatewayUri)
         .build()
-    return VposApi(GatewayApiClient(webClient).setBasePath(paymentTransactionGatewayUri))
+
+    val gatewayApiClient = GatewayApiClient(webClient)
+    gatewayApiClient.setApiKey(paymentTransactionGatewayApiKey)
+    gatewayApiClient.basePath = paymentTransactionGatewayUri
+
+    return VposApi(gatewayApiClient)
   }
 
   @Bean(name = ["XpayApiWebClient"])
@@ -71,7 +77,8 @@ class WebClientConfig {
     @Value("\${paymentTransactionsGateway.uri}") paymentTransactionGatewayUri: String,
     @Value("\${paymentTransactionsGateway.readTimeout}") paymentTransactionGatewayReadTimeout: Int,
     @Value("\${paymentTransactionsGateway.connectionTimeout}")
-    paymentTransactionGatewayConnectionTimeout: Int
+    paymentTransactionGatewayConnectionTimeout: Int,
+    @Value("\${paymentTransactionsGateway.apiKey}") paymentTransactionGatewayApiKey: String
   ): XPayApi {
     val httpClient =
       HttpClient.create()
@@ -86,7 +93,12 @@ class WebClientConfig {
         .clientConnector(ReactorClientHttpConnector(httpClient))
         .baseUrl(paymentTransactionGatewayUri)
         .build()
-    return XPayApi(GatewayApiClient(webClient).setBasePath(paymentTransactionGatewayUri))
+
+    val gatewayApiClient = GatewayApiClient(webClient)
+    gatewayApiClient.setApiKey(paymentTransactionGatewayApiKey)
+    gatewayApiClient.basePath = paymentTransactionGatewayUri
+
+    return XPayApi(gatewayApiClient)
   }
 
   @Bean(name = ["notificationsServiceWebClient"])
