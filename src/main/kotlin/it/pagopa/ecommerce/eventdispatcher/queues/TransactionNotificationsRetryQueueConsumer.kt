@@ -84,7 +84,7 @@ class TransactionNotificationsRetryQueueConsumer(
             Mono.error(
               BadTransactionStatusException(
                 transactionId = it.transactionId,
-                expected = TransactionStatusDto.NOTIFICATION_ERROR,
+                expected = listOf(TransactionStatusDto.NOTIFICATION_ERROR),
                 actual = it.status))
           } else {
             Mono.just(it)

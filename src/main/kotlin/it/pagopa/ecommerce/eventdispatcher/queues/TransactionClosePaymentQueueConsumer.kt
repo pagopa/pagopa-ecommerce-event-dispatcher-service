@@ -70,7 +70,7 @@ class TransactionClosePaymentQueueConsumer(
             Mono.error(
               BadTransactionStatusException(
                 transactionId = it.transactionId,
-                expected = TransactionStatusDto.CANCELLATION_REQUESTED,
+                expected = listOf(TransactionStatusDto.CANCELLATION_REQUESTED),
                 actual = it.status))
           } else {
             Mono.just(it)
@@ -79,8 +79,7 @@ class TransactionClosePaymentQueueConsumer(
         .cast(TransactionWithCancellationRequested::class.java)
         .flatMap { tx ->
           mono {
-              nodeService.closePayment(
-                tx.transactionId, ClosePaymentRequestV2Dto.OutcomeEnum.KO, Optional.empty())
+              nodeService.closePayment(tx.transactionId, ClosePaymentRequestV2Dto.OutcomeEnum.KO)
             }
             .flatMap { closePaymentResponse ->
               updateTransactionStatus(

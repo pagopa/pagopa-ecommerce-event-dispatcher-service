@@ -5,7 +5,7 @@ import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 
 class BadTransactionStatusException(
   val transactionId: TransactionId,
-  val expected: TransactionStatusDto,
+  val expected: List<TransactionStatusDto>,
   val actual: TransactionStatusDto
 ) :
   RuntimeException(
