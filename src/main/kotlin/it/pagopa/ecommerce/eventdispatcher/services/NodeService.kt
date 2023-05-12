@@ -2,6 +2,7 @@ package it.pagopa.ecommerce.eventdispatcher.services
 
 import it.pagopa.ecommerce.commons.domain.v1.*
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
+import it.pagopa.ecommerce.commons.utils.EuroUtils
 import it.pagopa.ecommerce.eventdispatcher.client.NodeClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
 import it.pagopa.ecommerce.eventdispatcher.queues.reduceEvents
@@ -66,9 +67,9 @@ class NodeService(
                         idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
                         this.transactionId = transactionId.value()
                         totalAmount =
-                          (authCompleted.transactionAuthorizationRequestData.amount.plus(
-                              authCompleted.transactionAuthorizationRequestData.fee))
-                            .toBigDecimal()
+                          EuroUtils.euroCentsToEuro(
+                            (authCompleted.transactionAuthorizationRequestData.amount.plus(
+                              authCompleted.transactionAuthorizationRequestData.fee)))
                         fee = authCompleted.transactionAuthorizationRequestData.fee.toBigDecimal()
                         this.timestampOperation =
                           OffsetDateTime.parse(
