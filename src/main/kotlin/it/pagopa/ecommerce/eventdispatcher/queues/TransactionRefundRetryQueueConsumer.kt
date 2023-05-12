@@ -64,7 +64,7 @@ class TransactionRefundRetryQueueConsumer(
             Mono.error(
               BadTransactionStatusException(
                 transactionId = it.transactionId,
-                expected = TransactionStatusDto.REFUND_ERROR,
+                expected = listOf(TransactionStatusDto.REFUND_ERROR),
                 actual = it.status))
           } else {
             Mono.just(it)

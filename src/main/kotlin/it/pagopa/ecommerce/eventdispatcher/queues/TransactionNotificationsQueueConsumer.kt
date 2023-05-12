@@ -73,7 +73,7 @@ class TransactionNotificationsQueueConsumer(
             Mono.error(
               BadTransactionStatusException(
                 transactionId = it.transactionId,
-                expected = TransactionStatusDto.NOTIFICATION_REQUESTED,
+                expected = listOf(TransactionStatusDto.NOTIFICATION_REQUESTED),
                 actual = it.status))
           } else {
             Mono.just(it)

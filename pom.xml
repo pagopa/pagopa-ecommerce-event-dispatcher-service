@@ -18,7 +18,7 @@
 		<kotlinx-coroutines.version>1.6.2</kotlinx-coroutines.version>
 		<spring-cloud-azure.version>4.0.0</spring-cloud-azure.version>
 		<jacoco.version>0.8.8</jacoco.version>
-		<pagopa-ecommerce-commons.version>0.12.1</pagopa-ecommerce-commons.version>
+		<pagopa-ecommerce-commons.version>0.13.0</pagopa-ecommerce-commons.version>
 		<sonar.coverage.exclusions> <!-- the members of the following list should be in the same line -->
 			**/it/pagopa/transactions/**
 		</sonar.coverage.exclusions>
@@ -300,7 +300,7 @@
 						</goals>
 						<configuration>
 							<inputSpec>
-								https://raw.githubusercontent.com/pagopa/pagopa-infra/main/src/core/api/nodopagamenti_api/nodoPerPM/v2/_swagger.json.tpl
+								https://raw.githubusercontent.com/pagopa/pagopa-infra/closepaymentv2-alignement/src/core/api/nodopagamenti_api/nodoPerPM/v2/_swagger.json.tpl
 							</inputSpec>
 							<generatorName>java</generatorName>
 							<library>webclient</library>
