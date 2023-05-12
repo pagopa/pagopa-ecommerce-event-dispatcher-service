@@ -45,7 +45,7 @@ class NodeService(
                 ClosePaymentRequestV2Dto().apply {
                   paymentTokens = it.paymentNotices.map { el -> el.paymentToken.value }
                   outcome = transactionOutcome
-                  this.transactionId = transactionId.toString()
+                  this.transactionId = transactionId.value()
                 }
               ClosePaymentRequestV2Dto.OutcomeEnum.OK ->
                 if (it is TransactionWithClosureError) {
@@ -64,7 +64,7 @@ class NodeService(
                           authCompleted.transactionAuthorizationRequestData.paymentTypeCode
                         idBrokerPSP = authCompleted.transactionAuthorizationRequestData.brokerName
                         idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
-                        this.transactionId = transactionId.toString()
+                        this.transactionId = transactionId.value()
                         totalAmount =
                           (authCompleted.transactionAuthorizationRequestData.amount.plus(
                               authCompleted.transactionAuthorizationRequestData.fee))
@@ -109,7 +109,7 @@ class NodeService(
             ClosePaymentRequestV2Dto().apply {
               paymentTokens = it.paymentNotices.map { el -> el.paymentToken.value }
               outcome = transactionOutcome
-              this.transactionId = transactionId.toString()
+              this.transactionId = transactionId.value()
             }
           else -> {
             throw BadTransactionStatusException(
