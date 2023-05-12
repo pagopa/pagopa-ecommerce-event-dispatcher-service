@@ -4,8 +4,8 @@ import it.pagopa.ecommerce.eventdispatcher.exceptions.BadGatewayException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.TransactionNotFound
 import it.pagopa.ecommerce.eventdispatcher.utils.getMockedVPosRefundRequest
 import it.pagopa.ecommerce.eventdispatcher.utils.getMockedXPayRefundRequest
-import it.pagopa.generated.ecommerce.gateway.v1.api.VposApi
-import it.pagopa.generated.ecommerce.gateway.v1.api.XPayApi
+import it.pagopa.generated.ecommerce.gateway.v1.api.VposInternalApi
+import it.pagopa.generated.ecommerce.gateway.v1.api.XPayInternalApi
 import java.nio.charset.Charset
 import java.util.*
 import org.junit.jupiter.api.Assertions.*
@@ -23,8 +23,8 @@ import reactor.core.publisher.Mono
 @TestPropertySource(locations = ["classpath:application.test.properties"])
 class PaymentGatewayClientTest {
 
-  @Mock private lateinit var vposApi: VposApi
-  @Mock private lateinit var xpayApi: XPayApi
+  @Mock private lateinit var vposApi: VposInternalApi
+  @Mock private lateinit var xpayApi: XPayInternalApi
 
   @InjectMocks private lateinit var paymentGatewayClient: PaymentGatewayClient
 
