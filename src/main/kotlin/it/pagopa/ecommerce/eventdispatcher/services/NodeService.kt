@@ -195,7 +195,7 @@ class NodeService(
   }
 
   private fun getPaymentTypeCode(it: BaseTransaction?): String =
-    if (it is TransactionWithClosureError) {
+    if (it is TransactionWithClosureError && wasAuthorizationRequested(it)) {
       val transactionAtPreviousState = it.transactionAtPreviousState()
       transactionAtPreviousState
         .map { event ->
