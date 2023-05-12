@@ -91,7 +91,7 @@ class NodeService(
                                 authCompleted.transactionAuthorizationCompletedData
                                   .timestampOperation,
                                 DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-                            rrn = authCompleted.transactionAuthorizationCompletedData.rrn
+                            this.rrn = authCompleted.transactionAuthorizationCompletedData.rrn
                           }
                       }
                     }
