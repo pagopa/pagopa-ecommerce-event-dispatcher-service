@@ -58,9 +58,7 @@ class NodeService(
                             } else {
                               "Annullato"
                             }
-                          creationDate =
-                            OffsetDateTime.parse(
-                              it.creationDate.toString(), DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                          creationDate = it.creationDate.toOffsetDateTime()
                         }
                       info = InfoDto().apply { type = getPaymentTypeCode(it) }
                       user = UserDto().apply { type = UserDto.TypeEnum.GUEST }
@@ -132,10 +130,7 @@ class NodeService(
                                 authorizationCode =
                                   authCompleted.transactionAuthorizationCompletedData
                                     .authorizationCode
-                                creationDate =
-                                  OffsetDateTime.parse(
-                                    it.creationDate.toString(),
-                                    DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                                creationDate = it.creationDate.toOffsetDateTime()
                                 psp =
                                   PspDto().apply {
                                     idPsp = authCompleted.transactionAuthorizationRequestData.pspId
@@ -179,9 +174,7 @@ class NodeService(
                     TransactionDto().apply {
                       this.transactionId = transactionId.toString()
                       transactionStatus = "Annullato"
-                      creationDate =
-                        OffsetDateTime.parse(
-                          it.creationDate.toString(), DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                      creationDate = it.creationDate.toOffsetDateTime()
                     }
                   info = InfoDto().apply { type = "CP" }
                   user = UserDto().apply { type = UserDto.TypeEnum.GUEST }
