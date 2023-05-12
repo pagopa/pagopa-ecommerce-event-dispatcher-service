@@ -3,8 +3,8 @@ package it.pagopa.ecommerce.eventdispatcher.client
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadGatewayException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.GatewayTimeoutException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.TransactionNotFound
-import it.pagopa.generated.ecommerce.gateway.v1.api.VposApi
-import it.pagopa.generated.ecommerce.gateway.v1.api.XPayApi
+import it.pagopa.generated.ecommerce.gateway.v1.api.VposInternalApi
+import it.pagopa.generated.ecommerce.gateway.v1.api.XPayInternalApi
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
 import java.util.*
@@ -17,9 +17,9 @@ import reactor.core.publisher.Mono
 
 @Component
 class PaymentGatewayClient {
-  @Autowired @Qualifier("VposApiWebClient") private lateinit var vposApi: VposApi
+  @Autowired @Qualifier("VposApiWebClient") private lateinit var vposApi: VposInternalApi
 
-  @Autowired @Qualifier("XpayApiWebClient") private lateinit var xpayApi: XPayApi
+  @Autowired @Qualifier("XpayApiWebClient") private lateinit var xpayApi: XPayInternalApi
 
   fun requestXPayRefund(requestId: UUID): Mono<XPayRefundResponse200Dto> {
     return xpayApi.refundXpayRequest(requestId).onErrorMap(

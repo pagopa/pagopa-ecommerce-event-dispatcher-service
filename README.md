@@ -41,6 +41,7 @@ These are all environment variables needed by the application:
 | PAYMENT_TRANSACTIONS_GATEWAY_URI                | Payment transaction gateway URI                                                   | string  |         |
 | PAYMENT_TRANSACTIONS_GATEWAY_READ_TIMEOUT       | Payment transaction gateway HTTP read timeout                                     | integer |         |
 | PAYMENT_TRANSACTIONS_GATEWAY_CONNECTION_TIMEOUT | Payment transaction gateway HTTP connection timeout                               | integer |         |
+| PAYMENT_TRANSACTIONS_GATEWAY_API_KEY            | Payment transaction gateway API subscription-key                                  | integer |         |
 | REFUND_RETRY_EVENT_BASE_INTERVAL_SECONDS        | Base interval used to calculate visibility for next retries refund event          | integer |         |
 | REFUND_RETRY_EVENT_MAX_ATTEMPTS                 | Max attempts to be performed for refund                                           | integer |         |
 | CLOSE_PAYMENT_RETRY_EVENT_BASE_INTERVAL_SECONDS | Base interval used to calculate visibility for next retried closure event         | integer |         |
