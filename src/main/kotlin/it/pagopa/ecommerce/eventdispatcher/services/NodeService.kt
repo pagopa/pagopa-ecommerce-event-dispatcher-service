@@ -206,6 +206,6 @@ class NodeService(
           RuntimeException("Unexpected transactionAtPreviousStep: ${it.transactionAtPreviousState}")
         }
     } else {
-      "CP"
+      TIPO_VERSAMENTO_CP
     }
 }
