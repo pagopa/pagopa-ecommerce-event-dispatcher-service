@@ -1,15 +1,15 @@
 package it.pagopa.ecommerce.eventdispatcher.services
 
 import it.pagopa.ecommerce.commons.domain.v1.*
+import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.utils.EuroUtils
 import it.pagopa.ecommerce.eventdispatcher.client.NodeClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
 import it.pagopa.ecommerce.eventdispatcher.queues.reduceEvents
+import it.pagopa.ecommerce.eventdispatcher.queues.wasAuthorizationRequested
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
-import it.pagopa.generated.ecommerce.nodo.v2.dto.AdditionalPaymentInformationsDto
-import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
-import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
+import it.pagopa.generated.ecommerce.nodo.v2.dto.*
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.reactor.awaitSingle
@@ -47,6 +47,22 @@ class NodeService(
                   paymentTokens = it.paymentNotices.map { el -> el.paymentToken.value }
                   outcome = transactionOutcome
                   this.transactionId = transactionId.value()
+                  transactionDetails =
+                    TransactionDetailsDto().apply {
+                      transaction =
+                        TransactionDto().apply {
+                          this.transactionId = transactionId.toString()
+                          transactionStatus =
+                            if (wasAuthorizationRequested(it)) {
+                              "Rifiutato"
+                            } else {
+                              "Annullato"
+                            }
+                          creationDate = it.creationDate.toOffsetDateTime()
+                        }
+                      info = InfoDto().apply { type = getPaymentTypeCode(it) }
+                      user = UserDto().apply { type = UserDto.TypeEnum.GUEST }
+                    }
                 }
               ClosePaymentRequestV2Dto.OutcomeEnum.OK ->
                 if (it is TransactionWithClosureError) {
@@ -94,6 +110,47 @@ class NodeService(
                                 DateTimeFormatter.ISO_OFFSET_DATE_TIME)
                             this.rrn = authCompleted.transactionAuthorizationCompletedData.rrn
                           }
+                        transactionDetails =
+                          TransactionDetailsDto().apply {
+                            transaction =
+                              TransactionDto().apply {
+                                this.transactionId = transactionId.toString()
+                                transactionStatus = "Autorizzato"
+                                fee =
+                                  authCompleted.transactionAuthorizationRequestData.fee
+                                    .toBigDecimal()
+                                amount =
+                                  authCompleted.transactionAuthorizationRequestData.amount
+                                    .toBigDecimal()
+                                grandTotal =
+                                  (authCompleted.transactionAuthorizationRequestData.amount.plus(
+                                      authCompleted.transactionAuthorizationRequestData.fee))
+                                    .toBigDecimal()
+                                rrn = authCompleted.transactionAuthorizationCompletedData.rrn
+                                authorizationCode =
+                                  authCompleted.transactionAuthorizationCompletedData
+                                    .authorizationCode
+                                creationDate = it.creationDate.toOffsetDateTime()
+                                psp =
+                                  PspDto().apply {
+                                    idPsp = authCompleted.transactionAuthorizationRequestData.pspId
+                                    idChannel =
+                                      authCompleted.transactionAuthorizationRequestData
+                                        .pspChannelCode
+                                    businessName =
+                                      authCompleted.transactionAuthorizationRequestData
+                                        .pspBusinessName
+                                  }
+                              }
+                            info =
+                              InfoDto().apply {
+                                type =
+                                  authCompleted.transactionAuthorizationRequestData.paymentTypeCode
+                                brandLogo =
+                                  authCompleted.transactionAuthorizationRequestData.logo.path
+                              }
+                            user = UserDto().apply { type = UserDto.TypeEnum.GUEST }
+                          }
                       }
                     }
                     .orElseThrow {
@@ -111,6 +168,17 @@ class NodeService(
               paymentTokens = it.paymentNotices.map { el -> el.paymentToken.value }
               outcome = transactionOutcome
               this.transactionId = transactionId.value()
+              transactionDetails =
+                TransactionDetailsDto().apply {
+                  transaction =
+                    TransactionDto().apply {
+                      this.transactionId = transactionId.toString()
+                      transactionStatus = "Annullato"
+                      creationDate = it.creationDate.toOffsetDateTime()
+                    }
+                  info = InfoDto().apply { type = "CP" }
+                  user = UserDto().apply { type = UserDto.TypeEnum.GUEST }
+                }
             }
           else -> {
             throw BadTransactionStatusException(
@@ -125,4 +193,19 @@ class NodeService(
 
     return nodeClient.closePayment(closePaymentRequest.awaitSingle()).awaitSingle()
   }
+
+  private fun getPaymentTypeCode(it: BaseTransaction?): String =
+    if (it is TransactionWithClosureError && wasAuthorizationRequested(it)) {
+      val transactionAtPreviousState = it.transactionAtPreviousState()
+      transactionAtPreviousState
+        .map { event ->
+          val authCompleted = event.get()
+          authCompleted.transactionAuthorizationRequestData.paymentTypeCode
+        }
+        .orElseThrow {
+          RuntimeException("Unexpected transactionAtPreviousStep: ${it.transactionAtPreviousState}")
+        }
+    } else {
+      TIPO_VERSAMENTO_CP
+    }
 }
