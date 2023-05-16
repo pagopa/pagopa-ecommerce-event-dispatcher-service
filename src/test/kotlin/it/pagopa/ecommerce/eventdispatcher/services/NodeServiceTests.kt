@@ -3,17 +3,23 @@ package it.pagopa.ecommerce.eventdispatcher.services
 import it.pagopa.ecommerce.commons.documents.v1.TransactionEvent
 import it.pagopa.ecommerce.commons.domain.v1.TransactionId
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
+import it.pagopa.ecommerce.commons.utils.EuroUtils
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils.*
 import it.pagopa.ecommerce.eventdispatcher.client.NodeClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
+import it.pagopa.generated.ecommerce.nodo.v2.dto.AdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto.OutcomeEnum
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
+import java.time.OffsetDateTime
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 import java.util.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
@@ -112,12 +118,14 @@ class NodeServiceTests {
   fun `ClosePaymentRequestV2Dto has additional properties valued correctly`() = runTest {
     val transactionOutcome = OutcomeEnum.OK
 
-    val activatedEvent = transactionActivateEvent() as TransactionEvent<Any>
-    val authEvent = transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
-    val authCompletedEvent = transactionAuthorizationCompletedEvent() as TransactionEvent<Any>
-    val closureError = transactionClosureErrorEvent() as TransactionEvent<Any>
+    val activatedEvent = transactionActivateEvent()
+    val authEvent = transactionAuthorizationRequestedEvent()
+    val authCompletedEvent = transactionAuthorizationCompletedEvent()
+    val closureError = transactionClosureErrorEvent()
     val transactionId = activatedEvent.transactionId
-    val events = listOf(activatedEvent, authEvent, authCompletedEvent, closureError)
+    val events =
+      listOf(activatedEvent, authEvent, authCompletedEvent, closureError)
+        as List<TransactionEvent<Any>>
 
     val closePaymentResponse =
       ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
@@ -133,11 +141,29 @@ class NodeServiceTests {
     assertEquals(
       closePaymentResponse,
       nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
-    val closePaymentRequestV2Dto = closePaymentRequestCaptor.value
-    val expectedTimestamp = closePaymentRequestV2Dto.timestampOperation
-    assertEquals(
-      expectedTimestamp,
-      closePaymentRequestV2Dto.additionalPaymentInformations!!.timestampOperation)
+    val additionalPaymentInfo = closePaymentRequestCaptor.value.additionalPaymentInformations!!
+    val expectedTimestamp =
+      OffsetDateTime.parse(
+          authCompletedEvent.data.timestampOperation, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+        .truncatedTo(ChronoUnit.SECONDS)
+        .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+    val expectedFee = EuroUtils.euroCentsToEuro(authEvent.data.fee).toString()
+    val expectedTotalAmount =
+      EuroUtils.euroCentsToEuro(authEvent.data.amount + authEvent.data.fee).toString()
+    val expectedOutcome =
+      authCompletedEvent.data.authorizationResultDto.let {
+        OutcomePaymentGatewayEnum.valueOf(it.toString())
+      }
+    assertEquals(expectedTimestamp, additionalPaymentInfo.timestampOperation)
+    // check that timestampOperation is in yyyy-MM-ddThh:mm:ss format
+    assertTrue(
+      additionalPaymentInfo.timestampOperation.matches(
+        Regex("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}$")))
+    assertEquals(RRN, additionalPaymentInfo.rrn)
+    assertEquals(expectedFee, additionalPaymentInfo.fee)
+    assertEquals(expectedTotalAmount, additionalPaymentInfo.totalAmount)
+    assertEquals(authCompletedEvent.data.authorizationCode, additionalPaymentInfo.authorizationCode)
+    assertEquals(expectedOutcome, additionalPaymentInfo.outcomePaymentGateway)
   }
 
   @Test
