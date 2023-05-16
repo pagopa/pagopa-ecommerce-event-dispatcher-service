@@ -1,6 +1,8 @@
 package it.pagopa.ecommerce.eventdispatcher.services
 
-import it.pagopa.ecommerce.commons.domain.v1.*
+import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
+import it.pagopa.ecommerce.commons.domain.v1.TransactionId
+import it.pagopa.ecommerce.commons.domain.v1.TransactionWithClosureError
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.utils.EuroUtils
@@ -12,6 +14,7 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRe
 import it.pagopa.generated.ecommerce.nodo.v2.dto.*
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 import kotlinx.coroutines.reactor.awaitSingle
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -93,7 +96,6 @@ class NodeService(
                             DateTimeFormatter.ISO_OFFSET_DATE_TIME)
                         additionalPaymentInformations =
                           AdditionalPaymentInformationsDto().apply {
-                            tipoVersamento = TIPO_VERSAMENTO_CP
                             outcomePaymentGateway =
                               AdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.valueOf(
                                 authCompleted.transactionAuthorizationCompletedData
@@ -102,17 +104,22 @@ class NodeService(
                             this.authorizationCode =
                               authCompleted.transactionAuthorizationCompletedData.authorizationCode
                             fee =
-                              authCompleted.transactionAuthorizationRequestData.fee.toBigDecimal()
+                              EuroUtils.euroCentsToEuro(
+                                  authCompleted.transactionAuthorizationRequestData.fee)
+                                .toString()
                             this.timestampOperation =
                               OffsetDateTime.parse(
-                                authCompleted.transactionAuthorizationCompletedData
-                                  .timestampOperation,
-                                DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                                  authCompleted.transactionAuthorizationCompletedData
+                                    .timestampOperation,
+                                  DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                                .truncatedTo(ChronoUnit.SECONDS)
+                                .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
                             this.rrn = authCompleted.transactionAuthorizationCompletedData.rrn
                             this.totalAmount =
                               EuroUtils.euroCentsToEuro(
-                                (authCompleted.transactionAuthorizationRequestData.amount.plus(
-                                  authCompleted.transactionAuthorizationRequestData.fee)))
+                                  (authCompleted.transactionAuthorizationRequestData.amount.plus(
+                                    authCompleted.transactionAuthorizationRequestData.fee)))
+                                .toString()
                           }
                         transactionDetails =
                           TransactionDetailsDto().apply {
