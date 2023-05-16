@@ -26,7 +26,8 @@ fun getMockedClosePaymentRequest(
       "pspBusinessName",
       "authorizationRequestId",
       TransactionAuthorizationRequestData.PaymentGateway.VPOS,
-      TransactionTestUtils.LOGO_URI)
+      TransactionTestUtils.LOGO_URI,
+      TransactionAuthorizationRequestData.CardBrand.VISA)
 
   return ClosePaymentRequestV2Dto().apply {
     paymentTokens = listOf(UUID.randomUUID().toString())
