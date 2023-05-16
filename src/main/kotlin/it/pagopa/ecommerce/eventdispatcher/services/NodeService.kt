@@ -109,6 +109,10 @@ class NodeService(
                                   .timestampOperation,
                                 DateTimeFormatter.ISO_OFFSET_DATE_TIME)
                             this.rrn = authCompleted.transactionAuthorizationCompletedData.rrn
+                            this.totalAmount =
+                              EuroUtils.euroCentsToEuro(
+                                (authCompleted.transactionAuthorizationRequestData.amount.plus(
+                                  authCompleted.transactionAuthorizationRequestData.fee)))
                           }
                         transactionDetails =
                           TransactionDetailsDto().apply {
@@ -147,7 +151,7 @@ class NodeService(
                                 type =
                                   authCompleted.transactionAuthorizationRequestData.paymentTypeCode
                                 brandLogo =
-                                  authCompleted.transactionAuthorizationRequestData.logo.path
+                                  authCompleted.transactionAuthorizationRequestData.logo.toString()
                               }
                             user = UserDto().apply { type = UserDto.TypeEnum.GUEST }
                           }
