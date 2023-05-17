@@ -161,13 +161,13 @@ fun refundTransaction(
 
       when (refundResponse) {
         is VposDeleteResponseDto ->
-          handleRefundResponse(
+          handleVposRefundResponse(
             transaction,
             refundResponse,
             transactionsEventStoreRepository,
             transactionsViewRepository)
         is XPayRefundResponse200Dto ->
-          handleRefundResponse(
+          handleXpayRefundResponse(
             transaction,
             refundResponse,
             transactionsEventStoreRepository,
@@ -191,7 +191,7 @@ fun refundTransaction(
     }
 }
 
-fun handleRefundResponse(
+fun handleVposRefundResponse(
   transaction: BaseTransactionWithRequestedAuthorization,
   refundResponse: VposDeleteResponseDto,
   transactionsEventStoreRepository: TransactionsEventStoreRepository<TransactionRefundedData>,
@@ -200,17 +200,17 @@ fun handleRefundResponse(
   logger.info(
     "Transaction requestRefund for transaction ${transaction.transactionId} transaction status ${refundResponse.status}")
 
-  if (refundResponse.status.equals(StatusEnum.CANCELLED)) {
-    return updateTransactionToRefunded(
+  return if (refundResponse.status == StatusEnum.CANCELLED) {
+    updateTransactionToRefunded(
       transaction, transactionsEventStoreRepository, transactionsViewRepository)
   } else {
-    return Mono.error(
+    Mono.error(
       RuntimeException(
         "Refund error for transaction ${transaction.transactionId} transaction status ${refundResponse.status}"))
   }
 }
 
-fun handleRefundResponse(
+fun handleXpayRefundResponse(
   transaction: BaseTransactionWithRequestedAuthorization,
   refundResponse: XPayRefundResponse200Dto,
   transactionsEventStoreRepository: TransactionsEventStoreRepository<TransactionRefundedData>,
@@ -219,11 +219,11 @@ fun handleRefundResponse(
   logger.info(
     "Transaction requestRefund for transaction ${transaction.transactionId} transaction status ${refundResponse.status}")
 
-  if (refundResponse.status.equals(XPayRefundResponse200Dto.StatusEnum.CANCELLED)) {
-    return updateTransactionToRefunded(
+  return if (refundResponse.status == XPayRefundResponse200Dto.StatusEnum.CANCELLED) {
+    updateTransactionToRefunded(
       transaction, transactionsEventStoreRepository, transactionsViewRepository)
   } else {
-    return Mono.error(
+    Mono.error(
       RuntimeException(
         "Refund error for transaction ${transaction.transactionId} transaction status ${refundResponse.status}"))
   }
