@@ -1254,4 +1254,202 @@ class TransactionExpirationQueueConsumerTests {
     verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
     verify(transactionsViewRepository, times(0)).save(any())
   }
+
+  @Test
+  fun `messageReceiver calls update transaction to CANCELLATION_REQUESTED for transaction expired in CANCELLATION_REQUESTED status`() =
+    runTest {
+      val transactionExpirationQueueConsumer =
+        TransactionExpirationQueueConsumer(
+          paymentGatewayClient,
+          transactionsEventStoreRepository,
+          transactionsExpiredEventStoreRepository,
+          transactionsRefundedEventStoreRepository,
+          transactionsViewRepository,
+          transactionUtils,
+          refundRetryService)
+
+      val activatedEvent = transactionActivateEvent()
+      val cancellationRequested = transactionUserCanceledEvent()
+
+      /* preconditions */
+      given(checkpointer.success()).willReturn(Mono.empty())
+      given(
+          transactionsEventStoreRepository.findByTransactionId(
+            any(),
+          ))
+        .willReturn(
+          Flux.just(
+            activatedEvent as TransactionEvent<Any>,
+            cancellationRequested as TransactionEvent<Any>))
+
+      given(
+          transactionsExpiredEventStoreRepository.save(
+            transactionExpiredEventStoreCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
+      given(
+          transactionsRefundedEventStoreRepository.save(
+            transactionRefundEventStoreCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
+      given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
+        Mono.just(it.arguments[0])
+      }
+
+      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturn(
+          Mono.just(transactionDocument(TransactionStatusDto.ACTIVATED, ZonedDateTime.now())))
+
+      /* test */
+      StepVerifier.create(
+          transactionExpirationQueueConsumer.messageReceiver(
+            BinaryData.fromObject(activatedEvent).toBytes(), checkpointer))
+        .expectNext()
+        .expectComplete()
+        .verify()
+
+      /* Asserts */
+      verify(checkpointer, times(1)).success()
+      verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
+      verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
+      verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
+      verify(transactionsViewRepository, times(1)).save(any())
+      verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
+      assertEquals(
+        TransactionEventCode.TRANSACTION_EXPIRED_EVENT,
+        transactionExpiredEventStoreCaptor.value.eventCode)
+      assertEquals(
+        TransactionStatusDto.CANCELLATION_EXPIRED,
+        transactionViewRepositoryCaptor.value.status,
+      )
+    }
+
+  @Test
+  fun `messageReceiver calls update transaction to CANCELLATION_REQUESTED for transaction expired in CLOSURE_ERROR coming from user cancellation`() =
+    runTest {
+      val transactionExpirationQueueConsumer =
+        TransactionExpirationQueueConsumer(
+          paymentGatewayClient,
+          transactionsEventStoreRepository,
+          transactionsExpiredEventStoreRepository,
+          transactionsRefundedEventStoreRepository,
+          transactionsViewRepository,
+          transactionUtils,
+          refundRetryService)
+
+      val activatedEvent = transactionActivateEvent()
+      val cancellationRequested = transactionUserCanceledEvent()
+      val closureError = transactionClosureErrorEvent()
+
+      /* preconditions */
+      given(checkpointer.success()).willReturn(Mono.empty())
+      given(
+          transactionsEventStoreRepository.findByTransactionId(
+            any(),
+          ))
+        .willReturn(
+          Flux.just(
+            activatedEvent as TransactionEvent<Any>,
+            cancellationRequested as TransactionEvent<Any>,
+            closureError as TransactionEvent<Any>))
+
+      given(
+          transactionsExpiredEventStoreRepository.save(
+            transactionExpiredEventStoreCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
+      given(
+          transactionsRefundedEventStoreRepository.save(
+            transactionRefundEventStoreCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
+      given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
+        Mono.just(it.arguments[0])
+      }
+
+      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturn(
+          Mono.just(transactionDocument(TransactionStatusDto.ACTIVATED, ZonedDateTime.now())))
+
+      /* test */
+      StepVerifier.create(
+          transactionExpirationQueueConsumer.messageReceiver(
+            BinaryData.fromObject(activatedEvent).toBytes(), checkpointer))
+        .expectNext()
+        .expectComplete()
+        .verify()
+
+      /* Asserts */
+      verify(checkpointer, times(1)).success()
+      verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
+      verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
+      verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
+      verify(transactionsViewRepository, times(1)).save(any())
+      verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
+      assertEquals(
+        TransactionEventCode.TRANSACTION_EXPIRED_EVENT,
+        transactionExpiredEventStoreCaptor.value.eventCode)
+      assertEquals(
+        TransactionStatusDto.CANCELLATION_EXPIRED,
+        transactionViewRepositoryCaptor.value.status,
+      )
+    }
+
+  @Test
+  fun `messageReceiver does nothing on a expiration event received for a transaction in CANCELLATION_REQUESTED status`() =
+    runTest {
+      val transactionExpirationQueueConsumer =
+        TransactionExpirationQueueConsumer(
+          paymentGatewayClient,
+          transactionsEventStoreRepository,
+          transactionsExpiredEventStoreRepository,
+          transactionsRefundedEventStoreRepository,
+          transactionsViewRepository,
+          transactionUtils,
+          refundRetryService)
+
+      val activatedEvent = transactionActivateEvent()
+      val cancellationEvent = transactionUserCanceledEvent()
+      val transactionExpiredEvent = transactionExpiredEvent(reduceEvents(activatedEvent))
+
+      /* preconditions */
+      given(checkpointer.success()).willReturn(Mono.empty())
+      given(
+          transactionsEventStoreRepository.findByTransactionId(
+            any(),
+          ))
+        .willReturn(
+          Flux.just(
+            activatedEvent as TransactionEvent<Any>,
+            cancellationEvent as TransactionEvent<Any>,
+            transactionExpiredEvent as TransactionEvent<Any>))
+
+      given(
+          transactionsExpiredEventStoreRepository.save(
+            transactionExpiredEventStoreCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
+      given(
+          transactionsRefundedEventStoreRepository.save(
+            transactionRefundEventStoreCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
+      given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
+        Mono.just(it.arguments[0])
+      }
+
+      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturn(
+          Mono.just(transactionDocument(TransactionStatusDto.ACTIVATED, ZonedDateTime.now())))
+
+      /* test */
+      StepVerifier.create(
+          transactionExpirationQueueConsumer.messageReceiver(
+            BinaryData.fromObject(activatedEvent).toBytes(), checkpointer))
+        .expectNext()
+        .expectComplete()
+        .verify()
+
+      /* Asserts */
+      verify(checkpointer, times(1)).success()
+      verify(transactionsExpiredEventStoreRepository, times(0)).save(any())
+      verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
+      verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
+      verify(transactionsViewRepository, times(0)).save(any())
+      verify(transactionsExpiredEventStoreRepository, times(0)).save(any())
+    }
 }

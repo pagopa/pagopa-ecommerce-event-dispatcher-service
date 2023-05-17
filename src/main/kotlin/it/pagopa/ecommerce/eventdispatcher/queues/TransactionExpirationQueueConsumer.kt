@@ -68,16 +68,12 @@ class TransactionExpirationQueueConsumer(
         }
         .flatMap { tx ->
           val refundable = isTransactionRefundable(tx)
-          val wasAuthorizationRequested = wasAuthorizationRequested(tx)
           val isTransactionExpired = isTransactionExpired(tx)
           logger.info(
             "Transaction ${tx.transactionId.value()} in status ${tx.status}, refundable: $refundable, expired: $isTransactionExpired")
           if (!isTransactionExpired) {
             updateTransactionToExpired(
-              tx,
-              transactionsExpiredEventStoreRepository,
-              transactionsViewRepository,
-              wasAuthorizationRequested)
+              tx, transactionsExpiredEventStoreRepository, transactionsViewRepository)
           } else {
             Mono.just(tx)
           }
