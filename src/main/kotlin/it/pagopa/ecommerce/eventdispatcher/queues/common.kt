@@ -245,7 +245,9 @@ fun isTransactionRefundable(tx: BaseTransaction): Boolean {
 
 fun wasAuthorizationRequested(tx: BaseTransaction) = tx is BaseTransactionWithRequestedAuthorization
 
-fun isTransactionExpired(tx: BaseTransaction): Boolean = tx.status == TransactionStatusDto.EXPIRED
+fun isTransactionExpired(tx: BaseTransaction): Boolean =
+  tx.status == TransactionStatusDto.EXPIRED ||
+    tx.status == TransactionStatusDto.EXPIRED_NOT_AUTHORIZED
 
 fun reduceEvents(
   transactionId: Mono<String>,
