@@ -158,7 +158,7 @@ fun refundTransaction(
         else ->
           Mono.error(
             RuntimeException(
-              "Refund error for transaction ${transaction.transactionId} - unsupported payment-gateway"))
+              "Refund error for transaction ${transaction.transactionId} - unhandled payment-gateway"))
       }
     }
     .flatMap {
@@ -178,7 +178,9 @@ fun refundTransaction(
             transactionsEventStoreRepository,
             transactionsViewRepository)
         else ->
-          Mono.error(RuntimeException("Refund error for transaction ${transaction.transactionId}"))
+          Mono.error(
+            RuntimeException(
+              "Refund error for transaction ${transaction.transactionId}, unhandled refund response: ${refundResponse.javaClass}"))
       }
     }
     .onErrorResume { exception ->
@@ -203,15 +205,19 @@ fun handleVposRefundResponse(
   transactionsViewRepository: TransactionsViewRepository
 ): Mono<BaseTransaction> {
   logger.info(
-    "Transaction requestRefund for transaction ${transaction.transactionId} transaction status ${refundResponse.status}")
+    "Transaction requestRefund for transaction ${transaction.transactionId} PGS refund status [${refundResponse.status}]")
 
-  return if (refundResponse.status == StatusEnum.CANCELLED) {
-    updateTransactionToRefunded(
-      transaction, transactionsEventStoreRepository, transactionsViewRepository)
-  } else {
-    Mono.error(
-      RuntimeException(
-        "Refund error for transaction ${transaction.transactionId} transaction status ${refundResponse.status}"))
+  return when (refundResponse.status) {
+    StatusEnum.CANCELLED ->
+      updateTransactionToRefunded(
+        transaction, transactionsEventStoreRepository, transactionsViewRepository)
+    StatusEnum.DENIED ->
+      updateTransactionToRefundError(
+        transaction, transactionsEventStoreRepository, transactionsViewRepository)
+    else ->
+      Mono.error(
+        RuntimeException(
+          "Refund error for transaction ${transaction.transactionId} unhandled PGS response status [${refundResponse.status}]"))
   }
 }
 
@@ -222,15 +228,19 @@ fun handleXpayRefundResponse(
   transactionsViewRepository: TransactionsViewRepository
 ): Mono<BaseTransaction> {
   logger.info(
-    "Transaction requestRefund for transaction ${transaction.transactionId} transaction status ${refundResponse.status}")
+    "Transaction requestRefund for transaction ${transaction.transactionId} PGS response status [${refundResponse.status}]")
 
-  return if (refundResponse.status == XPayRefundResponse200Dto.StatusEnum.CANCELLED) {
-    updateTransactionToRefunded(
-      transaction, transactionsEventStoreRepository, transactionsViewRepository)
-  } else {
-    Mono.error(
-      RuntimeException(
-        "Refund error for transaction ${transaction.transactionId} transaction status ${refundResponse.status}"))
+  return when (refundResponse.status) {
+    XPayRefundResponse200Dto.StatusEnum.CANCELLED ->
+      updateTransactionToRefunded(
+        transaction, transactionsEventStoreRepository, transactionsViewRepository)
+    XPayRefundResponse200Dto.StatusEnum.DENIED ->
+      updateTransactionToRefundError(
+        transaction, transactionsEventStoreRepository, transactionsViewRepository)
+    else ->
+      Mono.error(
+        RuntimeException(
+          "Refund error for transaction ${transaction.transactionId} unhandled PGS response status [${refundResponse.status}]"))
   }
 }
 
