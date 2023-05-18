@@ -8,6 +8,7 @@ import it.pagopa.generated.ecommerce.gateway.v1.api.XPayInternalApi
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
 import java.util.*
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.http.HttpStatus
@@ -21,7 +22,10 @@ class PaymentGatewayClient {
 
   @Autowired @Qualifier("XpayApiWebClient") private lateinit var xpayApi: XPayInternalApi
 
+  private val logger = LoggerFactory.getLogger(PaymentGatewayClient::class.java)
+
   fun requestXPayRefund(requestId: UUID): Mono<XPayRefundResponse200Dto> {
+    logger.info("Performing XPAY refund for authorization id: [$requestId]")
     return xpayApi.refundXpayRequest(requestId).onErrorMap(
       WebClientResponseException::class.java) { exception: WebClientResponseException ->
       when (exception.statusCode) {
@@ -34,6 +38,7 @@ class PaymentGatewayClient {
   }
 
   fun requestVPosRefund(requestId: UUID): Mono<VposDeleteResponseDto> {
+    logger.info("Performing VPOS refund for authorization id: [$requestId]")
     return vposApi.requestPaymentsVposRequestIdDelete(requestId.toString()).onErrorMap(
       WebClientResponseException::class.java) { exception: WebClientResponseException ->
       when (exception.statusCode) {
