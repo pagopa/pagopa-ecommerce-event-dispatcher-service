@@ -3,10 +3,7 @@ package it.pagopa.ecommerce.eventdispatcher.queues
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v1.TransactionWithClosureError
-import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransaction
-import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithCancellationRequested
-import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithRequestedAuthorization
-import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithRequestedUserReceipt
+import it.pagopa.ecommerce.commons.domain.v1.pojos.*
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.queues.QueueCommonsLogger.logger
@@ -186,7 +183,7 @@ fun refundTransaction(
     }
     .onErrorResume { exception ->
       logger.error(
-        "Transaction requestRefund error for transaction ${tx.transactionId.value()} : ${exception.message}")
+        "Transaction requestRefund error for transaction ${tx.transactionId.value()}", exception)
       if (retryCount == 0) {
           // refund error event written only the first time
           updateTransactionToRefundError(
@@ -245,13 +242,45 @@ fun isTransactionRefundable(tx: BaseTransaction): Boolean {
     } else {
       false
     }
-  val isTransactionRefundable = wasAuthorizationRequested && !wasSendPaymentResultOutcomeOK
+  val wasAuthorizationDenied = wasAuthorizationDenied(tx)
+  val isTransactionRefundable =
+    wasAuthorizationRequested && !wasSendPaymentResultOutcomeOK && !wasAuthorizationDenied
   logger.info(
-    "Transaction with if ${tx.transactionId} : was authorization requested: $wasAuthorizationRequested, was send payment result outcome OK : $wasSendPaymentResultOutcomeOK --> is refundable: $isTransactionRefundable")
+    "Transaction with if ${tx.transactionId} : was authorization requested: $wasAuthorizationRequested, was authorization denied: $wasAuthorizationDenied, was send payment result outcome OK : $wasSendPaymentResultOutcomeOK --> is refundable: $isTransactionRefundable")
   return isTransactionRefundable
 }
 
-fun wasAuthorizationRequested(tx: BaseTransaction) = tx is BaseTransactionWithRequestedAuthorization
+fun wasAuthorizationRequested(tx: BaseTransaction): Boolean =
+  when (tx) {
+    is BaseTransactionWithRequestedAuthorization -> true
+    is TransactionWithClosureError ->
+      tx
+        .transactionAtPreviousState()
+        .map { txAtPreviousStep -> txAtPreviousStep.isRight }
+        .orElse(false)
+    else -> false
+  }
+
+fun wasAuthorizationDenied(tx: BaseTransaction): Boolean =
+  when (tx) {
+    is BaseTransactionWithCompletedAuthorization -> !tx.wasTransactionAuthorized()
+    is TransactionWithClosureError ->
+      tx
+        .transactionAtPreviousState()
+        .map { txAtPreviousStep ->
+          txAtPreviousStep.isRight && !txAtPreviousStep.get().wasTransactionAuthorized()
+        }
+        .orElse(false)
+    is BaseTransactionExpired -> {
+      val prevTransaction = tx.transactionAtPreviousState
+      if (prevTransaction is BaseTransactionWithCompletedAuthorization) {
+        !prevTransaction.wasTransactionAuthorized()
+      } else {
+        false
+      }
+    }
+    else -> false
+  }
 
 fun isTransactionExpired(tx: BaseTransaction): Boolean =
   tx.status == TransactionStatusDto.EXPIRED ||
