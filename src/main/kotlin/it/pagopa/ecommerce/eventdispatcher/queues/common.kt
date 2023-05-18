@@ -236,12 +236,7 @@ fun handleXpayRefundResponse(
 
 fun isTransactionRefundable(tx: BaseTransaction): Boolean {
   val wasAuthorizationRequested = wasAuthorizationRequested(tx)
-  val wasSendPaymentResultOutcomeOK =
-    if (tx is BaseTransactionWithRequestedUserReceipt) {
-      tx.transactionUserReceiptData.responseOutcome == TransactionUserReceiptData.Outcome.OK
-    } else {
-      false
-    }
+  val wasSendPaymentResultOutcomeOK = wasSendPaymentResultOutcomeOK(tx)
   val wasAuthorizationDenied = wasAuthorizationDenied(tx)
   val isTransactionRefundable =
     wasAuthorizationRequested && !wasSendPaymentResultOutcomeOK && !wasAuthorizationDenied
@@ -249,6 +244,14 @@ fun isTransactionRefundable(tx: BaseTransaction): Boolean {
     "Transaction with if ${tx.transactionId} : was authorization requested: $wasAuthorizationRequested, was authorization denied: $wasAuthorizationDenied, was send payment result outcome OK : $wasSendPaymentResultOutcomeOK --> is refundable: $isTransactionRefundable")
   return isTransactionRefundable
 }
+
+fun wasSendPaymentResultOutcomeOK(tx: BaseTransaction): Boolean =
+  when (tx) {
+    is BaseTransactionWithRequestedUserReceipt ->
+      tx.transactionUserReceiptData.responseOutcome == TransactionUserReceiptData.Outcome.OK
+    is BaseTransactionExpired -> wasSendPaymentResultOutcomeOK(tx.transactionAtPreviousState)
+    else -> false
+  }
 
 fun wasAuthorizationRequested(tx: BaseTransaction): Boolean =
   when (tx) {
@@ -268,17 +271,10 @@ fun wasAuthorizationDenied(tx: BaseTransaction): Boolean =
       tx
         .transactionAtPreviousState()
         .map { txAtPreviousStep ->
-          txAtPreviousStep.isRight && !txAtPreviousStep.get().wasTransactionAuthorized()
+          txAtPreviousStep.isRight && wasAuthorizationDenied(txAtPreviousStep.get())
         }
         .orElse(false)
-    is BaseTransactionExpired -> {
-      val prevTransaction = tx.transactionAtPreviousState
-      if (prevTransaction is BaseTransactionWithCompletedAuthorization) {
-        !prevTransaction.wasTransactionAuthorized()
-      } else {
-        false
-      }
-    }
+    is BaseTransactionExpired -> wasAuthorizationDenied(tx.transactionAtPreviousState)
     else -> false
   }
 
