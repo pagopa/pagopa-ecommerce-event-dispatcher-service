@@ -3,6 +3,7 @@ package it.pagopa.ecommerce.eventdispatcher.queues
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import it.pagopa.ecommerce.commons.documents.v1.*
+import it.pagopa.ecommerce.commons.domain.v1.Email
 import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithRequestedUserReceipt
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
@@ -10,16 +11,17 @@ import it.pagopa.ecommerce.commons.v1.TransactionTestUtils.*
 import it.pagopa.ecommerce.eventdispatcher.client.NotificationsServiceClient
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
+import it.pagopa.ecommerce.eventdispatcher.queues.QueueCommonsLogger.logger
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.NotificationRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryService
+import it.pagopa.ecommerce.eventdispatcher.utils.ConfidentialMailUtils
 import it.pagopa.ecommerce.eventdispatcher.utils.UserReceiptMailBuilder
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
+import it.pagopa.generated.notifications.templates.success.SuccessTemplate
 import it.pagopa.generated.notifications.v1.dto.NotificationEmailRequestDto
 import it.pagopa.generated.notifications.v1.dto.NotificationEmailResponseDto
-import java.time.ZonedDateTime
-import java.util.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -33,6 +35,8 @@ import reactor.core.publisher.Flux
 import reactor.core.publisher.Hooks
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
+import java.time.ZonedDateTime
+import java.util.*
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @ExtendWith(MockitoExtension::class)
@@ -534,4 +538,64 @@ class TransactionNotificationsQueueConsumerTest {
     verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any())
     verify(userReceiptMailBuilder, times(0)).buildNotificationEmailRequestDto(any())
   }
+
+  @Test
+  fun `Should set right value string to payee template name field when TransactionUserReceiptData receivingOfficeName is not null`() = runTest {
+
+    val confidentialMailUtils: ConfidentialMailUtils = mock()
+    given(confidentialMailUtils.toEmail(any())).willReturn(Email("to@to.it"))
+    val userReceiptBuilder = UserReceiptMailBuilder(confidentialMailUtils)
+    val transactionUserReceiptData =
+      TransactionUserReceiptData(TransactionUserReceiptData.Outcome.OK, "it-IT", PAYMENT_DATE, "testValue", "paymentDescription")
+    val notificationRequested = transactionUserReceiptRequestedEvent(transactionUserReceiptData)
+    val events =
+      listOf(
+        transactionActivateEvent(),
+        transactionAuthorizationRequestedEvent(),
+        transactionAuthorizationCompletedEvent(),
+        transactionClosedEvent(TransactionClosureData.Outcome.OK),
+        notificationRequested)
+              as List<TransactionEvent<Any>>
+    val baseTransaction =
+      reduceEvents(*events.toTypedArray()) as BaseTransactionWithRequestedUserReceipt
+    val transactionId = TRANSACTION_ID
+    Hooks.onOperatorDebug()
+    given(checkpointer.success()).willReturn(Mono.empty())
+    given(transactionsEventStoreRepository.findByTransactionId(transactionId))
+      .willReturn(Flux.fromIterable(events))
+
+    val notificationEmailRequestDto = userReceiptBuilder.buildNotificationEmailRequestDto(baseTransaction)
+    assertEquals("testValue", (notificationEmailRequestDto.parameters as SuccessTemplate).cart.items.filter { i -> i.payee != null }[0].payee.name)
+  }
+
+  @Test
+  fun `Should set empty string to payee template name field when TransactionUserReceiptData receivingOfficeName is null`() = runTest {
+
+    val confidentialMailUtils: ConfidentialMailUtils = mock()
+    given(confidentialMailUtils.toEmail(any())).willReturn(Email("to@to.it"))
+    val userReceiptBuilder = UserReceiptMailBuilder(confidentialMailUtils)
+    val transactionUserReceiptData =
+      TransactionUserReceiptData(TransactionUserReceiptData.Outcome.OK, "it-IT", PAYMENT_DATE, null, "paymentDescription")
+    val notificationRequested = transactionUserReceiptRequestedEvent(transactionUserReceiptData)
+    val events =
+      listOf(
+        transactionActivateEvent(),
+        transactionAuthorizationRequestedEvent(),
+        transactionAuthorizationCompletedEvent(),
+        transactionClosedEvent(TransactionClosureData.Outcome.OK),
+        notificationRequested)
+              as List<TransactionEvent<Any>>
+    val baseTransaction =
+      reduceEvents(*events.toTypedArray()) as BaseTransactionWithRequestedUserReceipt
+    val transactionId = TRANSACTION_ID
+    Hooks.onOperatorDebug()
+    given(checkpointer.success()).willReturn(Mono.empty())
+    given(transactionsEventStoreRepository.findByTransactionId(transactionId))
+      .willReturn(Flux.fromIterable(events))
+
+    val notificationEmailRequestDto = userReceiptBuilder.buildNotificationEmailRequestDto(baseTransaction)
+    assertEquals("", (notificationEmailRequestDto.parameters as SuccessTemplate).cart.items.filter { i -> i.payee != null }[0].payee.name)
+  }
+
+
 }
