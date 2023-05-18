@@ -2,7 +2,9 @@ package it.pagopa.ecommerce.eventdispatcher.queues
 
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
+import it.pagopa.ecommerce.commons.domain.v1.TransactionWithClosureError
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransaction
+import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithCancellationRequested
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithRequestedAuthorization
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithRequestedUserReceipt
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
@@ -26,8 +28,7 @@ object QueueCommonsLogger {
 fun updateTransactionToExpired(
   transaction: BaseTransaction,
   transactionsExpiredEventStoreRepository: TransactionsEventStoreRepository<TransactionExpiredData>,
-  transactionsViewRepository: TransactionsViewRepository,
-  wasAuthorizationRequested: Boolean
+  transactionsViewRepository: TransactionsViewRepository
 ): Mono<BaseTransaction> {
 
   return transactionsExpiredEventStoreRepository
@@ -37,7 +38,7 @@ fun updateTransactionToExpired(
     .then(
       transactionsViewRepository.findByTransactionId(transaction.transactionId.value()).flatMap { tx
         ->
-        tx.status = getExpiredTransactionStatus(wasAuthorizationRequested)
+        tx.status = getExpiredTransactionStatus(transaction)
         transactionsViewRepository.save(tx)
       })
     .doOnSuccess {
@@ -50,11 +51,18 @@ fun updateTransactionToExpired(
     .thenReturn(transaction)
 }
 
-fun getExpiredTransactionStatus(wasAuthorizationRequested: Boolean) =
-  if (wasAuthorizationRequested) {
-    TransactionStatusDto.EXPIRED
-  } else {
-    TransactionStatusDto.EXPIRED_NOT_AUTHORIZED
+fun getExpiredTransactionStatus(transaction: BaseTransaction): TransactionStatusDto =
+  when (transaction) {
+    is BaseTransactionWithRequestedAuthorization -> TransactionStatusDto.EXPIRED
+    is BaseTransactionWithCancellationRequested -> TransactionStatusDto.CANCELLATION_EXPIRED
+    is TransactionWithClosureError ->
+      transaction
+        .transactionAtPreviousState()
+        .map {
+          it.fold({ TransactionStatusDto.CANCELLATION_EXPIRED }, { TransactionStatusDto.EXPIRED })
+        }
+        .orElse(TransactionStatusDto.EXPIRED)
+    else -> TransactionStatusDto.EXPIRED_NOT_AUTHORIZED
   }
 
 fun updateTransactionToRefundRequested(
@@ -247,7 +255,8 @@ fun wasAuthorizationRequested(tx: BaseTransaction) = tx is BaseTransactionWithRe
 
 fun isTransactionExpired(tx: BaseTransaction): Boolean =
   tx.status == TransactionStatusDto.EXPIRED ||
-    tx.status == TransactionStatusDto.EXPIRED_NOT_AUTHORIZED
+    tx.status == TransactionStatusDto.EXPIRED_NOT_AUTHORIZED ||
+    tx.status == TransactionStatusDto.CANCELLATION_EXPIRED
 
 fun reduceEvents(
   transactionId: Mono<String>,
