@@ -1256,7 +1256,7 @@ class TransactionExpirationQueueConsumerTests {
   }
 
   @Test
-  fun `messageReceiver calls update transaction to CANCELLATION_REQUESTED for transaction expired in CANCELLATION_REQUESTED status`() =
+  fun `messageReceiver calls update transaction to CANCELLATION_EXPIRED for transaction expired in CANCELLATION_REQUESTED status`() =
     runTest {
       val transactionExpirationQueueConsumer =
         TransactionExpirationQueueConsumer(
@@ -1323,7 +1323,7 @@ class TransactionExpirationQueueConsumerTests {
     }
 
   @Test
-  fun `messageReceiver calls update transaction to CANCELLATION_REQUESTED for transaction expired in CLOSURE_ERROR coming from user cancellation`() =
+  fun `messageReceiver calls update transaction to CANCELLATION_EXPIRED for transaction expired in CLOSURE_ERROR coming from user cancellation`() =
     runTest {
       val transactionExpirationQueueConsumer =
         TransactionExpirationQueueConsumer(
@@ -1392,7 +1392,7 @@ class TransactionExpirationQueueConsumerTests {
     }
 
   @Test
-  fun `messageReceiver does nothing on a expiration event received for a transaction in CANCELLATION_REQUESTED status`() =
+  fun `messageReceiver does nothing on a expiration event received for a transaction in CANCELLATION_EXPIRED status`() =
     runTest {
       val transactionExpirationQueueConsumer =
         TransactionExpirationQueueConsumer(
