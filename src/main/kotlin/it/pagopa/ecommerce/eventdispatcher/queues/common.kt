@@ -208,12 +208,18 @@ fun handleVposRefundResponse(
     "Transaction requestRefund for transaction ${transaction.transactionId} PGS refund status [${refundResponse.status}]")
 
   return when (refundResponse.status) {
-    StatusEnum.CANCELLED ->
+    StatusEnum.CANCELLED -> {
+      logger.info(
+        "Refund for transaction with id: [${transaction.transactionId.value()}] processed successfully")
       updateTransactionToRefunded(
         transaction, transactionsEventStoreRepository, transactionsViewRepository)
-    StatusEnum.DENIED ->
+    }
+    StatusEnum.DENIED -> {
+      logger.info(
+        "Refund for transaction with id: [${transaction.transactionId.value()}] denied! No more attempts will be performed")
       updateTransactionToRefundError(
         transaction, transactionsEventStoreRepository, transactionsViewRepository)
+    }
     else ->
       Mono.error(
         RuntimeException(
@@ -231,12 +237,18 @@ fun handleXpayRefundResponse(
     "Transaction requestRefund for transaction ${transaction.transactionId} PGS response status [${refundResponse.status}]")
 
   return when (refundResponse.status) {
-    XPayRefundResponse200Dto.StatusEnum.CANCELLED ->
+    XPayRefundResponse200Dto.StatusEnum.CANCELLED -> {
+      logger.info(
+        "Refund for transaction with id: [${transaction.transactionId.value()}] processed successfully")
       updateTransactionToRefunded(
         transaction, transactionsEventStoreRepository, transactionsViewRepository)
-    XPayRefundResponse200Dto.StatusEnum.DENIED ->
+    }
+    XPayRefundResponse200Dto.StatusEnum.DENIED -> {
+      logger.info(
+        "Refund for transaction with id: [${transaction.transactionId.value()}] denied! No more attempts will be performed")
       updateTransactionToRefundError(
         transaction, transactionsEventStoreRepository, transactionsViewRepository)
+    }
     else ->
       Mono.error(
         RuntimeException(
