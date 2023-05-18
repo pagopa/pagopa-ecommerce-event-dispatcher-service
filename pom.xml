@@ -9,7 +9,7 @@
 	</parent>
 	<groupId>it.pagopa.ecommerce</groupId>
 	<artifactId>event-dispatcher</artifactId>
-	<version>0.4.8</version>
+	<version>0.4.9</version>
 	<name>event-dispatcher</name>
 	<description>Demo project for Spring Boot</description>
 	<properties>
