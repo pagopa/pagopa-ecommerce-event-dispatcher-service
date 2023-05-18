@@ -68,10 +68,8 @@ class TransactionExpirationQueueConsumer(
           isTransient
         }
         .flatMap { tx ->
-          val refundable = isTransactionRefundable(tx)
           val isTransactionExpired = isTransactionExpired(tx)
-          logger.info(
-            "Transaction ${tx.transactionId.value()} in status ${tx.status}, refundable: $refundable, expired: $isTransactionExpired")
+          logger.info("Transaction ${tx.transactionId.value()} is expired: $isTransactionExpired")
           if (!isTransactionExpired) {
             updateTransactionToExpired(
               tx, transactionsExpiredEventStoreRepository, transactionsViewRepository)
@@ -79,7 +77,12 @@ class TransactionExpirationQueueConsumer(
             Mono.just(tx)
           }
         }
-        .filter { isTransactionRefundable(it) }
+        .filter {
+          val refundable = isTransactionRefundable(it)
+          logger.info(
+            "Transaction ${it.transactionId.value()} in status ${it.status}, refundable: $refundable")
+          refundable
+        }
         .flatMap {
           updateTransactionToRefundRequested(
             it, transactionsRefundedEventStoreRepository, transactionsViewRepository)
