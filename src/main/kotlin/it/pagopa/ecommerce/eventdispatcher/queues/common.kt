@@ -241,7 +241,7 @@ fun isTransactionRefundable(tx: BaseTransaction): Boolean {
   val isTransactionRefundable =
     wasAuthorizationRequested && !wasSendPaymentResultOutcomeOK && !wasAuthorizationDenied
   logger.info(
-    "Transaction with if ${tx.transactionId} : was authorization requested: $wasAuthorizationRequested, was authorization denied: $wasAuthorizationDenied, was send payment result outcome OK : $wasSendPaymentResultOutcomeOK --> is refundable: $isTransactionRefundable")
+    "Transaction with id ${tx.transactionId.value()} : was authorization requested: $wasAuthorizationRequested, was authorization denied: $wasAuthorizationDenied, was send payment result outcome OK : $wasSendPaymentResultOutcomeOK --> is refundable: $isTransactionRefundable")
   return isTransactionRefundable
 }
 
