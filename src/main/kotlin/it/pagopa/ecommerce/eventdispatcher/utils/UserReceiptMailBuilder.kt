@@ -126,7 +126,7 @@ class UserReceiptMailBuilder(@Autowired private val confidentialMailUtils: Confi
                   RefNumberTemplate(Type.CODICE_AVVISO, paymentNotice.rptId().noticeId),
                   null,
                   PayeeTemplate(
-                    transactionUserReceiptData.receivingOfficeName,
+                    transactionUserReceiptData.receivingOfficeName ?: "",
                     paymentNotice.rptId().fiscalCode),
                   transactionUserReceiptData.paymentDescription,
                   amountToHumanReadableString(paymentNotice.transactionAmount().value()))
