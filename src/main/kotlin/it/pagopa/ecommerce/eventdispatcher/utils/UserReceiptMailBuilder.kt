@@ -13,6 +13,7 @@ import java.time.format.DateTimeFormatter
 import java.util.*
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
+import javax.validation.constraints.NotNull
 
 @Service
 class UserReceiptMailBuilder(@Autowired private val confidentialMailUtils: ConfidentialMailUtils) {
@@ -126,7 +127,7 @@ class UserReceiptMailBuilder(@Autowired private val confidentialMailUtils: Confi
                   RefNumberTemplate(Type.CODICE_AVVISO, paymentNotice.rptId().noticeId),
                   null,
                   PayeeTemplate(
-                    transactionUserReceiptData.receivingOfficeName,
+                    transactionUserReceiptData.receivingOfficeName ?: "",
                     paymentNotice.rptId().fiscalCode),
                   transactionUserReceiptData.paymentDescription,
                   amountToHumanReadableString(paymentNotice.transactionAmount().value()))
