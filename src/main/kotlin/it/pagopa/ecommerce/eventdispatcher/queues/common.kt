@@ -186,7 +186,7 @@ fun refundTransaction(
     }
     .onErrorResume { exception ->
       logger.error(
-        "Transaction requestRefund error for transaction ${tx.transactionId.value()} : ${exception.message}")
+        "Transaction requestRefund error for transaction ${tx.transactionId.value()}", exception)
       if (retryCount == 0) {
           // refund error event written only the first time
           updateTransactionToRefundError(
@@ -251,7 +251,16 @@ fun isTransactionRefundable(tx: BaseTransaction): Boolean {
   return isTransactionRefundable
 }
 
-fun wasAuthorizationRequested(tx: BaseTransaction) = tx is BaseTransactionWithRequestedAuthorization
+fun wasAuthorizationRequested(tx: BaseTransaction): Boolean =
+  when (tx) {
+    is BaseTransactionWithRequestedAuthorization -> true
+    is TransactionWithClosureError ->
+      tx
+        .transactionAtPreviousState()
+        .map { txAtPreviousStep -> txAtPreviousStep.isRight }
+        .orElse(false)
+    else -> false
+  }
 
 fun isTransactionExpired(tx: BaseTransaction): Boolean =
   tx.status == TransactionStatusDto.EXPIRED ||

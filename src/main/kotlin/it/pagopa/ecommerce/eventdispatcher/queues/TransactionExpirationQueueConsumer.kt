@@ -4,6 +4,7 @@ import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import it.pagopa.ecommerce.commons.documents.v1.*
+import it.pagopa.ecommerce.commons.domain.v1.TransactionWithClosureError
 import it.pagopa.ecommerce.commons.utils.v1.TransactionUtils
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
@@ -84,8 +85,14 @@ class TransactionExpirationQueueConsumer(
             it, transactionsRefundedEventStoreRepository, transactionsViewRepository)
         }
         .flatMap { tx ->
+          val transaction =
+            if (tx is TransactionWithClosureError) {
+              tx.transactionAtPreviousState
+            } else {
+              tx
+            }
           refundTransaction(
-            tx,
+            transaction,
             transactionsRefundedEventStoreRepository,
             transactionsViewRepository,
             paymentGatewayClient,
