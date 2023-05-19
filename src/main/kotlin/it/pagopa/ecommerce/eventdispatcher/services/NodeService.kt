@@ -54,7 +54,7 @@ class NodeService(
                     TransactionDetailsDto().apply {
                       transaction =
                         TransactionDto().apply {
-                          this.transactionId = transactionId.toString()
+                          this.transactionId = transactionId.value()
                           transactionStatus =
                             if (wasAuthorizationRequested(it)) {
                               "Rifiutato"
@@ -125,7 +125,7 @@ class NodeService(
                           TransactionDetailsDto().apply {
                             transaction =
                               TransactionDto().apply {
-                                this.transactionId = transactionId.toString()
+                                this.transactionId = transactionId.value()
                                 transactionStatus = "Autorizzato"
                                 fee =
                                   authCompleted.transactionAuthorizationRequestData.fee
@@ -183,7 +183,7 @@ class NodeService(
                 TransactionDetailsDto().apply {
                   transaction =
                     TransactionDto().apply {
-                      this.transactionId = transactionId.toString()
+                      this.transactionId = transactionId.value()
                       transactionStatus = "Annullato"
                       creationDate = it.creationDate.toOffsetDateTime()
                     }
