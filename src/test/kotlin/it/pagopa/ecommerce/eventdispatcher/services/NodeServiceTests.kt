@@ -12,13 +12,16 @@ import it.pagopa.generated.ecommerce.nodo.v2.dto.AdditionalPaymentInformationsDt
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto.OutcomeEnum
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
+import it.pagopa.generated.ecommerce.nodo.v2.dto.UserDto
+import java.math.BigDecimal
 import java.time.OffsetDateTime
+import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
-import java.util.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -115,56 +118,191 @@ class NodeServiceTests {
     }
 
   @Test
-  fun `ClosePaymentRequestV2Dto has additional properties valued correctly`() = runTest {
-    val transactionOutcome = OutcomeEnum.OK
+  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly`() =
+    runTest {
+      val transactionOutcome = OutcomeEnum.OK
 
-    val activatedEvent = transactionActivateEvent()
-    val authEvent = transactionAuthorizationRequestedEvent()
-    val authCompletedEvent = transactionAuthorizationCompletedEvent()
-    val closureError = transactionClosureErrorEvent()
-    val transactionId = activatedEvent.transactionId
-    val events =
-      listOf(activatedEvent, authEvent, authCompletedEvent, closureError)
-        as List<TransactionEvent<Any>>
+      val activatedEvent = transactionActivateEvent()
+      val authEvent = transactionAuthorizationRequestedEvent()
+      val authCompletedEvent = transactionAuthorizationCompletedEvent()
+      val closureError = transactionClosureErrorEvent()
+      val transactionId = activatedEvent.transactionId
+      val events =
+        listOf(activatedEvent, authEvent, authCompletedEvent, closureError)
+          as List<TransactionEvent<Any>>
 
-    val closePaymentResponse =
-      ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
+      val closePaymentResponse =
+        ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
 
-    /* preconditions */
-    given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
-      .willReturn(events.toFlux())
+      /* preconditions */
+      given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturn(events.toFlux())
 
-    given(nodeClient.closePayment(capture(closePaymentRequestCaptor)))
-      .willReturn(Mono.just(closePaymentResponse))
+      given(nodeClient.closePayment(capture(closePaymentRequestCaptor)))
+        .willReturn(Mono.just(closePaymentResponse))
 
-    /* test */
-    assertEquals(
-      closePaymentResponse,
-      nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
-    val additionalPaymentInfo = closePaymentRequestCaptor.value.additionalPaymentInformations!!
-    val expectedTimestamp =
-      OffsetDateTime.parse(
-          authCompletedEvent.data.timestampOperation, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-        .truncatedTo(ChronoUnit.SECONDS)
-        .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
-    val expectedFee = EuroUtils.euroCentsToEuro(authEvent.data.fee).toString()
-    val expectedTotalAmount =
-      EuroUtils.euroCentsToEuro(authEvent.data.amount + authEvent.data.fee).toString()
-    val expectedOutcome =
-      authCompletedEvent.data.authorizationResultDto.let {
-        OutcomePaymentGatewayEnum.valueOf(it.toString())
-      }
-    assertEquals(expectedTimestamp, additionalPaymentInfo.timestampOperation)
-    // check that timestampOperation is in yyyy-MM-ddThh:mm:ss format
-    assertTrue(
-      additionalPaymentInfo.timestampOperation.matches(
-        Regex("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}$")))
-    assertEquals(RRN, additionalPaymentInfo.rrn)
-    assertEquals(expectedFee, additionalPaymentInfo.fee)
-    assertEquals(expectedTotalAmount, additionalPaymentInfo.totalAmount)
-    assertEquals(authCompletedEvent.data.authorizationCode, additionalPaymentInfo.authorizationCode)
-    assertEquals(expectedOutcome, additionalPaymentInfo.outcomePaymentGateway)
-  }
+      /* test */
+      assertEquals(
+        closePaymentResponse,
+        nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
+      val additionalPaymentInfo = closePaymentRequestCaptor.value.additionalPaymentInformations!!
+      val expectedTimestamp =
+        OffsetDateTime.parse(
+            authCompletedEvent.data.timestampOperation, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+          .truncatedTo(ChronoUnit.SECONDS)
+          .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+      val expectedFee = EuroUtils.euroCentsToEuro(authEvent.data.fee).toString()
+      val expectedTotalAmount =
+        EuroUtils.euroCentsToEuro(authEvent.data.amount + authEvent.data.fee).toString()
+      val expectedOutcome =
+        authCompletedEvent.data.authorizationResultDto.let {
+          OutcomePaymentGatewayEnum.valueOf(it.toString())
+        }
+      // Check Transaction Details
+      assertEquals(
+        "Autorizzato",
+        closePaymentRequestCaptor.value.transactionDetails.transaction.transactionStatus)
+      assertEquals(
+        transactionId, closePaymentRequestCaptor.value.transactionDetails.transaction.transactionId)
+      assertEquals(
+        BigDecimal(authEvent.data.fee),
+        closePaymentRequestCaptor.value.transactionDetails.transaction.fee)
+      assertEquals(
+        BigDecimal(authEvent.data.amount),
+        closePaymentRequestCaptor.value.transactionDetails.transaction.amount)
+      assertEquals(
+        BigDecimal(authEvent.data.fee).add(BigDecimal(authEvent.data.amount)),
+        closePaymentRequestCaptor.value.transactionDetails.transaction.grandTotal)
+      assertEquals(
+        authCompletedEvent.data.authorizationCode,
+        closePaymentRequestCaptor.value.transactionDetails.transaction.authorizationCode)
+      assertEquals(
+        ZonedDateTime.parse(activatedEvent.creationDate).toOffsetDateTime(),
+        closePaymentRequestCaptor.value.transactionDetails.transaction.creationDate)
+      assertEquals(
+        authEvent.data.pspId,
+        closePaymentRequestCaptor.value.transactionDetails.transaction.psp!!.idPsp)
+      assertEquals(
+        authEvent.data.pspChannelCode,
+        closePaymentRequestCaptor.value.transactionDetails.transaction.psp!!.idChannel)
+      assertEquals(
+        authEvent.data.pspBusinessName,
+        closePaymentRequestCaptor.value.transactionDetails.transaction.psp!!.businessName)
+      assertEquals(
+        UserDto.TypeEnum.GUEST, closePaymentRequestCaptor.value.transactionDetails.user.type)
+      assertEquals(
+        authEvent.data.paymentTypeCode,
+        closePaymentRequestCaptor.value.transactionDetails.info.type)
+      assertEquals(
+        authEvent.data.logo.toString(),
+        closePaymentRequestCaptor.value.transactionDetails.info.brandLogo)
+
+      // Check additionalPaymentInfo
+      assertEquals(expectedTimestamp, additionalPaymentInfo.timestampOperation)
+      // check that timestampOperation is in yyyy-MM-ddThh:mm:ss format
+      assertTrue(
+        additionalPaymentInfo.timestampOperation.matches(
+          Regex("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}$")))
+      assertEquals(RRN, additionalPaymentInfo.rrn)
+      assertEquals(expectedFee, additionalPaymentInfo.fee)
+      assertEquals(expectedTotalAmount, additionalPaymentInfo.totalAmount)
+      assertEquals(
+        authCompletedEvent.data.authorizationCode, additionalPaymentInfo.authorizationCode)
+      assertEquals(expectedOutcome, additionalPaymentInfo.outcomePaymentGateway)
+    }
+
+  @Test
+  fun `ClosePaymentRequestV2Dto for close payment KO for authorization KO has not additional properties and transaction details valued correctly`() =
+    runTest {
+      val transactionOutcome = OutcomeEnum.KO
+
+      val authKO = AuthorizationResultDto.KO
+
+      val activatedEvent = transactionActivateEvent()
+      val authEvent = transactionAuthorizationRequestedEvent()
+      val authCompletedEvent = transactionAuthorizationCompletedEvent(authKO)
+      val closureError = transactionClosureErrorEvent()
+      val transactionId = activatedEvent.transactionId
+      val events =
+        listOf(activatedEvent, authEvent, authCompletedEvent, closureError)
+          as List<TransactionEvent<Any>>
+
+      val closePaymentResponse =
+        ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
+
+      /* preconditions */
+      given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturn(events.toFlux())
+
+      given(nodeClient.closePayment(capture(closePaymentRequestCaptor)))
+        .willReturn(Mono.just(closePaymentResponse))
+
+      /* test */
+      assertEquals(
+        closePaymentResponse,
+        nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
+      // Check Transaction Details
+      assertEquals(
+        "Rifiutato",
+        closePaymentRequestCaptor.value.transactionDetails.transaction.transactionStatus)
+      assertEquals(
+        transactionId, closePaymentRequestCaptor.value.transactionDetails.transaction.transactionId)
+      assertEquals(
+        ZonedDateTime.parse(activatedEvent.creationDate).toOffsetDateTime(),
+        closePaymentRequestCaptor.value.transactionDetails.transaction.creationDate)
+      assertEquals(
+        UserDto.TypeEnum.GUEST, closePaymentRequestCaptor.value.transactionDetails.user.type)
+      assertEquals(
+        authEvent.data.paymentTypeCode,
+        closePaymentRequestCaptor.value.transactionDetails.info.type)
+
+      // Check additionalPaymentInfo
+      assertNull(closePaymentRequestCaptor.value.additionalPaymentInformations)
+    }
+
+  @Test
+  fun `ClosePaymentRequestV2Dto for close payment KO for user cancellation has not additional properties and transaction details valued correctly`() =
+    runTest {
+      val transactionOutcome = OutcomeEnum.KO
+
+      val authKO = AuthorizationResultDto.KO
+
+      val activatedEvent = transactionActivateEvent()
+      val userCancellationRequested = transactionUserCanceledEvent()
+
+      val transactionId = activatedEvent.transactionId
+      val events = listOf(activatedEvent, userCancellationRequested) as List<TransactionEvent<Any>>
+
+      val closePaymentResponse =
+        ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
+
+      /* preconditions */
+      given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturn(events.toFlux())
+
+      given(nodeClient.closePayment(capture(closePaymentRequestCaptor)))
+        .willReturn(Mono.just(closePaymentResponse))
+
+      /* test */
+      assertEquals(
+        closePaymentResponse,
+        nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
+      // Check Transaction Details
+      assertEquals(
+        "Annullato",
+        closePaymentRequestCaptor.value.transactionDetails.transaction.transactionStatus)
+      assertEquals(
+        transactionId, closePaymentRequestCaptor.value.transactionDetails.transaction.transactionId)
+      assertEquals(
+        ZonedDateTime.parse(activatedEvent.creationDate).toOffsetDateTime(),
+        closePaymentRequestCaptor.value.transactionDetails.transaction.creationDate)
+      assertEquals(
+        UserDto.TypeEnum.GUEST, closePaymentRequestCaptor.value.transactionDetails.user.type)
+      assertEquals("CP", closePaymentRequestCaptor.value.transactionDetails.info.type)
+
+      // Check additionalPaymentInfo
+      assertNull(closePaymentRequestCaptor.value.additionalPaymentInformations)
+    }
 
   @Test
   fun `closePayment returns successfully for close payment after authorization Completed from PGS KO`() =
