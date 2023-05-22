@@ -16,62 +16,61 @@ import reactor.core.publisher.Mono
 
 @Component
 class NotificationsServiceClient(
-    @Autowired
-    @Qualifier("notificationsServiceWebClient")
-    private val notificationsServiceApi: DefaultApi,
-    @Value("\${notificationsService.apiKey}") private val notificationsServiceApiKey: String
+  @Autowired
+  @Qualifier("notificationsServiceWebClient")
+  private val notificationsServiceApi: DefaultApi,
+  @Value("\${notificationsService.apiKey}") private val notificationsServiceApiKey: String
 ) {
 
-    val logger: Logger = LoggerFactory.getLogger(NotificationsServiceClient::class.java)
+  val logger: Logger = LoggerFactory.getLogger(NotificationsServiceClient::class.java)
 
-    fun sendNotificationEmail(
-        notificationEmailRequestDto: NotificationEmailRequestDto
-    ): Mono<Void> {
-        val response: Mono<Void> =
-            try {
-                notificationsServiceApi.sendNotificationEmailWithHttpInfo(
-                    notificationsServiceApiKey, notificationEmailRequestDto
-                ).flatMap {
-                    when (it.statusCode) {
-                        HttpStatus.OK -> Mono.empty()
-                        HttpStatus.ACCEPTED -> Mono.empty()
-                        else -> Mono.error(RuntimeException("Invalid notifications service response received! $it"))
-                    }
-                }
-            } catch (e: Exception) {
-                Mono.error(e)
+  fun sendNotificationEmail(notificationEmailRequestDto: NotificationEmailRequestDto): Mono<Void> {
+    val response: Mono<Void> =
+      try {
+        notificationsServiceApi
+          .sendNotificationEmailWithHttpInfo(
+            notificationsServiceApiKey, notificationEmailRequestDto)
+          .flatMap {
+            when (it.statusCode) {
+              HttpStatus.OK -> Mono.empty()
+              HttpStatus.ACCEPTED -> Mono.empty()
+              else ->
+                Mono.error(RuntimeException("Invalid notifications service response received! $it"))
             }
-        return response
-            .doOnError(WebClientResponseException::class.java) { e: WebClientResponseException ->
-                logger.error(
-                    "Got bad response from notifications-service [HTTP {}]: {}",
-                    e.statusCode,
-                    e.responseBodyAsString
-                )
-            }
-            .doOnError { e: Throwable -> logger.error(e.toString()) }
-            .then()
-    }
+          }
+      } catch (e: Exception) {
+        Mono.error(e)
+      }
+    return response
+      .doOnError(WebClientResponseException::class.java) { e: WebClientResponseException ->
+        logger.error(
+          "Got bad response from notifications-service [HTTP {}]: {}",
+          e.statusCode,
+          e.responseBodyAsString)
+      }
+      .doOnError { e: Throwable -> logger.error(e.toString()) }
+      .then()
+  }
 
-    data class SuccessTemplateRequest(
-        val to: String,
-        val subject: String,
-        val language: String,
-        val templateParameters: SuccessTemplate
-    ) {
-        companion object {
-            const val TEMPLATE_ID = "success"
-        }
+  data class SuccessTemplateRequest(
+    val to: String,
+    val subject: String,
+    val language: String,
+    val templateParameters: SuccessTemplate
+  ) {
+    companion object {
+      const val TEMPLATE_ID = "success"
     }
+  }
 
-    data class KoTemplateRequest(
-        val to: String,
-        val subject: String,
-        val language: String,
-        val templateParameters: KoTemplate
-    ) {
-        companion object {
-            const val TEMPLATE_ID = "ko"
-        }
+  data class KoTemplateRequest(
+    val to: String,
+    val subject: String,
+    val language: String,
+    val templateParameters: KoTemplate
+  ) {
+    companion object {
+      const val TEMPLATE_ID = "ko"
     }
+  }
 }
