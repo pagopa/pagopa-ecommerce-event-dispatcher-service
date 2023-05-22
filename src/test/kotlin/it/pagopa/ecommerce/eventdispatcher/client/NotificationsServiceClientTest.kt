@@ -28,12 +28,6 @@ class NotificationsServiceClientTest {
 
   private val apiClient: ApiClient = mock()
 
-  private val webClient: WebClient = mock()
-
-  private val bodyUriSpec: WebClient.RequestBodyUriSpec = mock()
-
-  private val headersSpec: WebClient.RequestHeadersSpec<*> = mock()
-
   private val apiKey = "apiKey"
 
   private val client = NotificationsServiceClient(defaultApi, apiKey)
