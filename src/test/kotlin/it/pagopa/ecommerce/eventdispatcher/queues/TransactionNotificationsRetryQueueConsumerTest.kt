@@ -112,7 +112,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
     given(userReceiptMailBuilder.buildNotificationEmailRequestDto(baseTransaction))
       .willReturn(NotificationEmailRequestDto())
     given(notificationsServiceClient.sendNotificationEmail(any()))
-      .willReturn(Mono.just(NotificationEmailResponseDto().outcome("OK")))
+      .willReturn(Mono.just(NotificationEmailResponseDto().apply { outcome = "OK" }))
     given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
       .willReturn(Mono.just(document))
     given(transactionsViewRepository.save(capture(transactionViewRepositoryCaptor))).willAnswer {
@@ -168,7 +168,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
     given(userReceiptMailBuilder.buildNotificationEmailRequestDto(baseTransaction))
       .willReturn(NotificationEmailRequestDto())
     given(notificationsServiceClient.sendNotificationEmail(any()))
-      .willReturn(Mono.just(NotificationEmailResponseDto().outcome("OK")))
+      .willReturn(Mono.just(NotificationEmailResponseDto().apply { outcome = "OK" }))
     given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
       .willReturn(Mono.just(document))
     given(transactionsViewRepository.save(capture(transactionViewRepositoryCaptor))).willAnswer {
