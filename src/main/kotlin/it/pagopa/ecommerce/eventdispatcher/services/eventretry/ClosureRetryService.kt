@@ -71,6 +71,7 @@ class ClosureRetryService(
           baseTransaction.transactionActivatedData.paymentTokenValiditySeconds.toLong())
       is BaseTransactionWithClosureError ->
         getPaymentTokenDuration(baseTransaction.transactionAtPreviousState)
-      else -> Duration.ZERO
+      else ->
+        throw RuntimeException("Unexpected base transaction type: ${baseTransaction.javaClass}")
     }
 }

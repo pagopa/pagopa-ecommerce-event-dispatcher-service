@@ -10,6 +10,7 @@ import it.pagopa.ecommerce.commons.documents.v1.TransactionEvent
 import it.pagopa.ecommerce.commons.documents.v1.TransactionRefundRetriedEvent
 import it.pagopa.ecommerce.commons.documents.v1.TransactionRetriedData
 import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
+import it.pagopa.ecommerce.commons.domain.v1.TransactionWithClosureError
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
@@ -328,6 +329,46 @@ class ClosureRetryServiceTests {
       .willReturn(queueSuccessfulResponse())
     StepVerifier.create(closureRetryService.enqueueRetryEvent(baseTransaction, 0))
       .expectError(TooLateRetryAttemptException::class.java)
+      .verify()
+
+    verify(eventStoreRepository, times(0)).save(any())
+    verify(transactionsViewRepository, times(0))
+      .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
+    verify(transactionsViewRepository, times(0)).save(any())
+    verify(closureRetryQueueAsyncClient, times(0))
+      .sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull())
+  }
+
+  @Test
+  fun `Should not enqueue new closure retry event for unknown base transaction type`() {
+
+    val events: MutableList<TransactionEvent<Any>> =
+      mutableListOf(
+        TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
+        TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>,
+        TransactionTestUtils.transactionAuthorizationCompletedEvent() as TransactionEvent<Any>,
+        TransactionTestUtils.transactionClosureErrorEvent() as TransactionEvent<Any>)
+
+    val baseTransaction =
+      spy(TransactionTestUtils.reduceEvents(*events.toTypedArray())) as TransactionWithClosureError
+    val transactionDocument =
+      TransactionTestUtils.transactionDocument(
+        TransactionStatusDto.CLOSURE_ERROR, ZonedDateTime.now())
+    given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
+      Mono.just(it.arguments[0])
+    }
+    given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
+      .willAnswer { Mono.just(transactionDocument) }
+    given(transactionsViewRepository.save(viewRepositoryCaptor.capture())).willAnswer {
+      Mono.just(it.arguments[0])
+    }
+    given(baseTransaction.transactionAtPreviousState).willReturn(mock())
+    given(
+        closureRetryQueueAsyncClient.sendMessageWithResponse(
+          queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
+      .willReturn(queueSuccessfulResponse())
+    StepVerifier.create(closureRetryService.enqueueRetryEvent(baseTransaction, 0))
+      .expectError(RuntimeException::class.java)
       .verify()
 
     verify(eventStoreRepository, times(0)).save(any())
