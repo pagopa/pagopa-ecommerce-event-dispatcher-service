@@ -16,6 +16,7 @@ import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryServic
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto.StatusEnum
 import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
+import java.nio.charset.StandardCharsets
 import java.time.Duration
 import java.util.*
 import org.slf4j.Logger
@@ -422,10 +423,12 @@ fun eventPipelineCheckpoint(
         )
         .doOnNext {
           logger.info(
-            "Event: [$event] successfully sent with visibility timeout: [${it.value.timeNextVisible}] ms to queue: [${deadLetterQueueAsyncClient.queueName}]")
+            "Event: [${eventPayload.toString(StandardCharsets.UTF_8)}] successfully sent with visibility timeout: [${it.value.timeNextVisible}] ms to queue: [${deadLetterQueueAsyncClient.queueName}]")
         }
         .doOnError { queueException ->
-          logger.error("Error sending event: [${event}] to dead letter queue.", queueException)
+          logger.error(
+            "Error sending event: [${eventPayload.toString(StandardCharsets.UTF_8)}] to dead letter queue.",
+            queueException)
         }
         .then()
     }
