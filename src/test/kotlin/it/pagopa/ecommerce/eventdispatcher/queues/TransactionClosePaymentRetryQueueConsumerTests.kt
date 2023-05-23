@@ -22,6 +22,7 @@ import it.pagopa.ecommerce.eventdispatcher.utils.queueSuccessfulResponse
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
+import java.time.Duration
 import java.time.ZonedDateTime
 import java.util.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -462,14 +463,15 @@ class TransactionClosePaymentRetryQueueConsumerTests {
             TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.KO))
         .willReturn(
           ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.KO })
-
+      given(
+          deadLetterQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull()))
+        .willReturn(queueSuccessfulResponse())
       /* test */
 
       StepVerifier.create(
           transactionClosureErrorEventsConsumer.messageReceiver(
             BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer))
-        .expectError(java.lang.RuntimeException::class.java)
-        .verify()
+        .verifyComplete()
 
       /* Asserts */
       verify(checkpointer, Mockito.times(1)).success()
@@ -482,6 +484,14 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       verify(transactionsViewRepository, Mockito.times(0)).save(expectedUpdatedTransaction)
       verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
       verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any())
+      verify(deadLetterQueueAsyncClient, times(1))
+        .sendMessageWithResponse(
+          argThat<BinaryData> {
+            this.toObject(TransactionActivatedEvent::class.java).eventCode ==
+              TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT
+          },
+          eq(Duration.ZERO),
+          eq(null))
     }
 
   @Test
@@ -503,14 +513,15 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       given(transactionWithClosureError.status).willReturn(TransactionStatusDto.CLOSURE_ERROR)
       given(transactionWithClosureError.transactionAtPreviousState)
         .willReturn(fakeTransactionAtPreviousState)
-
+      given(
+          deadLetterQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull()))
+        .willReturn(queueSuccessfulResponse())
       /* test */
 
       StepVerifier.create(
           transactionClosureErrorEventsConsumer.messageReceiver(
             BinaryData.fromObject(activatedEvent).toBytes(), checkpointer, emptyTransactionMock))
-        .expectError(RuntimeException::class.java)
-        .verify()
+        .verifyComplete()
 
       /* Asserts */
       verify(checkpointer, Mockito.times(1)).success()
@@ -519,6 +530,14 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       verify(transactionClosedEventRepository, Mockito.times(0)).save(any())
       verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
       verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any())
+      verify(deadLetterQueueAsyncClient, times(1))
+        .sendMessageWithResponse(
+          argThat<BinaryData> {
+            this.toObject(TransactionActivatedEvent::class.java).eventCode ==
+              TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
+          },
+          eq(Duration.ZERO),
+          eq(null))
     }
 
   @Test
@@ -1024,13 +1043,17 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
       given(closureRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture()))
         .willReturn(Mono.error(RuntimeException("Error enqueuing retry event")))
+
+      given(
+          deadLetterQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull()))
+        .willReturn(queueSuccessfulResponse())
+
       /* test */
 
       StepVerifier.create(
           transactionClosureErrorEventsConsumer.messageReceiver(
             BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer))
-        .expectError(java.lang.RuntimeException::class.java)
-        .verify()
+        .verifyComplete()
 
       /* Asserts */
       verify(checkpointer, Mockito.times(1)).success()
@@ -1041,5 +1064,13 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).save(any())
       verify(transactionsViewRepository, Mockito.times(0)).save(any())
       verify(closureRetryService, times(1)).enqueueRetryEvent(any(), any())
+      verify(deadLetterQueueAsyncClient, times(1))
+        .sendMessageWithResponse(
+          argThat<BinaryData> {
+            this.toObject(TransactionActivatedEvent::class.java).eventCode ==
+              TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT
+          },
+          eq(Duration.ZERO),
+          eq(null))
     }
 }

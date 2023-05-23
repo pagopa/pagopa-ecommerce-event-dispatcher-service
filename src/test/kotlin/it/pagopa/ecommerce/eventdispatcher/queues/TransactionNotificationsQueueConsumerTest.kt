@@ -22,6 +22,7 @@ import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.notifications.templates.success.SuccessTemplate
 import it.pagopa.generated.notifications.v1.dto.NotificationEmailRequestDto
 import it.pagopa.generated.notifications.v1.dto.NotificationEmailResponseDto
+import java.time.Duration
 import java.time.ZonedDateTime
 import java.util.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -483,11 +484,14 @@ class TransactionNotificationsQueueConsumerTest {
         .willAnswer { Mono.just(it.arguments[0]) }
       given(notificationRetryService.enqueueRetryEvent(any(), capture(retryCountCaptor)))
         .willReturn(Mono.error(RuntimeException("Error enqueueing notification retry event")))
+      given(
+          deadLetterQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull()))
+        .willReturn(queueSuccessfulResponse())
+
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
             BinaryData.fromObject(notificationRequested).toBytes(), checkpointer))
-        .expectError(RuntimeException::class.java)
-        .verify()
+        .verifyComplete()
       verify(checkpointer, times(1)).success()
       verify(transactionsEventStoreRepository, times(1)).findByTransactionId(transactionId)
       verify(notificationsServiceClient, times(1)).sendNotificationEmail(any())
@@ -511,6 +515,14 @@ class TransactionNotificationsQueueConsumerTest {
       expectedStatuses.forEachIndexed { index, transactionStatus ->
         assertEquals(transactionStatus, transactionViewRepositoryCaptor.allValues[index].status)
       }
+      verify(deadLetterQueueAsyncClient, times(1))
+        .sendMessageWithResponse(
+          argThat<BinaryData> {
+            this.toObject(TransactionActivatedEvent::class.java).eventCode ==
+              TransactionEventCode.TRANSACTION_USER_RECEIPT_REQUESTED_EVENT
+          },
+          eq(Duration.ZERO),
+          eq(null))
     }
 
   @Test

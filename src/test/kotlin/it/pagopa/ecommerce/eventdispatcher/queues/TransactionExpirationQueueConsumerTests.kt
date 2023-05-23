@@ -14,7 +14,9 @@ import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryService
+import it.pagopa.ecommerce.eventdispatcher.utils.queueSuccessfulResponse
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
+import java.time.Duration
 import java.time.ZonedDateTime
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
@@ -306,16 +308,25 @@ class TransactionExpirationQueueConsumerTests {
         Mono.just(transactionDocument(TransactionStatusDto.ACTIVATED, ZonedDateTime.now())))
     given(transactionsViewRepository.save(any()))
       .willReturn(Mono.error(RuntimeException("error while trying to save event")))
+    given(deadLetterQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull()))
+      .willReturn(queueSuccessfulResponse())
 
     /* test */
     StepVerifier.create(
         transactionExpirationQueueConsumer.messageReceiver(
           BinaryData.fromObject(activatedEvent).toBytes(), checkpointer))
-      .expectError()
-      .verify()
+      .verifyComplete()
 
     /* Asserts */
     verify(checkpointer, times(1)).success()
+    verify(deadLetterQueueAsyncClient, times(1))
+      .sendMessageWithResponse(
+        argThat<BinaryData> {
+          this.toObject(TransactionActivatedEvent::class.java).eventCode ==
+            TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
+        },
+        eq(Duration.ZERO),
+        eq(null))
   }
 
   @Test
@@ -358,16 +369,25 @@ class TransactionExpirationQueueConsumerTests {
         Mono.just(transactionDocument(TransactionStatusDto.ACTIVATED, ZonedDateTime.now())))
     given(transactionsViewRepository.save(any()))
       .willReturn(Mono.error(RuntimeException("error while saving data")))
+    given(deadLetterQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull()))
+      .willReturn(queueSuccessfulResponse())
 
     /* test */
     StepVerifier.create(
         transactionExpirationQueueConsumer.messageReceiver(
           BinaryData.fromObject(activatedEvent).toBytes(), checkpointer))
-      .expectError()
-      .verify()
+      .verifyComplete()
 
     /* Asserts */
     verify(checkpointer, times(1)).success()
+    verify(deadLetterQueueAsyncClient, times(1))
+      .sendMessageWithResponse(
+        argThat<BinaryData> {
+          this.toObject(TransactionActivatedEvent::class.java).eventCode ==
+            TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
+        },
+        eq(Duration.ZERO),
+        eq(null))
   }
 
   @Test
@@ -2308,5 +2328,51 @@ class TransactionExpirationQueueConsumerTests {
       verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
       verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
       verify(transactionsViewRepository, times(0)).save(any())
+    }
+
+  @Test
+  fun `messageReceiver forward event into dead letter queue for exception processing the event`() =
+    runTest {
+      /* preconditions */
+      val transactionExpirationQueueConsumer =
+        TransactionExpirationQueueConsumer(
+          paymentGatewayClient,
+          transactionsEventStoreRepository,
+          transactionsExpiredEventStoreRepository,
+          transactionsRefundedEventStoreRepository,
+          transactionsViewRepository,
+          transactionUtils,
+          refundRetryService,
+          deadLetterQueueAsyncClient)
+
+      val activatedEvent = transactionActivateEvent()
+
+      /* preconditions */
+      given(checkpointer.success()).willReturn(Mono.empty())
+      given(
+          transactionsEventStoreRepository.findByTransactionId(
+            any(),
+          ))
+        .willReturn(Flux.error(RuntimeException("Error finding event from event store")))
+      given(
+          deadLetterQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull()))
+        .willReturn(queueSuccessfulResponse())
+
+      /* test */
+      StepVerifier.create(
+          transactionExpirationQueueConsumer.messageReceiver(
+            BinaryData.fromObject(activatedEvent).toBytes(), checkpointer))
+        .verifyComplete()
+
+      /* Asserts */
+      verify(checkpointer, times(1)).success()
+      verify(deadLetterQueueAsyncClient, times(1))
+        .sendMessageWithResponse(
+          argThat<BinaryData> {
+            this.toObject(TransactionActivatedEvent::class.java).eventCode ==
+              TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
+          },
+          eq(Duration.ZERO),
+          eq(null))
     }
 }
