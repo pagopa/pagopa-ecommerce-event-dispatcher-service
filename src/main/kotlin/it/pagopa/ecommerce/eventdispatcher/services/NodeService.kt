@@ -54,7 +54,7 @@ class NodeService(
                       transaction =
                         TransactionDto().apply {
                           this.transactionId = transactionId.value()
-                          transactionStatus = evaluateTransactionStatus(it)
+                          transactionStatus = getTransactionDetailsStatus(it)
                           creationDate = it.creationDate.toOffsetDateTime()
                         }
                       info = InfoDto().apply { type = getPaymentTypeCode(it) }
@@ -120,7 +120,7 @@ class NodeService(
                             transaction =
                               TransactionDto().apply {
                                 this.transactionId = transactionId.value()
-                                transactionStatus = evaluateTransactionStatus(it)
+                                transactionStatus = getTransactionDetailsStatus(it)
                                 fee =
                                   authCompleted.transactionAuthorizationRequestData.fee
                                     .toBigDecimal()
@@ -178,7 +178,7 @@ class NodeService(
                   transaction =
                     TransactionDto().apply {
                       this.transactionId = transactionId.value()
-                      transactionStatus = evaluateTransactionStatus(it)
+                      transactionStatus = getTransactionDetailsStatus(it)
                       creationDate = it.creationDate.toOffsetDateTime()
                     }
                   info = InfoDto().apply { type = "CP" }
@@ -199,7 +199,7 @@ class NodeService(
     return nodeClient.closePayment(closePaymentRequest.awaitSingle()).awaitSingle()
   }
 
-  private fun evaluateTransactionStatus(it: BaseTransaction): String =
+  private fun getTransactionDetailsStatus(it: BaseTransaction): String =
     if (wasAuthorized(it)) {
       "Autorizzato"
     } else if (wasAuthorizationDenied(it) && wasAuthorizationRequested(it)) {
