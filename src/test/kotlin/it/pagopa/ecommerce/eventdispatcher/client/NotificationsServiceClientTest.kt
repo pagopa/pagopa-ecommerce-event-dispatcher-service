@@ -1,29 +1,58 @@
 package it.pagopa.ecommerce.eventdispatcher.client
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import it.pagopa.generated.notifications.templates.ko.KoTemplate
 import it.pagopa.generated.notifications.templates.success.*
+import it.pagopa.generated.notifications.v1.ApiClient
 import it.pagopa.generated.notifications.v1.api.DefaultApi
 import it.pagopa.generated.notifications.v1.dto.NotificationEmailRequestDto
 import it.pagopa.generated.notifications.v1.dto.NotificationEmailResponseDto
-import java.nio.charset.Charset
+import it.pagopa.generated.notifications.v1.dto.ProblemJsonDto
+import java.net.URI
 import java.time.ZonedDateTime
 import java.util.*
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
+import org.junit.jupiter.api.AfterAll
+import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
-import org.mockito.Mockito
 import org.mockito.kotlin.given
 import org.mockito.kotlin.mock
-import org.springframework.http.HttpHeaders
+import org.springframework.web.reactive.function.client.WebClient
 import org.springframework.web.reactive.function.client.WebClientResponseException
-import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
 
 class NotificationsServiceClientTest {
 
   private val defaultApi: DefaultApi = mock()
 
+  private val apiClient: ApiClient = mock()
+
   private val apiKey = "apiKey"
 
   private val client = NotificationsServiceClient(defaultApi, apiKey)
+
+  companion object {
+
+    lateinit var mockWebServer: MockWebServer
+
+    val objectMapper = ObjectMapper()
+
+    @JvmStatic
+    @BeforeAll
+    fun setup() {
+      mockWebServer = MockWebServer()
+      mockWebServer.start(8080)
+      println("Mock web server started on ${mockWebServer.hostName}:${mockWebServer.port}")
+    }
+
+    @JvmStatic
+    @AfterAll
+    fun tearDown() {
+      mockWebServer.shutdown()
+      println("Mock web stopped")
+    }
+  }
 
   @Test
   fun `should return email outcome`() {
@@ -34,11 +63,18 @@ class NotificationsServiceClientTest {
         .to("foo@example.com")
         .templateId("template-id")
         .parameters(mapOf(Pair("param1", "value1")))
-    val expected = NotificationEmailResponseDto().outcome("OK")
-    Mockito.`when`(defaultApi.sendNotificationEmail(apiKey, notificationEmailRequest))
-      .thenReturn(Mono.just(expected))
+    val notificationEmailResponseDto = NotificationEmailResponseDto().apply { outcome = "OK" }
+    val baseUrl = "http://${mockWebServer.hostName}:${mockWebServer.port}"
+    given(apiClient.basePath).willReturn(baseUrl)
+    given(defaultApi.apiClient).willReturn(apiClient)
+    given(apiClient.webClient).willReturn(WebClient.create(baseUrl))
+    mockWebServer.enqueue(
+      MockResponse()
+        .setBody(objectMapper.writeValueAsString(notificationEmailResponseDto))
+        .setResponseCode(200)
+        .addHeader("Content-Type", "application/json"))
     StepVerifier.create(client.sendNotificationEmail(notificationEmailRequest))
-      .expectNext(expected)
+      .expectNext(notificationEmailResponseDto)
       .verifyComplete()
   }
 
@@ -75,9 +111,19 @@ class NotificationsServiceClientTest {
         .to(successTemplateRequest.to)
         .templateId(NotificationsServiceClient.SuccessTemplateRequest.TEMPLATE_ID)
         .parameters(successTemplateRequest.templateParameters)
-    val expected = NotificationEmailResponseDto().outcome("OK")
-    given(defaultApi.sendNotificationEmail(apiKey, request)).willReturn(Mono.just(expected))
-    StepVerifier.create(client.sendNotificationEmail(request)).expectNext(expected).verifyComplete()
+    val notificationEmailResponseDto = NotificationEmailResponseDto().apply { outcome = "OK" }
+    val baseUrl = "http://${mockWebServer.hostName}:${mockWebServer.port}"
+    given(apiClient.basePath).willReturn(baseUrl)
+    given(defaultApi.apiClient).willReturn(apiClient)
+    given(apiClient.webClient).willReturn(WebClient.create(baseUrl))
+    mockWebServer.enqueue(
+      MockResponse()
+        .setBody(objectMapper.writeValueAsString(notificationEmailResponseDto))
+        .setResponseCode(200)
+        .addHeader("Content-Type", "application/json"))
+    StepVerifier.create(client.sendNotificationEmail(request))
+      .expectNext(notificationEmailResponseDto)
+      .verifyComplete()
   }
 
   @Test
@@ -98,13 +144,23 @@ class NotificationsServiceClientTest {
         .subject(koTemplateRequest.subject)
         .templateId(NotificationsServiceClient.KoTemplateRequest.TEMPLATE_ID)
         .parameters(koTemplateRequest.templateParameters)
-    val expected = NotificationEmailResponseDto().outcome("OK")
-    given(defaultApi.sendNotificationEmail(apiKey, request)).willReturn(Mono.just(expected))
-    StepVerifier.create(client.sendNotificationEmail(request)).expectNext(expected).verifyComplete()
+    val notificationEmailResponseDto = NotificationEmailResponseDto().apply { outcome = "OK" }
+    val baseUrl = "http://${mockWebServer.hostName}:${mockWebServer.port}"
+    given(apiClient.basePath).willReturn(baseUrl)
+    given(defaultApi.apiClient).willReturn(apiClient)
+    given(apiClient.webClient).willReturn(WebClient.create(baseUrl))
+    mockWebServer.enqueue(
+      MockResponse()
+        .setBody(objectMapper.writeValueAsString(notificationEmailResponseDto))
+        .setResponseCode(200)
+        .addHeader("Content-Type", "application/json"))
+    StepVerifier.create(client.sendNotificationEmail(request))
+      .expectNext(notificationEmailResponseDto)
+      .verifyComplete()
   }
 
   @Test
-  fun `should return Mono error for exception during notificationService invocation`() {
+  fun `should return Mono error for KO response received from Notifications service`() {
     val koTemplateRequest =
       NotificationsServiceClient.KoTemplateRequest(
         "foo@example.com",
@@ -121,16 +177,30 @@ class NotificationsServiceClientTest {
         .subject(koTemplateRequest.subject)
         .templateId(NotificationsServiceClient.KoTemplateRequest.TEMPLATE_ID)
         .parameters(koTemplateRequest.templateParameters)
-
-    given(defaultApi.sendNotificationEmail(apiKey, request))
-      .willReturn(Mono.error(RuntimeException("Error")))
+    val baseUrl = "http://${mockWebServer.hostName}:${mockWebServer.port}"
+    given(apiClient.basePath).willReturn(baseUrl)
+    given(defaultApi.apiClient).willReturn(apiClient)
+    given(apiClient.webClient).willReturn(WebClient.create(baseUrl))
+    mockWebServer.enqueue(
+      MockResponse()
+        .setBody(
+          objectMapper.writeValueAsString(
+            ProblemJsonDto().apply {
+              type = URI.create("http://localhost")
+              title = "Internal server error"
+              status = 500
+              detail = "Error details"
+              instance = URI.create("http://instanceURI")
+            }))
+        .setResponseCode(500)
+        .addHeader("Content-Type", "text/html"))
     StepVerifier.create(client.sendNotificationEmail(request))
-      .expectError(RuntimeException::class.java)
+      .expectError(WebClientResponseException::class.java)
       .verify()
   }
 
   @Test
-  fun `should return Mono error for exception thrown during notificationService invocation`() {
+  fun `should handle Notifications service HTTP 202 accepted response as OK`() {
     val koTemplateRequest =
       NotificationsServiceClient.KoTemplateRequest(
         "foo@example.com",
@@ -147,13 +217,18 @@ class NotificationsServiceClientTest {
         .subject(koTemplateRequest.subject)
         .templateId(NotificationsServiceClient.KoTemplateRequest.TEMPLATE_ID)
         .parameters(koTemplateRequest.templateParameters)
-
-    given(defaultApi.sendNotificationEmail(apiKey, request))
-      .willThrow(
-        WebClientResponseException.create(
-          404, "Not found", HttpHeaders.EMPTY, ByteArray(0), Charset.defaultCharset()))
+    val baseUrl = "http://${mockWebServer.hostName}:${mockWebServer.port}"
+    val notificationEmailResponseDto = NotificationEmailResponseDto().apply { outcome = "OK" }
+    given(apiClient.basePath).willReturn(baseUrl)
+    given(defaultApi.apiClient).willReturn(apiClient)
+    given(apiClient.webClient).willReturn(WebClient.create(baseUrl))
+    mockWebServer.enqueue(
+      MockResponse()
+        .setBody("Accepted")
+        .setResponseCode(202)
+        .addHeader("Content-Type", "text/html"))
     StepVerifier.create(client.sendNotificationEmail(request))
-      .expectError(RuntimeException::class.java)
-      .verify()
+      .expectNext(notificationEmailResponseDto)
+      .verifyComplete()
   }
 }
