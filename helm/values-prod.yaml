@@ -141,7 +141,7 @@ microservice-chart:
     MONGO_PORT: "10255"
     MONGO_SSL_ENABLED: "true"
     ECOMMERCE_STORAGE_QUEUE_ACCOUNT_NAME: pagopapweuecommercesa
-    ECOMMERCE_STORAGE_QUEUE_ENDPOINT: https://pagopapweuecommercesa.queue.core.windows.net/pagopauweuecommercesa
+    ECOMMERCE_STORAGE_QUEUE_ENDPOINT: https://pagopapweuecommercesa.queue.core.windows.net/pagopapweuecommercesa
     REFUND_RETRY_EVENT_BASE_INTERVAL_SECONDS: "600"
     REFUND_RETRY_EVENT_MAX_ATTEMPTS: "3"
     CLOSE_PAYMENT_RETRY_EVENT_BASE_INTERVAL_SECONDS: "600"
