@@ -8,8 +8,7 @@ import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.utils.EuroUtils
 import it.pagopa.ecommerce.eventdispatcher.client.NodeClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
-import it.pagopa.ecommerce.eventdispatcher.queues.reduceEvents
-import it.pagopa.ecommerce.eventdispatcher.queues.wasAuthorizationRequested
+import it.pagopa.ecommerce.eventdispatcher.queues.*
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.generated.ecommerce.nodo.v2.dto.*
 import java.time.OffsetDateTime
@@ -55,12 +54,7 @@ class NodeService(
                       transaction =
                         TransactionDto().apply {
                           this.transactionId = transactionId.value()
-                          transactionStatus =
-                            if (wasAuthorizationRequested(it)) {
-                              "Rifiutato"
-                            } else {
-                              "Annullato"
-                            }
+                          transactionStatus = evaluateTransactionStatus(it)
                           creationDate = it.creationDate.toOffsetDateTime()
                         }
                       info = InfoDto().apply { type = getPaymentTypeCode(it) }
@@ -126,7 +120,7 @@ class NodeService(
                             transaction =
                               TransactionDto().apply {
                                 this.transactionId = transactionId.value()
-                                transactionStatus = "Autorizzato"
+                                transactionStatus = evaluateTransactionStatus(it)
                                 fee =
                                   authCompleted.transactionAuthorizationRequestData.fee
                                     .toBigDecimal()
@@ -184,7 +178,7 @@ class NodeService(
                   transaction =
                     TransactionDto().apply {
                       this.transactionId = transactionId.value()
-                      transactionStatus = "Annullato"
+                      transactionStatus = evaluateTransactionStatus(it)
                       creationDate = it.creationDate.toOffsetDateTime()
                     }
                   info = InfoDto().apply { type = "CP" }
@@ -204,6 +198,15 @@ class NodeService(
 
     return nodeClient.closePayment(closePaymentRequest.awaitSingle()).awaitSingle()
   }
+
+  private fun evaluateTransactionStatus(it: BaseTransaction): String =
+    if (wasAuthorized(it)) {
+      "Autorizzato"
+    } else if (wasAuthorizationDenied(it) && wasAuthorizationRequested(it)) {
+      "Rifiutato"
+    } else {
+      "Annullato"
+    }
 
   private fun getPaymentTypeCode(it: BaseTransaction?): String =
     if (it is TransactionWithClosureError && wasAuthorizationRequested(it)) {

@@ -286,6 +286,20 @@ fun wasAuthorizationRequested(tx: BaseTransaction): Boolean =
     else -> false
   }
 
+fun wasAuthorized(tx: BaseTransaction): Boolean =
+  when (tx) {
+    is BaseTransactionWithCompletedAuthorization -> tx.wasTransactionAuthorized()
+    is TransactionWithClosureError ->
+      tx
+        .transactionAtPreviousState()
+        .map { txAtPreviousStep ->
+          txAtPreviousStep.isRight && wasAuthorized(txAtPreviousStep.get())
+        }
+        .orElse(false)
+    is BaseTransactionExpired -> wasAuthorized(tx.transactionAtPreviousState)
+    else -> false
+  }
+
 fun wasAuthorizationDenied(tx: BaseTransaction): Boolean =
   when (tx) {
     is BaseTransactionWithCompletedAuthorization -> !tx.wasTransactionAuthorized()
