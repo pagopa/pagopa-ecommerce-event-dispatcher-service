@@ -84,7 +84,7 @@ microservice-chart:
       - 9000
   ingress:
     create: true
-    host: "weuuat.ecommerce.internal.uat.platform.pagopa.it"
+    host: "weuprod.ecommerce.internal.platform.pagopa.it"
     path: /pagopa-ecommerce-event-dispatcher/(.*)
     servicePort: 9000
   serviceAccount:
