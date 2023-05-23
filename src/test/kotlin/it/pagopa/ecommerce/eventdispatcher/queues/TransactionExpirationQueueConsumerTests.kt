@@ -2375,4 +2375,51 @@ class TransactionExpirationQueueConsumerTests {
           eq(Duration.ZERO),
           eq(null))
     }
+
+  @Test
+  fun `messageReceiver processing should fail for error forward event into dead letter queue for exception processing the event`() =
+    runTest {
+      /* preconditions */
+      val transactionExpirationQueueConsumer =
+        TransactionExpirationQueueConsumer(
+          paymentGatewayClient,
+          transactionsEventStoreRepository,
+          transactionsExpiredEventStoreRepository,
+          transactionsRefundedEventStoreRepository,
+          transactionsViewRepository,
+          transactionUtils,
+          refundRetryService,
+          deadLetterQueueAsyncClient)
+
+      val activatedEvent = transactionActivateEvent()
+
+      /* preconditions */
+      given(checkpointer.success()).willReturn(Mono.empty())
+      given(
+          transactionsEventStoreRepository.findByTransactionId(
+            any(),
+          ))
+        .willReturn(Flux.error(RuntimeException("Error finding event from event store")))
+      given(
+          deadLetterQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull()))
+        .willReturn(Mono.error(RuntimeException("Error sending event to dead letter queue")))
+
+      /* test */
+      StepVerifier.create(
+          transactionExpirationQueueConsumer.messageReceiver(
+            BinaryData.fromObject(activatedEvent).toBytes(), checkpointer))
+        .expectErrorMatches { it.message == "Error sending event to dead letter queue" }
+        .verify()
+
+      /* Asserts */
+      verify(checkpointer, times(1)).success()
+      verify(deadLetterQueueAsyncClient, times(1))
+        .sendMessageWithResponse(
+          argThat<BinaryData> {
+            this.toObject(TransactionActivatedEvent::class.java).eventCode ==
+              TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
+          },
+          eq(Duration.ZERO),
+          eq(null))
+    }
 }
