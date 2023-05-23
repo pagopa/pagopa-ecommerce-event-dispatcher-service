@@ -3,6 +3,7 @@ package it.pagopa.ecommerce.eventdispatcher.queues
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
+import com.azure.storage.queue.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v1.TransactionExpiredEvent
 import it.pagopa.ecommerce.commons.documents.v1.TransactionRefundRetriedEvent
 import it.pagopa.ecommerce.commons.documents.v1.TransactionRefundedData
@@ -37,7 +38,8 @@ class TransactionsRefundQueueConsumer(
   private val transactionsRefundedEventStoreRepository:
     TransactionsEventStoreRepository<TransactionRefundedData>,
   @Autowired private val transactionsViewRepository: TransactionsViewRepository,
-  @Autowired private val refundRetryService: RefundRetryService
+  @Autowired private val refundRetryService: RefundRetryService,
+  @Autowired private val deadLetterQueueAsyncClient: QueueAsyncClient
 ) {
 
   var logger: Logger = LoggerFactory.getLogger(TransactionsRefundQueueConsumer::class.java)
@@ -54,11 +56,10 @@ class TransactionsRefundQueueConsumer(
   @ServiceActivator(inputChannel = "transactionsrefundchannel", outputChannel = "nullChannel")
   fun messageReceiver(
     @Payload payload: ByteArray,
-    @Header(AzureHeaders.CHECKPOINTER) checkpointer: Checkpointer
+    @Header(AzureHeaders.CHECKPOINTER) checkPointer: Checkpointer
   ): Mono<Void> {
-    val checkpoint = checkpointer.success()
-
-    val transactionId = getTransactionIdFromPayload(BinaryData.fromBytes(payload))
+    val binaryData = BinaryData.fromBytes(payload)
+    val transactionId = getTransactionIdFromPayload(binaryData)
 
     val refundPipeline =
       transactionId
@@ -86,6 +87,7 @@ class TransactionsRefundQueueConsumer(
             refundRetryService)
         }
 
-    return checkpoint.then(refundPipeline).then()
+    return eventPipelineCheckpoint(
+      checkPointer, refundPipeline, payload, deadLetterQueueAsyncClient)
   }
 }

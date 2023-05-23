@@ -2,6 +2,7 @@ package it.pagopa.ecommerce.eventdispatcher.queues
 
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
+import com.azure.storage.queue.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.Email
 import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
@@ -10,13 +11,13 @@ import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils.*
 import it.pagopa.ecommerce.eventdispatcher.client.NotificationsServiceClient
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
-import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.NotificationRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryService
 import it.pagopa.ecommerce.eventdispatcher.utils.ConfidentialMailUtils
 import it.pagopa.ecommerce.eventdispatcher.utils.UserReceiptMailBuilder
+import it.pagopa.ecommerce.eventdispatcher.utils.queueSuccessfulResponse
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.notifications.templates.success.SuccessTemplate
 import it.pagopa.generated.notifications.v1.dto.NotificationEmailRequestDto
@@ -74,6 +75,8 @@ class TransactionNotificationsQueueConsumerTest {
   private lateinit var transactionRefundEventStoreCaptor:
     ArgumentCaptor<TransactionEvent<TransactionRefundedData>>
 
+  private val deadLetterQueueAsyncClient: QueueAsyncClient = mock()
+
   private val transactionNotificationsRetryQueueConsumer =
     TransactionNotificationsQueueConsumer(
       transactionsEventStoreRepository,
@@ -84,7 +87,8 @@ class TransactionNotificationsQueueConsumerTest {
       notificationsServiceClient,
       transactionRefundRepository,
       paymentGatewayClient,
-      refundRetryService)
+      refundRetryService,
+      deadLetterQueueAsyncClient)
 
   @Test
   fun `Should successfully send user email for send payment result outcome OK`() = runTest {
@@ -520,12 +524,13 @@ class TransactionNotificationsQueueConsumerTest {
     given(checkpointer.success()).willReturn(Mono.empty())
     given(transactionsEventStoreRepository.findByTransactionId(transactionId))
       .willReturn(Flux.fromIterable(events))
+    given(deadLetterQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull()))
+      .willReturn(queueSuccessfulResponse())
 
     StepVerifier.create(
         transactionNotificationsRetryQueueConsumer.messageReceiver(
           BinaryData.fromObject(notificationRequested).toBytes(), checkpointer))
-      .expectError(BadTransactionStatusException::class.java)
-      .verify()
+      .verifyComplete()
     verify(checkpointer, times(1)).success()
     verify(transactionsEventStoreRepository, times(1)).findByTransactionId(TRANSACTION_ID)
     verify(notificationsServiceClient, times(0)).sendNotificationEmail(any())
@@ -536,6 +541,14 @@ class TransactionNotificationsQueueConsumerTest {
     verify(transactionUserReceiptRepository, times(0)).save(any())
     verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any())
     verify(userReceiptMailBuilder, times(0)).buildNotificationEmailRequestDto(any())
+    verify(deadLetterQueueAsyncClient, times(1))
+      .sendMessageWithResponse(
+        argThat<BinaryData> {
+          this.toObject(TransactionRefundRetriedEvent::class.java).eventCode ==
+            TransactionEventCode.TRANSACTION_USER_RECEIPT_REQUESTED_EVENT
+        },
+        any(),
+        anyOrNull())
   }
 
   @Test

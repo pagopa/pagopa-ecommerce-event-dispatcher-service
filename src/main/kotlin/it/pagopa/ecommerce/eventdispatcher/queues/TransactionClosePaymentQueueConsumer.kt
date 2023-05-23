@@ -3,6 +3,7 @@ package it.pagopa.ecommerce.eventdispatcher.queues
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
+import com.azure.storage.queue.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v1.TransactionWithCancellationRequested
@@ -37,7 +38,8 @@ class TransactionClosePaymentQueueConsumer(
   private val transactionClosureErrorEventStoreRepository: TransactionsEventStoreRepository<Void>,
   @Autowired private val transactionsViewRepository: TransactionsViewRepository,
   @Autowired private val nodeService: NodeService,
-  @Autowired private val closureRetryService: ClosureRetryService
+  @Autowired private val closureRetryService: ClosureRetryService,
+  @Autowired private val deadLetterQueueAsyncClient: QueueAsyncClient
 ) {
   var logger: Logger = LoggerFactory.getLogger(TransactionClosePaymentQueueConsumer::class.java)
 
@@ -56,7 +58,6 @@ class TransactionClosePaymentQueueConsumer(
     checkPointer: Checkpointer,
     emptyTransaction: EmptyTransaction
   ): Mono<Void> {
-    val checkpoint = checkPointer.success()
     val binaryData = BinaryData.fromBytes(payload)
     val transactionId = getTransactionIdFromPayload(binaryData)
     val baseTransaction =
@@ -119,7 +120,8 @@ class TransactionClosePaymentQueueConsumer(
         }
         .then()
 
-    return checkpoint.then(closurePipeline).then()
+    return eventPipelineCheckpoint(
+      checkPointer, closurePipeline, payload, deadLetterQueueAsyncClient)
   }
 
   private fun updateTransactionStatus(

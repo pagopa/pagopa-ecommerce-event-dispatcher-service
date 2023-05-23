@@ -1,5 +1,8 @@
 package it.pagopa.ecommerce.eventdispatcher.queues
 
+import com.azure.core.util.BinaryData
+import com.azure.spring.messaging.checkpoint.Checkpointer
+import com.azure.storage.queue.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v1.TransactionWithClosureError
@@ -13,6 +16,7 @@ import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryServic
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto.StatusEnum
 import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
+import java.time.Duration
 import java.util.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -389,5 +393,40 @@ fun notificationRefundTransactionPipeline(
         transactionsViewRepository,
         paymentGatewayClient,
         refundRetryService)
+    }
+}
+
+fun eventPipelineCheckpoint(
+  checkPointer: Checkpointer,
+  pipeline: Mono<*>,
+  eventPayload: ByteArray,
+  deadLetterQueueAsyncClient: QueueAsyncClient
+): Mono<Void> {
+  // parse the event as a TransactionActivatedEvent just to extract transactionId and event code
+  val binaryData = BinaryData.fromBytes(eventPayload)
+  val event = binaryData.toObject(TransactionActivatedEvent::class.java)
+  val eventLogString = "${event.eventCode}, transactionId: ${event.transactionId}"
+  return checkPointer
+    .success()
+    .doOnSuccess { logger.info("Checkpoint performed successfully for event $eventLogString") }
+    .doOnError { logger.error("Error performing checkpoint for event $eventLogString", it) }
+    .then(pipeline)
+    .then()
+    .onErrorResume { pipelineException ->
+      logger.error("Exception processing event $eventLogString", pipelineException)
+      deadLetterQueueAsyncClient
+        .sendMessageWithResponse(
+          binaryData,
+          Duration.ZERO,
+          null, // timeToLive
+        )
+        .doOnNext {
+          logger.info(
+            "Event: [$event] successfully sent with visibility timeout: [${it.value.timeNextVisible}] ms to queue: [${deadLetterQueueAsyncClient.queueName}]")
+        }
+        .doOnError { queueException ->
+          logger.error("Error sending event: [${event}] to dead letter queue.", queueException)
+        }
+        .then()
     }
 }

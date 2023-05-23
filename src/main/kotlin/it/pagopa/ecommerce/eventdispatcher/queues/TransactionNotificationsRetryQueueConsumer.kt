@@ -3,6 +3,7 @@ package it.pagopa.ecommerce.eventdispatcher.queues
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
+import com.azure.storage.queue.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v1.TransactionWithUserReceiptError
@@ -43,7 +44,8 @@ class TransactionNotificationsRetryQueueConsumer(
   @Autowired private val paymentGatewayClient: PaymentGatewayClient,
   @Autowired private val refundRetryService: RefundRetryService,
   @Autowired private val userReceiptMailBuilder: UserReceiptMailBuilder,
-  @Autowired private val notificationsServiceClient: NotificationsServiceClient
+  @Autowired private val notificationsServiceClient: NotificationsServiceClient,
+  @Autowired private val deadLetterQueueAsyncClient: QueueAsyncClient
 ) {
   var logger: Logger =
     LoggerFactory.getLogger(TransactionNotificationsRetryQueueConsumer::class.java)
@@ -69,7 +71,6 @@ class TransactionNotificationsRetryQueueConsumer(
     @Payload payload: ByteArray,
     @Header(AzureHeaders.CHECKPOINTER) checkPointer: Checkpointer
   ): Mono<Void> {
-    val checkpoint = checkPointer.success()
     val binaryData = BinaryData.fromBytes(payload)
     val transactionId = getTransactionIdFromPayload(binaryData)
     val retryCount = getRetryCountFromPayload(binaryData)
@@ -130,6 +131,7 @@ class TransactionNotificationsRetryQueueConsumer(
                 .then()
             }
         }
-    return checkpoint.then(notificationResendPipeline).then()
+    return eventPipelineCheckpoint(
+      checkPointer, notificationResendPipeline, payload, deadLetterQueueAsyncClient)
   }
 }

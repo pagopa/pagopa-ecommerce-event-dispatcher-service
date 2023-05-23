@@ -2,18 +2,20 @@ package it.pagopa.ecommerce.eventdispatcher.queues
 
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
+import com.azure.storage.queue.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
 import it.pagopa.ecommerce.commons.domain.v1.TransactionId
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils.*
-import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.NodeService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.ClosureRetryService
+import it.pagopa.ecommerce.eventdispatcher.utils.queueSuccessfulResponse
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
+import java.time.Duration
 import java.time.ZonedDateTime
 import java.util.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -50,6 +52,8 @@ class TransactionClosePaymentQueueConsumerTests {
     TransactionsEventStoreRepository<TransactionClosureData> =
     mock()
 
+  private val deadLetterQueueAsyncClient: QueueAsyncClient = mock()
+
   @Captor private lateinit var viewArgumentCaptor: ArgumentCaptor<Transaction>
 
   @Captor
@@ -67,7 +71,8 @@ class TransactionClosePaymentQueueConsumerTests {
       transactionClosureErrorEventStoreRepository,
       transactionsViewRepository,
       nodeService,
-      closureRetryService)
+      closureRetryService,
+      deadLetterQueueAsyncClient)
 
   @Test
   fun `consumer processes bare close message correctly with OK closure outcome`() = runTest {
@@ -257,21 +262,21 @@ class TransactionClosePaymentQueueConsumerTests {
       transactionDocument(
         TransactionStatusDto.CANCELLATION_REQUESTED,
         ZonedDateTime.parse(activationEvent.creationDate))
-
+    val payload = BinaryData.fromObject(cancelRequestEvent)
     /* preconditions */
     given(checkpointer.success()).willReturn(Mono.empty())
     given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
       .willReturn(events.toFlux())
     given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
       .willReturn(Mono.just(transactionDocument))
+    given(deadLetterQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull()))
+      .willReturn(queueSuccessfulResponse())
 
     /* test */
 
     StepVerifier.create(
-        transactionClosureEventsConsumer.messageReceiver(
-          BinaryData.fromObject(cancelRequestEvent).toBytes(), checkpointer))
-      .expectError(BadTransactionStatusException::class.java)
-      .verify()
+        transactionClosureEventsConsumer.messageReceiver(payload.toBytes(), checkpointer))
+      .verifyComplete()
 
     /* Asserts */
     verify(checkpointer, Mockito.times(1)).success()
@@ -279,5 +284,13 @@ class TransactionClosePaymentQueueConsumerTests {
     verify(transactionClosedEventRepository, Mockito.times(0)).save(any())
     verify(transactionsViewRepository, Mockito.times(0)).save(any())
     verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any())
+    verify(deadLetterQueueAsyncClient, times(1))
+      .sendMessageWithResponse(
+        argThat<BinaryData> {
+          this.toObject(TransactionActivatedEvent::class.java).eventCode ==
+            TransactionEventCode.TRANSACTION_USER_CANCELED_EVENT
+        },
+        eq(Duration.ZERO),
+        eq(null))
   }
 }

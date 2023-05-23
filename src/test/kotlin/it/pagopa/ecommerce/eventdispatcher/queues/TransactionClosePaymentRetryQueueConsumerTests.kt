@@ -2,6 +2,7 @@ package it.pagopa.ecommerce.eventdispatcher.queues
 
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
+import com.azure.storage.queue.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
@@ -11,13 +12,13 @@ import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils.*
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
-import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.NodeService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.ClosureRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryService
+import it.pagopa.ecommerce.eventdispatcher.utils.queueSuccessfulResponse
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
@@ -61,6 +62,8 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
   private val refundRetryService: RefundRetryService = mock()
 
+  private val deadLetterQueueAsyncClient: QueueAsyncClient = mock()
+
   @Captor private lateinit var viewArgumentCaptor: ArgumentCaptor<Transaction>
 
   @Captor
@@ -82,7 +85,8 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       closureRetryService,
       transactionsRefundedEventStoreRepository,
       paymentGatewayClient,
-      refundRetryService)
+      refundRetryService,
+      deadLetterQueueAsyncClient)
 
   @Test
   fun `consumer processes bare closure error message correctly with OK closure outcome for authorization completed transaction`() =
@@ -590,21 +594,23 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       transactionDocument(
         TransactionStatusDto.CLOSURE_ERROR, ZonedDateTime.parse(activationEvent.creationDate))
 
+    val closureErrorEvent = transactionClosureErrorEvent() as TransactionEvent<Any>
+
     /* preconditions */
     given(checkpointer.success()).willReturn(Mono.empty())
     given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
       .willReturn(events.toFlux())
     given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
       .willReturn(Mono.just(transactionDocument))
+    given(deadLetterQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull()))
+      .willReturn(queueSuccessfulResponse())
 
     /* test */
-    val closureErrorEvent = transactionClosureErrorEvent() as TransactionEvent<Any>
 
     StepVerifier.create(
         transactionClosureErrorEventsConsumer.messageReceiver(
           BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer))
-      .expectError(BadTransactionStatusException::class.java)
-      .verify()
+      .verifyComplete()
 
     /* Asserts */
     verify(checkpointer, Mockito.times(1)).success()
@@ -613,6 +619,14 @@ class TransactionClosePaymentRetryQueueConsumerTests {
     verify(transactionsViewRepository, Mockito.times(0)).save(any())
     verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
     verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any())
+    verify(deadLetterQueueAsyncClient, times(1))
+      .sendMessageWithResponse(
+        argThat<BinaryData> {
+          this.toObject(TransactionClosureErrorEvent::class.java).eventCode ==
+            TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT
+        },
+        any(),
+        anyOrNull())
   }
 
   @Test

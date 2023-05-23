@@ -3,6 +3,7 @@ package it.pagopa.ecommerce.eventdispatcher.queues
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
+import com.azure.storage.queue.QueueAsyncClient
 import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
@@ -47,7 +48,8 @@ class TransactionClosePaymentRetryQueueConsumer(
   private val transactionsRefundedEventStoreRepository:
     TransactionsEventStoreRepository<TransactionRefundedData>,
   @Autowired private val paymentGatewayClient: PaymentGatewayClient,
-  @Autowired private val refundRetryService: RefundRetryService
+  @Autowired private val refundRetryService: RefundRetryService,
+  @Autowired private val deadLetterQueueAsyncClient: QueueAsyncClient
 ) {
   var logger: Logger =
     LoggerFactory.getLogger(TransactionClosePaymentRetryQueueConsumer::class.java)
@@ -79,7 +81,6 @@ class TransactionClosePaymentRetryQueueConsumer(
     checkPointer: Checkpointer,
     emptyTransaction: EmptyTransaction
   ): Mono<Void> {
-    val checkpoint = checkPointer.success()
     val binaryData = BinaryData.fromBytes(payload)
     val transactionId = getTransactionIdFromPayload(binaryData)
     val retryCount = getRetryCountFromPayload(binaryData)
@@ -182,7 +183,8 @@ class TransactionClosePaymentRetryQueueConsumer(
             }
         }
 
-    return checkpoint.then(closurePipeline).then()
+    return eventPipelineCheckpoint(
+      checkPointer, closurePipeline, payload, deadLetterQueueAsyncClient)
   }
 
   private fun refundTransactionPipeline(

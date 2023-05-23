@@ -2,6 +2,7 @@ package it.pagopa.ecommerce.eventdispatcher.queues
 
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
+import com.azure.storage.queue.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithRequestedAuthorization
@@ -52,13 +53,16 @@ class TransactionsRefundEventsConsumerTests {
 
   private val transactionsViewRepository: TransactionsViewRepository = mock()
 
+  private val deadLetterQueueAsyncClient: QueueAsyncClient = mock()
+
   private val transactionRefundedEventsConsumer =
     TransactionsRefundQueueConsumer(
       paymentGatewayClient,
       transactionsEventStoreRepository,
       transactionsRefundedEventStoreRepository,
       transactionsViewRepository,
-      refundRetryService)
+      refundRetryService,
+      deadLetterQueueAsyncClient)
 
   @Test
   fun `consumer processes refund request event correctly with pgs refund`() = runTest {
