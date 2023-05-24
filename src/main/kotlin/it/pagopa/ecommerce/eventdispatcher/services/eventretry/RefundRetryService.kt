@@ -4,9 +4,11 @@ import com.azure.storage.queue.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v1.TransactionRefundRetriedEvent
 import it.pagopa.ecommerce.commons.documents.v1.TransactionRetriedData
 import it.pagopa.ecommerce.commons.domain.v1.TransactionId
+import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
+import java.time.Duration
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
@@ -34,4 +36,8 @@ class RefundRetryService(
     TransactionRefundRetriedEvent(transactionId.value(), transactionRetriedData)
 
   override fun newTransactionStatus(): TransactionStatusDto = TransactionStatusDto.REFUND_ERROR
+  override fun validateRetryEventVisibilityTimeout(
+    baseTransaction: BaseTransaction,
+    visibilityTimeout: Duration
+  ) = true
 }

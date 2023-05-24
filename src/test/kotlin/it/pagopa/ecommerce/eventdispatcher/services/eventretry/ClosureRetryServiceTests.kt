@@ -13,6 +13,7 @@ import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
+import it.pagopa.ecommerce.eventdispatcher.exceptions.TooLateRetryAttemptException
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import java.time.Duration
@@ -51,13 +52,16 @@ class ClosureRetryServiceTests {
 
   private val closureRetryOffset = 10
 
+  private val paymentTokenValidityTimeOffset = 10
+
   private val closureRetryService =
     ClosureRetryService(
       closureRetryQueueAsyncClient,
-      10,
+      closureRetryOffset,
       maxAttempts,
       transactionsViewRepository,
-      eventStoreRepository)
+      eventStoreRepository,
+      paymentTokenValidityTimeOffset)
 
   @Test
   fun `Should enqueue new closure retry event for left remaining attempts`() {
@@ -289,6 +293,47 @@ class ClosureRetryServiceTests {
     verify(transactionsViewRepository, times(1))
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(1)).save(any())
+    verify(closureRetryQueueAsyncClient, times(0))
+      .sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull())
+  }
+
+  @Test
+  fun `Should not enqueue new closure retry event for retry event with visibility timeout over transaction payment token validity`() {
+    val creationDate =
+      ZonedDateTime.now()
+        .minus(Duration.ofSeconds(TransactionTestUtils.PAYMENT_TOKEN_VALIDITY_TIME_SEC.toLong()))
+    val events: MutableList<TransactionEvent<Any>> =
+      mutableListOf(
+        TransactionTestUtils.transactionActivateEvent(creationDate.toString())
+          as TransactionEvent<Any>,
+        TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>,
+        TransactionTestUtils.transactionAuthorizationCompletedEvent() as TransactionEvent<Any>,
+        TransactionTestUtils.transactionClosureErrorEvent() as TransactionEvent<Any>)
+
+    val baseTransaction = TransactionTestUtils.reduceEvents(*events.toTypedArray())
+    val transactionDocument =
+      TransactionTestUtils.transactionDocument(
+        TransactionStatusDto.CLOSURE_ERROR, ZonedDateTime.now())
+    given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
+      Mono.just(it.arguments[0])
+    }
+    given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
+      .willAnswer { Mono.just(transactionDocument) }
+    given(transactionsViewRepository.save(viewRepositoryCaptor.capture())).willAnswer {
+      Mono.just(it.arguments[0])
+    }
+    given(
+        closureRetryQueueAsyncClient.sendMessageWithResponse(
+          queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
+      .willReturn(queueSuccessfulResponse())
+    StepVerifier.create(closureRetryService.enqueueRetryEvent(baseTransaction, 0))
+      .expectError(TooLateRetryAttemptException::class.java)
+      .verify()
+
+    verify(eventStoreRepository, times(0)).save(any())
+    verify(transactionsViewRepository, times(0))
+      .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
+    verify(transactionsViewRepository, times(0)).save(any())
     verify(closureRetryQueueAsyncClient, times(0))
       .sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull())
   }
