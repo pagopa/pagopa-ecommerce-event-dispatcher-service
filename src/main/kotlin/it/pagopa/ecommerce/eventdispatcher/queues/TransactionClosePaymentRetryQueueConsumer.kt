@@ -183,7 +183,7 @@ class TransactionClosePaymentRetryQueueConsumer(
             }
         }
 
-    return eventPipelineCheckpoint(
+    return runPipelineWithDeadLetterQueue(
       checkPointer, closurePipeline, payload, deadLetterQueueAsyncClient)
   }
 

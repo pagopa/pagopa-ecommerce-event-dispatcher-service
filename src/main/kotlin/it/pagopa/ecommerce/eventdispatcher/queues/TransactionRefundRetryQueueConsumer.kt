@@ -83,7 +83,7 @@ class TransactionRefundRetryQueueConsumer(
               event.data.retryCount)
           }
         }
-    return eventPipelineCheckpoint(
+    return runPipelineWithDeadLetterQueue(
       checkPointer, refundPipeline, payload, deadLetterQueueAsyncClient)
   }
 }

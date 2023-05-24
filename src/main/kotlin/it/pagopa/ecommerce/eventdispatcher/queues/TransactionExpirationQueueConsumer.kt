@@ -103,7 +103,7 @@ class TransactionExpirationQueueConsumer(
             refundRetryService)
         }
 
-    return eventPipelineCheckpoint(
+    return runPipelineWithDeadLetterQueue(
       checkPointer, refundPipeline, payload, deadLetterQueueAsyncClient)
   }
 }

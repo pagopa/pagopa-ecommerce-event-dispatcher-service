@@ -397,9 +397,9 @@ fun notificationRefundTransactionPipeline(
     }
 }
 
-fun eventPipelineCheckpoint(
+fun <T> runPipelineWithDeadLetterQueue(
   checkPointer: Checkpointer,
-  pipeline: Mono<*>,
+  pipeline: Mono<T>,
   eventPayload: ByteArray,
   deadLetterQueueAsyncClient: QueueAsyncClient
 ): Mono<Void> {

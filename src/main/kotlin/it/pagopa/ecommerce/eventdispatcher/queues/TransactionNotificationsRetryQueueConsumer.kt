@@ -131,7 +131,7 @@ class TransactionNotificationsRetryQueueConsumer(
                 .then()
             }
         }
-    return eventPipelineCheckpoint(
+    return runPipelineWithDeadLetterQueue(
       checkPointer, notificationResendPipeline, payload, deadLetterQueueAsyncClient)
   }
 }

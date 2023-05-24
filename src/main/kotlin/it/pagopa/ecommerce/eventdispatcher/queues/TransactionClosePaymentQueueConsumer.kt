@@ -120,7 +120,7 @@ class TransactionClosePaymentQueueConsumer(
         }
         .then()
 
-    return eventPipelineCheckpoint(
+    return runPipelineWithDeadLetterQueue(
       checkPointer, closurePipeline, payload, deadLetterQueueAsyncClient)
   }
 
