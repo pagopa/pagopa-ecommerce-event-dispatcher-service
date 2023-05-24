@@ -31,6 +31,7 @@ These are all environment variables needed by the application:
 | TRANSACTIONS_EXPIRATION_QUEUE_NAME              | Queue name for all events scheduled for expiration                                | string  |         |
 | TRANSACTIONS_REFUND_QUEUE_NAME                  | Queue name for refund scheduled                                                   | string  |         |
 | TRANSACTIONS_REFUND_RETRY_QUEUE_NAME            | Queue name for refund scheduler for retries                                       | string  |         |
+| TRANSACTIONS_DEAD_LETTER_QUEUE_NAME             | Queue name were event that cannot be processed successfully are forwarded         | string  |         |
 | QUEUE_CONNECTION_STRING                         | Queue connection string used by event producers                                   | string  |         |
 | NOTIFICATIONS_SERVICE_URI                       | Notification service URI                                                          | string  |         |
 | NOTIFICATIONS_SERVICE_READ_TIMEOUT              | Notification service HTTP read timeout                                            | integer |         |

@@ -3,6 +3,7 @@ package it.pagopa.ecommerce.eventdispatcher.queues
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
+import com.azure.storage.queue.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v1.pojos.*
@@ -42,6 +43,7 @@ class TransactionNotificationsQueueConsumer(
     TransactionsEventStoreRepository<TransactionRefundedData>,
   @Autowired private val paymentGatewayClient: PaymentGatewayClient,
   @Autowired private val refundRetryService: RefundRetryService,
+  @Autowired private val deadLetterQueueAsyncClient: QueueAsyncClient
 ) {
   var logger: Logger = LoggerFactory.getLogger(TransactionNotificationsQueueConsumer::class.java)
 
@@ -59,7 +61,6 @@ class TransactionNotificationsQueueConsumer(
     checkPointer: Checkpointer,
     emptyTransaction: EmptyTransaction
   ): Mono<Void> {
-    val checkpoint = checkPointer.success()
     val binaryData = BinaryData.fromBytes(payload)
     val transactionId = getTransactionIdFromPayload(binaryData)
     val baseTransaction =
@@ -110,6 +111,7 @@ class TransactionNotificationsQueueConsumer(
                 .then()
             }
         }
-    return checkpoint.then(notificationResendPipeline).then()
+    return runPipelineWithDeadLetterQueue(
+      checkPointer, notificationResendPipeline, payload, deadLetterQueueAsyncClient)
   }
 }

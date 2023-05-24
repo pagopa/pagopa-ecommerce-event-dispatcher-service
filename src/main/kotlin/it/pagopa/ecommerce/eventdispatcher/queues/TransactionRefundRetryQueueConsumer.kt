@@ -3,6 +3,7 @@ package it.pagopa.ecommerce.eventdispatcher.queues
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
+import com.azure.storage.queue.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v1.Transaction
@@ -34,7 +35,8 @@ class TransactionRefundRetryQueueConsumer(
   private val transactionsRefundedEventStoreRepository:
     TransactionsEventStoreRepository<TransactionRefundedData>,
   @Autowired private val transactionsViewRepository: TransactionsViewRepository,
-  @Autowired private val refundRetryService: RefundRetryService
+  @Autowired private val refundRetryService: RefundRetryService,
+  @Autowired private val deadLetterQueueAsyncClient: QueueAsyncClient
 ) {
 
   var logger: Logger = LoggerFactory.getLogger(TransactionRefundRetryQueueConsumer::class.java)
@@ -46,10 +48,10 @@ class TransactionRefundRetryQueueConsumer(
   @ServiceActivator(inputChannel = "transactionrefundretrychannel", outputChannel = "nullChannel")
   fun messageReceiver(
     @Payload payload: ByteArray,
-    @Header(AzureHeaders.CHECKPOINTER) checkpointer: Checkpointer
+    @Header(AzureHeaders.CHECKPOINTER) checkPointer: Checkpointer
   ): Mono<Void> {
-    val checkpoint = checkpointer.success()
-    val event = parseInputEvent(BinaryData.fromBytes(payload))
+    val binaryData = BinaryData.fromBytes(payload)
+    val event = parseInputEvent(binaryData)
     val baseTransaction =
       event
         .flatMapMany { transactionsEventStoreRepository.findByTransactionId(it.transactionId) }
@@ -81,6 +83,7 @@ class TransactionRefundRetryQueueConsumer(
               event.data.retryCount)
           }
         }
-    return checkpoint.then(refundPipeline).then()
+    return runPipelineWithDeadLetterQueue(
+      checkPointer, refundPipeline, payload, deadLetterQueueAsyncClient)
   }
 }
