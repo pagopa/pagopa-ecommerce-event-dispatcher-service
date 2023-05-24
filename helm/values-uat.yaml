@@ -24,6 +24,7 @@ microservice-chart:
       TRANSACTIONS_REFUND_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-refund-queue
       TRANSACTIONS_NOTIFICATIONS_RETRY_QUEUE_NAME: pagopa-u-weu-ecommerce-transaction-notifications-retry-queue
       TRANSACTIONS_NOTIFICATIONS_QUEUE_NAME: pagopa-u-weu-ecommerce-transaction-notifications-queue
+      TRANSACTIONS_DEAD_LETTER_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-dead-letter-queue
       PAYMENT_TRANSACTIONS_GATEWAY_URI: https://api.uat.platform.pagopa.it/payment-transactions-gateway/internal/v1
       PAYMENT_TRANSACTIONS_GATEWAY_READ_TIMEOUT: "10000"
       PAYMENT_TRANSACTIONS_GATEWAY_CONNECTION_TIMEOUT: "10000"
@@ -130,6 +131,7 @@ microservice-chart:
     TRANSACTIONS_REFUND_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-refund-queue
     TRANSACTIONS_NOTIFICATIONS_RETRY_QUEUE_NAME: pagopa-u-weu-ecommerce-transaction-notifications-retry-queue
     TRANSACTIONS_NOTIFICATIONS_QUEUE_NAME: pagopa-u-weu-ecommerce-transaction-notifications-queue
+    TRANSACTIONS_DEAD_LETTER_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-dead-letter-queue
     PAYMENT_TRANSACTIONS_GATEWAY_URI: https://api.uat.platform.pagopa.it/payment-transactions-gateway/internal/v1
     PAYMENT_TRANSACTIONS_GATEWAY_READ_TIMEOUT: "10000"
     PAYMENT_TRANSACTIONS_GATEWAY_CONNECTION_TIMEOUT: "10000"
