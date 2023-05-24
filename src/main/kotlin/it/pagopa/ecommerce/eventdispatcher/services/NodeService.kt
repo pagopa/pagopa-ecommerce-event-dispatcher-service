@@ -4,6 +4,7 @@ import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v1.TransactionId
 import it.pagopa.ecommerce.commons.domain.v1.TransactionWithClosureError
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransaction
+import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.utils.EuroUtils
 import it.pagopa.ecommerce.eventdispatcher.client.NodeClient
@@ -200,12 +201,10 @@ class NodeService(
   }
 
   private fun getTransactionDetailsStatus(it: BaseTransaction): String =
-    if (wasAuthorized(it)) {
-      "Autorizzato"
-    } else if (wasAuthorizationDenied(it) && wasAuthorizationRequested(it)) {
-      "Rifiutato"
-    } else {
-      "Annullato"
+    when (getAuthorizationOutcome(it)) {
+      AuthorizationResultDto.OK -> "Autorizzato"
+      AuthorizationResultDto.KO -> "Rifiutato"
+      else -> "Annullato"
     }
 
   private fun getPaymentTypeCode(it: BaseTransaction?): String =
