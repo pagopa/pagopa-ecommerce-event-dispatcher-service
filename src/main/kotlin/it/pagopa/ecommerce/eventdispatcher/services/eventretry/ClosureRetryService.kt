@@ -5,7 +5,6 @@ import it.pagopa.ecommerce.commons.documents.v1.TransactionClosureRetriedEvent
 import it.pagopa.ecommerce.commons.documents.v1.TransactionRetriedData
 import it.pagopa.ecommerce.commons.domain.v1.TransactionId
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransaction
-import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithClosureError
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithPaymentToken
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
@@ -65,13 +64,9 @@ class ClosureRetryService(
   }
 
   private fun getPaymentTokenDuration(baseTransaction: BaseTransaction): Duration =
-    when (baseTransaction) {
-      is BaseTransactionWithPaymentToken ->
-        Duration.ofSeconds(
-          baseTransaction.transactionActivatedData.paymentTokenValiditySeconds.toLong())
-      is BaseTransactionWithClosureError ->
-        getPaymentTokenDuration(baseTransaction.transactionAtPreviousState)
-      else ->
-        throw RuntimeException("Unexpected base transaction type: ${baseTransaction.javaClass}")
-    }
+    Duration.ofSeconds(
+      (baseTransaction as BaseTransactionWithPaymentToken)
+        .transactionActivatedData
+        .paymentTokenValiditySeconds
+        .toLong())
 }
