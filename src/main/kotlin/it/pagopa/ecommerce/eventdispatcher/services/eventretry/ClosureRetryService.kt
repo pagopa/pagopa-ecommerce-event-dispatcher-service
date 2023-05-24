@@ -46,20 +46,20 @@ class ClosureRetryService(
     baseTransaction: BaseTransaction,
     visibilityTimeout: Duration
   ): Boolean {
-    val offset = Duration.ofSeconds(paymentTokenValidityTimeOffset.toLong())
+    val paymentTokenValidityOffset = Duration.ofSeconds(paymentTokenValidityTimeOffset.toLong())
     val paymentTokenDuration = getPaymentTokenDuration(baseTransaction)
     val paymentTokenValidityEnd =
       baseTransaction.creationDate.plus(paymentTokenDuration).toInstant()
     val retryEventVisibilityInstant = Instant.now().plus(visibilityTimeout)
     // Performing check against payment token validity end and retry event visibility timeout
-    // A configurable offset is added to retry event in order to avoid sending retry event too
-    // closer to the
-    // payment token end
+    // A configurable paymentTokenValidityOffset is added to retry event in order to avoid sending
+    // retry event too
+    // closer to the payment token end
     val paymentTokenStillValidAtRetry =
-      paymentTokenValidityEnd.isAfter(retryEventVisibilityInstant.plus(offset))
+      paymentTokenValidityEnd.minus(paymentTokenValidityOffset).isAfter(retryEventVisibilityInstant)
     if (!paymentTokenStillValidAtRetry) {
       logger.warn(
-        "No closure retry event send for transaction with id: [${baseTransaction.transactionId}]. Retry event visibility timeout: [$retryEventVisibilityInstant], will be after payment token validity end: [$paymentTokenValidityEnd] with offset: [$offset] sec.")
+        "No closure retry event send for transaction with id: [${baseTransaction.transactionId}]. Retry event visibility timeout: [$retryEventVisibilityInstant], will be after payment token validity end: [$paymentTokenValidityEnd] with offset: [$paymentTokenValidityOffset] sec.")
     }
     return paymentTokenStillValidAtRetry
   }
