@@ -59,7 +59,7 @@ class ClosureRetryService(
       paymentTokenValidityEnd.minus(paymentTokenValidityOffset).isAfter(retryEventVisibilityInstant)
     if (!paymentTokenStillValidAtRetry) {
       logger.warn(
-        "No closure retry event send for transaction with id: [${baseTransaction.transactionId}]. Retry event visibility timeout: [$retryEventVisibilityInstant], will be after payment token validity end: [$paymentTokenValidityEnd] with offset: [$paymentTokenValidityOffset] sec.")
+        "No closure retry event send for transaction with id: [${baseTransaction.transactionId.value()}]. Retry event visibility timeout: [$retryEventVisibilityInstant], will be after payment token validity end: [$paymentTokenValidityEnd] with offset: [$paymentTokenValidityOffset]")
     }
     return paymentTokenStillValidAtRetry
   }
