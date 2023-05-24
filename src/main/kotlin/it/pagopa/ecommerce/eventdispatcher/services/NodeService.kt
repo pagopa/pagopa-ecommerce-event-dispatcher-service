@@ -4,6 +4,7 @@ import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v1.TransactionId
 import it.pagopa.ecommerce.commons.domain.v1.TransactionWithClosureError
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransaction
+import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithRequestedAuthorization
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.utils.EuroUtils
@@ -23,6 +24,9 @@ import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
 
 const val TIPO_VERSAMENTO_CP = "CP"
+const val TRANSACTION_DETAILS_STATUS_CANCELED = "Annullato"
+const val TRANSACTION_DETAILS_STATUS_AUTHORIZED = "Autorizzato"
+const val TRANSACTION_DETAILS_STATUS_DENIED = "Rifiutato"
 
 @Service
 class NodeService(
@@ -202,23 +206,16 @@ class NodeService(
 
   private fun getTransactionDetailsStatus(it: BaseTransaction): String =
     when (getAuthorizationOutcome(it)) {
-      AuthorizationResultDto.OK -> "Autorizzato"
-      AuthorizationResultDto.KO -> "Rifiutato"
-      else -> "Annullato"
+      AuthorizationResultDto.OK -> TRANSACTION_DETAILS_STATUS_AUTHORIZED
+      AuthorizationResultDto.KO -> TRANSACTION_DETAILS_STATUS_DENIED
+      else -> TRANSACTION_DETAILS_STATUS_CANCELED
     }
 
-  private fun getPaymentTypeCode(it: BaseTransaction?): String =
-    if (it is TransactionWithClosureError && wasAuthorizationRequested(it)) {
-      val transactionAtPreviousState = it.transactionAtPreviousState()
-      transactionAtPreviousState
-        .map { event ->
-          val authCompleted = event.get()
-          authCompleted.transactionAuthorizationRequestData.paymentTypeCode
-        }
-        .orElseThrow {
-          RuntimeException("Unexpected transactionAtPreviousStep: ${it.transactionAtPreviousState}")
-        }
-    } else {
-      TIPO_VERSAMENTO_CP
+  private fun getPaymentTypeCode(tx: BaseTransaction): String =
+    when (tx) {
+      is BaseTransactionWithRequestedAuthorization ->
+        tx.transactionAuthorizationRequestData.paymentTypeCode
+      is TransactionWithClosureError -> getPaymentTypeCode(tx.transactionAtPreviousState)
+      else -> TIPO_VERSAMENTO_CP
     }
 }
