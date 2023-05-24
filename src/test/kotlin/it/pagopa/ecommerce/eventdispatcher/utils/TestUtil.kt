@@ -1,5 +1,8 @@
 package it.pagopa.ecommerce.eventdispatcher.utils
 
+import com.azure.core.http.rest.Response
+import com.azure.core.http.rest.ResponseBase
+import com.azure.storage.queue.models.SendMessageResult
 import it.pagopa.ecommerce.commons.documents.v1.TransactionAuthorizationRequestData
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
@@ -7,6 +10,7 @@ import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import java.time.OffsetDateTime
 import java.util.*
+import reactor.core.publisher.Mono
 
 fun getMockedClosePaymentRequest(
   transactionId: UUID,
@@ -73,4 +77,11 @@ fun getMockedVPosRefundRequest(
       .status(VposDeleteResponseDto.StatusEnum.CREATED)
       .error("err")
   }
+}
+
+fun queueSuccessfulResponse(): Mono<Response<SendMessageResult>> {
+  val sendMessageResult = SendMessageResult()
+  sendMessageResult.messageId = "msgId"
+  sendMessageResult.timeNextVisible = OffsetDateTime.now()
+  return Mono.just(ResponseBase(null, 200, null, sendMessageResult, null))
 }

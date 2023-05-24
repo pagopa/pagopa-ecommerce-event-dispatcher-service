@@ -2,6 +2,7 @@ package it.pagopa.ecommerce.eventdispatcher.queues
 
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
+import com.azure.storage.queue.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
@@ -13,7 +14,9 @@ import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryService
+import it.pagopa.ecommerce.eventdispatcher.utils.queueSuccessfulResponse
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
+import java.time.Duration
 import java.time.ZonedDateTime
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
@@ -69,6 +72,8 @@ class TransactionExpirationQueueConsumerTests {
 
   @Autowired private lateinit var transactionUtils: TransactionUtils
 
+  private val deadLetterQueueAsyncClient: QueueAsyncClient = mock()
+
   @Test
   fun `messageReceiver receives activated messages successfully`() {
     val transactionExpirationQueueConsumer =
@@ -79,7 +84,8 @@ class TransactionExpirationQueueConsumerTests {
         transactionsRefundedEventStoreRepository,
         transactionsViewRepository,
         transactionUtils,
-        refundRetryService)
+        refundRetryService,
+        deadLetterQueueAsyncClient)
 
     val activatedEvent = transactionActivateEvent()
     val transactionId = activatedEvent.transactionId
@@ -123,7 +129,8 @@ class TransactionExpirationQueueConsumerTests {
         transactionsRefundedEventStoreRepository,
         transactionsViewRepository,
         transactionUtils,
-        refundRetryService)
+        refundRetryService,
+        deadLetterQueueAsyncClient)
 
     val activatedEvent = transactionActivateEvent()
     val transactionId = activatedEvent.transactionId
@@ -168,7 +175,8 @@ class TransactionExpirationQueueConsumerTests {
         transactionsRefundedEventStoreRepository,
         transactionsViewRepository,
         transactionUtils,
-        refundRetryService)
+        refundRetryService,
+        deadLetterQueueAsyncClient)
 
     val activatedEvent = transactionActivateEvent()
     val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
@@ -226,7 +234,8 @@ class TransactionExpirationQueueConsumerTests {
         transactionsRefundedEventStoreRepository,
         transactionsViewRepository,
         transactionUtils,
-        refundRetryService)
+        refundRetryService,
+        deadLetterQueueAsyncClient)
 
     val activatedEvent = transactionActivateEvent()
     val expiredEvent = transactionExpiredEvent(transactionActivated(ZonedDateTime.now().toString()))
@@ -269,7 +278,8 @@ class TransactionExpirationQueueConsumerTests {
         transactionsRefundedEventStoreRepository,
         transactionsViewRepository,
         transactionUtils,
-        refundRetryService)
+        refundRetryService,
+        deadLetterQueueAsyncClient)
 
     val activatedEvent = transactionActivateEvent()
     val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
@@ -293,18 +303,30 @@ class TransactionExpirationQueueConsumerTests {
 
     given(transactionsExpiredEventStoreRepository.save(any())).willReturn(Mono.just(expiredEvent))
     given(transactionsRefundedEventStoreRepository.save(any())).willReturn(Mono.just(refundedEvent))
+    given(transactionsViewRepository.findByTransactionId(any()))
+      .willReturn(
+        Mono.just(transactionDocument(TransactionStatusDto.ACTIVATED, ZonedDateTime.now())))
     given(transactionsViewRepository.save(any()))
       .willReturn(Mono.error(RuntimeException("error while trying to save event")))
+    given(deadLetterQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull()))
+      .willReturn(queueSuccessfulResponse())
 
     /* test */
     StepVerifier.create(
         transactionExpirationQueueConsumer.messageReceiver(
           BinaryData.fromObject(activatedEvent).toBytes(), checkpointer))
-      .expectError()
-      .verify()
+      .verifyComplete()
 
     /* Asserts */
     verify(checkpointer, times(1)).success()
+    verify(deadLetterQueueAsyncClient, times(1))
+      .sendMessageWithResponse(
+        argThat<BinaryData> {
+          this.toObject(TransactionActivatedEvent::class.java).eventCode ==
+            TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
+        },
+        eq(Duration.ZERO),
+        eq(null))
   }
 
   @Test
@@ -317,7 +339,8 @@ class TransactionExpirationQueueConsumerTests {
         transactionsRefundedEventStoreRepository,
         transactionsViewRepository,
         transactionUtils,
-        refundRetryService)
+        refundRetryService,
+        deadLetterQueueAsyncClient)
 
     val activatedEvent = transactionActivateEvent()
     val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
@@ -341,18 +364,30 @@ class TransactionExpirationQueueConsumerTests {
 
     given(transactionsExpiredEventStoreRepository.save(any())).willReturn(Mono.just(expiredEvent))
     given(transactionsRefundedEventStoreRepository.save(any())).willReturn(Mono.just(refundedEvent))
+    given(transactionsViewRepository.findByTransactionId(any()))
+      .willReturn(
+        Mono.just(transactionDocument(TransactionStatusDto.ACTIVATED, ZonedDateTime.now())))
     given(transactionsViewRepository.save(any()))
       .willReturn(Mono.error(RuntimeException("error while saving data")))
+    given(deadLetterQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull()))
+      .willReturn(queueSuccessfulResponse())
 
     /* test */
     StepVerifier.create(
         transactionExpirationQueueConsumer.messageReceiver(
           BinaryData.fromObject(activatedEvent).toBytes(), checkpointer))
-      .expectError()
-      .verify()
+      .verifyComplete()
 
     /* Asserts */
     verify(checkpointer, times(1)).success()
+    verify(deadLetterQueueAsyncClient, times(1))
+      .sendMessageWithResponse(
+        argThat<BinaryData> {
+          this.toObject(TransactionActivatedEvent::class.java).eventCode ==
+            TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
+        },
+        eq(Duration.ZERO),
+        eq(null))
   }
 
   @Test
@@ -366,7 +401,8 @@ class TransactionExpirationQueueConsumerTests {
           transactionsRefundedEventStoreRepository,
           transactionsViewRepository,
           transactionUtils,
-          refundRetryService)
+          refundRetryService,
+          deadLetterQueueAsyncClient)
 
       val activatedEvent = transactionActivateEvent()
       val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
@@ -467,7 +503,8 @@ class TransactionExpirationQueueConsumerTests {
           transactionsRefundedEventStoreRepository,
           transactionsViewRepository,
           transactionUtils,
-          refundRetryService)
+          refundRetryService,
+          deadLetterQueueAsyncClient)
 
       val activatedEvent = transactionActivateEvent()
       val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
@@ -564,7 +601,8 @@ class TransactionExpirationQueueConsumerTests {
           transactionsRefundedEventStoreRepository,
           transactionsViewRepository,
           transactionUtils,
-          refundRetryService)
+          refundRetryService,
+          deadLetterQueueAsyncClient)
 
       val activatedEvent = transactionActivateEvent()
 
@@ -632,7 +670,8 @@ class TransactionExpirationQueueConsumerTests {
           transactionsRefundedEventStoreRepository,
           transactionsViewRepository,
           transactionUtils,
-          refundRetryService)
+          refundRetryService,
+          deadLetterQueueAsyncClient)
 
       val activatedEvent = transactionActivateEvent()
       val transactionExpiredEvent = transactionExpiredEvent(reduceEvents(activatedEvent))
@@ -697,7 +736,8 @@ class TransactionExpirationQueueConsumerTests {
           transactionsRefundedEventStoreRepository,
           transactionsViewRepository,
           transactionUtils,
-          refundRetryService)
+          refundRetryService,
+          deadLetterQueueAsyncClient)
 
       val activatedEvent = transactionActivateEvent()
       val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
@@ -787,7 +827,8 @@ class TransactionExpirationQueueConsumerTests {
         transactionsRefundedEventStoreRepository,
         transactionsViewRepository,
         transactionUtils,
-        refundRetryService)
+        refundRetryService,
+        deadLetterQueueAsyncClient)
     val transactionUserReceiptData =
       transactionUserReceiptData(TransactionUserReceiptData.Outcome.KO)
     val activatedEvent = transactionActivateEvent()
@@ -895,7 +936,8 @@ class TransactionExpirationQueueConsumerTests {
           transactionsRefundedEventStoreRepository,
           transactionsViewRepository,
           transactionUtils,
-          refundRetryService)
+          refundRetryService,
+          deadLetterQueueAsyncClient)
       val transactionUserReceiptData =
         transactionUserReceiptData(TransactionUserReceiptData.Outcome.KO)
       val activatedEvent = transactionActivateEvent()
@@ -1012,7 +1054,8 @@ class TransactionExpirationQueueConsumerTests {
           transactionsRefundedEventStoreRepository,
           transactionsViewRepository,
           transactionUtils,
-          refundRetryService)
+          refundRetryService,
+          deadLetterQueueAsyncClient)
       val transactionUserReceiptData =
         transactionUserReceiptData(TransactionUserReceiptData.Outcome.OK)
       val activatedEvent = transactionActivateEvent()
@@ -1101,7 +1144,8 @@ class TransactionExpirationQueueConsumerTests {
           transactionsRefundedEventStoreRepository,
           transactionsViewRepository,
           transactionUtils,
-          refundRetryService)
+          refundRetryService,
+          deadLetterQueueAsyncClient)
       val transactionUserReceiptData =
         transactionUserReceiptData(TransactionUserReceiptData.Outcome.KO)
       val activatedEvent = transactionActivateEvent()
@@ -1220,7 +1264,8 @@ class TransactionExpirationQueueConsumerTests {
           transactionsRefundedEventStoreRepository,
           transactionsViewRepository,
           transactionUtils,
-          refundRetryService)
+          refundRetryService,
+          deadLetterQueueAsyncClient)
       val transactionUserReceiptData =
         transactionUserReceiptData(TransactionUserReceiptData.Outcome.OK)
       val activatedEvent = transactionActivateEvent()
@@ -1309,7 +1354,8 @@ class TransactionExpirationQueueConsumerTests {
         transactionsRefundedEventStoreRepository,
         transactionsViewRepository,
         transactionUtils,
-        refundRetryService)
+        refundRetryService,
+        deadLetterQueueAsyncClient)
     val transactionUserReceiptData =
       transactionUserReceiptData(TransactionUserReceiptData.Outcome.KO)
     val activatedEvent = transactionActivateEvent()
@@ -1385,7 +1431,8 @@ class TransactionExpirationQueueConsumerTests {
         transactionsRefundedEventStoreRepository,
         transactionsViewRepository,
         transactionUtils,
-        refundRetryService)
+        refundRetryService,
+        deadLetterQueueAsyncClient)
     val transactionUserReceiptData =
       transactionUserReceiptData(TransactionUserReceiptData.Outcome.KO)
     val activatedEvent = transactionActivateEvent()
@@ -1473,7 +1520,8 @@ class TransactionExpirationQueueConsumerTests {
           transactionsRefundedEventStoreRepository,
           transactionsViewRepository,
           transactionUtils,
-          refundRetryService)
+          refundRetryService,
+          deadLetterQueueAsyncClient)
 
       val activatedEvent = transactionActivateEvent()
       val cancellationRequested = transactionUserCanceledEvent()
@@ -1540,7 +1588,8 @@ class TransactionExpirationQueueConsumerTests {
           transactionsRefundedEventStoreRepository,
           transactionsViewRepository,
           transactionUtils,
-          refundRetryService)
+          refundRetryService,
+          deadLetterQueueAsyncClient)
 
       val activatedEvent = transactionActivateEvent()
       val cancellationRequested = transactionUserCanceledEvent()
@@ -1609,7 +1658,8 @@ class TransactionExpirationQueueConsumerTests {
           transactionsRefundedEventStoreRepository,
           transactionsViewRepository,
           transactionUtils,
-          refundRetryService)
+          refundRetryService,
+          deadLetterQueueAsyncClient)
 
       val activatedEvent = transactionActivateEvent()
       val cancellationEvent = transactionUserCanceledEvent()
@@ -1671,7 +1721,8 @@ class TransactionExpirationQueueConsumerTests {
           transactionsRefundedEventStoreRepository,
           transactionsViewRepository,
           transactionUtils,
-          refundRetryService)
+          refundRetryService,
+          deadLetterQueueAsyncClient)
 
       val activatedEvent = transactionActivateEvent()
       val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
@@ -1773,7 +1824,8 @@ class TransactionExpirationQueueConsumerTests {
           transactionsRefundedEventStoreRepository,
           transactionsViewRepository,
           transactionUtils,
-          refundRetryService)
+          refundRetryService,
+          deadLetterQueueAsyncClient)
 
       val activatedEvent = transactionActivateEvent()
       val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
@@ -1877,7 +1929,8 @@ class TransactionExpirationQueueConsumerTests {
           transactionsRefundedEventStoreRepository,
           transactionsViewRepository,
           transactionUtils,
-          refundRetryService)
+          refundRetryService,
+          deadLetterQueueAsyncClient)
 
       val activatedEvent = transactionActivateEvent()
       val userCanceledEvent = transactionUserCanceledEvent()
@@ -1958,7 +2011,8 @@ class TransactionExpirationQueueConsumerTests {
           transactionsRefundedEventStoreRepository,
           transactionsViewRepository,
           transactionUtils,
-          refundRetryService)
+          refundRetryService,
+          deadLetterQueueAsyncClient)
 
       val activatedEvent = transactionActivateEvent()
       val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
@@ -2044,7 +2098,8 @@ class TransactionExpirationQueueConsumerTests {
           transactionsRefundedEventStoreRepository,
           transactionsViewRepository,
           transactionUtils,
-          refundRetryService)
+          refundRetryService,
+          deadLetterQueueAsyncClient)
 
       val activatedEvent = transactionActivateEvent()
       val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
@@ -2123,7 +2178,8 @@ class TransactionExpirationQueueConsumerTests {
           transactionsRefundedEventStoreRepository,
           transactionsViewRepository,
           transactionUtils,
-          refundRetryService)
+          refundRetryService,
+          deadLetterQueueAsyncClient)
 
       val activatedEvent = transactionActivateEvent()
       val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
@@ -2207,7 +2263,8 @@ class TransactionExpirationQueueConsumerTests {
           transactionsRefundedEventStoreRepository,
           transactionsViewRepository,
           transactionUtils,
-          refundRetryService)
+          refundRetryService,
+          deadLetterQueueAsyncClient)
 
       val activatedEvent = transactionActivateEvent()
       val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
@@ -2271,5 +2328,98 @@ class TransactionExpirationQueueConsumerTests {
       verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
       verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
       verify(transactionsViewRepository, times(0)).save(any())
+    }
+
+  @Test
+  fun `messageReceiver forward event into dead letter queue for exception processing the event`() =
+    runTest {
+      /* preconditions */
+      val transactionExpirationQueueConsumer =
+        TransactionExpirationQueueConsumer(
+          paymentGatewayClient,
+          transactionsEventStoreRepository,
+          transactionsExpiredEventStoreRepository,
+          transactionsRefundedEventStoreRepository,
+          transactionsViewRepository,
+          transactionUtils,
+          refundRetryService,
+          deadLetterQueueAsyncClient)
+
+      val activatedEvent = transactionActivateEvent()
+
+      /* preconditions */
+      given(checkpointer.success()).willReturn(Mono.empty())
+      given(
+          transactionsEventStoreRepository.findByTransactionId(
+            any(),
+          ))
+        .willReturn(Flux.error(RuntimeException("Error finding event from event store")))
+      given(
+          deadLetterQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull()))
+        .willReturn(queueSuccessfulResponse())
+
+      /* test */
+      StepVerifier.create(
+          transactionExpirationQueueConsumer.messageReceiver(
+            BinaryData.fromObject(activatedEvent).toBytes(), checkpointer))
+        .verifyComplete()
+
+      /* Asserts */
+      verify(checkpointer, times(1)).success()
+      verify(deadLetterQueueAsyncClient, times(1))
+        .sendMessageWithResponse(
+          argThat<BinaryData> {
+            this.toObject(TransactionActivatedEvent::class.java).eventCode ==
+              TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
+          },
+          eq(Duration.ZERO),
+          eq(null))
+    }
+
+  @Test
+  fun `messageReceiver processing should fail for error forward event into dead letter queue for exception processing the event`() =
+    runTest {
+      /* preconditions */
+      val transactionExpirationQueueConsumer =
+        TransactionExpirationQueueConsumer(
+          paymentGatewayClient,
+          transactionsEventStoreRepository,
+          transactionsExpiredEventStoreRepository,
+          transactionsRefundedEventStoreRepository,
+          transactionsViewRepository,
+          transactionUtils,
+          refundRetryService,
+          deadLetterQueueAsyncClient)
+
+      val activatedEvent = transactionActivateEvent()
+
+      /* preconditions */
+      given(checkpointer.success()).willReturn(Mono.empty())
+      given(
+          transactionsEventStoreRepository.findByTransactionId(
+            any(),
+          ))
+        .willReturn(Flux.error(RuntimeException("Error finding event from event store")))
+      given(
+          deadLetterQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull()))
+        .willReturn(Mono.error(RuntimeException("Error sending event to dead letter queue")))
+
+      /* test */
+      StepVerifier.create(
+          transactionExpirationQueueConsumer.messageReceiver(
+            BinaryData.fromObject(activatedEvent).toBytes(), checkpointer))
+        .expectErrorMatches { it.message == "Error sending event to dead letter queue" }
+        .verify()
+
+      /* Asserts */
+      verify(checkpointer, times(1)).success()
+      verify(deadLetterQueueAsyncClient, times(1))
+        .sendMessageWithResponse(
+          argThat<BinaryData> {
+            this.toObject(TransactionActivatedEvent::class.java).eventCode ==
+              TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
+          },
+          eq(Duration.ZERO),
+          eq(null))
     }
 }
