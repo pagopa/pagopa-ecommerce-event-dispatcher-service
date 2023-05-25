@@ -264,20 +264,28 @@ fun handleXpayRefundResponse(
 
 fun isTransactionRefundable(tx: BaseTransaction): Boolean {
   val wasAuthorizationRequested = wasAuthorizationRequested(tx)
-  val wasSendPaymentResultOutcomeOK = wasSendPaymentResultOutcomeOK(tx)
+  val wasSendPaymentResultOutcomeKO = wasSendPaymentResultOutcomeKO(tx)
   val wasAuthorizationDenied = wasAuthorizationDenied(tx)
+  val wasClosePaymentResponseOutcomeKO = wasClosePaymentResponseOutcomeKo(tx)
   val isTransactionRefundable =
-    wasAuthorizationRequested && !wasSendPaymentResultOutcomeOK && !wasAuthorizationDenied
+    when (tx) {
+      is BaseTransactionWithRequestedUserReceipt -> wasSendPaymentResultOutcomeKO
+      is BaseTransactionClosed -> wasClosePaymentResponseOutcomeKO
+      is TransactionWithClosureError -> isTransactionRefundable(tx.transactionAtPreviousState)
+      is BaseTransactionWithCompletedAuthorization -> !wasAuthorizationDenied
+      is BaseTransactionExpired -> isTransactionRefundable(tx.transactionAtPreviousState)
+      else -> wasAuthorizationRequested
+    }
   logger.info(
-    "Transaction with id ${tx.transactionId.value()} : was authorization requested: $wasAuthorizationRequested, was authorization denied: $wasAuthorizationDenied, was send payment result outcome OK : $wasSendPaymentResultOutcomeOK --> is refundable: $isTransactionRefundable")
+    "Transaction with id ${tx.transactionId.value()} : authorization requested: $wasAuthorizationRequested, authorization denied: $wasAuthorizationDenied, closePaymentResponse.outcome KO: $wasClosePaymentResponseOutcomeKO sendPaymentResult.outcome KO : $wasSendPaymentResultOutcomeKO --> is refundable: $isTransactionRefundable")
   return isTransactionRefundable
 }
 
-fun wasSendPaymentResultOutcomeOK(tx: BaseTransaction): Boolean =
+fun wasSendPaymentResultOutcomeKO(tx: BaseTransaction): Boolean =
   when (tx) {
     is BaseTransactionWithRequestedUserReceipt ->
-      tx.transactionUserReceiptData.responseOutcome == TransactionUserReceiptData.Outcome.OK
-    is BaseTransactionExpired -> wasSendPaymentResultOutcomeOK(tx.transactionAtPreviousState)
+      tx.transactionUserReceiptData.responseOutcome == TransactionUserReceiptData.Outcome.KO
+    is BaseTransactionExpired -> wasSendPaymentResultOutcomeKO(tx.transactionAtPreviousState)
     else -> false
   }
 
@@ -432,3 +440,13 @@ fun <T> runPipelineWithDeadLetterQueue(
         .then()
     }
 }
+
+fun getClosePaymentOutcome(tx: BaseTransaction): TransactionClosureData.Outcome? =
+  when (tx) {
+    is BaseTransactionClosed -> tx.transactionClosureData.responseOutcome
+    is BaseTransactionExpired -> getClosePaymentOutcome(tx.transactionAtPreviousState)
+    else -> null
+  }
+
+fun wasClosePaymentResponseOutcomeKo(tx: BaseTransaction) =
+  getClosePaymentOutcome(tx) == TransactionClosureData.Outcome.KO
