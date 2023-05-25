@@ -160,7 +160,7 @@ class NodeServiceTests {
         }
       // Check Transaction Details
       assertEquals(
-        TRANSACTION_DETAILS_STATUS_AUTHORIZED,
+        "Autorizzato",
         closePaymentRequestCaptor.value.transactionDetails.transaction.transactionStatus)
       assertEquals(
         transactionId, closePaymentRequestCaptor.value.transactionDetails.transaction.transactionId)
@@ -289,7 +289,7 @@ class NodeServiceTests {
         nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
       // Check Transaction Details
       assertEquals(
-        TRANSACTION_DETAILS_STATUS_CANCELED,
+        "Annullato",
         closePaymentRequestCaptor.value.transactionDetails.transaction.transactionStatus)
       assertEquals(
         transactionId, closePaymentRequestCaptor.value.transactionDetails.transaction.transactionId)

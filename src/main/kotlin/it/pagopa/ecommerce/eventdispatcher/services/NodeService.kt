@@ -24,9 +24,12 @@ import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
 
 const val TIPO_VERSAMENTO_CP = "CP"
-const val TRANSACTION_DETAILS_STATUS_CANCELED = "Annullato"
-const val TRANSACTION_DETAILS_STATUS_AUTHORIZED = "Autorizzato"
-const val TRANSACTION_DETAILS_STATUS_DENIED = "Rifiutato"
+
+enum class TransactionDetailsStatusEnum(val status: String) {
+  TRANSACTION_DETAILS_STATUS_CANCELED("Annullato"),
+  TRANSACTION_DETAILS_STATUS_AUTHORIZED("Autorizzato"),
+  TRANSACTION_DETAILS_STATUS_DENIED("Rifiutato")
+}
 
 @Service
 class NodeService(
@@ -206,9 +209,11 @@ class NodeService(
 
   private fun getTransactionDetailsStatus(it: BaseTransaction): String =
     when (getAuthorizationOutcome(it)) {
-      AuthorizationResultDto.OK -> TRANSACTION_DETAILS_STATUS_AUTHORIZED
-      AuthorizationResultDto.KO -> TRANSACTION_DETAILS_STATUS_DENIED
-      else -> TRANSACTION_DETAILS_STATUS_CANCELED
+      AuthorizationResultDto.OK ->
+        TransactionDetailsStatusEnum.TRANSACTION_DETAILS_STATUS_AUTHORIZED.status
+      AuthorizationResultDto.KO ->
+        TransactionDetailsStatusEnum.TRANSACTION_DETAILS_STATUS_DENIED.status
+      else -> TransactionDetailsStatusEnum.TRANSACTION_DETAILS_STATUS_CANCELED.status
     }
 
   private fun getPaymentTypeCode(tx: BaseTransaction): String =
