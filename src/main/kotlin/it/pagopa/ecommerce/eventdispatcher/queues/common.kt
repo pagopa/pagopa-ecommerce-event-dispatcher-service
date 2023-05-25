@@ -269,11 +269,21 @@ fun isTransactionRefundable(tx: BaseTransaction): Boolean {
   val wasClosePaymentResponseOutcomeKO = wasClosePaymentResponseOutcomeKo(tx)
   val isTransactionRefundable =
     when (tx) {
+      // transaction for which a send payment result was received --> refund =
+      // sendPaymentResultOutcome == KO
       is BaseTransactionWithRequestedUserReceipt -> wasSendPaymentResultOutcomeKO
+      // transaction stuck after closePayment --> refund = closePaymentResponseOutcome == KO
       is BaseTransactionClosed -> wasClosePaymentResponseOutcomeKO
+      // transaction stuck at closure error (no close payment vs Nodo) --> refund =
+      // check previous transaction status
       is TransactionWithClosureError -> isTransactionRefundable(tx.transactionAtPreviousState)
+      // transaction stuck at authorization completed status --> refund = PGS auth outcome != KO
       is BaseTransactionWithCompletedAuthorization -> !wasAuthorizationDenied
+      // transaction in expired status (expiration event sent by batch) --> refund =
+      // check previous transaction status
       is BaseTransactionExpired -> isTransactionRefundable(tx.transactionAtPreviousState)
+      // transaction stuck at previous steps (authorization requested, activation...) --> refund =
+      // authorization was requested to PGS
       else -> wasAuthorizationRequested
     }
   logger.info(
