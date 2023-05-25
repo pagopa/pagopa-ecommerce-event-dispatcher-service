@@ -7,6 +7,7 @@ import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v1.TransactionWithClosureError
 import it.pagopa.ecommerce.commons.domain.v1.pojos.*
+import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.queues.QueueCommonsLogger.logger
@@ -291,19 +292,17 @@ fun wasAuthorizationRequested(tx: BaseTransaction): Boolean =
     else -> false
   }
 
-fun wasAuthorizationDenied(tx: BaseTransaction): Boolean =
+fun getAuthorizationOutcome(tx: BaseTransaction): AuthorizationResultDto? =
   when (tx) {
-    is BaseTransactionWithCompletedAuthorization -> !tx.wasTransactionAuthorized()
-    is TransactionWithClosureError ->
-      tx
-        .transactionAtPreviousState()
-        .map { txAtPreviousStep ->
-          txAtPreviousStep.isRight && wasAuthorizationDenied(txAtPreviousStep.get())
-        }
-        .orElse(false)
-    is BaseTransactionExpired -> wasAuthorizationDenied(tx.transactionAtPreviousState)
-    else -> false
+    is BaseTransactionWithCompletedAuthorization ->
+      tx.transactionAuthorizationCompletedData.authorizationResultDto
+    is TransactionWithClosureError -> getAuthorizationOutcome(tx.transactionAtPreviousState)
+    is BaseTransactionExpired -> getAuthorizationOutcome(tx.transactionAtPreviousState)
+    else -> null
   }
+
+fun wasAuthorizationDenied(tx: BaseTransaction): Boolean =
+  getAuthorizationOutcome(tx) == AuthorizationResultDto.KO
 
 fun isTransactionExpired(tx: BaseTransaction): Boolean =
   tx.status == TransactionStatusDto.EXPIRED ||
