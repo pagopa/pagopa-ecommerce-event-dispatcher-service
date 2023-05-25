@@ -302,18 +302,7 @@ fun getAuthorizationOutcome(tx: BaseTransaction): AuthorizationResultDto? =
   }
 
 fun wasAuthorizationDenied(tx: BaseTransaction): Boolean =
-  when (tx) {
-    is BaseTransactionWithCompletedAuthorization -> !tx.wasTransactionAuthorized()
-    is TransactionWithClosureError ->
-      tx
-        .transactionAtPreviousState()
-        .map { txAtPreviousStep ->
-          txAtPreviousStep.isRight && wasAuthorizationDenied(txAtPreviousStep.get())
-        }
-        .orElse(false)
-    is BaseTransactionExpired -> wasAuthorizationDenied(tx.transactionAtPreviousState)
-    else -> false
-  }
+  getAuthorizationOutcome(tx) == AuthorizationResultDto.KO
 
 fun isTransactionExpired(tx: BaseTransaction): Boolean =
   tx.status == TransactionStatusDto.EXPIRED ||
