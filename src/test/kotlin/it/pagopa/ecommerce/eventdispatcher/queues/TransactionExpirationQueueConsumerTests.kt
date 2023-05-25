@@ -2186,9 +2186,6 @@ class TransactionExpirationQueueConsumerTests {
       val authorizationCompletedEvent =
         transactionAuthorizationCompletedEvent(AuthorizationResultDto.KO)
 
-      val gatewayClientResponse = VposDeleteResponseDto()
-      gatewayClientResponse.status(VposDeleteResponseDto.StatusEnum.CANCELLED)
-
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
       given(
@@ -2213,9 +2210,8 @@ class TransactionExpirationQueueConsumerTests {
         .willReturnConsecutively(
           listOf(
             Mono.just(transactionDocument(TransactionStatusDto.CLOSURE_ERROR, ZonedDateTime.now())),
-            Mono.just(transactionDocument(TransactionStatusDto.EXPIRED, ZonedDateTime.now())),
-            Mono.just(
-              transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now()))))
+            Mono.just(transactionDocument(TransactionStatusDto.EXPIRED, ZonedDateTime.now()))))
+
       given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
         Mono.just(it.arguments[0])
       }
@@ -2278,9 +2274,6 @@ class TransactionExpirationQueueConsumerTests {
             authorizationCompletedEvent,
           ))
 
-      val gatewayClientResponse = VposDeleteResponseDto()
-      gatewayClientResponse.status(VposDeleteResponseDto.StatusEnum.CANCELLED)
-
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
       given(
@@ -2306,9 +2299,7 @@ class TransactionExpirationQueueConsumerTests {
         .willReturnConsecutively(
           listOf(
             Mono.just(transactionDocument(TransactionStatusDto.CLOSURE_ERROR, ZonedDateTime.now())),
-            Mono.just(transactionDocument(TransactionStatusDto.EXPIRED, ZonedDateTime.now())),
-            Mono.just(
-              transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now()))))
+            Mono.just(transactionDocument(TransactionStatusDto.EXPIRED, ZonedDateTime.now()))))
       given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
         Mono.just(it.arguments[0])
       }
@@ -2421,5 +2412,558 @@ class TransactionExpirationQueueConsumerTests {
           },
           eq(Duration.ZERO),
           eq(null))
+    }
+
+  @Test
+  fun `messageReceiver should perform refund for a transaction in AUTHORIZATION_COMPLETED status with auth outcome OK`() =
+    runTest {
+      val transactionExpirationQueueConsumer =
+        TransactionExpirationQueueConsumer(
+          paymentGatewayClient,
+          transactionsEventStoreRepository,
+          transactionsExpiredEventStoreRepository,
+          transactionsRefundedEventStoreRepository,
+          transactionsViewRepository,
+          transactionUtils,
+          refundRetryService,
+          deadLetterQueueAsyncClient)
+
+      val activatedEvent = transactionActivateEvent()
+      val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
+      val authorizationCompletedEvent =
+        transactionAuthorizationCompletedEvent(AuthorizationResultDto.OK)
+
+      val gatewayClientResponse = VposDeleteResponseDto()
+      gatewayClientResponse.status(VposDeleteResponseDto.StatusEnum.CANCELLED)
+
+      /* preconditions */
+      given(checkpointer.success()).willReturn(Mono.empty())
+      given(
+          transactionsEventStoreRepository.findByTransactionId(
+            any(),
+          ))
+        .willReturn(
+          Flux.just(
+            activatedEvent as TransactionEvent<Any>,
+            authorizationRequestedEvent as TransactionEvent<Any>,
+            authorizationCompletedEvent as TransactionEvent<Any>))
+
+      given(
+          transactionsExpiredEventStoreRepository.save(
+            transactionExpiredEventStoreCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
+      given(
+          transactionsRefundedEventStoreRepository.save(
+            transactionRefundEventStoreCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
+      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturnConsecutively(
+          listOf(
+            Mono.just(
+              transactionDocument(
+                TransactionStatusDto.AUTHORIZATION_COMPLETED, ZonedDateTime.now())),
+            Mono.just(transactionDocument(TransactionStatusDto.EXPIRED, ZonedDateTime.now())),
+            Mono.just(
+              transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now()))))
+      given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
+        Mono.just(it.arguments[0])
+      }
+      given(paymentGatewayClient.requestVPosRefund(any()))
+        .willReturn(Mono.just(gatewayClientResponse))
+
+      Hooks.onOperatorDebug()
+      /* test */
+      StepVerifier.create(
+          transactionExpirationQueueConsumer.messageReceiver(
+            BinaryData.fromObject(activatedEvent).toBytes(), checkpointer))
+        .expectNext()
+        .expectComplete()
+        .verify()
+
+      /* Asserts */
+      verify(checkpointer, times(1)).success()
+      verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
+      verify(paymentGatewayClient, times(1)).requestVPosRefund(any())
+      verify(transactionsRefundedEventStoreRepository, times(2)).save(any())
+      verify(transactionsViewRepository, times(3)).save(any())
+      /*
+       * check view update statuses and events stored into event store
+       */
+      val expectedRefundEventStatuses =
+        listOf(
+          TransactionEventCode.TRANSACTION_REFUND_REQUESTED_EVENT,
+          TransactionEventCode.TRANSACTION_REFUNDED_EVENT)
+      val viewExpectedStatuses =
+        listOf(
+          TransactionStatusDto.EXPIRED,
+          TransactionStatusDto.REFUND_REQUESTED,
+          TransactionStatusDto.REFUNDED)
+      viewExpectedStatuses.forEachIndexed { idx, expectedStatus ->
+        assertEquals(
+          expectedStatus,
+          transactionViewRepositoryCaptor.allValues[idx].status,
+          "Unexpected view status on idx: $idx")
+      }
+
+      expectedRefundEventStatuses.forEachIndexed { idx, expectedStatus ->
+        assertEquals(
+          expectedStatus,
+          transactionRefundEventStoreCaptor.allValues[idx].eventCode,
+          "Unexpected event code on idx: $idx")
+      }
+      val expiredEvent = transactionExpiredEventStoreCaptor.value
+      assertEquals(TransactionEventCode.TRANSACTION_EXPIRED_EVENT, expiredEvent.eventCode)
+      assertEquals(
+        TransactionStatusDto.AUTHORIZATION_COMPLETED, expiredEvent.data.statusBeforeExpiration)
+    }
+
+  @Test
+  fun `messageReceiver should perform refund for a transaction in AUTHORIZATION_COMPLETED status with auth outcome OK expired by batch`() =
+    runTest {
+      val transactionExpirationQueueConsumer =
+        TransactionExpirationQueueConsumer(
+          paymentGatewayClient,
+          transactionsEventStoreRepository,
+          transactionsExpiredEventStoreRepository,
+          transactionsRefundedEventStoreRepository,
+          transactionsViewRepository,
+          transactionUtils,
+          refundRetryService,
+          deadLetterQueueAsyncClient)
+
+      val activatedEvent = transactionActivateEvent()
+      val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
+      val authorizationCompletedEvent =
+        transactionAuthorizationCompletedEvent(AuthorizationResultDto.OK)
+      val expiredEvent =
+        transactionExpiredEvent(
+          reduceEvents(activatedEvent, authorizationRequestedEvent, authorizationCompletedEvent))
+      val gatewayClientResponse = VposDeleteResponseDto()
+      gatewayClientResponse.status(VposDeleteResponseDto.StatusEnum.CANCELLED)
+
+      /* preconditions */
+      given(checkpointer.success()).willReturn(Mono.empty())
+      given(
+          transactionsEventStoreRepository.findByTransactionId(
+            any(),
+          ))
+        .willReturn(
+          Flux.just(
+            activatedEvent as TransactionEvent<Any>,
+            authorizationRequestedEvent as TransactionEvent<Any>,
+            authorizationCompletedEvent as TransactionEvent<Any>,
+            expiredEvent as TransactionEvent<Any>))
+
+      given(
+          transactionsExpiredEventStoreRepository.save(
+            transactionExpiredEventStoreCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
+      given(
+          transactionsRefundedEventStoreRepository.save(
+            transactionRefundEventStoreCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
+      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturnConsecutively(
+          listOf(
+            Mono.just(
+              transactionDocument(
+                TransactionStatusDto.AUTHORIZATION_COMPLETED, ZonedDateTime.now())),
+            Mono.just(transactionDocument(TransactionStatusDto.EXPIRED, ZonedDateTime.now())),
+            Mono.just(
+              transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now()))))
+      given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
+        Mono.just(it.arguments[0])
+      }
+      given(paymentGatewayClient.requestVPosRefund(any()))
+        .willReturn(Mono.just(gatewayClientResponse))
+
+      Hooks.onOperatorDebug()
+      /* test */
+      StepVerifier.create(
+          transactionExpirationQueueConsumer.messageReceiver(
+            BinaryData.fromObject(activatedEvent).toBytes(), checkpointer))
+        .expectNext()
+        .expectComplete()
+        .verify()
+
+      /* Asserts */
+      verify(checkpointer, times(1)).success()
+      verify(transactionsExpiredEventStoreRepository, times(0)).save(any())
+      verify(paymentGatewayClient, times(1)).requestVPosRefund(any())
+      verify(transactionsRefundedEventStoreRepository, times(2)).save(any())
+      verify(transactionsViewRepository, times(2)).save(any())
+      /*
+       * check view update statuses and events stored into event store
+       */
+      val expectedRefundEventStatuses =
+        listOf(
+          TransactionEventCode.TRANSACTION_REFUND_REQUESTED_EVENT,
+          TransactionEventCode.TRANSACTION_REFUNDED_EVENT)
+      val viewExpectedStatuses =
+        listOf(TransactionStatusDto.REFUND_REQUESTED, TransactionStatusDto.REFUNDED)
+      viewExpectedStatuses.forEachIndexed { idx, expectedStatus ->
+        assertEquals(
+          expectedStatus,
+          transactionViewRepositoryCaptor.allValues[idx].status,
+          "Unexpected view status on idx: $idx")
+      }
+
+      expectedRefundEventStatuses.forEachIndexed { idx, expectedStatus ->
+        assertEquals(
+          expectedStatus,
+          transactionRefundEventStoreCaptor.allValues[idx].eventCode,
+          "Unexpected event code on idx: $idx")
+      }
+    }
+
+  @Test
+  fun `messageReceiver should perform refund for a transaction in CLOSED status with close payment response outcome KO`() =
+    runTest {
+      val transactionExpirationQueueConsumer =
+        TransactionExpirationQueueConsumer(
+          paymentGatewayClient,
+          transactionsEventStoreRepository,
+          transactionsExpiredEventStoreRepository,
+          transactionsRefundedEventStoreRepository,
+          transactionsViewRepository,
+          transactionUtils,
+          refundRetryService,
+          deadLetterQueueAsyncClient)
+
+      val activatedEvent = transactionActivateEvent()
+      val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
+      val authorizationCompletedEvent =
+        transactionAuthorizationCompletedEvent(AuthorizationResultDto.OK)
+      val closedEvent = transactionClosedEvent(TransactionClosureData.Outcome.KO)
+
+      val gatewayClientResponse = VposDeleteResponseDto()
+      gatewayClientResponse.status(VposDeleteResponseDto.StatusEnum.CANCELLED)
+
+      /* preconditions */
+      given(checkpointer.success()).willReturn(Mono.empty())
+      given(
+          transactionsEventStoreRepository.findByTransactionId(
+            any(),
+          ))
+        .willReturn(
+          Flux.just(
+            activatedEvent as TransactionEvent<Any>,
+            authorizationRequestedEvent as TransactionEvent<Any>,
+            authorizationCompletedEvent as TransactionEvent<Any>,
+            closedEvent as TransactionEvent<Any>))
+
+      given(
+          transactionsExpiredEventStoreRepository.save(
+            transactionExpiredEventStoreCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
+      given(
+          transactionsRefundedEventStoreRepository.save(
+            transactionRefundEventStoreCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
+      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturnConsecutively(
+          listOf(
+            Mono.just(transactionDocument(TransactionStatusDto.CLOSED, ZonedDateTime.now())),
+            Mono.just(transactionDocument(TransactionStatusDto.EXPIRED, ZonedDateTime.now())),
+            Mono.just(
+              transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now()))))
+      given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
+        Mono.just(it.arguments[0])
+      }
+      given(paymentGatewayClient.requestVPosRefund(any()))
+        .willReturn(Mono.just(gatewayClientResponse))
+
+      Hooks.onOperatorDebug()
+      /* test */
+      StepVerifier.create(
+          transactionExpirationQueueConsumer.messageReceiver(
+            BinaryData.fromObject(activatedEvent).toBytes(), checkpointer))
+        .expectNext()
+        .expectComplete()
+        .verify()
+
+      /* Asserts */
+      verify(checkpointer, times(1)).success()
+      verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
+      verify(paymentGatewayClient, times(1)).requestVPosRefund(any())
+      verify(transactionsRefundedEventStoreRepository, times(2)).save(any())
+      verify(transactionsViewRepository, times(3)).save(any())
+      /*
+       * check view update statuses and events stored into event store
+       */
+      val expectedRefundEventStatuses =
+        listOf(
+          TransactionEventCode.TRANSACTION_REFUND_REQUESTED_EVENT,
+          TransactionEventCode.TRANSACTION_REFUNDED_EVENT)
+      val viewExpectedStatuses =
+        listOf(
+          TransactionStatusDto.EXPIRED,
+          TransactionStatusDto.REFUND_REQUESTED,
+          TransactionStatusDto.REFUNDED)
+      viewExpectedStatuses.forEachIndexed { idx, expectedStatus ->
+        assertEquals(
+          expectedStatus,
+          transactionViewRepositoryCaptor.allValues[idx].status,
+          "Unexpected view status on idx: $idx")
+      }
+
+      expectedRefundEventStatuses.forEachIndexed { idx, expectedStatus ->
+        assertEquals(
+          expectedStatus,
+          transactionRefundEventStoreCaptor.allValues[idx].eventCode,
+          "Unexpected event code on idx: $idx")
+      }
+      val expiredEvent = transactionExpiredEventStoreCaptor.value
+      assertEquals(TransactionEventCode.TRANSACTION_EXPIRED_EVENT, expiredEvent.eventCode)
+      assertEquals(TransactionStatusDto.CLOSED, expiredEvent.data.statusBeforeExpiration)
+    }
+
+  @Test
+  fun `messageReceiver should perform refund for a transaction in CLOSED status with close payment response outcome KO expired by batch`() =
+    runTest {
+      val transactionExpirationQueueConsumer =
+        TransactionExpirationQueueConsumer(
+          paymentGatewayClient,
+          transactionsEventStoreRepository,
+          transactionsExpiredEventStoreRepository,
+          transactionsRefundedEventStoreRepository,
+          transactionsViewRepository,
+          transactionUtils,
+          refundRetryService,
+          deadLetterQueueAsyncClient)
+
+      val activatedEvent = transactionActivateEvent()
+      val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
+      val authorizationCompletedEvent =
+        transactionAuthorizationCompletedEvent(AuthorizationResultDto.OK)
+      val closedEvent = transactionClosedEvent(TransactionClosureData.Outcome.KO)
+      val expiredEvent =
+        transactionExpiredEvent(
+          reduceEvents(
+            activatedEvent, authorizationRequestedEvent, authorizationCompletedEvent, closedEvent))
+      val gatewayClientResponse = VposDeleteResponseDto()
+      gatewayClientResponse.status(VposDeleteResponseDto.StatusEnum.CANCELLED)
+
+      /* preconditions */
+      given(checkpointer.success()).willReturn(Mono.empty())
+      given(
+          transactionsEventStoreRepository.findByTransactionId(
+            any(),
+          ))
+        .willReturn(
+          Flux.just(
+            activatedEvent as TransactionEvent<Any>,
+            authorizationRequestedEvent as TransactionEvent<Any>,
+            authorizationCompletedEvent as TransactionEvent<Any>,
+            closedEvent as TransactionEvent<Any>,
+            expiredEvent as TransactionEvent<Any>))
+
+      given(
+          transactionsExpiredEventStoreRepository.save(
+            transactionExpiredEventStoreCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
+      given(
+          transactionsRefundedEventStoreRepository.save(
+            transactionRefundEventStoreCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
+      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturnConsecutively(
+          listOf(
+            Mono.just(transactionDocument(TransactionStatusDto.EXPIRED, ZonedDateTime.now())),
+            Mono.just(
+              transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now()))))
+      given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
+        Mono.just(it.arguments[0])
+      }
+      given(paymentGatewayClient.requestVPosRefund(any()))
+        .willReturn(Mono.just(gatewayClientResponse))
+
+      Hooks.onOperatorDebug()
+      /* test */
+      StepVerifier.create(
+          transactionExpirationQueueConsumer.messageReceiver(
+            BinaryData.fromObject(activatedEvent).toBytes(), checkpointer))
+        .expectNext()
+        .expectComplete()
+        .verify()
+
+      /* Asserts */
+      verify(checkpointer, times(1)).success()
+      verify(transactionsExpiredEventStoreRepository, times(0)).save(any())
+      verify(paymentGatewayClient, times(1)).requestVPosRefund(any())
+      verify(transactionsRefundedEventStoreRepository, times(2)).save(any())
+      verify(transactionsViewRepository, times(2)).save(any())
+      /*
+       * check view update statuses and events stored into event store
+       */
+      val expectedRefundEventStatuses =
+        listOf(
+          TransactionEventCode.TRANSACTION_REFUND_REQUESTED_EVENT,
+          TransactionEventCode.TRANSACTION_REFUNDED_EVENT)
+      val viewExpectedStatuses =
+        listOf(TransactionStatusDto.REFUND_REQUESTED, TransactionStatusDto.REFUNDED)
+      viewExpectedStatuses.forEachIndexed { idx, expectedStatus ->
+        assertEquals(
+          expectedStatus,
+          transactionViewRepositoryCaptor.allValues[idx].status,
+          "Unexpected view status on idx: $idx")
+      }
+
+      expectedRefundEventStatuses.forEachIndexed { idx, expectedStatus ->
+        assertEquals(
+          expectedStatus,
+          transactionRefundEventStoreCaptor.allValues[idx].eventCode,
+          "Unexpected event code on idx: $idx")
+      }
+    }
+
+  @Test
+  fun `messageReceiver should not perform refund for a transaction in CLOSED status with close payment response outcome OK`() =
+    runTest {
+      val transactionExpirationQueueConsumer =
+        TransactionExpirationQueueConsumer(
+          paymentGatewayClient,
+          transactionsEventStoreRepository,
+          transactionsExpiredEventStoreRepository,
+          transactionsRefundedEventStoreRepository,
+          transactionsViewRepository,
+          transactionUtils,
+          refundRetryService,
+          deadLetterQueueAsyncClient)
+
+      val activatedEvent = transactionActivateEvent()
+      val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
+      val authorizationCompletedEvent =
+        transactionAuthorizationCompletedEvent(AuthorizationResultDto.OK)
+      val closedEvent = transactionClosedEvent(TransactionClosureData.Outcome.OK)
+
+      /* preconditions */
+      given(checkpointer.success()).willReturn(Mono.empty())
+      given(
+          transactionsEventStoreRepository.findByTransactionId(
+            any(),
+          ))
+        .willReturn(
+          Flux.just(
+            activatedEvent as TransactionEvent<Any>,
+            authorizationRequestedEvent as TransactionEvent<Any>,
+            authorizationCompletedEvent as TransactionEvent<Any>,
+            closedEvent as TransactionEvent<Any>))
+
+      given(
+          transactionsExpiredEventStoreRepository.save(
+            transactionExpiredEventStoreCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
+      given(
+          transactionsRefundedEventStoreRepository.save(
+            transactionRefundEventStoreCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
+      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturnConsecutively(
+          listOf(Mono.just(transactionDocument(TransactionStatusDto.CLOSED, ZonedDateTime.now()))))
+      given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
+        Mono.just(it.arguments[0])
+      }
+
+      Hooks.onOperatorDebug()
+      /* test */
+      StepVerifier.create(
+          transactionExpirationQueueConsumer.messageReceiver(
+            BinaryData.fromObject(activatedEvent).toBytes(), checkpointer))
+        .expectNext()
+        .expectComplete()
+        .verify()
+
+      /* Asserts */
+      verify(checkpointer, times(1)).success()
+      verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
+      verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
+      verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
+      verify(transactionsViewRepository, times(1)).save(any())
+      /*
+       * check view update statuses and events stored into event store
+       */
+
+      val viewExpectedStatuses = listOf(TransactionStatusDto.EXPIRED)
+      viewExpectedStatuses.forEachIndexed { idx, expectedStatus ->
+        assertEquals(
+          expectedStatus,
+          transactionViewRepositoryCaptor.allValues[idx].status,
+          "Unexpected view status on idx: $idx")
+      }
+
+      val expiredEvent = transactionExpiredEventStoreCaptor.value
+      assertEquals(TransactionEventCode.TRANSACTION_EXPIRED_EVENT, expiredEvent.eventCode)
+      assertEquals(TransactionStatusDto.CLOSED, expiredEvent.data.statusBeforeExpiration)
+    }
+
+  @Test
+  fun `messageReceiver should not perform refund for a transaction in CLOSED status with close payment response outcome OK expired by batch`() =
+    runTest {
+      val transactionExpirationQueueConsumer =
+        TransactionExpirationQueueConsumer(
+          paymentGatewayClient,
+          transactionsEventStoreRepository,
+          transactionsExpiredEventStoreRepository,
+          transactionsRefundedEventStoreRepository,
+          transactionsViewRepository,
+          transactionUtils,
+          refundRetryService,
+          deadLetterQueueAsyncClient)
+
+      val activatedEvent = transactionActivateEvent()
+      val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
+      val authorizationCompletedEvent =
+        transactionAuthorizationCompletedEvent(AuthorizationResultDto.OK)
+      val closedEvent = transactionClosedEvent(TransactionClosureData.Outcome.OK)
+      val expiredEvent =
+        transactionExpiredEvent(
+          reduceEvents(
+            activatedEvent, authorizationRequestedEvent, authorizationCompletedEvent, closedEvent))
+
+      /* preconditions */
+      given(checkpointer.success()).willReturn(Mono.empty())
+      given(
+          transactionsEventStoreRepository.findByTransactionId(
+            any(),
+          ))
+        .willReturn(
+          Flux.just(
+            activatedEvent as TransactionEvent<Any>,
+            authorizationRequestedEvent as TransactionEvent<Any>,
+            authorizationCompletedEvent as TransactionEvent<Any>,
+            closedEvent as TransactionEvent<Any>,
+            expiredEvent as TransactionEvent<Any>))
+
+      given(
+          transactionsExpiredEventStoreRepository.save(
+            transactionExpiredEventStoreCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
+      given(
+          transactionsRefundedEventStoreRepository.save(
+            transactionRefundEventStoreCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
+      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturnConsecutively(
+          listOf(Mono.just(transactionDocument(TransactionStatusDto.CLOSED, ZonedDateTime.now()))))
+      given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
+        Mono.just(it.arguments[0])
+      }
+
+      Hooks.onOperatorDebug()
+      /* test */
+      StepVerifier.create(
+          transactionExpirationQueueConsumer.messageReceiver(
+            BinaryData.fromObject(activatedEvent).toBytes(), checkpointer))
+        .expectNext()
+        .expectComplete()
+        .verify()
+
+      /* Asserts */
+      verify(checkpointer, times(1)).success()
+      verify(transactionsExpiredEventStoreRepository, times(0)).save(any())
+      verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
+      verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
+      verify(transactionsViewRepository, times(0)).save(any())
     }
 }

@@ -267,6 +267,7 @@ fun isTransactionRefundable(tx: BaseTransaction): Boolean {
   val wasSendPaymentResultOutcomeKO = wasSendPaymentResultOutcomeKO(tx)
   val wasAuthorizationDenied = wasAuthorizationDenied(tx)
   val wasClosePaymentResponseOutcomeKO = wasClosePaymentResponseOutcomeKo(tx)
+
   val isTransactionRefundable =
     when (tx) {
       // transaction for which a send payment result was received --> refund =
