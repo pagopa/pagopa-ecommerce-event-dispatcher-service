@@ -111,7 +111,7 @@ class TransactionNotificationsQueueConsumerTest {
       transactionDocument(TransactionStatusDto.NOTIFICATION_REQUESTED, ZonedDateTime.now())
     Hooks.onOperatorDebug()
     given(checkpointer.success()).willReturn(Mono.empty())
-    given(transactionsEventStoreRepository.findByTransactionId(transactionId))
+    given(transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(transactionId))
       .willReturn(Flux.fromIterable(events))
     given(userReceiptMailBuilder.buildNotificationEmailRequestDto(baseTransaction))
       .willReturn(NotificationEmailRequestDto())
@@ -132,7 +132,8 @@ class TransactionNotificationsQueueConsumerTest {
       .expectNext()
       .verifyComplete()
     verify(checkpointer, times(1)).success()
-    verify(transactionsEventStoreRepository, times(1)).findByTransactionId(TRANSACTION_ID)
+    verify(transactionsEventStoreRepository, times(1))
+      .findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID)
     verify(notificationsServiceClient, times(1)).sendNotificationEmail(any())
     verify(notificationRetryService, times(0)).enqueueRetryEvent(any(), any())
     verify(transactionsViewRepository, times(1)).save(any())
@@ -168,7 +169,8 @@ class TransactionNotificationsQueueConsumerTest {
         transactionDocument(TransactionStatusDto.NOTIFICATION_REQUESTED, ZonedDateTime.now())
       Hooks.onOperatorDebug()
       given(checkpointer.success()).willReturn(Mono.empty())
-      given(transactionsEventStoreRepository.findByTransactionId(transactionId))
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(transactionId))
         .willReturn(Flux.fromIterable(events))
       given(userReceiptMailBuilder.buildNotificationEmailRequestDto(baseTransaction))
         .willReturn(NotificationEmailRequestDto())
@@ -201,7 +203,8 @@ class TransactionNotificationsQueueConsumerTest {
         .expectNext()
         .verifyComplete()
       verify(checkpointer, times(1)).success()
-      verify(transactionsEventStoreRepository, times(1)).findByTransactionId(TRANSACTION_ID)
+      verify(transactionsEventStoreRepository, times(1))
+        .findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID)
       verify(transactionRefundRepository, times(2)).save(any())
       verify(paymentGatewayClient, times(1)).requestVPosRefund(any())
       verify(notificationRetryService, times(0)).enqueueRetryEvent(any(), any())
@@ -255,7 +258,8 @@ class TransactionNotificationsQueueConsumerTest {
         transactionDocument(TransactionStatusDto.NOTIFICATION_REQUESTED, ZonedDateTime.now())
       Hooks.onOperatorDebug()
       given(checkpointer.success()).willReturn(Mono.empty())
-      given(transactionsEventStoreRepository.findByTransactionId(transactionId))
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(transactionId))
         .willReturn(Flux.fromIterable(events))
       given(userReceiptMailBuilder.buildNotificationEmailRequestDto(baseTransaction))
         .willReturn(NotificationEmailRequestDto())
@@ -288,7 +292,8 @@ class TransactionNotificationsQueueConsumerTest {
         .expectNext()
         .verifyComplete()
       verify(checkpointer, times(1)).success()
-      verify(transactionsEventStoreRepository, times(1)).findByTransactionId(TRANSACTION_ID)
+      verify(transactionsEventStoreRepository, times(1))
+        .findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID)
       verify(notificationsServiceClient, times(1)).sendNotificationEmail(any())
       verify(notificationRetryService, times(0)).enqueueRetryEvent(any(), any())
       verify(transactionRefundRepository, times(2)).save(any())
@@ -342,7 +347,9 @@ class TransactionNotificationsQueueConsumerTest {
         transactionDocument(TransactionStatusDto.NOTIFICATION_REQUESTED, ZonedDateTime.now())
       Hooks.onOperatorDebug()
       given(checkpointer.success()).willReturn(Mono.empty())
-      given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
         .willReturn(Flux.fromIterable(events))
       given(userReceiptMailBuilder.buildNotificationEmailRequestDto(baseTransaction))
         .willReturn(NotificationEmailRequestDto())
@@ -363,7 +370,8 @@ class TransactionNotificationsQueueConsumerTest {
         .expectNext()
         .verifyComplete()
       verify(checkpointer, times(1)).success()
-      verify(transactionsEventStoreRepository, times(1)).findByTransactionId(transactionId)
+      verify(transactionsEventStoreRepository, times(1))
+        .findByTransactionIdOrderByCreationDateAsc(transactionId)
       verify(notificationsServiceClient, times(1)).sendNotificationEmail(any())
       verify(notificationRetryService, times(1)).enqueueRetryEvent(any(), any())
       verify(transactionsViewRepository, times(1)).save(any())
@@ -403,7 +411,9 @@ class TransactionNotificationsQueueConsumerTest {
         transactionDocument(TransactionStatusDto.NOTIFICATION_REQUESTED, ZonedDateTime.now())
       Hooks.onOperatorDebug()
       given(checkpointer.success()).willReturn(Mono.empty())
-      given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
         .willReturn(Flux.fromIterable(events))
       given(userReceiptMailBuilder.buildNotificationEmailRequestDto(baseTransaction))
         .willReturn(NotificationEmailRequestDto())
@@ -424,7 +434,8 @@ class TransactionNotificationsQueueConsumerTest {
         .expectNext()
         .verifyComplete()
       verify(checkpointer, times(1)).success()
-      verify(transactionsEventStoreRepository, times(1)).findByTransactionId(transactionId)
+      verify(transactionsEventStoreRepository, times(1))
+        .findByTransactionIdOrderByCreationDateAsc(transactionId)
       verify(notificationsServiceClient, times(1)).sendNotificationEmail(any())
       verify(notificationRetryService, times(1)).enqueueRetryEvent(any(), any())
       verify(transactionsViewRepository, times(1)).save(any())
@@ -469,7 +480,9 @@ class TransactionNotificationsQueueConsumerTest {
         transactionDocument(TransactionStatusDto.NOTIFICATION_REQUESTED, ZonedDateTime.now())
       Hooks.onOperatorDebug()
       given(checkpointer.success()).willReturn(Mono.empty())
-      given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
         .willReturn(Flux.fromIterable(events))
       given(userReceiptMailBuilder.buildNotificationEmailRequestDto(baseTransaction))
         .willReturn(NotificationEmailRequestDto())
@@ -493,7 +506,8 @@ class TransactionNotificationsQueueConsumerTest {
             BinaryData.fromObject(notificationRequested).toBytes(), checkpointer))
         .verifyComplete()
       verify(checkpointer, times(1)).success()
-      verify(transactionsEventStoreRepository, times(1)).findByTransactionId(transactionId)
+      verify(transactionsEventStoreRepository, times(1))
+        .findByTransactionIdOrderByCreationDateAsc(transactionId)
       verify(notificationsServiceClient, times(1)).sendNotificationEmail(any())
       verify(notificationRetryService, times(1)).enqueueRetryEvent(any(), any())
       verify(transactionsViewRepository, times(1)).save(any())
@@ -534,7 +548,7 @@ class TransactionNotificationsQueueConsumerTest {
     val transactionId = TRANSACTION_ID
     Hooks.onOperatorDebug()
     given(checkpointer.success()).willReturn(Mono.empty())
-    given(transactionsEventStoreRepository.findByTransactionId(transactionId))
+    given(transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(transactionId))
       .willReturn(Flux.fromIterable(events))
     given(deadLetterQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull()))
       .willReturn(queueSuccessfulResponse())
@@ -544,7 +558,8 @@ class TransactionNotificationsQueueConsumerTest {
           BinaryData.fromObject(notificationRequested).toBytes(), checkpointer))
       .verifyComplete()
     verify(checkpointer, times(1)).success()
-    verify(transactionsEventStoreRepository, times(1)).findByTransactionId(TRANSACTION_ID)
+    verify(transactionsEventStoreRepository, times(1))
+      .findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID)
     verify(notificationsServiceClient, times(0)).sendNotificationEmail(any())
     verify(notificationRetryService, times(0)).enqueueRetryEvent(any(), any())
     verify(transactionsViewRepository, times(0)).save(any())
@@ -590,7 +605,8 @@ class TransactionNotificationsQueueConsumerTest {
       val transactionId = TRANSACTION_ID
       Hooks.onOperatorDebug()
       given(checkpointer.success()).willReturn(Mono.empty())
-      given(transactionsEventStoreRepository.findByTransactionId(transactionId))
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(transactionId))
         .willReturn(Flux.fromIterable(events))
 
       val notificationEmailRequestDto =
@@ -628,7 +644,8 @@ class TransactionNotificationsQueueConsumerTest {
       val transactionId = TRANSACTION_ID
       Hooks.onOperatorDebug()
       given(checkpointer.success()).willReturn(Mono.empty())
-      given(transactionsEventStoreRepository.findByTransactionId(transactionId))
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(transactionId))
         .willReturn(Flux.fromIterable(events))
 
       val notificationEmailRequestDto =

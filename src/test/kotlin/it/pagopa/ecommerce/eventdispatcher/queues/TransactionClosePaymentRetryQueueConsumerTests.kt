@@ -113,7 +113,9 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
-      given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
         .willReturn(events.toFlux())
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(Mono.just(transactionDocument))
@@ -183,7 +185,9 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
-      given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
         .willReturn(events.toFlux())
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(Mono.just(transactionDocument))
@@ -253,7 +257,9 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
-      given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
         .willReturn(events.toFlux())
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(Mono.just(transactionDocument))
@@ -315,7 +321,9 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
-      given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
         .willReturn(events.toFlux())
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(Mono.just(transactionDocument))
@@ -377,7 +385,9 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
-      given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
         .willReturn(events.toFlux())
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(Mono.just(transactionDocument))
@@ -451,7 +461,9 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
-      given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
         .willReturn(events.toFlux())
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(Mono.just(transactionDocument))
@@ -506,7 +518,9 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
-      given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
         .willReturn(events.toFlux())
       given(emptyTransactionMock.applyEvent(any())).willReturn(transactionWithClosureError)
       given(transactionWithClosureError.transactionId).willReturn(TransactionId(TRANSACTION_ID))
@@ -567,7 +581,8 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
     /* preconditions */
     given(checkpointer.success()).willReturn(Mono.empty())
-    given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
       .willReturn(events.toFlux())
     given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
       .willReturn(Mono.just(transactionDocument))
@@ -617,7 +632,8 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
     /* preconditions */
     given(checkpointer.success()).willReturn(Mono.empty())
-    given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
       .willReturn(events.toFlux())
     given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
       .willReturn(Mono.just(transactionDocument))
@@ -664,7 +680,9 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
-      given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
         .willReturn(events.toFlux())
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturnConsecutively(
@@ -760,7 +778,8 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
     /* preconditions */
     given(checkpointer.success()).willReturn(Mono.empty())
-    given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
       .willReturn(events.toFlux())
     given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
       .willReturn(
@@ -849,7 +868,8 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
     /* preconditions */
     given(checkpointer.success()).willReturn(Mono.empty())
-    given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
       .willReturn(events.toFlux())
     given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
       .willReturn(Mono.just(transactionDocument))
@@ -926,7 +946,8 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
     /* preconditions */
     given(checkpointer.success()).willReturn(Mono.empty())
-    given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
       .willReturn(events.toFlux())
     given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
       .willReturnConsecutively(
@@ -1020,7 +1041,9 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
-      given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
         .willReturn(events.toFlux())
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(Mono.just(transactionDocument))

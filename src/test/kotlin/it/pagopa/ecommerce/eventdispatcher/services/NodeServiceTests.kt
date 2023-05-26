@@ -20,9 +20,7 @@ import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNull
-import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
@@ -60,7 +58,9 @@ class NodeServiceTests {
         ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
 
       /* preconditions */
-      given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
         .willReturn(events.toFlux())
 
       given(nodeClient.closePayment(any())).willReturn(Mono.just(closePaymentResponse))
@@ -87,7 +87,9 @@ class NodeServiceTests {
         ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
 
       /* preconditions */
-      given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
         .willReturn(events.toFlux())
 
       given(nodeClient.closePayment(any())).willReturn(Mono.just(closePaymentResponse))
@@ -107,7 +109,9 @@ class NodeServiceTests {
       val activatedEvent = transactionActivateEvent() as TransactionEvent<Any>
       val events = listOf(activatedEvent)
       /* preconditions */
-      given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
         .willReturn(events.toFlux())
 
       /* test */
@@ -135,7 +139,9 @@ class NodeServiceTests {
         ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
 
       /* preconditions */
-      given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
         .willReturn(events.toFlux())
 
       given(nodeClient.closePayment(capture(closePaymentRequestCaptor)))
@@ -231,7 +237,9 @@ class NodeServiceTests {
         ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
 
       /* preconditions */
-      given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
         .willReturn(events.toFlux())
 
       given(nodeClient.closePayment(capture(closePaymentRequestCaptor)))
@@ -277,7 +285,9 @@ class NodeServiceTests {
         ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
 
       /* preconditions */
-      given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
         .willReturn(events.toFlux())
 
       given(nodeClient.closePayment(capture(closePaymentRequestCaptor)))
@@ -321,7 +331,9 @@ class NodeServiceTests {
         ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
 
       /* preconditions */
-      given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
         .willReturn(events.toFlux())
 
       given(nodeClient.closePayment(any())).willReturn(Mono.just(closePaymentResponse))
@@ -345,7 +357,9 @@ class NodeServiceTests {
         ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
 
       /* preconditions */
-      given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
         .willReturn(events.toFlux())
 
       given(nodeClient.closePayment(any())).willReturn(Mono.just(closePaymentResponse))

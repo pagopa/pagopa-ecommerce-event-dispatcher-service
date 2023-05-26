@@ -54,7 +54,10 @@ class TransactionRefundRetryQueueConsumer(
     val event = parseInputEvent(binaryData)
     val baseTransaction =
       event
-        .flatMapMany { transactionsEventStoreRepository.findByTransactionId(it.transactionId) }
+        .flatMapMany {
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            it.transactionId)
+        }
         .reduce(EmptyTransaction(), Transaction::applyEvent)
         .cast(BaseTransaction::class.java)
     val refundPipeline =
