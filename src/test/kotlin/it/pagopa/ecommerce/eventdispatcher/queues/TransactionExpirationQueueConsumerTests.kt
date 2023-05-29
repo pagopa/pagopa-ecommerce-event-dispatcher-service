@@ -93,7 +93,7 @@ class TransactionExpirationQueueConsumerTests {
     /* preconditions */
     given(checkpointer.success()).willReturn(Mono.empty())
     given(
-        transactionsEventStoreRepository.findByTransactionId(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
           transactionId,
         ))
       .willReturn(Flux.just(activatedEvent as TransactionEvent<Any>))
@@ -140,7 +140,7 @@ class TransactionExpirationQueueConsumerTests {
     /* preconditions */
     given(checkpointer.success()).willReturn(Mono.empty())
     given(
-        transactionsEventStoreRepository.findByTransactionId(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
           transactionId,
         ))
       .willReturn(Flux.just(activatedEvent as TransactionEvent<Any>))
@@ -194,7 +194,7 @@ class TransactionExpirationQueueConsumerTests {
     /* preconditions */
     given(checkpointer.success()).willReturn(Mono.empty())
     given(
-        transactionsEventStoreRepository.findByTransactionId(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
           any(),
         ))
       .willReturn(
@@ -243,7 +243,7 @@ class TransactionExpirationQueueConsumerTests {
     /* preconditions */
     given(checkpointer.success()).willReturn(Mono.empty())
     given(
-        transactionsEventStoreRepository.findByTransactionId(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
           any(),
         ))
       .willReturn(Flux.just(activatedEvent as TransactionEvent<Any>))
@@ -293,7 +293,7 @@ class TransactionExpirationQueueConsumerTests {
     /* preconditions */
     given(checkpointer.success()).willReturn(Mono.empty())
     given(
-        transactionsEventStoreRepository.findByTransactionId(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
           any(),
         ))
       .willReturn(
@@ -354,7 +354,7 @@ class TransactionExpirationQueueConsumerTests {
     /* preconditions */
     given(checkpointer.success()).willReturn(Mono.empty())
     given(
-        transactionsEventStoreRepository.findByTransactionId(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
           any(),
         ))
       .willReturn(
@@ -414,7 +414,7 @@ class TransactionExpirationQueueConsumerTests {
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
       given(
-          transactionsEventStoreRepository.findByTransactionId(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             any(),
           ))
         .willReturn(
@@ -515,7 +515,7 @@ class TransactionExpirationQueueConsumerTests {
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
       given(
-          transactionsEventStoreRepository.findByTransactionId(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             any(),
           ))
         .willReturn(
@@ -612,7 +612,7 @@ class TransactionExpirationQueueConsumerTests {
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
       given(
-          transactionsEventStoreRepository.findByTransactionId(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             any(),
           ))
         .willReturn(Flux.just(activatedEvent as TransactionEvent<Any>))
@@ -682,7 +682,7 @@ class TransactionExpirationQueueConsumerTests {
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
       given(
-          transactionsEventStoreRepository.findByTransactionId(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             any(),
           ))
         .willReturn(
@@ -749,7 +749,7 @@ class TransactionExpirationQueueConsumerTests {
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
       given(
-          transactionsEventStoreRepository.findByTransactionId(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             any(),
           ))
         .willReturn(
@@ -854,7 +854,7 @@ class TransactionExpirationQueueConsumerTests {
     /* preconditions */
     given(checkpointer.success()).willReturn(Mono.empty())
     given(
-        transactionsEventStoreRepository.findByTransactionId(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
           any(),
         ))
       .willReturn(
@@ -955,7 +955,7 @@ class TransactionExpirationQueueConsumerTests {
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
       given(
-          transactionsEventStoreRepository.findByTransactionId(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             any(),
           ))
         .willReturn(
@@ -1073,7 +1073,7 @@ class TransactionExpirationQueueConsumerTests {
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
       given(
-          transactionsEventStoreRepository.findByTransactionId(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             any(),
           ))
         .willReturn(
@@ -1171,7 +1171,7 @@ class TransactionExpirationQueueConsumerTests {
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
       given(
-          transactionsEventStoreRepository.findByTransactionId(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             any(),
           ))
         .willReturn(
@@ -1292,7 +1292,7 @@ class TransactionExpirationQueueConsumerTests {
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
       given(
-          transactionsEventStoreRepository.findByTransactionId(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             any(),
           ))
         .willReturn(
@@ -1380,7 +1380,7 @@ class TransactionExpirationQueueConsumerTests {
     /* preconditions */
     given(checkpointer.success()).willReturn(Mono.empty())
     given(
-        transactionsEventStoreRepository.findByTransactionId(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
           any(),
         ))
       .willReturn(
@@ -1467,7 +1467,7 @@ class TransactionExpirationQueueConsumerTests {
     /* preconditions */
     given(checkpointer.success()).willReturn(Mono.empty())
     given(
-        transactionsEventStoreRepository.findByTransactionId(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
           any(),
         ))
       .willReturn(
@@ -1529,7 +1529,7 @@ class TransactionExpirationQueueConsumerTests {
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
       given(
-          transactionsEventStoreRepository.findByTransactionId(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             any(),
           ))
         .willReturn(
@@ -1598,7 +1598,7 @@ class TransactionExpirationQueueConsumerTests {
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
       given(
-          transactionsEventStoreRepository.findByTransactionId(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             any(),
           ))
         .willReturn(
@@ -1668,7 +1668,7 @@ class TransactionExpirationQueueConsumerTests {
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
       given(
-          transactionsEventStoreRepository.findByTransactionId(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             any(),
           ))
         .willReturn(
@@ -1736,7 +1736,7 @@ class TransactionExpirationQueueConsumerTests {
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
       given(
-          transactionsEventStoreRepository.findByTransactionId(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             any(),
           ))
         .willReturn(
@@ -1846,7 +1846,7 @@ class TransactionExpirationQueueConsumerTests {
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
       given(
-          transactionsEventStoreRepository.findByTransactionId(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             any(),
           ))
         .willReturn(
@@ -1942,7 +1942,7 @@ class TransactionExpirationQueueConsumerTests {
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
       given(
-          transactionsEventStoreRepository.findByTransactionId(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             any(),
           ))
         .willReturn(
@@ -2026,7 +2026,7 @@ class TransactionExpirationQueueConsumerTests {
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
       given(
-          transactionsEventStoreRepository.findByTransactionId(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             any(),
           ))
         .willReturn(
@@ -2120,7 +2120,7 @@ class TransactionExpirationQueueConsumerTests {
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
       given(
-          transactionsEventStoreRepository.findByTransactionId(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             any(),
           ))
         .willReturn(
@@ -2189,7 +2189,7 @@ class TransactionExpirationQueueConsumerTests {
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
       given(
-          transactionsEventStoreRepository.findByTransactionId(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             any(),
           ))
         .willReturn(
@@ -2277,7 +2277,7 @@ class TransactionExpirationQueueConsumerTests {
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
       given(
-          transactionsEventStoreRepository.findByTransactionId(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             any(),
           ))
         .willReturn(
@@ -2341,7 +2341,7 @@ class TransactionExpirationQueueConsumerTests {
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
       given(
-          transactionsEventStoreRepository.findByTransactionId(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             any(),
           ))
         .willReturn(Flux.error(RuntimeException("Error finding event from event store")))
@@ -2387,7 +2387,7 @@ class TransactionExpirationQueueConsumerTests {
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
       given(
-          transactionsEventStoreRepository.findByTransactionId(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             any(),
           ))
         .willReturn(Flux.error(RuntimeException("Error finding event from event store")))
@@ -2439,7 +2439,7 @@ class TransactionExpirationQueueConsumerTests {
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
       given(
-          transactionsEventStoreRepository.findByTransactionId(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             any(),
           ))
         .willReturn(
@@ -2544,7 +2544,7 @@ class TransactionExpirationQueueConsumerTests {
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
       given(
-          transactionsEventStoreRepository.findByTransactionId(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             any(),
           ))
         .willReturn(
@@ -2642,7 +2642,7 @@ class TransactionExpirationQueueConsumerTests {
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
       given(
-          transactionsEventStoreRepository.findByTransactionId(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             any(),
           ))
         .willReturn(
@@ -2747,7 +2747,7 @@ class TransactionExpirationQueueConsumerTests {
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
       given(
-          transactionsEventStoreRepository.findByTransactionId(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             any(),
           ))
         .willReturn(
@@ -2840,7 +2840,7 @@ class TransactionExpirationQueueConsumerTests {
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
       given(
-          transactionsEventStoreRepository.findByTransactionId(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             any(),
           ))
         .willReturn(
@@ -2924,7 +2924,7 @@ class TransactionExpirationQueueConsumerTests {
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
       given(
-          transactionsEventStoreRepository.findByTransactionId(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             any(),
           ))
         .willReturn(

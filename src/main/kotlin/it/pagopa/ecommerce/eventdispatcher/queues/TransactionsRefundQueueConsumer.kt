@@ -63,7 +63,9 @@ class TransactionsRefundQueueConsumer(
 
     val refundPipeline =
       transactionId
-        .flatMapMany { transactionsEventStoreRepository.findByTransactionId(it) }
+        .flatMapMany {
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(it)
+        }
         .reduce(EmptyTransaction(), Transaction::applyEvent)
         .cast(BaseTransaction::class.java)
         .filter { it.status == TransactionStatusDto.REFUND_REQUESTED }

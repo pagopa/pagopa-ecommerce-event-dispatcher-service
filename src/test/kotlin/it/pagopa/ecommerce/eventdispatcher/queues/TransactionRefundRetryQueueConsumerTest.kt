@@ -87,7 +87,7 @@ class TransactionRefundRetryQueueConsumerTest {
     /* preconditions */
     given(checkpointer.success()).willReturn(Mono.empty())
     given(
-        transactionsEventStoreRepository.findByTransactionId(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
           any(),
         ))
       .willReturn(
@@ -162,7 +162,7 @@ class TransactionRefundRetryQueueConsumerTest {
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
       given(
-          transactionsEventStoreRepository.findByTransactionId(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             any(),
           ))
         .willReturn(
@@ -237,7 +237,7 @@ class TransactionRefundRetryQueueConsumerTest {
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
       given(
-          transactionsEventStoreRepository.findByTransactionId(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             any(),
           ))
         .willReturn(
@@ -288,7 +288,7 @@ class TransactionRefundRetryQueueConsumerTest {
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
       given(
-          transactionsEventStoreRepository.findByTransactionId(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             any(),
           ))
         .willReturn(

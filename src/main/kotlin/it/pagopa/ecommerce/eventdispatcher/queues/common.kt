@@ -339,7 +339,7 @@ fun reduceEvents(
   emptyTransaction: EmptyTransaction
 ) =
   transactionId
-    .flatMapMany { transactionsEventStoreRepository.findByTransactionId(it) }
+    .flatMapMany { transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(it) }
     .reduce(emptyTransaction, it.pagopa.ecommerce.commons.domain.v1.Transaction::applyEvent)
     .cast(BaseTransaction::class.java)
 

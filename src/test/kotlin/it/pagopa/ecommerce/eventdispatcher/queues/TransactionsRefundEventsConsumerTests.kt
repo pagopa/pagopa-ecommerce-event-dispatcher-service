@@ -94,7 +94,8 @@ class TransactionsRefundEventsConsumerTests {
 
     /* preconditions */
     given(checkpointer.success()).willReturn(Mono.empty())
-    given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
       .willReturn(events.toFlux())
     given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
     given(transactionsRefundedEventStoreRepository.save(refundEventStoreCaptor.capture()))
@@ -156,7 +157,8 @@ class TransactionsRefundEventsConsumerTests {
 
     /* preconditions */
     given(checkpointer.success()).willReturn(Mono.empty())
-    given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
       .willReturn(events.toFlux())
     given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
     given(transactionsRefundedEventStoreRepository.save(refundEventStoreCaptor.capture()))
@@ -210,7 +212,9 @@ class TransactionsRefundEventsConsumerTests {
 
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
-      given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
         .willReturn(events.toFlux())
       given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
 
@@ -261,7 +265,8 @@ class TransactionsRefundEventsConsumerTests {
 
     /* preconditions */
     given(checkpointer.success()).willReturn(Mono.empty())
-    given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
       .willReturn(events.toFlux())
     given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
     given(transactionsRefundedEventStoreRepository.save(refundEventStoreCaptor.capture()))
@@ -326,7 +331,8 @@ class TransactionsRefundEventsConsumerTests {
 
     /* preconditions */
     given(checkpointer.success()).willReturn(Mono.empty())
-    given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
       .willReturn(events.toFlux())
     given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
     given(transactionsRefundedEventStoreRepository.save(refundEventStoreCaptor.capture()))
@@ -390,7 +396,9 @@ class TransactionsRefundEventsConsumerTests {
 
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
-      given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
         .willReturn(events.toFlux())
       given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
       given(transactionsRefundedEventStoreRepository.save(refundEventStoreCaptor.capture()))
@@ -457,7 +465,9 @@ class TransactionsRefundEventsConsumerTests {
 
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
-      given(transactionsEventStoreRepository.findByTransactionId(TRANSACTION_ID))
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
         .willReturn(events.toFlux())
       given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
       given(transactionsRefundedEventStoreRepository.save(refundEventStoreCaptor.capture()))
