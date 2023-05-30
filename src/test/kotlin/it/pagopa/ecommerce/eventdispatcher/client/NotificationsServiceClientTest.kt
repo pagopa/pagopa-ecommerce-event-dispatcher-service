@@ -91,7 +91,7 @@ class NotificationsServiceClientTest {
             ZonedDateTime.now().toString(),
             "€ 0.00",
             PspTemplate("pspId", FeeTemplate("€ 0.00")),
-            "RRN",
+            "c8851a69-cc82-4003-9d91-604d7c44b7db",
             "authorizationCode",
             PaymentMethodTemplate("paymentInstrumentId", "paymentMethodLogo", null, false)),
           UserTemplate(DataTemplate(null, null, null), "foo@example.com"),

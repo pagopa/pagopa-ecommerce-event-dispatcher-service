@@ -1,5 +1,6 @@
 package it.pagopa.ecommerce.eventdispatcher.services
 
+import it.pagopa.ecommerce.commons.documents.v1.TransactionAuthorizationRequestData
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v1.TransactionId
 import it.pagopa.ecommerce.commons.domain.v1.TransactionWithClosureError
@@ -13,15 +14,15 @@ import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusExcept
 import it.pagopa.ecommerce.eventdispatcher.queues.*
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.generated.ecommerce.nodo.v2.dto.*
-import java.time.OffsetDateTime
-import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoUnit
 import kotlinx.coroutines.reactor.awaitSingle
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
+import java.time.OffsetDateTime
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 
 const val TIPO_VERSAMENTO_CP = "CP"
 
@@ -116,7 +117,9 @@ class NodeService(
                                   DateTimeFormatter.ISO_OFFSET_DATE_TIME)
                                 .truncatedTo(ChronoUnit.SECONDS)
                                 .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
-                            this.rrn = authCompleted.transactionAuthorizationCompletedData.rrn
+                            this.rrn = getRrnForClosePaymentByAuthorization(authCompleted.transactionAuthorizationRequestData.paymentGateway,
+                              authCompleted.transactionAuthorizationCompletedData.rrn!!
+                            )
                             this.totalAmount =
                               EuroUtils.euroCentsToEuro(
                                   (authCompleted.transactionAuthorizationRequestData.amount.plus(
@@ -223,4 +226,15 @@ class NodeService(
       is TransactionWithClosureError -> getPaymentTypeCode(tx.transactionAtPreviousState)
       else -> TIPO_VERSAMENTO_CP
     }
+}
+
+
+private fun getRrnForClosePaymentByAuthorization(
+  paymentGatewayFromAuthorization: TransactionAuthorizationRequestData.PaymentGateway,
+  rrnFromAuthorizationCompletedData: String
+): String {
+  val xpayRrnLength = 7
+  return if (paymentGatewayFromAuthorization == TransactionAuthorizationRequestData.PaymentGateway.XPAY
+    && rrnFromAuthorizationCompletedData != null && rrnFromAuthorizationCompletedData.length > xpayRrnLength
+  ) rrnFromAuthorizationCompletedData.substring(0, xpayRrnLength) else rrnFromAuthorizationCompletedData
 }
