@@ -19,7 +19,7 @@ import reactor.core.publisher.Mono
 class NodeClient(@Autowired private val nodeApi: NodoApi) {
 
   companion object {
-    const val CLIENT_ID_CLOSE_PAYMENT: String = "ecomm"
+    const val CLOSE_PAYMENT_CLIENT_ID: String = "ecomm"
   }
 
   suspend fun closePayment(
@@ -28,7 +28,7 @@ class NodeClient(@Autowired private val nodeApi: NodoApi) {
     return mono {
       try {
         return@mono nodeApi
-          .closePaymentV2(closePaymentRequest, CLIENT_ID_CLOSE_PAYMENT)
+          .closePaymentV2(closePaymentRequest, CLOSE_PAYMENT_CLIENT_ID)
           .awaitSingle()
       } catch (exception: WebClientResponseException) {
         throw when (exception.statusCode) {
