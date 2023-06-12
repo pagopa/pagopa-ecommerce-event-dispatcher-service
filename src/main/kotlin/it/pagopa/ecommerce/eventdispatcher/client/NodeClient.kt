@@ -17,12 +17,19 @@ import reactor.core.publisher.Mono
 
 @Component
 class NodeClient(@Autowired private val nodeApi: NodoApi) {
+
+  companion object {
+    const val CLIENT_ID_CLOSE_PAYMENT: String = "ecomm"
+  }
+
   suspend fun closePayment(
     closePaymentRequest: ClosePaymentRequestV2Dto
   ): Mono<ClosePaymentResponseDto> {
     return mono {
       try {
-        return@mono nodeApi.closePaymentV2(closePaymentRequest).awaitSingle()
+        return@mono nodeApi
+          .closePaymentV2(closePaymentRequest, CLIENT_ID_CLOSE_PAYMENT)
+          .awaitSingle()
       } catch (exception: WebClientResponseException) {
         throw when (exception.statusCode) {
           HttpStatus.NOT_FOUND ->

@@ -313,7 +313,7 @@
 						</goals>
 						<configuration>
 							<inputSpec>
-								https://raw.githubusercontent.com/pagopa/pagopa-infra/closepaymentv2-alignement/src/core/api/nodopagamenti_api/nodoPerPM/v2/_swagger.json.tpl
+								https://raw.githubusercontent.com/pagopa/pagopa-infra/client-id-close-payment/src/core/api/nodopagamenti_api/nodoPerPM/v2/_swagger.json.tpl
 							</inputSpec>
 							<generatorName>java</generatorName>
 							<library>webclient</library>
