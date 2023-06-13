@@ -98,12 +98,14 @@ microservice-chart:
     NOTIFICATION_RETRY_EVENT_BASE_INTERVAL_SECONDS: "600"
     NOTIFICATION_RETRY_EVENT_MAX_ATTEMPTS: "3"
     PERSONAL_DATA_VAULT_API_BASE_PATH: "https://api.uat.tokenizer.pdv.pagopa.it/tokenizer/v1"
-    ELASTIC_APM_SERVICE_NAME: pagopa-ecommerce-event-dispatcher-service
-    ELASTIC_APM_APPLICATION_PACKAGES: it.pagopa.ecommerce.eventdispatcher
-    ELASTIC_APM_SERVER_URL: http://quickstart-apm-http.elastic-system.svc:8200
-    ELASTIC_APM_LOG_SENDING: "false"
     SEND_PAYMENT_RESULT_TIMEOUT_SECONDS: "3900"
     SEND_PAYMENT_RESULT_EXPIRATION_OFFSET_SECONDS: "5"
+    OTEL_RESOURCE_ATTRIBUTES: "service.name=pagopa-ecommerce-event-dispatcher-service,service.deployment.environment=dev"
+    OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.elastic-system.svc:4317"
+    OTEL_TRACES_EXPORTER: otlp
+    OTEL_METRICS_EXPORTER: otlp
+    OTEL_LOGS_EXPORTER: none
+    OTEL_TRACES_SAMPLER: "always_on"
     ECS_SERVICE_NAME: pagopa-ecommerce-event-dispatcher-service
     ECS_SERVICE_ENVIRONMENT: dev
   envSecret:
@@ -114,8 +116,8 @@ microservice-chart:
     QUEUE_DEADLETTER_CONNECTION_STRING: ecommerce-storage-deadletter-connection-string
     NOTIFICATIONS_SERVICE_API_KEY: notifications-service-api-key
     PERSONAL_DATA_VAULT_API_KEY: personal-data-vault-api-key
-    ELASTIC_APM_SECRET_TOKEN: elastic-apm-secret-token
     PAYMENT_TRANSACTIONS_GATEWAY_API_KEY: payment-transactions-gateway-api-key
+    OTEL_EXPORTER_OTLP_HEADERS: elastic-otel-token-header
   keyvault:
     name: "pagopa-d-ecommerce-kv"
     tenantId: "7788edaf-0346-4068-9d79-c868aed15b3d"
