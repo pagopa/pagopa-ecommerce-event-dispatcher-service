@@ -126,6 +126,11 @@
 			<scope>test</scope>
 		</dependency>
 		<dependency>
+			<groupId>io.mockk</groupId>
+			<artifactId>mockk-jvm</artifactId>
+			<version>1.13.5</version>
+		</dependency>
+		<dependency>
 			<groupId>org.jetbrains.kotlinx</groupId>
 			<artifactId>kotlinx-coroutines-test</artifactId>
 			<version>${kotlinx-coroutines.version}</version>
@@ -205,6 +210,23 @@
 			<version>4.1.82.Final</version>
 			<classifier>osx-aarch_64</classifier>
 		</dependency>
+		<dependency>
+			<groupId>io.opentelemetry</groupId>
+			<artifactId>opentelemetry-api</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>io.opentelemetry</groupId>
+			<artifactId>opentelemetry-sdk</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>io.opentelemetry</groupId>
+			<artifactId>opentelemetry-exporter-otlp</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>io.opentelemetry</groupId>
+			<artifactId>opentelemetry-semconv</artifactId>
+			<version>1.27.0-alpha</version>
+		</dependency>
 	</dependencies>
 	<dependencyManagement>
 		<dependencies>
@@ -212,6 +234,13 @@
 				<groupId>com.azure.spring</groupId>
 				<artifactId>spring-cloud-azure-dependencies</artifactId>
 				<version>${spring-cloud-azure.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+			<dependency>
+				<groupId>io.opentelemetry</groupId>
+				<artifactId>opentelemetry-bom</artifactId>
+				<version>1.27.0</version>
 				<type>pom</type>
 				<scope>import</scope>
 			</dependency>
@@ -479,8 +508,8 @@
 				<configuration>
 					<skipCheckoutIfExists>false</skipCheckoutIfExists>
 					<connectionUrl>scm:git:https://github.com/pagopa/pagopa-ecommerce-commons.git</connectionUrl>
-					<scmVersionType>tag</scmVersionType>
-					<scmVersion>${pagopa-ecommerce-commons.version}</scmVersion>
+					<scmVersionType>branch</scmVersionType>
+					<scmVersion>queue-events</scmVersion>
 					<goals>install -DskipTests</goals>
 				</configuration>
 				<executions>

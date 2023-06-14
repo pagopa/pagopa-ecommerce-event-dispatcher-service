@@ -1,11 +1,14 @@
 package it.pagopa.ecommerce.eventdispatcher.queues
 
 import com.azure.core.util.BinaryData
+import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.TransactionWithClosureError
+import it.pagopa.ecommerce.commons.queues.QueueEvent
+import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.commons.utils.v1.TransactionUtils
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
@@ -17,7 +20,9 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.integration.annotation.ServiceActivator
+import org.springframework.messaging.MessageHeaders
 import org.springframework.messaging.handler.annotation.Header
+import org.springframework.messaging.handler.annotation.Headers
 import org.springframework.messaging.handler.annotation.Payload
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
@@ -47,24 +52,27 @@ class TransactionExpirationQueueConsumer(
   private val sendPaymentResultTimeoutOffsetSeconds: Int,
   @Value("\${azurestorage.queues.transientQueues.ttlSeconds}")
   private val transientQueueTTLSeconds: Int,
-  @Value("\${azurestorage.queues.deadLetterQueue.ttlSeconds}") private val deadLetterTTLSeconds: Int
+  @Value("\${azurestorage.queues.deadLetterQueue.ttlSeconds}")
+  private val deadLetterTTLSeconds: Int,
+  @Autowired private val tracingUtils: TracingUtils
 ) {
 
   var logger: Logger = LoggerFactory.getLogger(TransactionExpirationQueueConsumer::class.java)
 
-  private fun getTransactionIdFromPayload(data: BinaryData): String {
-    return data.toObject(TransactionActivatedEvent::class.java).transactionId
-  }
-
   @ServiceActivator(inputChannel = "transactionexpiredchannel", outputChannel = "nullChannel")
   fun messageReceiver(
     @Payload payload: ByteArray,
-    @Header(AzureHeaders.CHECKPOINTER) checkPointer: Checkpointer
+    @Header(AzureHeaders.CHECKPOINTER) checkPointer: Checkpointer,
+    @Headers headers: MessageHeaders
   ): Mono<Void> {
     val binaryData = BinaryData.fromBytes(payload)
-    val transactionId = getTransactionIdFromPayload(binaryData)
+    val queueEvent =
+      binaryData.toObjectAsync(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {})
+    val transactionId = queueEvent.map { it.event.transactionId }
     val events =
-      transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(transactionId)
+      transactionId.flatMapMany {
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(it)
+      }
     val baseTransaction = reduceEvents(events)
     val refundPipeline =
       baseTransaction
