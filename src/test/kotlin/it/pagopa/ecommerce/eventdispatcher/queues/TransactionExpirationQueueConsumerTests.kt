@@ -24,10 +24,8 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.mockito.ArgumentCaptor
 import org.mockito.Captor
-import org.mockito.Mock
 import org.mockito.Mockito
 import org.mockito.kotlin.*
-import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.test.context.TestPropertySource
 import reactor.core.publisher.Flux
@@ -40,23 +38,23 @@ import reactor.test.StepVerifier
 @OptIn(ExperimentalCoroutinesApi::class)
 class TransactionExpirationQueueConsumerTests {
 
-  @Mock private lateinit var checkpointer: Checkpointer
+  private val checkpointer: Checkpointer = mock()
 
-  @Mock private lateinit var transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>
+  private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any> = mock()
 
-  @Mock private lateinit var paymentGatewayClient: PaymentGatewayClient
+  private val paymentGatewayClient: PaymentGatewayClient = mock()
 
-  @Mock
-  private lateinit var transactionsExpiredEventStoreRepository:
-    TransactionsEventStoreRepository<TransactionExpiredData>
+  private val transactionsExpiredEventStoreRepository:
+    TransactionsEventStoreRepository<TransactionExpiredData> =
+    mock()
 
-  @Mock
-  private lateinit var transactionsRefundedEventStoreRepository:
-    TransactionsEventStoreRepository<TransactionRefundedData>
+  private val transactionsRefundedEventStoreRepository:
+    TransactionsEventStoreRepository<TransactionRefundedData> =
+    mock()
 
-  @Mock private lateinit var transactionsViewRepository: TransactionsViewRepository
+  private val transactionsViewRepository: TransactionsViewRepository = mock()
 
-  @Mock private lateinit var refundRetryService: RefundRetryService
+  private val refundRetryService: RefundRetryService = mock()
 
   @Captor private lateinit var transactionViewRepositoryCaptor: ArgumentCaptor<Transaction>
 
@@ -70,22 +68,36 @@ class TransactionExpirationQueueConsumerTests {
 
   @Captor private lateinit var retryCountCaptor: ArgumentCaptor<Int>
 
-  @Autowired private lateinit var transactionUtils: TransactionUtils
+  @Captor private lateinit var binaryDataCaptor: ArgumentCaptor<BinaryData>
+
+  @Captor private lateinit var visibilityTimeoutCaptor: ArgumentCaptor<Duration>
+
+  private val transactionUtils = TransactionUtils()
 
   private val deadLetterQueueAsyncClient: QueueAsyncClient = mock()
 
+  private val expirationQueueAsyncClient: QueueAsyncClient = mock()
+
+  private val sendPaymentResultTimeout = 120
+
+  private val sendPaymentResultOffset = 10
+
+  private val transactionExpirationQueueConsumer =
+    TransactionExpirationQueueConsumer(
+      paymentGatewayClient = paymentGatewayClient,
+      transactionsEventStoreRepository = transactionsEventStoreRepository,
+      transactionsExpiredEventStoreRepository = transactionsExpiredEventStoreRepository,
+      transactionsRefundedEventStoreRepository = transactionsRefundedEventStoreRepository,
+      transactionsViewRepository = transactionsViewRepository,
+      transactionUtils = transactionUtils,
+      refundRetryService = refundRetryService,
+      deadLetterQueueAsyncClient = deadLetterQueueAsyncClient,
+      expirationQueueAsyncClient = expirationQueueAsyncClient,
+      sendPaymentResultTimeoutSeconds = sendPaymentResultTimeout,
+      sendPaymentResultTimeoutOffsetSeconds = sendPaymentResultOffset)
+
   @Test
   fun `messageReceiver receives activated messages successfully`() {
-    val transactionExpirationQueueConsumer =
-      TransactionExpirationQueueConsumer(
-        paymentGatewayClient,
-        transactionsEventStoreRepository,
-        transactionsExpiredEventStoreRepository,
-        transactionsRefundedEventStoreRepository,
-        transactionsViewRepository,
-        transactionUtils,
-        refundRetryService,
-        deadLetterQueueAsyncClient)
 
     val activatedEvent = transactionActivateEvent()
     val transactionId = activatedEvent.transactionId
@@ -121,16 +133,6 @@ class TransactionExpirationQueueConsumerTests {
 
   @Test
   fun `messageReceiver receives refund messages successfully`() {
-    val transactionExpirationQueueConsumer =
-      TransactionExpirationQueueConsumer(
-        paymentGatewayClient,
-        transactionsEventStoreRepository,
-        transactionsExpiredEventStoreRepository,
-        transactionsRefundedEventStoreRepository,
-        transactionsViewRepository,
-        transactionUtils,
-        refundRetryService,
-        deadLetterQueueAsyncClient)
 
     val activatedEvent = transactionActivateEvent()
     val transactionId = activatedEvent.transactionId
@@ -167,17 +169,6 @@ class TransactionExpirationQueueConsumerTests {
 
   @Test
   fun `messageReceiver calls refund on transaction with authorization request`() = runTest {
-    val transactionExpirationQueueConsumer =
-      TransactionExpirationQueueConsumer(
-        paymentGatewayClient,
-        transactionsEventStoreRepository,
-        transactionsExpiredEventStoreRepository,
-        transactionsRefundedEventStoreRepository,
-        transactionsViewRepository,
-        transactionUtils,
-        refundRetryService,
-        deadLetterQueueAsyncClient)
-
     val activatedEvent = transactionActivateEvent()
     val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
     val expiredEvent = transactionExpiredEvent(transactionActivated(ZonedDateTime.now().toString()))
@@ -226,17 +217,6 @@ class TransactionExpirationQueueConsumerTests {
 
   @Test
   fun `messageReceiver generate new expired event with error in eventstore`() = runTest {
-    val transactionExpirationQueueConsumer =
-      TransactionExpirationQueueConsumer(
-        paymentGatewayClient,
-        transactionsEventStoreRepository,
-        transactionsExpiredEventStoreRepository,
-        transactionsRefundedEventStoreRepository,
-        transactionsViewRepository,
-        transactionUtils,
-        refundRetryService,
-        deadLetterQueueAsyncClient)
-
     val activatedEvent = transactionActivateEvent()
     val expiredEvent = transactionExpiredEvent(transactionActivated(ZonedDateTime.now().toString()))
 
@@ -270,17 +250,6 @@ class TransactionExpirationQueueConsumerTests {
 
   @Test
   fun `messageReceiver fails to generate new expired event`() = runTest {
-    val transactionExpirationQueueConsumer =
-      TransactionExpirationQueueConsumer(
-        paymentGatewayClient,
-        transactionsEventStoreRepository,
-        transactionsExpiredEventStoreRepository,
-        transactionsRefundedEventStoreRepository,
-        transactionsViewRepository,
-        transactionUtils,
-        refundRetryService,
-        deadLetterQueueAsyncClient)
-
     val activatedEvent = transactionActivateEvent()
     val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
     val expiredEvent = transactionExpiredEvent(transactionActivated(ZonedDateTime.now().toString()))
@@ -331,17 +300,6 @@ class TransactionExpirationQueueConsumerTests {
 
   @Test
   fun `messageReceiver fails to generate new refund event`() = runTest {
-    val transactionExpirationQueueConsumer =
-      TransactionExpirationQueueConsumer(
-        paymentGatewayClient,
-        transactionsEventStoreRepository,
-        transactionsExpiredEventStoreRepository,
-        transactionsRefundedEventStoreRepository,
-        transactionsViewRepository,
-        transactionUtils,
-        refundRetryService,
-        deadLetterQueueAsyncClient)
-
     val activatedEvent = transactionActivateEvent()
     val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
     val expiredEvent = transactionExpiredEvent(transactionActivated(ZonedDateTime.now().toString()))
@@ -393,17 +351,6 @@ class TransactionExpirationQueueConsumerTests {
   @Test
   fun `messageReceiver calls refund on transaction with authorization request and PGS response KO generating refunded event`() =
     runTest {
-      val transactionExpirationQueueConsumer =
-        TransactionExpirationQueueConsumer(
-          paymentGatewayClient,
-          transactionsEventStoreRepository,
-          transactionsExpiredEventStoreRepository,
-          transactionsRefundedEventStoreRepository,
-          transactionsViewRepository,
-          transactionUtils,
-          refundRetryService,
-          deadLetterQueueAsyncClient)
-
       val activatedEvent = transactionActivateEvent()
       val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
       EmptyTransaction().applyEvent(activatedEvent).applyEvent(authorizationRequestedEvent)
@@ -495,17 +442,6 @@ class TransactionExpirationQueueConsumerTests {
   @Test
   fun `messageReceiver calls refund on transaction with authorization request and PGS response OK generating refund error event`() =
     runTest {
-      val transactionExpirationQueueConsumer =
-        TransactionExpirationQueueConsumer(
-          paymentGatewayClient,
-          transactionsEventStoreRepository,
-          transactionsExpiredEventStoreRepository,
-          transactionsRefundedEventStoreRepository,
-          transactionsViewRepository,
-          transactionUtils,
-          refundRetryService,
-          deadLetterQueueAsyncClient)
-
       val activatedEvent = transactionActivateEvent()
       val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
 
@@ -593,17 +529,6 @@ class TransactionExpirationQueueConsumerTests {
   @Test
   fun `messageReceiver calls update transaction to EXPIRED_NOT_AUTHORIZED for activated only expired transaction`() =
     runTest {
-      val transactionExpirationQueueConsumer =
-        TransactionExpirationQueueConsumer(
-          paymentGatewayClient,
-          transactionsEventStoreRepository,
-          transactionsExpiredEventStoreRepository,
-          transactionsRefundedEventStoreRepository,
-          transactionsViewRepository,
-          transactionUtils,
-          refundRetryService,
-          deadLetterQueueAsyncClient)
-
       val activatedEvent = transactionActivateEvent()
 
       val gatewayClientResponse = VposDeleteResponseDto()
@@ -662,17 +587,6 @@ class TransactionExpirationQueueConsumerTests {
   @Test
   fun `messageReceiver does nothing on a expiration event received for a transaction in EXPIRED_NOT_AUTHORIZED status`() =
     runTest {
-      val transactionExpirationQueueConsumer =
-        TransactionExpirationQueueConsumer(
-          paymentGatewayClient,
-          transactionsEventStoreRepository,
-          transactionsExpiredEventStoreRepository,
-          transactionsRefundedEventStoreRepository,
-          transactionsViewRepository,
-          transactionUtils,
-          refundRetryService,
-          deadLetterQueueAsyncClient)
-
       val activatedEvent = transactionActivateEvent()
       val transactionExpiredEvent = transactionExpiredEvent(reduceEvents(activatedEvent))
 
@@ -728,17 +642,6 @@ class TransactionExpirationQueueConsumerTests {
   @Test
   fun `messageReceiver calls refund on transaction with authorization request after transaction expiration`() =
     runTest {
-      val transactionExpirationQueueConsumer =
-        TransactionExpirationQueueConsumer(
-          paymentGatewayClient,
-          transactionsEventStoreRepository,
-          transactionsExpiredEventStoreRepository,
-          transactionsRefundedEventStoreRepository,
-          transactionsViewRepository,
-          transactionUtils,
-          refundRetryService,
-          deadLetterQueueAsyncClient)
-
       val activatedEvent = transactionActivateEvent()
       val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
       val expiredEvent =
@@ -819,16 +722,6 @@ class TransactionExpirationQueueConsumerTests {
 
   @Test
   fun `messageReceiver calls refund on transaction expired in NOTIFIED_KO status`() = runTest {
-    val transactionExpirationQueueConsumer =
-      TransactionExpirationQueueConsumer(
-        paymentGatewayClient,
-        transactionsEventStoreRepository,
-        transactionsExpiredEventStoreRepository,
-        transactionsRefundedEventStoreRepository,
-        transactionsViewRepository,
-        transactionUtils,
-        refundRetryService,
-        deadLetterQueueAsyncClient)
     val transactionUserReceiptData =
       transactionUserReceiptData(TransactionUserReceiptData.Outcome.KO)
     val activatedEvent = transactionActivateEvent()
@@ -928,16 +821,6 @@ class TransactionExpirationQueueConsumerTests {
   @Test
   fun `messageReceiver calls refund on transaction in NOTIFICATION_ERROR status and send payment result outcome KO`() =
     runTest {
-      val transactionExpirationQueueConsumer =
-        TransactionExpirationQueueConsumer(
-          paymentGatewayClient,
-          transactionsEventStoreRepository,
-          transactionsExpiredEventStoreRepository,
-          transactionsRefundedEventStoreRepository,
-          transactionsViewRepository,
-          transactionUtils,
-          refundRetryService,
-          deadLetterQueueAsyncClient)
       val transactionUserReceiptData =
         transactionUserReceiptData(TransactionUserReceiptData.Outcome.KO)
       val activatedEvent = transactionActivateEvent()
@@ -1046,16 +929,6 @@ class TransactionExpirationQueueConsumerTests {
   @Test
   fun `messageReceiver should not calls refund on transaction in NOTIFICATION_ERROR status and send payment result outcome OK`() =
     runTest {
-      val transactionExpirationQueueConsumer =
-        TransactionExpirationQueueConsumer(
-          paymentGatewayClient,
-          transactionsEventStoreRepository,
-          transactionsExpiredEventStoreRepository,
-          transactionsRefundedEventStoreRepository,
-          transactionsViewRepository,
-          transactionUtils,
-          refundRetryService,
-          deadLetterQueueAsyncClient)
       val transactionUserReceiptData =
         transactionUserReceiptData(TransactionUserReceiptData.Outcome.OK)
       val activatedEvent = transactionActivateEvent()
@@ -1136,16 +1009,6 @@ class TransactionExpirationQueueConsumerTests {
   @Test
   fun `messageReceiver calls refund on transaction expired in NOTIFICATION_ERROR status and send payment result outcome KO`() =
     runTest {
-      val transactionExpirationQueueConsumer =
-        TransactionExpirationQueueConsumer(
-          paymentGatewayClient,
-          transactionsEventStoreRepository,
-          transactionsExpiredEventStoreRepository,
-          transactionsRefundedEventStoreRepository,
-          transactionsViewRepository,
-          transactionUtils,
-          refundRetryService,
-          deadLetterQueueAsyncClient)
       val transactionUserReceiptData =
         transactionUserReceiptData(TransactionUserReceiptData.Outcome.KO)
       val activatedEvent = transactionActivateEvent()
@@ -1256,16 +1119,6 @@ class TransactionExpirationQueueConsumerTests {
   @Test
   fun `messageReceiver should not calls refund on transaction expired in NOTIFICATION_ERROR status and send payment result outcome OK`() =
     runTest {
-      val transactionExpirationQueueConsumer =
-        TransactionExpirationQueueConsumer(
-          paymentGatewayClient,
-          transactionsEventStoreRepository,
-          transactionsExpiredEventStoreRepository,
-          transactionsRefundedEventStoreRepository,
-          transactionsViewRepository,
-          transactionUtils,
-          refundRetryService,
-          deadLetterQueueAsyncClient)
       val transactionUserReceiptData =
         transactionUserReceiptData(TransactionUserReceiptData.Outcome.OK)
       val activatedEvent = transactionActivateEvent()
@@ -1346,16 +1199,6 @@ class TransactionExpirationQueueConsumerTests {
 
   @Test
   fun `messageReceiver should not process transaction in REFUND_REQUESTED status`() = runTest {
-    val transactionExpirationQueueConsumer =
-      TransactionExpirationQueueConsumer(
-        paymentGatewayClient,
-        transactionsEventStoreRepository,
-        transactionsExpiredEventStoreRepository,
-        transactionsRefundedEventStoreRepository,
-        transactionsViewRepository,
-        transactionUtils,
-        refundRetryService,
-        deadLetterQueueAsyncClient)
     val transactionUserReceiptData =
       transactionUserReceiptData(TransactionUserReceiptData.Outcome.KO)
     val activatedEvent = transactionActivateEvent()
@@ -1423,16 +1266,6 @@ class TransactionExpirationQueueConsumerTests {
 
   @Test
   fun `messageReceiver should not process transaction in REFUND_ERROR status`() = runTest {
-    val transactionExpirationQueueConsumer =
-      TransactionExpirationQueueConsumer(
-        paymentGatewayClient,
-        transactionsEventStoreRepository,
-        transactionsExpiredEventStoreRepository,
-        transactionsRefundedEventStoreRepository,
-        transactionsViewRepository,
-        transactionUtils,
-        refundRetryService,
-        deadLetterQueueAsyncClient)
     val transactionUserReceiptData =
       transactionUserReceiptData(TransactionUserReceiptData.Outcome.KO)
     val activatedEvent = transactionActivateEvent()
@@ -1512,17 +1345,6 @@ class TransactionExpirationQueueConsumerTests {
   @Test
   fun `messageReceiver calls update transaction to CANCELLATION_EXPIRED for transaction expired in CANCELLATION_REQUESTED status`() =
     runTest {
-      val transactionExpirationQueueConsumer =
-        TransactionExpirationQueueConsumer(
-          paymentGatewayClient,
-          transactionsEventStoreRepository,
-          transactionsExpiredEventStoreRepository,
-          transactionsRefundedEventStoreRepository,
-          transactionsViewRepository,
-          transactionUtils,
-          refundRetryService,
-          deadLetterQueueAsyncClient)
-
       val activatedEvent = transactionActivateEvent()
       val cancellationRequested = transactionUserCanceledEvent()
 
@@ -1580,17 +1402,6 @@ class TransactionExpirationQueueConsumerTests {
   @Test
   fun `messageReceiver calls update transaction to CANCELLATION_EXPIRED for transaction expired in CLOSURE_ERROR coming from user cancellation`() =
     runTest {
-      val transactionExpirationQueueConsumer =
-        TransactionExpirationQueueConsumer(
-          paymentGatewayClient,
-          transactionsEventStoreRepository,
-          transactionsExpiredEventStoreRepository,
-          transactionsRefundedEventStoreRepository,
-          transactionsViewRepository,
-          transactionUtils,
-          refundRetryService,
-          deadLetterQueueAsyncClient)
-
       val activatedEvent = transactionActivateEvent()
       val cancellationRequested = transactionUserCanceledEvent()
       val closureError = transactionClosureErrorEvent()
@@ -1650,17 +1461,6 @@ class TransactionExpirationQueueConsumerTests {
   @Test
   fun `messageReceiver does nothing on a expiration event received for a transaction in CANCELLATION_EXPIRED status`() =
     runTest {
-      val transactionExpirationQueueConsumer =
-        TransactionExpirationQueueConsumer(
-          paymentGatewayClient,
-          transactionsEventStoreRepository,
-          transactionsExpiredEventStoreRepository,
-          transactionsRefundedEventStoreRepository,
-          transactionsViewRepository,
-          transactionUtils,
-          refundRetryService,
-          deadLetterQueueAsyncClient)
-
       val activatedEvent = transactionActivateEvent()
       val cancellationEvent = transactionUserCanceledEvent()
       val transactionExpiredEvent = transactionExpiredEvent(reduceEvents(activatedEvent))
@@ -1713,17 +1513,6 @@ class TransactionExpirationQueueConsumerTests {
   @Test
   fun `messageReceiver calls refund on transaction in CLOSURE_ERROR status for an authorized transaction`() =
     runTest {
-      val transactionExpirationQueueConsumer =
-        TransactionExpirationQueueConsumer(
-          paymentGatewayClient,
-          transactionsEventStoreRepository,
-          transactionsExpiredEventStoreRepository,
-          transactionsRefundedEventStoreRepository,
-          transactionsViewRepository,
-          transactionUtils,
-          refundRetryService,
-          deadLetterQueueAsyncClient)
-
       val activatedEvent = transactionActivateEvent()
       val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
       val authorizationCompletedEvent =
@@ -1816,17 +1605,6 @@ class TransactionExpirationQueueConsumerTests {
   @Test
   fun `messageReceiver calls refund on transaction in CLOSURE_ERROR status for an authorized transaction that has expired by batch`() =
     runTest {
-      val transactionExpirationQueueConsumer =
-        TransactionExpirationQueueConsumer(
-          paymentGatewayClient,
-          transactionsEventStoreRepository,
-          transactionsExpiredEventStoreRepository,
-          transactionsRefundedEventStoreRepository,
-          transactionsViewRepository,
-          transactionUtils,
-          refundRetryService,
-          deadLetterQueueAsyncClient)
-
       val activatedEvent = transactionActivateEvent()
       val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
       val authorizationCompletedEvent =
@@ -1921,17 +1699,6 @@ class TransactionExpirationQueueConsumerTests {
   @Test
   fun `messageReceiver should not calls refund on transaction in CLOSURE_ERROR status for an user canceled transaction`() =
     runTest {
-      val transactionExpirationQueueConsumer =
-        TransactionExpirationQueueConsumer(
-          paymentGatewayClient,
-          transactionsEventStoreRepository,
-          transactionsExpiredEventStoreRepository,
-          transactionsRefundedEventStoreRepository,
-          transactionsViewRepository,
-          transactionUtils,
-          refundRetryService,
-          deadLetterQueueAsyncClient)
-
       val activatedEvent = transactionActivateEvent()
       val userCanceledEvent = transactionUserCanceledEvent()
       val closureErrorEvent = transactionClosureErrorEvent()
@@ -2003,17 +1770,6 @@ class TransactionExpirationQueueConsumerTests {
   @Test
   fun `messageReceiver should not call refund on transaction in CLOSURE_ERROR status for an unauthorized transaction`() =
     runTest {
-      val transactionExpirationQueueConsumer =
-        TransactionExpirationQueueConsumer(
-          paymentGatewayClient,
-          transactionsEventStoreRepository,
-          transactionsExpiredEventStoreRepository,
-          transactionsRefundedEventStoreRepository,
-          transactionsViewRepository,
-          transactionUtils,
-          refundRetryService,
-          deadLetterQueueAsyncClient)
-
       val activatedEvent = transactionActivateEvent()
       val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
       val authorizationCompletedEvent =
@@ -2090,17 +1846,6 @@ class TransactionExpirationQueueConsumerTests {
   @Test
   fun `messageReceiver should do nothing on transaction in CLOSURE_ERROR status for an unauthorized transaction that has expired by batch`() =
     runTest {
-      val transactionExpirationQueueConsumer =
-        TransactionExpirationQueueConsumer(
-          paymentGatewayClient,
-          transactionsEventStoreRepository,
-          transactionsExpiredEventStoreRepository,
-          transactionsRefundedEventStoreRepository,
-          transactionsViewRepository,
-          transactionUtils,
-          refundRetryService,
-          deadLetterQueueAsyncClient)
-
       val activatedEvent = transactionActivateEvent()
       val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
       val authorizationCompletedEvent =
@@ -2170,17 +1915,6 @@ class TransactionExpirationQueueConsumerTests {
   @Test
   fun `messageReceiver should not perform refund for a transaction in AUTHORIZATION_COMPLETED status that with outcome KO`() =
     runTest {
-      val transactionExpirationQueueConsumer =
-        TransactionExpirationQueueConsumer(
-          paymentGatewayClient,
-          transactionsEventStoreRepository,
-          transactionsExpiredEventStoreRepository,
-          transactionsRefundedEventStoreRepository,
-          transactionsViewRepository,
-          transactionUtils,
-          refundRetryService,
-          deadLetterQueueAsyncClient)
-
       val activatedEvent = transactionActivateEvent()
       val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
       val authorizationCompletedEvent =
@@ -2251,17 +1985,6 @@ class TransactionExpirationQueueConsumerTests {
   @Test
   fun `messageReceiver should not perform refund for a transaction in AUTHORIZATION_COMPLETED status that with outcome KO expired by batch`() =
     runTest {
-      val transactionExpirationQueueConsumer =
-        TransactionExpirationQueueConsumer(
-          paymentGatewayClient,
-          transactionsEventStoreRepository,
-          transactionsExpiredEventStoreRepository,
-          transactionsRefundedEventStoreRepository,
-          transactionsViewRepository,
-          transactionUtils,
-          refundRetryService,
-          deadLetterQueueAsyncClient)
-
       val activatedEvent = transactionActivateEvent()
       val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
       val authorizationCompletedEvent =
@@ -2325,16 +2048,6 @@ class TransactionExpirationQueueConsumerTests {
   fun `messageReceiver forward event into dead letter queue for exception processing the event`() =
     runTest {
       /* preconditions */
-      val transactionExpirationQueueConsumer =
-        TransactionExpirationQueueConsumer(
-          paymentGatewayClient,
-          transactionsEventStoreRepository,
-          transactionsExpiredEventStoreRepository,
-          transactionsRefundedEventStoreRepository,
-          transactionsViewRepository,
-          transactionUtils,
-          refundRetryService,
-          deadLetterQueueAsyncClient)
 
       val activatedEvent = transactionActivateEvent()
 
@@ -2371,16 +2084,6 @@ class TransactionExpirationQueueConsumerTests {
   fun `messageReceiver processing should fail for error forward event into dead letter queue for exception processing the event`() =
     runTest {
       /* preconditions */
-      val transactionExpirationQueueConsumer =
-        TransactionExpirationQueueConsumer(
-          paymentGatewayClient,
-          transactionsEventStoreRepository,
-          transactionsExpiredEventStoreRepository,
-          transactionsRefundedEventStoreRepository,
-          transactionsViewRepository,
-          transactionUtils,
-          refundRetryService,
-          deadLetterQueueAsyncClient)
 
       val activatedEvent = transactionActivateEvent()
 
@@ -2417,17 +2120,6 @@ class TransactionExpirationQueueConsumerTests {
   @Test
   fun `messageReceiver should perform refund for a transaction in AUTHORIZATION_COMPLETED status with auth outcome OK`() =
     runTest {
-      val transactionExpirationQueueConsumer =
-        TransactionExpirationQueueConsumer(
-          paymentGatewayClient,
-          transactionsEventStoreRepository,
-          transactionsExpiredEventStoreRepository,
-          transactionsRefundedEventStoreRepository,
-          transactionsViewRepository,
-          transactionUtils,
-          refundRetryService,
-          deadLetterQueueAsyncClient)
-
       val activatedEvent = transactionActivateEvent()
       val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
       val authorizationCompletedEvent =
@@ -2520,17 +2212,6 @@ class TransactionExpirationQueueConsumerTests {
   @Test
   fun `messageReceiver should perform refund for a transaction in AUTHORIZATION_COMPLETED status with auth outcome OK expired by batch`() =
     runTest {
-      val transactionExpirationQueueConsumer =
-        TransactionExpirationQueueConsumer(
-          paymentGatewayClient,
-          transactionsEventStoreRepository,
-          transactionsExpiredEventStoreRepository,
-          transactionsRefundedEventStoreRepository,
-          transactionsViewRepository,
-          transactionUtils,
-          refundRetryService,
-          deadLetterQueueAsyncClient)
-
       val activatedEvent = transactionActivateEvent()
       val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
       val authorizationCompletedEvent =
@@ -2619,23 +2300,11 @@ class TransactionExpirationQueueConsumerTests {
   @Test
   fun `messageReceiver should perform refund for a transaction in CLOSED status with close payment response outcome KO`() =
     runTest {
-      val transactionExpirationQueueConsumer =
-        TransactionExpirationQueueConsumer(
-          paymentGatewayClient,
-          transactionsEventStoreRepository,
-          transactionsExpiredEventStoreRepository,
-          transactionsRefundedEventStoreRepository,
-          transactionsViewRepository,
-          transactionUtils,
-          refundRetryService,
-          deadLetterQueueAsyncClient)
-
       val activatedEvent = transactionActivateEvent()
       val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
       val authorizationCompletedEvent =
         transactionAuthorizationCompletedEvent(AuthorizationResultDto.OK)
       val closedEvent = transactionClosedEvent(TransactionClosureData.Outcome.KO)
-
       val gatewayClientResponse = VposDeleteResponseDto()
       gatewayClientResponse.status(VposDeleteResponseDto.StatusEnum.CANCELLED)
 
@@ -2721,17 +2390,6 @@ class TransactionExpirationQueueConsumerTests {
   @Test
   fun `messageReceiver should perform refund for a transaction in CLOSED status with close payment response outcome KO expired by batch`() =
     runTest {
-      val transactionExpirationQueueConsumer =
-        TransactionExpirationQueueConsumer(
-          paymentGatewayClient,
-          transactionsEventStoreRepository,
-          transactionsExpiredEventStoreRepository,
-          transactionsRefundedEventStoreRepository,
-          transactionsViewRepository,
-          transactionUtils,
-          refundRetryService,
-          deadLetterQueueAsyncClient)
-
       val activatedEvent = transactionActivateEvent()
       val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
       val authorizationCompletedEvent =
@@ -2820,23 +2478,13 @@ class TransactionExpirationQueueConsumerTests {
   @Test
   fun `messageReceiver should not perform refund for a transaction in CLOSED status with close payment response outcome OK`() =
     runTest {
-      val transactionExpirationQueueConsumer =
-        TransactionExpirationQueueConsumer(
-          paymentGatewayClient,
-          transactionsEventStoreRepository,
-          transactionsExpiredEventStoreRepository,
-          transactionsRefundedEventStoreRepository,
-          transactionsViewRepository,
-          transactionUtils,
-          refundRetryService,
-          deadLetterQueueAsyncClient)
-
       val activatedEvent = transactionActivateEvent()
       val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
       val authorizationCompletedEvent =
         transactionAuthorizationCompletedEvent(AuthorizationResultDto.OK)
       val closedEvent = transactionClosedEvent(TransactionClosureData.Outcome.OK)
-
+      closedEvent.creationDate =
+        ZonedDateTime.now().minus(Duration.ofSeconds(sendPaymentResultTimeout.toLong())).toString()
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
       given(
@@ -2864,6 +2512,10 @@ class TransactionExpirationQueueConsumerTests {
       given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
         Mono.just(it.arguments[0])
       }
+      given(
+          deadLetterQueueAsyncClient.sendMessageWithResponse(
+            binaryDataCaptor.capture(), visibilityTimeoutCaptor.capture(), anyOrNull()))
+        .willReturn(queueSuccessfulResponse())
 
       Hooks.onOperatorDebug()
       /* test */
@@ -2879,7 +2531,14 @@ class TransactionExpirationQueueConsumerTests {
       verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
       verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
       verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
-      verify(transactionsViewRepository, times(1)).save(any())
+      verify(deadLetterQueueAsyncClient, times(1))
+        .sendMessageWithResponse(
+          argThat<BinaryData> {
+            this.toObject(TransactionActivatedEvent::class.java).eventCode ==
+              TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
+          },
+          eq(Duration.ZERO),
+          eq(null))
       /*
        * check view update statuses and events stored into event store
        */
@@ -2900,17 +2559,6 @@ class TransactionExpirationQueueConsumerTests {
   @Test
   fun `messageReceiver should not perform refund for a transaction in CLOSED status with close payment response outcome OK expired by batch`() =
     runTest {
-      val transactionExpirationQueueConsumer =
-        TransactionExpirationQueueConsumer(
-          paymentGatewayClient,
-          transactionsEventStoreRepository,
-          transactionsExpiredEventStoreRepository,
-          transactionsRefundedEventStoreRepository,
-          transactionsViewRepository,
-          transactionUtils,
-          refundRetryService,
-          deadLetterQueueAsyncClient)
-
       val activatedEvent = transactionActivateEvent()
       val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
       val authorizationCompletedEvent =
@@ -2965,5 +2613,148 @@ class TransactionExpirationQueueConsumerTests {
       verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
       verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
       verify(transactionsViewRepository, times(0)).save(any())
+    }
+
+  @Test
+  fun `messageReceiver should enqueue expiration event to wait for send payment result to be received`() =
+    runTest {
+      val activatedEvent = transactionActivateEvent()
+      val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
+      val authorizationCompletedEvent =
+        transactionAuthorizationCompletedEvent(AuthorizationResultDto.OK)
+      val closePaymentDate = ZonedDateTime.now()
+      val closedEvent = transactionClosedEvent(TransactionClosureData.Outcome.OK)
+      closedEvent.creationDate = closePaymentDate.toString()
+      val binaryData = BinaryData.fromObject(activatedEvent)
+      val expectedRetryEventVisibilityTimeout =
+        Duration.ofSeconds(sendPaymentResultTimeout.toLong())
+      /* preconditions */
+      given(checkpointer.success()).willReturn(Mono.empty())
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            any(),
+          ))
+        .willReturn(
+          Flux.just(
+            activatedEvent as TransactionEvent<Any>,
+            authorizationRequestedEvent as TransactionEvent<Any>,
+            authorizationCompletedEvent as TransactionEvent<Any>,
+            closedEvent as TransactionEvent<Any>))
+
+      given(
+          expirationQueueAsyncClient.sendMessageWithResponse(
+            binaryDataCaptor.capture(), visibilityTimeoutCaptor.capture(), anyOrNull()))
+        .willReturn(queueSuccessfulResponse())
+
+      Hooks.onOperatorDebug()
+      /* test */
+      StepVerifier.create(
+          transactionExpirationQueueConsumer.messageReceiver(binaryData.toBytes(), checkpointer))
+        .expectNext()
+        .expectComplete()
+        .verify()
+
+      /* Asserts */
+      verify(checkpointer, times(1)).success()
+      verify(transactionsExpiredEventStoreRepository, times(0)).save(any())
+      verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
+      verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
+      verify(transactionsViewRepository, times(0)).save(any())
+      verify(expirationQueueAsyncClient, times(1))
+        .sendMessageWithResponse(
+          argThat<BinaryData> {
+            this.toObject(TransactionActivatedEvent::class.java).eventCode ==
+              TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
+          },
+          argThat<Duration> {
+            expectedRetryEventVisibilityTimeout.toSeconds() - this.toSeconds() <= 1
+          },
+          eq(null))
+    }
+
+  @Test
+  fun `messageReceiver should not perform refund for a transaction in CLOSED status with close payment response outcome OK near to send payment result expiration offset`() =
+    runTest {
+      val activatedEvent = transactionActivateEvent()
+      val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
+      val authorizationCompletedEvent =
+        transactionAuthorizationCompletedEvent(AuthorizationResultDto.OK)
+      val closedEvent = transactionClosedEvent(TransactionClosureData.Outcome.OK)
+      closedEvent.creationDate =
+        ZonedDateTime.now()
+          .minus(Duration.ofSeconds(sendPaymentResultTimeout.toLong()))
+          .plus(Duration.ofSeconds(sendPaymentResultOffset.toLong() / 2))
+          .toString()
+      /* preconditions */
+      given(checkpointer.success()).willReturn(Mono.empty())
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            any(),
+          ))
+        .willReturn(
+          Flux.just(
+            activatedEvent as TransactionEvent<Any>,
+            authorizationRequestedEvent as TransactionEvent<Any>,
+            authorizationCompletedEvent as TransactionEvent<Any>,
+            closedEvent as TransactionEvent<Any>))
+
+      given(
+          transactionsExpiredEventStoreRepository.save(
+            transactionExpiredEventStoreCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
+      given(
+          transactionsRefundedEventStoreRepository.save(
+            transactionRefundEventStoreCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
+      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturnConsecutively(
+          listOf(Mono.just(transactionDocument(TransactionStatusDto.CLOSED, ZonedDateTime.now()))))
+      given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
+        Mono.just(it.arguments[0])
+      }
+
+      given(
+          deadLetterQueueAsyncClient.sendMessageWithResponse(
+            binaryDataCaptor.capture(), visibilityTimeoutCaptor.capture(), anyOrNull()))
+        .willReturn(queueSuccessfulResponse())
+
+      Hooks.onOperatorDebug()
+      /* test */
+      StepVerifier.create(
+          transactionExpirationQueueConsumer.messageReceiver(
+            BinaryData.fromObject(activatedEvent).toBytes(), checkpointer))
+        .expectNext()
+        .expectComplete()
+        .verify()
+
+      /* Asserts */
+      verify(checkpointer, times(1)).success()
+      verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
+      verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
+      verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
+      verify(transactionsViewRepository, times(1)).save(any())
+      verify(deadLetterQueueAsyncClient, times(1))
+        .sendMessageWithResponse(
+          argThat<BinaryData> {
+            this.toObject(TransactionActivatedEvent::class.java).eventCode ==
+              TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
+          },
+          eq(Duration.ZERO),
+          eq(null))
+      /*
+       * check view update statuses and events stored into event store
+       */
+
+      val viewExpectedStatuses = listOf(TransactionStatusDto.EXPIRED)
+      viewExpectedStatuses.forEachIndexed { idx, expectedStatus ->
+        assertEquals(
+          expectedStatus,
+          transactionViewRepositoryCaptor.allValues[idx].status,
+          "Unexpected view status on idx: $idx")
+      }
+
+      val expiredEvent = transactionExpiredEventStoreCaptor.value
+      assertEquals(TransactionEventCode.TRANSACTION_EXPIRED_EVENT, expiredEvent.eventCode)
+      assertEquals(TransactionStatusDto.CLOSED, expiredEvent.data.statusBeforeExpiration)
     }
 }

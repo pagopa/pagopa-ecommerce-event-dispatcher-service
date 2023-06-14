@@ -41,6 +41,14 @@ class QueuesProducerConfig {
     return buildQueueAsyncClient(storageConnectionString, queueEventInitName)
   }
 
+  @Bean
+  fun expirationQueueAsyncClient(
+    @Value("\${azurestorage.connectionstring}") storageConnectionString: String,
+    @Value("\${azurestorage.queues.transactionexpiration.name}") queueEventInitName: String,
+  ): QueueAsyncClient {
+    return buildQueueAsyncClient(storageConnectionString, queueEventInitName)
+  }
+
   private fun buildQueueAsyncClient(storageConnectionString: String, queueName: String) =
     QueueClientBuilder()
       .connectionString(storageConnectionString)

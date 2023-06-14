@@ -11,9 +11,12 @@ import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryService
+import java.time.Duration
+import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.integration.annotation.ServiceActivator
 import org.springframework.messaging.handler.annotation.Header
 import org.springframework.messaging.handler.annotation.Payload
@@ -38,18 +41,17 @@ class TransactionExpirationQueueConsumer(
   @Autowired private val transactionsViewRepository: TransactionsViewRepository,
   @Autowired private val transactionUtils: TransactionUtils,
   @Autowired private val refundRetryService: RefundRetryService,
-  @Autowired private val deadLetterQueueAsyncClient: QueueAsyncClient
+  @Autowired private val deadLetterQueueAsyncClient: QueueAsyncClient,
+  @Autowired private val expirationQueueAsyncClient: QueueAsyncClient,
+  @Value("\${sendPaymentResult.timeoutSeconds}") private val sendPaymentResultTimeoutSeconds: Int,
+  @Value("\${sendPaymentResult.expirationOffset}")
+  private val sendPaymentResultTimeoutOffsetSeconds: Int,
 ) {
 
   var logger: Logger = LoggerFactory.getLogger(TransactionExpirationQueueConsumer::class.java)
 
-  private fun getTransactionIdFromPayload(data: BinaryData): Mono<String> {
-    val idFromActivatedEvent =
-      data.toObjectAsync(TransactionActivatedEvent::class.java).map { it.transactionId }
-    val idFromClosedEvent =
-      data.toObjectAsync(TransactionClosedEvent::class.java).map { it.transactionId }
-
-    return Mono.firstWithValue(idFromActivatedEvent, idFromClosedEvent)
+  private fun getTransactionIdFromPayload(data: BinaryData): String {
+    return data.toObject(TransactionActivatedEvent::class.java).transactionId
   }
 
   @ServiceActivator(inputChannel = "transactionexpiredchannel", outputChannel = "nullChannel")
@@ -59,7 +61,9 @@ class TransactionExpirationQueueConsumer(
   ): Mono<Void> {
     val binaryData = BinaryData.fromBytes(payload)
     val transactionId = getTransactionIdFromPayload(binaryData)
-    val baseTransaction = reduceEvents(transactionId, transactionsEventStoreRepository)
+    val events =
+      transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(transactionId)
+    val baseTransaction = reduceEvents(events)
     val refundPipeline =
       baseTransaction
         .filter {
@@ -67,6 +71,40 @@ class TransactionExpirationQueueConsumer(
           logger.info(
             "Transaction ${it.transactionId.value()} in status ${it.status}, is transient: $isTransient")
           isTransient
+        }
+        .filterWhen {
+          val sendPaymentResultTimeLeft =
+            timeLeftForSendPaymentResult(it, sendPaymentResultTimeoutSeconds, events)
+          sendPaymentResultTimeLeft
+            .flatMap { timeLeft ->
+              val sendPaymentResultOffset =
+                Duration.ofSeconds(sendPaymentResultTimeoutOffsetSeconds.toLong())
+              val expired = timeLeft < sendPaymentResultOffset
+              logger.info(
+                "Time left for send payment result: $timeLeft, timeout offset: $sendPaymentResultOffset  --> expired: $expired")
+              if (expired) {
+                logger.error(
+                  "No send payment result received on time! Transaction will be expired.")
+                deadLetterQueueAsyncClient
+                  .sendMessageWithResponse(
+                    binaryData,
+                    Duration.ZERO,
+                    null,
+                  )
+                  .thenReturn(true)
+              } else {
+                logger.info(
+                  "Transaction still waiting for send payment result outcome, expiration event sent with visibility timeout: $timeLeft")
+                expirationQueueAsyncClient
+                  .sendMessageWithResponse(
+                    binaryData,
+                    timeLeft,
+                    null,
+                  )
+                  .thenReturn(false)
+              }
+            }
+            .switchIfEmpty(mono { true })
         }
         .flatMap { tx ->
           val isTransactionExpired = isTransactionExpired(tx)
