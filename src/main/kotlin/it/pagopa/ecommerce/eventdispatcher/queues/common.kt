@@ -3,6 +3,12 @@ package it.pagopa.ecommerce.eventdispatcher.queues
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
+import io.opentelemetry.api.OpenTelemetry
+import io.opentelemetry.api.trace.Span
+import io.opentelemetry.api.trace.SpanKind
+import io.opentelemetry.api.trace.Tracer
+import io.opentelemetry.context.Context
+import io.opentelemetry.context.propagation.TextMapGetter
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
@@ -25,6 +31,7 @@ import java.time.ZonedDateTime
 import java.util.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import org.springframework.messaging.MessageHeaders
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
@@ -441,37 +448,89 @@ fun <T> runPipelineWithDeadLetterQueue(
   pipeline: Mono<T>,
   eventPayload: ByteArray,
   deadLetterQueueAsyncClient: QueueAsyncClient,
-  deadLetterQueueTTLSeconds: Int
+  deadLetterQueueTTLSeconds: Int,
+  openTelemetry: OpenTelemetry? = null,
+  headers: MessageHeaders? = null,
+  tracer: Tracer? = null,
+  spanName: String? = null
 ): Mono<Void> {
+  fun createSpanWithRemoteTracingContext(): Span? {
+    if (openTelemetry != null && headers != null && tracer != null && spanName != null) {
+      logger.info("Creating new span with remote context")
+
+      val extractedContext =
+        openTelemetry.propagators.textMapPropagator.extract(
+          Context.current(),
+          headers,
+          object : TextMapGetter<MessageHeaders> {
+            override fun keys(headers: MessageHeaders): Iterable<String> = headers.keys
+
+            override fun get(headers: MessageHeaders?, key: String): String? =
+              headers?.get(key, String::class.java)
+          })
+
+      extractedContext.makeCurrent()
+      return tracer.spanBuilder(spanName).setSpanKind(SpanKind.CONSUMER).startSpan()
+    }
+
+    return null
+  }
+
   // parse the event as a TransactionActivatedEvent just to extract transactionId and event code
   val binaryData = BinaryData.fromBytes(eventPayload)
   val event = binaryData.toObject(TransactionActivatedEvent::class.java)
   val eventLogString = "${event.eventCode}, transactionId: ${event.transactionId}"
-  return checkPointer
-    .success()
-    .doOnSuccess { logger.info("Checkpoint performed successfully for event $eventLogString") }
-    .doOnError { logger.error("Error performing checkpoint for event $eventLogString", it) }
-    .then(pipeline)
-    .then()
-    .onErrorResume { pipelineException ->
-      logger.error("Exception processing event $eventLogString", pipelineException)
-      deadLetterQueueAsyncClient
-        .sendMessageWithResponse(
-          binaryData,
-          Duration.ZERO,
-          Duration.ofSeconds(deadLetterQueueTTLSeconds.toLong()), // timeToLive
-        )
-        .doOnNext {
+
+  val deadLetterPipeline =
+    checkPointer
+      .success()
+      .doOnSuccess { logger.info("Checkpoint performed successfully for event $eventLogString") }
+      .doOnError { logger.error("Error performing checkpoint for event $eventLogString", it) }
+      .then(pipeline)
+      .then()
+      .onErrorResume { pipelineException ->
+        logger.error("Exception processing event $eventLogString", pipelineException)
+        deadLetterQueueAsyncClient
+          .sendMessageWithResponse(
+            binaryData,
+            Duration.ZERO,
+            Duration.ofSeconds(deadLetterQueueTTLSeconds.toLong()), // timeToLive
+          )
+          .doOnNext {
+            logger.info(
+              "Event: [${eventPayload.toString(StandardCharsets.UTF_8)}] successfully sent with visibility timeout: [${it.value.timeNextVisible}] ms to queue: [${deadLetterQueueAsyncClient.queueName}]")
+          }
+          .doOnError { queueException ->
+            logger.error(
+              "Error sending event: [${eventPayload.toString(StandardCharsets.UTF_8)}] to dead letter queue.",
+              queueException)
+          }
+          .then()
+      }
+
+  logger.info(
+    "Tracing preconditions: `openTelemetry != null`: {}, `headers != null`: {}, `tracer != null`: {}, `spanName != null` {}",
+    openTelemetry != null,
+    headers != null,
+    tracer != null,
+    spanName != null)
+  return if (openTelemetry != null && headers != null && tracer != null && spanName != null) {
+    val tracedDeadLetterPipeline =
+      Mono.usingWhen(
+        Mono.just(createSpanWithRemoteTracingContext()!!),
+        {
           logger.info(
-            "Event: [${eventPayload.toString(StandardCharsets.UTF_8)}] successfully sent with visibility timeout: [${it.value.timeNextVisible}] ms to queue: [${deadLetterQueueAsyncClient.queueName}]")
-        }
-        .doOnError { queueException ->
-          logger.error(
-            "Error sending event: [${eventPayload.toString(StandardCharsets.UTF_8)}] to dead letter queue.",
-            queueException)
-        }
-        .then()
-    }
+            "Extending remote transaction with trace id: ${it.spanContext.traceId} span id: ${it.spanContext.spanId} context: ${it.spanContext.traceState.asMap()}")
+          deadLetterPipeline
+        },
+        {
+          return@usingWhen Mono.fromRunnable<Void> { it.end() }
+        })
+
+    tracedDeadLetterPipeline
+  } else {
+    deadLetterPipeline
+  }
 }
 
 fun getClosePaymentOutcome(tx: BaseTransaction): TransactionClosureData.Outcome? =

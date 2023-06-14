@@ -4,6 +4,8 @@ import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
+import io.opentelemetry.api.OpenTelemetry
+import io.opentelemetry.api.trace.Tracer
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.TransactionWithClosureError
 import it.pagopa.ecommerce.commons.utils.v1.TransactionUtils
@@ -17,7 +19,9 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.integration.annotation.ServiceActivator
+import org.springframework.messaging.MessageHeaders
 import org.springframework.messaging.handler.annotation.Header
+import org.springframework.messaging.handler.annotation.Headers
 import org.springframework.messaging.handler.annotation.Payload
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
@@ -47,7 +51,10 @@ class TransactionExpirationQueueConsumer(
   private val sendPaymentResultTimeoutOffsetSeconds: Int,
   @Value("\${azurestorage.queues.transientQueues.ttlSeconds}")
   private val transientQueueTTLSeconds: Int,
-  @Value("\${azurestorage.queues.deadLetterQueue.ttlSeconds}") private val deadLetterTTLSeconds: Int
+  @Value("\${azurestorage.queues.deadLetterQueue.ttlSeconds}")
+  private val deadLetterTTLSeconds: Int,
+  @Autowired private val openTelemetry: OpenTelemetry,
+  @Autowired private val tracer: Tracer
 ) {
 
   var logger: Logger = LoggerFactory.getLogger(TransactionExpirationQueueConsumer::class.java)
@@ -59,7 +66,8 @@ class TransactionExpirationQueueConsumer(
   @ServiceActivator(inputChannel = "transactionexpiredchannel", outputChannel = "nullChannel")
   fun messageReceiver(
     @Payload payload: ByteArray,
-    @Header(AzureHeaders.CHECKPOINTER) checkPointer: Checkpointer
+    @Header(AzureHeaders.CHECKPOINTER) checkPointer: Checkpointer,
+    @Headers headers: MessageHeaders
   ): Mono<Void> {
     val binaryData = BinaryData.fromBytes(payload)
     val transactionId = getTransactionIdFromPayload(binaryData)
@@ -144,6 +152,14 @@ class TransactionExpirationQueueConsumer(
         }
 
     return runPipelineWithDeadLetterQueue(
-      checkPointer, refundPipeline, payload, deadLetterQueueAsyncClient, deadLetterTTLSeconds)
+      checkPointer,
+      refundPipeline,
+      payload,
+      deadLetterQueueAsyncClient,
+      deadLetterTTLSeconds,
+      openTelemetry,
+      headers,
+      tracer,
+      this::class.simpleName!!)
   }
 }
