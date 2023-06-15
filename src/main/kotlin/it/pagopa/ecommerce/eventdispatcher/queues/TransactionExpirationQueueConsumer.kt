@@ -12,7 +12,6 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRe
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryService
 import java.time.Duration
-import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -104,7 +103,7 @@ class TransactionExpirationQueueConsumer(
                   .thenReturn(false)
               }
             }
-            .switchIfEmpty(mono { true })
+            .switchIfEmpty(Mono.just(true))
         }
         .flatMap { tx ->
           val isTransactionExpired = isTransactionExpired(tx)
