@@ -2673,7 +2673,7 @@ class TransactionExpirationQueueConsumerTests {
     }
 
   @Test
-  fun `messageReceiver should not perform refund for a transaction in CLOSED status with close payment response outcome OK near to send payment result expiration offset`() =
+  fun `messageReceiver should not perform refund for a transaction in CLOSED status with closePayment authorization outcome OK near sendPaymentResult expiration offset`() =
     runTest {
       val activatedEvent = transactionActivateEvent()
       val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
