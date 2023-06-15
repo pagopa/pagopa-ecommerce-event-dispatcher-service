@@ -51,6 +51,8 @@ microservice-chart:
       ELASTIC_APM_APPLICATION_PACKAGES: it.pagopa.ecommerce.eventdispatcher
       ELASTIC_APM_SERVER_URL: http://quickstart-apm-http.elastic-system.svc:8200
       ELASTIC_APM_LOG_SENDING: "true"
+      SEND_PAYMENT_RESULT_TIMEOUT_SECONDS: "3900"
+      SEND_PAYMENT_RESULT_EXPIRATION_OFFSET_SECONDS: "5"
     envSecret:
       ECOMMERCE_STORAGE_QUEUE_KEY: ecommerce-storage-account-key
       MONGO_PASSWORD: mongo-ecommerce-password
@@ -158,6 +160,8 @@ microservice-chart:
     ELASTIC_APM_APPLICATION_PACKAGES: it.pagopa.ecommerce.eventdispatcher
     ELASTIC_APM_SERVER_URL: http://quickstart-apm-http.elastic-system.svc:8200
     ELASTIC_APM_LOG_SENDING: "true"
+    SEND_PAYMENT_RESULT_TIMEOUT_SECONDS: "3900"
+    SEND_PAYMENT_RESULT_EXPIRATION_OFFSET_SECONDS: "5"
   envSecret:
     ECOMMERCE_STORAGE_QUEUE_KEY: ecommerce-storage-account-key
     MONGO_PASSWORD: mongo-ecommerce-password

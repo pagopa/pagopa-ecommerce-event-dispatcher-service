@@ -5,6 +5,7 @@ import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
+import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
 import it.pagopa.ecommerce.commons.domain.v1.TransactionWithClosureError
 import it.pagopa.ecommerce.commons.domain.v1.pojos.*
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
@@ -19,9 +20,11 @@ import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto.Status
 import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
 import java.nio.charset.StandardCharsets
 import java.time.Duration
+import java.time.ZonedDateTime
 import java.util.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
 object QueueCommonsLogger {
@@ -338,8 +341,16 @@ fun reduceEvents(
   transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,
   emptyTransaction: EmptyTransaction
 ) =
-  transactionId
-    .flatMapMany { transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(it) }
+  reduceEvents(
+    transactionId.flatMapMany {
+      transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(it)
+    },
+    emptyTransaction)
+
+fun <T> reduceEvents(events: Flux<TransactionEvent<T>>) = reduceEvents(events, EmptyTransaction())
+
+fun <T> reduceEvents(events: Flux<TransactionEvent<T>>, emptyTransaction: EmptyTransaction) =
+  events
     .reduce(emptyTransaction, it.pagopa.ecommerce.commons.domain.v1.Transaction::applyEvent)
     .cast(BaseTransaction::class.java)
 
@@ -461,3 +472,29 @@ fun getClosePaymentOutcome(tx: BaseTransaction): TransactionClosureData.Outcome?
 
 fun wasClosePaymentResponseOutcomeKo(tx: BaseTransaction) =
   getClosePaymentOutcome(tx) == TransactionClosureData.Outcome.KO
+
+fun <T> timeLeftForSendPaymentResult(
+  tx: BaseTransaction,
+  sendPaymentResultTimeoutSeconds: Int,
+  events: Flux<TransactionEvent<T>>
+): Mono<Duration> {
+  val timeout = Duration.ofSeconds(sendPaymentResultTimeoutSeconds.toLong())
+  val transactionStatus = tx.status
+  return if (transactionStatus == TransactionStatusDto.CLOSED) {
+    events
+      .filter {
+        it.eventCode == TransactionEventCode.TRANSACTION_CLOSED_EVENT &&
+          (it as TransactionClosedEvent).data.responseOutcome == TransactionClosureData.Outcome.OK
+      }
+      .next()
+      .map {
+        val closePaymentDate = ZonedDateTime.parse(it.creationDate)
+        val now = ZonedDateTime.now()
+        val timeLeft = Duration.between(now, closePaymentDate.plus(timeout))
+        logger.info("Transaction close payment done at: $closePaymentDate, time left: $timeLeft")
+        return@map timeLeft
+      }
+  } else {
+    Mono.empty()
+  }
+}
