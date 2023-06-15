@@ -93,7 +93,7 @@ class TransactionExpirationQueueConsumer(
                   .thenReturn(true)
               } else {
                 logger.info(
-                  "Transaction still waiting for send payment result outcome, expiration event sent with visibility timeout: $timeLeft")
+                  "Transaction still waiting for sendPaymentResult outcome, expiration event sent with visibility timeout: $timeLeft")
                 expirationQueueAsyncClient
                   .sendMessageWithResponse(
                     binaryData,
