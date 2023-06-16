@@ -659,4 +659,68 @@ class TransactionNotificationsQueueConsumerTest {
           .payee
           .name)
     }
+
+  @Test
+  fun `Should not process event for transaction with invalid send payment result outcome`() =
+    runTest {
+      val transactionUserReceiptData =
+        transactionUserReceiptData(TransactionUserReceiptData.Outcome.NOT_RECEIVED)
+      val notificationRequested = transactionUserReceiptRequestedEvent(transactionUserReceiptData)
+      val events =
+        listOf(
+          transactionActivateEvent(),
+          transactionAuthorizationRequestedEvent(),
+          transactionAuthorizationCompletedEvent(),
+          transactionClosedEvent(TransactionClosureData.Outcome.OK),
+          notificationRequested)
+          as List<TransactionEvent<Any>>
+      val baseTransaction =
+        reduceEvents(*events.toTypedArray()) as BaseTransactionWithRequestedUserReceipt
+      val transactionId = TRANSACTION_ID
+      val document =
+        transactionDocument(TransactionStatusDto.NOTIFICATION_REQUESTED, ZonedDateTime.now())
+      Hooks.onOperatorDebug()
+      given(checkpointer.success()).willReturn(Mono.empty())
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
+        .willReturn(Flux.fromIterable(events))
+      given(userReceiptMailBuilder.buildNotificationEmailRequestDto(baseTransaction))
+        .willReturn(NotificationEmailRequestDto())
+      given(notificationsServiceClient.sendNotificationEmail(any()))
+        .willReturn(Mono.just(NotificationEmailResponseDto().apply { outcome = "OK" }))
+      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturn(Mono.just(document))
+      given(transactionsViewRepository.save(capture(transactionViewRepositoryCaptor))).willAnswer {
+        Mono.just(it.arguments[0])
+      }
+      given(transactionUserReceiptRepository.save(capture(transactionUserReceiptCaptor)))
+        .willAnswer { Mono.just(it.arguments[0]) }
+      given(notificationRetryService.enqueueRetryEvent(any(), capture(retryCountCaptor)))
+        .willReturn(Mono.empty())
+      StepVerifier.create(
+          transactionNotificationsRetryQueueConsumer.messageReceiver(
+            BinaryData.fromObject(notificationRequested).toBytes(), checkpointer))
+        .expectNext()
+        .verifyComplete()
+      verify(checkpointer, times(1)).success()
+      verify(transactionsEventStoreRepository, times(1))
+        .findByTransactionIdOrderByCreationDateAsc(transactionId)
+      verify(notificationsServiceClient, times(1)).sendNotificationEmail(any())
+      verify(notificationRetryService, times(1)).enqueueRetryEvent(any(), any())
+      verify(transactionsViewRepository, times(1)).save(any())
+      verify(transactionRefundRepository, times(0)).save(any())
+      verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
+      verify(transactionUserReceiptRepository, times(1)).save(any())
+      verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any())
+      verify(userReceiptMailBuilder, times(1)).buildNotificationEmailRequestDto(baseTransaction)
+
+      assertEquals(0, retryCountCaptor.value)
+      assertEquals(
+        TransactionEventCode.TRANSACTION_ADD_USER_RECEIPT_ERROR_EVENT,
+        transactionUserReceiptCaptor.value.eventCode)
+      assertEquals(transactionUserReceiptData, transactionUserReceiptCaptor.value.data)
+      assertEquals(
+        TransactionStatusDto.NOTIFICATION_ERROR, transactionViewRepositoryCaptor.value.status)
+    }
 }

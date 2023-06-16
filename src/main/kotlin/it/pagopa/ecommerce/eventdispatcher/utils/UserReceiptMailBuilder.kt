@@ -42,6 +42,9 @@ class UserReceiptMailBuilder(@Autowired private val confidentialMailUtils: Confi
               .templateId(NotificationsServiceClient.KoTemplateRequest.TEMPLATE_ID)
               .parameters(koMail.templateParameters)
           }
+        else ->
+          throw RuntimeException(
+            "Unexpected transaction user receipt data response outcome ${baseTransactionWithRequestedUserReceipt.transactionUserReceiptData.responseOutcome} for transaction with id: ${baseTransactionWithRequestedUserReceipt.transactionId.value()}")
       }
     }
   }
