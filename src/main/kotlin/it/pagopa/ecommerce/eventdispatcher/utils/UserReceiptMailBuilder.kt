@@ -44,7 +44,7 @@ class UserReceiptMailBuilder(@Autowired private val confidentialMailUtils: Confi
           }
         else ->
           throw RuntimeException(
-            "Unexpected transaction user receipt data ${baseTransactionWithRequestedUserReceipt.transactionUserReceiptData.responseOutcome} for transaction with id: ${baseTransactionWithRequestedUserReceipt.transactionId.value()}")
+            "Unexpected transaction user receipt data response outcome ${baseTransactionWithRequestedUserReceipt.transactionUserReceiptData.responseOutcome} for transaction with id: ${baseTransactionWithRequestedUserReceipt.transactionId.value()}")
       }
     }
   }

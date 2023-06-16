@@ -365,7 +365,7 @@ fun updateNotifiedTransactionStatus(
       TransactionUserReceiptData.Outcome.KO -> TransactionStatusDto.NOTIFIED_KO
       else ->
         throw RuntimeException(
-          "Unexpected transaction user receipt data ${transaction.transactionUserReceiptData.responseOutcome} for transaction with id: ${transaction.transactionId.value()}")
+          "Unexpected transaction user receipt data response outcome ${transaction.transactionUserReceiptData.responseOutcome} for transaction with id: ${transaction.transactionId.value()}")
     }
   val event =
     TransactionUserReceiptAddedEvent(
