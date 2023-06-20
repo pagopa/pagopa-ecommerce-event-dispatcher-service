@@ -21,6 +21,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.mockito.kotlin.any
 import org.mockito.kotlin.given
 import org.mockito.kotlin.mock
@@ -273,6 +274,60 @@ class UserReceiptMailBuilderTest {
       assertEquals(
         objectMapper.writeValueAsString(expected),
         objectMapper.writeValueAsString(notificationEmailRequest))
+    }
+
+  @Test
+  fun `Should throw exception for notified transaction with invalid send payment result outcome`() =
+    runTest {
+      /*
+       * Prerequisites
+       */
+      given(confidentialMailUtils.toEmail(any()))
+        .willReturn(Email(TransactionTestUtils.EMAIL_STRING))
+      val events =
+        listOf<TransactionEvent<*>>(
+          TransactionTestUtils.transactionActivateEvent() as TransactionEvent<*>,
+          TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<*>,
+          TransactionTestUtils.transactionAuthorizationCompletedEvent(AuthorizationResultDto.OK)
+            as TransactionEvent<*>,
+          TransactionTestUtils.transactionClosedEvent(TransactionClosureData.Outcome.OK)
+            as TransactionEvent<*>,
+          TransactionTestUtils.transactionUserReceiptRequestedEvent(
+            TransactionTestUtils.transactionUserReceiptData(
+              TransactionUserReceiptData.Outcome.NOT_RECEIVED)),
+        )
+      val baseTransaction =
+        TransactionTestUtils.reduceEvents(*events.toTypedArray())
+          as BaseTransactionWithRequestedUserReceipt
+      val amountString =
+        userReceiptMailBuilder.amountToHumanReadableString(
+          baseTransaction.paymentNotices
+            .map { it.transactionAmount.value }
+            .reduce { a, b -> a + b })
+      val dateString =
+        userReceiptMailBuilder.dateTimeToHumanReadableString(
+          baseTransaction.creationDate, Locale.forLanguageTag(TransactionTestUtils.LANGUAGE))
+      val koTemplateRequest =
+        NotificationsServiceClient.KoTemplateRequest(
+          TransactionTestUtils.EMAIL_STRING,
+          "Il pagamento non è riuscito",
+          TransactionTestUtils.LANGUAGE,
+          KoTemplate(
+            it.pagopa.generated.notifications.templates.ko.TransactionTemplate(
+              baseTransaction.transactionId.value(), dateString, amountString)))
+      val expected =
+        NotificationEmailRequestDto()
+          .language(koTemplateRequest.language)
+          .subject(koTemplateRequest.subject)
+          .to(koTemplateRequest.to)
+          .templateId(NotificationsServiceClient.KoTemplateRequest.TEMPLATE_ID)
+          .parameters(koTemplateRequest.templateParameters)
+      /*
+       * Test
+       */
+      assertThrows<RuntimeException> {
+        userReceiptMailBuilder.buildNotificationEmailRequestDto(baseTransaction)
+      }
     }
 
   @Test
