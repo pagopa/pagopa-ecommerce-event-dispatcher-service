@@ -59,7 +59,7 @@ class NotificationRetryServiceTests {
       maxAttempts = maxAttempts,
       viewRepository = transactionsViewRepository,
       eventStoreRepository = eventStoreRepository,
-      transientQueuesTTLMinutes = TRANSIENT_QUEUE_TTL_MINUTES)
+      transientQueuesTTLSeconds = TRANSIENT_QUEUE_TTL_MINUTES)
 
   @Test
   fun `Should enqueue new notification retry event for left remaining attempts`() {
@@ -104,7 +104,7 @@ class NotificationRetryServiceTests {
     verify(transactionsViewRepository, times(1)).save(any())
     verify(notificationRetryQueueAsyncClient, times(1))
       .sendMessageWithResponse(
-        any<BinaryData>(), any(), eq(Duration.ofMinutes(TRANSIENT_QUEUE_TTL_MINUTES.toLong())))
+        any<BinaryData>(), any(), eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_MINUTES.toLong())))
     val savedEvent = eventStoreCaptor.value
     val savedView = viewRepositoryCaptor.value
     val eventSentOnQueue =
@@ -155,7 +155,7 @@ class NotificationRetryServiceTests {
     verify(transactionsViewRepository, times(1)).save(any())
     verify(notificationRetryQueueAsyncClient, times(1))
       .sendMessageWithResponse(
-        any<BinaryData>(), any(), eq(Duration.ofMinutes(TRANSIENT_QUEUE_TTL_MINUTES.toLong())))
+        any<BinaryData>(), any(), eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_MINUTES.toLong())))
     val savedEvent = eventStoreCaptor.value
     val savedView = viewRepositoryCaptor.value
     val eventSentOnQueue =
@@ -207,7 +207,7 @@ class NotificationRetryServiceTests {
     verify(transactionsViewRepository, times(0)).save(any())
     verify(notificationRetryQueueAsyncClient, times(0))
       .sendMessageWithResponse(
-        any<BinaryData>(), any(), eq(Duration.ofMinutes(TRANSIENT_QUEUE_TTL_MINUTES.toLong())))
+        any<BinaryData>(), any(), eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_MINUTES.toLong())))
   }
 
   @Test
@@ -251,7 +251,7 @@ class NotificationRetryServiceTests {
     verify(transactionsViewRepository, times(0)).save(any())
     verify(notificationRetryQueueAsyncClient, times(0))
       .sendMessageWithResponse(
-        any<BinaryData>(), any(), eq(Duration.ofMinutes(TRANSIENT_QUEUE_TTL_MINUTES.toLong())))
+        any<BinaryData>(), any(), eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_MINUTES.toLong())))
   }
 
   @Test
@@ -293,7 +293,7 @@ class NotificationRetryServiceTests {
     verify(transactionsViewRepository, times(0)).save(any())
     verify(notificationRetryQueueAsyncClient, times(0))
       .sendMessageWithResponse(
-        any<BinaryData>(), any(), eq(Duration.ofMinutes(TRANSIENT_QUEUE_TTL_MINUTES.toLong())))
+        any<BinaryData>(), any(), eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_MINUTES.toLong())))
   }
 
   @Test
@@ -337,7 +337,7 @@ class NotificationRetryServiceTests {
     verify(transactionsViewRepository, times(1)).save(any())
     verify(notificationRetryQueueAsyncClient, times(0))
       .sendMessageWithResponse(
-        any<BinaryData>(), any(), eq(Duration.ofMinutes(TRANSIENT_QUEUE_TTL_MINUTES.toLong())))
+        any<BinaryData>(), any(), eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_MINUTES.toLong())))
   }
 
   private fun queueSuccessfulResponse(): Mono<Response<SendMessageResult>> {

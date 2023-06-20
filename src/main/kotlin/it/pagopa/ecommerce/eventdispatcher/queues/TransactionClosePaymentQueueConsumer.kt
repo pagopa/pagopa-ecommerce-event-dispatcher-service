@@ -41,7 +41,7 @@ class TransactionClosePaymentQueueConsumer(
   @Autowired private val nodeService: NodeService,
   @Autowired private val closureRetryService: ClosureRetryService,
   @Autowired private val deadLetterQueueAsyncClient: QueueAsyncClient,
-  @Value("\${azurestorage.queues.deadLetterQueue.ttlMinutes}") private val deadLetterTTLMinutes: Int
+  @Value("\${azurestorage.queues.deadLetterQueue.ttlSeconds}") private val deadLetterTTLSeconds: Int
 ) {
   var logger: Logger = LoggerFactory.getLogger(TransactionClosePaymentQueueConsumer::class.java)
 
@@ -123,7 +123,7 @@ class TransactionClosePaymentQueueConsumer(
         .then()
 
     return runPipelineWithDeadLetterQueue(
-      checkPointer, closurePipeline, payload, deadLetterQueueAsyncClient, deadLetterTTLMinutes)
+      checkPointer, closurePipeline, payload, deadLetterQueueAsyncClient, deadLetterTTLSeconds)
   }
 
   private fun updateTransactionStatus(

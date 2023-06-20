@@ -47,7 +47,7 @@ class TransactionNotificationsRetryQueueConsumer(
   @Autowired private val userReceiptMailBuilder: UserReceiptMailBuilder,
   @Autowired private val notificationsServiceClient: NotificationsServiceClient,
   @Autowired private val deadLetterQueueAsyncClient: QueueAsyncClient,
-  @Value("\${azurestorage.queues.deadLetterQueue.ttlMinutes}") private val deadLetterTTLMinutes: Int
+  @Value("\${azurestorage.queues.deadLetterQueue.ttlSeconds}") private val deadLetterTTLSeconds: Int
 ) {
   var logger: Logger =
     LoggerFactory.getLogger(TransactionNotificationsRetryQueueConsumer::class.java)
@@ -138,6 +138,6 @@ class TransactionNotificationsRetryQueueConsumer(
       notificationResendPipeline,
       payload,
       deadLetterQueueAsyncClient,
-      deadLetterTTLMinutes)
+      deadLetterTTLSeconds)
   }
 }

@@ -434,7 +434,7 @@ fun <T> runPipelineWithDeadLetterQueue(
   pipeline: Mono<T>,
   eventPayload: ByteArray,
   deadLetterQueueAsyncClient: QueueAsyncClient,
-  deadLetterQueueTTLMinutes: Int
+  deadLetterQueueTTLSeconds: Int
 ): Mono<Void> {
   // parse the event as a TransactionActivatedEvent just to extract transactionId and event code
   val binaryData = BinaryData.fromBytes(eventPayload)
@@ -452,7 +452,7 @@ fun <T> runPipelineWithDeadLetterQueue(
         .sendMessageWithResponse(
           binaryData,
           Duration.ZERO,
-          Duration.ofMinutes(deadLetterQueueTTLMinutes.toLong()), // timeToLive
+          Duration.ofSeconds(deadLetterQueueTTLSeconds.toLong()), // timeToLive
         )
         .doOnNext {
           logger.info(

@@ -45,7 +45,7 @@ class TransactionNotificationsQueueConsumer(
   @Autowired private val paymentGatewayClient: PaymentGatewayClient,
   @Autowired private val refundRetryService: RefundRetryService,
   @Autowired private val deadLetterQueueAsyncClient: QueueAsyncClient,
-  @Value("\${azurestorage.queues.deadLetterQueue.ttlMinutes}") private val deadLetterTTLMinutes: Int
+  @Value("\${azurestorage.queues.deadLetterQueue.ttlSeconds}") private val deadLetterTTLSeconds: Int
 ) {
   var logger: Logger = LoggerFactory.getLogger(TransactionNotificationsQueueConsumer::class.java)
 
@@ -118,6 +118,6 @@ class TransactionNotificationsQueueConsumer(
       notificationResendPipeline,
       payload,
       deadLetterQueueAsyncClient,
-      deadLetterTTLMinutes)
+      deadLetterTTLSeconds)
   }
 }

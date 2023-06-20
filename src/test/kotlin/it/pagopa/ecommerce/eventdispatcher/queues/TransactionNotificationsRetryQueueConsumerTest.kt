@@ -16,7 +16,7 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRe
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.NotificationRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryService
-import it.pagopa.ecommerce.eventdispatcher.utils.DEAD_LETTER_QUEUE_TTL_MINUTES
+import it.pagopa.ecommerce.eventdispatcher.utils.DEAD_LETTER_QUEUE_TTL_SECONDS
 import it.pagopa.ecommerce.eventdispatcher.utils.UserReceiptMailBuilder
 import it.pagopa.ecommerce.eventdispatcher.utils.queueSuccessfulResponse
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
@@ -92,7 +92,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
       userReceiptMailBuilder = userReceiptMailBuilder,
       notificationsServiceClient = notificationsServiceClient,
       deadLetterQueueAsyncClient = deadLetterQueueAsyncClient,
-      deadLetterTTLMinutes = DEAD_LETTER_QUEUE_TTL_MINUTES)
+      deadLetterTTLSeconds = DEAD_LETTER_QUEUE_TTL_SECONDS)
 
   @Test
   fun `Should successfully retry send user email for send payment result outcome OK`() = runTest {
@@ -693,6 +693,6 @@ class TransactionNotificationsRetryQueueConsumerTest {
             TransactionEventCode.TRANSACTION_ADD_USER_RECEIPT_ERROR_EVENT
         },
         eq(Duration.ZERO),
-        eq(Duration.ofMinutes(DEAD_LETTER_QUEUE_TTL_MINUTES.toLong())))
+        eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
   }
 }

@@ -38,7 +38,7 @@ class TransactionRefundRetryQueueConsumer(
   @Autowired private val transactionsViewRepository: TransactionsViewRepository,
   @Autowired private val refundRetryService: RefundRetryService,
   @Autowired private val deadLetterQueueAsyncClient: QueueAsyncClient,
-  @Value("\${azurestorage.queues.deadLetterQueue.ttlMinutes}") private val deadLetterTTLMinutes: Int
+  @Value("\${azurestorage.queues.deadLetterQueue.ttlSeconds}") private val deadLetterTTLSeconds: Int
 ) {
 
   var logger: Logger = LoggerFactory.getLogger(TransactionRefundRetryQueueConsumer::class.java)
@@ -89,6 +89,6 @@ class TransactionRefundRetryQueueConsumer(
           }
         }
     return runPipelineWithDeadLetterQueue(
-      checkPointer, refundPipeline, payload, deadLetterQueueAsyncClient, deadLetterTTLMinutes)
+      checkPointer, refundPipeline, payload, deadLetterQueueAsyncClient, deadLetterTTLSeconds)
   }
 }

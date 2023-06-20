@@ -63,7 +63,7 @@ class ClosureRetryServiceTests {
       viewRepository = transactionsViewRepository,
       eventStoreRepository = eventStoreRepository,
       paymentTokenValidityTimeOffset = paymentTokenValidityTimeOffset,
-      transientQueuesTTLMinutes = TRANSIENT_QUEUE_TTL_MINUTES)
+      transientQueuesTTLSeconds = TRANSIENT_QUEUE_TTL_MINUTES)
 
   @Test
   fun `Should enqueue new closure retry event for left remaining attempts`() {
@@ -100,7 +100,7 @@ class ClosureRetryServiceTests {
     verify(transactionsViewRepository, times(1)).save(any())
     verify(closureRetryQueueAsyncClient, times(1))
       .sendMessageWithResponse(
-        any<BinaryData>(), any(), eq(Duration.ofMinutes(TRANSIENT_QUEUE_TTL_MINUTES.toLong())))
+        any<BinaryData>(), any(), eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_MINUTES.toLong())))
     val savedEvent = eventStoreCaptor.value
     val savedView = viewRepositoryCaptor.value
     val eventSentOnQueue = queueCaptor.value.toObject(TransactionRefundRetriedEvent::class.java)
@@ -145,7 +145,7 @@ class ClosureRetryServiceTests {
     verify(transactionsViewRepository, times(1)).save(any())
     verify(closureRetryQueueAsyncClient, times(1))
       .sendMessageWithResponse(
-        any<BinaryData>(), any(), eq(Duration.ofMinutes(TRANSIENT_QUEUE_TTL_MINUTES.toLong())))
+        any<BinaryData>(), any(), eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_MINUTES.toLong())))
     val savedEvent = eventStoreCaptor.value
     val savedView = viewRepositoryCaptor.value
     val eventSentOnQueue = queueCaptor.value.toObject(TransactionRefundRetriedEvent::class.java)
@@ -190,7 +190,7 @@ class ClosureRetryServiceTests {
     verify(transactionsViewRepository, times(0)).save(any())
     verify(closureRetryQueueAsyncClient, times(0))
       .sendMessageWithResponse(
-        any<BinaryData>(), any(), eq(Duration.ofMinutes(TRANSIENT_QUEUE_TTL_MINUTES.toLong())))
+        any<BinaryData>(), any(), eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_MINUTES.toLong())))
   }
 
   @Test
@@ -228,7 +228,7 @@ class ClosureRetryServiceTests {
     verify(transactionsViewRepository, times(0)).save(any())
     verify(closureRetryQueueAsyncClient, times(0))
       .sendMessageWithResponse(
-        any<BinaryData>(), any(), eq(Duration.ofMinutes(TRANSIENT_QUEUE_TTL_MINUTES.toLong())))
+        any<BinaryData>(), any(), eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_MINUTES.toLong())))
   }
 
   @Test
@@ -264,7 +264,7 @@ class ClosureRetryServiceTests {
     verify(transactionsViewRepository, times(0)).save(any())
     verify(closureRetryQueueAsyncClient, times(0))
       .sendMessageWithResponse(
-        any<BinaryData>(), any(), eq(Duration.ofMinutes(TRANSIENT_QUEUE_TTL_MINUTES.toLong())))
+        any<BinaryData>(), any(), eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_MINUTES.toLong())))
   }
 
   @Test
@@ -302,7 +302,7 @@ class ClosureRetryServiceTests {
     verify(transactionsViewRepository, times(1)).save(any())
     verify(closureRetryQueueAsyncClient, times(0))
       .sendMessageWithResponse(
-        any<BinaryData>(), any(), eq(Duration.ofMinutes(TRANSIENT_QUEUE_TTL_MINUTES.toLong())))
+        any<BinaryData>(), any(), eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_MINUTES.toLong())))
   }
 
   @Test
@@ -344,7 +344,7 @@ class ClosureRetryServiceTests {
     verify(transactionsViewRepository, times(0)).save(any())
     verify(closureRetryQueueAsyncClient, times(0))
       .sendMessageWithResponse(
-        any<BinaryData>(), any(), eq(Duration.ofMinutes(TRANSIENT_QUEUE_TTL_MINUTES.toLong())))
+        any<BinaryData>(), any(), eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_MINUTES.toLong())))
   }
 
   private fun queueSuccessfulResponse(): Mono<Response<SendMessageResult>> {

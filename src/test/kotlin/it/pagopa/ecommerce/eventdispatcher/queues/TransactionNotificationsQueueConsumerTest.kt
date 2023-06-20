@@ -16,7 +16,7 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewReposito
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.NotificationRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryService
 import it.pagopa.ecommerce.eventdispatcher.utils.ConfidentialMailUtils
-import it.pagopa.ecommerce.eventdispatcher.utils.DEAD_LETTER_QUEUE_TTL_MINUTES
+import it.pagopa.ecommerce.eventdispatcher.utils.DEAD_LETTER_QUEUE_TTL_SECONDS
 import it.pagopa.ecommerce.eventdispatcher.utils.UserReceiptMailBuilder
 import it.pagopa.ecommerce.eventdispatcher.utils.queueSuccessfulResponse
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
@@ -91,7 +91,7 @@ class TransactionNotificationsQueueConsumerTest {
       paymentGatewayClient = paymentGatewayClient,
       refundRetryService = refundRetryService,
       deadLetterQueueAsyncClient = deadLetterQueueAsyncClient,
-      deadLetterTTLMinutes = DEAD_LETTER_QUEUE_TTL_MINUTES)
+      deadLetterTTLSeconds = DEAD_LETTER_QUEUE_TTL_SECONDS)
 
   @Test
   fun `Should successfully send user email for send payment result outcome OK`() = runTest {
@@ -538,7 +538,7 @@ class TransactionNotificationsQueueConsumerTest {
               TransactionEventCode.TRANSACTION_USER_RECEIPT_REQUESTED_EVENT
           },
           eq(Duration.ZERO),
-          eq(Duration.ofMinutes(DEAD_LETTER_QUEUE_TTL_MINUTES.toLong())))
+          eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
     }
 
   @Test
@@ -577,7 +577,7 @@ class TransactionNotificationsQueueConsumerTest {
             TransactionEventCode.TRANSACTION_USER_RECEIPT_REQUESTED_EVENT
         },
         eq(Duration.ZERO),
-        eq(Duration.ofMinutes(DEAD_LETTER_QUEUE_TTL_MINUTES.toLong())))
+        eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
   }
 
   @Test
