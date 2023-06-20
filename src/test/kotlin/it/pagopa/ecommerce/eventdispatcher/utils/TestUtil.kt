@@ -87,6 +87,6 @@ fun queueSuccessfulResponse(): Mono<Response<SendMessageResult>> {
   return Mono.just(ResponseBase(null, 200, null, sendMessageResult, null))
 }
 
-const val TRANSIENT_QUEUE_TTL_MINUTES = 30
+const val TRANSIENT_QUEUE_TTL_SECONDS = 30
 
 const val DEAD_LETTER_QUEUE_TTL_SECONDS = -1

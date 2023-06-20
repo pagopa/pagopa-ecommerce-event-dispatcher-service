@@ -15,7 +15,7 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRe
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryService
 import it.pagopa.ecommerce.eventdispatcher.utils.DEAD_LETTER_QUEUE_TTL_SECONDS
-import it.pagopa.ecommerce.eventdispatcher.utils.TRANSIENT_QUEUE_TTL_MINUTES
+import it.pagopa.ecommerce.eventdispatcher.utils.TRANSIENT_QUEUE_TTL_SECONDS
 import it.pagopa.ecommerce.eventdispatcher.utils.queueSuccessfulResponse
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import java.time.Duration
@@ -97,7 +97,7 @@ class TransactionExpirationQueueConsumerTests {
       expirationQueueAsyncClient = expirationQueueAsyncClient,
       sendPaymentResultTimeoutSeconds = sendPaymentResultTimeout,
       sendPaymentResultTimeoutOffsetSeconds = sendPaymentResultOffset,
-      transientQueueTTLSeconds = TRANSIENT_QUEUE_TTL_MINUTES,
+      transientQueueTTLSeconds = TRANSIENT_QUEUE_TTL_SECONDS,
       deadLetterTTLSeconds = DEAD_LETTER_QUEUE_TTL_SECONDS)
 
   @Test
@@ -2673,7 +2673,7 @@ class TransactionExpirationQueueConsumerTests {
           argThat<Duration> {
             expectedRetryEventVisibilityTimeout.toSeconds() - this.toSeconds() <= 1
           },
-          eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_MINUTES.toLong())))
+          eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_SECONDS.toLong())))
     }
 
   @Test
