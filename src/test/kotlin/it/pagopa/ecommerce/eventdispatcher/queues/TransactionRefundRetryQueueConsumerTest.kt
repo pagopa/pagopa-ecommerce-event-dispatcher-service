@@ -14,6 +14,7 @@ import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryServic
 import it.pagopa.ecommerce.eventdispatcher.utils.DEAD_LETTER_QUEUE_TTL_MINUTES
 import it.pagopa.ecommerce.eventdispatcher.utils.queueSuccessfulResponse
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
+import java.time.Duration
 import java.time.ZonedDateTime
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
@@ -332,7 +333,7 @@ class TransactionRefundRetryQueueConsumerTest {
             this.toObject(TransactionRefundRetriedEvent::class.java).eventCode ==
               TransactionEventCode.TRANSACTION_REFUND_RETRIED_EVENT
           },
-          any(),
-          anyOrNull())
+          eq(Duration.ZERO),
+          eq(Duration.ofMinutes(DEAD_LETTER_QUEUE_TTL_MINUTES.toLong())))
     }
 }

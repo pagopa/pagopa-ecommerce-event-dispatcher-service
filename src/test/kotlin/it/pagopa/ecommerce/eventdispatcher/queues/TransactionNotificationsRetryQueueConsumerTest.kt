@@ -22,6 +22,7 @@ import it.pagopa.ecommerce.eventdispatcher.utils.queueSuccessfulResponse
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.notifications.v1.dto.NotificationEmailRequestDto
 import it.pagopa.generated.notifications.v1.dto.NotificationEmailResponseDto
+import java.time.Duration
 import java.time.ZonedDateTime
 import java.util.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -691,7 +692,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
           this.toObject(TransactionUserReceiptAddErrorEvent::class.java).eventCode ==
             TransactionEventCode.TRANSACTION_ADD_USER_RECEIPT_ERROR_EVENT
         },
-        any(),
-        anyOrNull())
+        eq(Duration.ZERO),
+        eq(Duration.ofMinutes(DEAD_LETTER_QUEUE_TTL_MINUTES.toLong())))
   }
 }

@@ -662,8 +662,8 @@ class TransactionClosePaymentRetryQueueConsumerTests {
           this.toObject(TransactionClosureErrorEvent::class.java).eventCode ==
             TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT
         },
-        any(),
-        anyOrNull())
+        eq(Duration.ZERO),
+        eq(Duration.ofMinutes(DEAD_LETTER_QUEUE_TTL_MINUTES.toLong())))
   }
 
   @Test

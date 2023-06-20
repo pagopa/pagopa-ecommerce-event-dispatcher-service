@@ -576,8 +576,8 @@ class TransactionNotificationsQueueConsumerTest {
           this.toObject(TransactionRefundRetriedEvent::class.java).eventCode ==
             TransactionEventCode.TRANSACTION_USER_RECEIPT_REQUESTED_EVENT
         },
-        any(),
-        anyOrNull())
+        eq(Duration.ZERO),
+        eq(Duration.ofMinutes(DEAD_LETTER_QUEUE_TTL_MINUTES.toLong())))
   }
 
   @Test
