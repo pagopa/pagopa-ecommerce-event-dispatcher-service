@@ -13,6 +13,7 @@ import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryService
+import it.pagopa.ecommerce.eventdispatcher.utils.DEAD_LETTER_QUEUE_TTL_MINUTES
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
 import java.time.ZonedDateTime
@@ -57,12 +58,13 @@ class TransactionsRefundEventsConsumerTests {
 
   private val transactionRefundedEventsConsumer =
     TransactionsRefundQueueConsumer(
-      paymentGatewayClient,
-      transactionsEventStoreRepository,
-      transactionsRefundedEventStoreRepository,
-      transactionsViewRepository,
-      refundRetryService,
-      deadLetterQueueAsyncClient)
+      paymentGatewayClient = paymentGatewayClient,
+      transactionsEventStoreRepository = transactionsEventStoreRepository,
+      transactionsRefundedEventStoreRepository = transactionsRefundedEventStoreRepository,
+      transactionsViewRepository = transactionsViewRepository,
+      refundRetryService = refundRetryService,
+      deadLetterQueueAsyncClient = deadLetterQueueAsyncClient,
+      deadLetterTTLMinutes = DEAD_LETTER_QUEUE_TTL_MINUTES)
 
   @Test
   fun `consumer processes refund request event correctly with pgs refund`() = runTest {

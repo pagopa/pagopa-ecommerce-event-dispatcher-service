@@ -29,6 +29,7 @@ import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.integration.annotation.ServiceActivator
 import org.springframework.messaging.handler.annotation.Header
 import org.springframework.messaging.handler.annotation.Payload
@@ -49,7 +50,8 @@ class TransactionClosePaymentRetryQueueConsumer(
     TransactionsEventStoreRepository<TransactionRefundedData>,
   @Autowired private val paymentGatewayClient: PaymentGatewayClient,
   @Autowired private val refundRetryService: RefundRetryService,
-  @Autowired private val deadLetterQueueAsyncClient: QueueAsyncClient
+  @Autowired private val deadLetterQueueAsyncClient: QueueAsyncClient,
+  @Value("\${azurestorage.queues.deadLetterQueue.ttlMinutes}") private val deadLetterTTLMinutes: Int
 ) {
   var logger: Logger =
     LoggerFactory.getLogger(TransactionClosePaymentRetryQueueConsumer::class.java)
@@ -184,7 +186,7 @@ class TransactionClosePaymentRetryQueueConsumer(
         }
 
     return runPipelineWithDeadLetterQueue(
-      checkPointer, closurePipeline, payload, deadLetterQueueAsyncClient)
+      checkPointer, closurePipeline, payload, deadLetterQueueAsyncClient, deadLetterTTLMinutes)
   }
 
   private fun refundTransactionPipeline(

@@ -12,6 +12,7 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRe
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.NodeService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.ClosureRetryService
+import it.pagopa.ecommerce.eventdispatcher.utils.DEAD_LETTER_QUEUE_TTL_MINUTES
 import it.pagopa.ecommerce.eventdispatcher.utils.queueSuccessfulResponse
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
@@ -66,13 +67,14 @@ class TransactionClosePaymentQueueConsumerTests {
 
   private val transactionClosureEventsConsumer =
     TransactionClosePaymentQueueConsumer(
-      transactionsEventStoreRepository,
-      transactionClosedEventRepository,
-      transactionClosureErrorEventStoreRepository,
-      transactionsViewRepository,
-      nodeService,
-      closureRetryService,
-      deadLetterQueueAsyncClient)
+      transactionsEventStoreRepository = transactionsEventStoreRepository,
+      transactionClosureSentEventRepository = transactionClosedEventRepository,
+      transactionClosureErrorEventStoreRepository = transactionClosureErrorEventStoreRepository,
+      transactionsViewRepository = transactionsViewRepository,
+      nodeService = nodeService,
+      closureRetryService = closureRetryService,
+      deadLetterQueueAsyncClient = deadLetterQueueAsyncClient,
+      deadLetterTTLMinutes = DEAD_LETTER_QUEUE_TTL_MINUTES)
 
   @Test
   fun `consumer processes bare close message correctly with OK closure outcome`() = runTest {
@@ -295,6 +297,6 @@ class TransactionClosePaymentQueueConsumerTests {
             TransactionEventCode.TRANSACTION_USER_CANCELED_EVENT
         },
         eq(Duration.ZERO),
-        eq(null))
+        eq(Duration.ofMinutes(DEAD_LETTER_QUEUE_TTL_MINUTES.toLong())))
   }
 }

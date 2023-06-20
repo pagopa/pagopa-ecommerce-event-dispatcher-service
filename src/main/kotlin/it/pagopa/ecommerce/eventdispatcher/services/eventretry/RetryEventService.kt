@@ -24,7 +24,8 @@ abstract class RetryEventService<E>(
   private val maxAttempts: Int,
   private val viewRepository: TransactionsViewRepository,
   private val retryEventStoreRepository: TransactionsEventStoreRepository<TransactionRetriedData>,
-  protected val logger: Logger = LoggerFactory.getLogger(RetryEventService::class.java)
+  protected val logger: Logger = LoggerFactory.getLogger(RetryEventService::class.java),
+  private val transientQueuesTTLMinutes: Int
 ) where E : TransactionEvent<TransactionRetriedData> {
 
   fun enqueueRetryEvent(baseTransaction: BaseTransaction, retriedCount: Int): Mono<Void> {
@@ -80,7 +81,7 @@ abstract class RetryEventService<E>(
         .sendMessageWithResponse(
           BinaryData.fromObject(eventToSend),
           visibilityTimeout,
-          null, // timeToLive
+          Duration.ofMinutes(transientQueuesTTLMinutes.toLong()), // timeToLive
         )
         .doOnNext {
           logger.info(

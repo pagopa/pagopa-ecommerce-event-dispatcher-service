@@ -15,6 +15,7 @@ import it.pagopa.ecommerce.commons.v1.TransactionTestUtils
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
+import it.pagopa.ecommerce.eventdispatcher.utils.TRANSIENT_QUEUE_TTL_MINUTES
 import java.time.Duration
 import java.time.OffsetDateTime
 import java.time.ZonedDateTime
@@ -53,11 +54,12 @@ class NotificationRetryServiceTests {
 
   private val notificationRetryService =
     NotificationRetryService(
-      notificationRetryQueueAsyncClient,
-      10,
-      maxAttempts,
-      transactionsViewRepository,
-      eventStoreRepository)
+      notificationRetryQueueAsyncClient = notificationRetryQueueAsyncClient,
+      notificationRetryOffset = 10,
+      maxAttempts = maxAttempts,
+      viewRepository = transactionsViewRepository,
+      eventStoreRepository = eventStoreRepository,
+      transientQueuesTTLMinutes = TRANSIENT_QUEUE_TTL_MINUTES)
 
   @Test
   fun `Should enqueue new notification retry event for left remaining attempts`() {
@@ -101,7 +103,8 @@ class NotificationRetryServiceTests {
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(1)).save(any())
     verify(notificationRetryQueueAsyncClient, times(1))
-      .sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull())
+      .sendMessageWithResponse(
+        any<BinaryData>(), any(), eq(Duration.ofMinutes(TRANSIENT_QUEUE_TTL_MINUTES.toLong())))
     val savedEvent = eventStoreCaptor.value
     val savedView = viewRepositoryCaptor.value
     val eventSentOnQueue =
@@ -151,7 +154,8 @@ class NotificationRetryServiceTests {
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(1)).save(any())
     verify(notificationRetryQueueAsyncClient, times(1))
-      .sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull())
+      .sendMessageWithResponse(
+        any<BinaryData>(), any(), eq(Duration.ofMinutes(TRANSIENT_QUEUE_TTL_MINUTES.toLong())))
     val savedEvent = eventStoreCaptor.value
     val savedView = viewRepositoryCaptor.value
     val eventSentOnQueue =
@@ -202,7 +206,8 @@ class NotificationRetryServiceTests {
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(0)).save(any())
     verify(notificationRetryQueueAsyncClient, times(0))
-      .sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull())
+      .sendMessageWithResponse(
+        any<BinaryData>(), any(), eq(Duration.ofMinutes(TRANSIENT_QUEUE_TTL_MINUTES.toLong())))
   }
 
   @Test
@@ -245,7 +250,8 @@ class NotificationRetryServiceTests {
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(0)).save(any())
     verify(notificationRetryQueueAsyncClient, times(0))
-      .sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull())
+      .sendMessageWithResponse(
+        any<BinaryData>(), any(), eq(Duration.ofMinutes(TRANSIENT_QUEUE_TTL_MINUTES.toLong())))
   }
 
   @Test
@@ -286,7 +292,8 @@ class NotificationRetryServiceTests {
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(0)).save(any())
     verify(notificationRetryQueueAsyncClient, times(0))
-      .sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull())
+      .sendMessageWithResponse(
+        any<BinaryData>(), any(), eq(Duration.ofMinutes(TRANSIENT_QUEUE_TTL_MINUTES.toLong())))
   }
 
   @Test
@@ -329,7 +336,8 @@ class NotificationRetryServiceTests {
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(1)).save(any())
     verify(notificationRetryQueueAsyncClient, times(0))
-      .sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull())
+      .sendMessageWithResponse(
+        any<BinaryData>(), any(), eq(Duration.ofMinutes(TRANSIENT_QUEUE_TTL_MINUTES.toLong())))
   }
 
   private fun queueSuccessfulResponse(): Mono<Response<SendMessageResult>> {

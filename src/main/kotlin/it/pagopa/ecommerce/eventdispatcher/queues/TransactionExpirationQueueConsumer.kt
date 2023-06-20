@@ -45,6 +45,9 @@ class TransactionExpirationQueueConsumer(
   @Value("\${sendPaymentResult.timeoutSeconds}") private val sendPaymentResultTimeoutSeconds: Int,
   @Value("\${sendPaymentResult.expirationOffset}")
   private val sendPaymentResultTimeoutOffsetSeconds: Int,
+  @Value("\${azurestorage.queues.transientQueues.ttlMinutes}")
+  private val transientQueueTTLMinutes: Int,
+  @Value("\${azurestorage.queues.deadLetterQueue.ttlMinutes}") private val deadLetterTTLMinutes: Int
 ) {
 
   var logger: Logger = LoggerFactory.getLogger(TransactionExpirationQueueConsumer::class.java)
@@ -88,7 +91,7 @@ class TransactionExpirationQueueConsumer(
                   .sendMessageWithResponse(
                     binaryData,
                     Duration.ZERO,
-                    null,
+                    Duration.ofMinutes(deadLetterTTLMinutes.toLong()),
                   )
                   .thenReturn(true)
               } else {
@@ -98,7 +101,7 @@ class TransactionExpirationQueueConsumer(
                   .sendMessageWithResponse(
                     binaryData,
                     timeLeft,
-                    null,
+                    Duration.ofMinutes(transientQueueTTLMinutes.toLong()),
                   )
                   .thenReturn(false)
               }
@@ -141,6 +144,6 @@ class TransactionExpirationQueueConsumer(
         }
 
     return runPipelineWithDeadLetterQueue(
-      checkPointer, refundPipeline, payload, deadLetterQueueAsyncClient)
+      checkPointer, refundPipeline, payload, deadLetterQueueAsyncClient, deadLetterTTLMinutes)
   }
 }

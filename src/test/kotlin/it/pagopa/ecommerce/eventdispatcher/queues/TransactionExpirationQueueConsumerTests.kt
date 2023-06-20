@@ -14,6 +14,8 @@ import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryService
+import it.pagopa.ecommerce.eventdispatcher.utils.DEAD_LETTER_QUEUE_TTL_MINUTES
+import it.pagopa.ecommerce.eventdispatcher.utils.TRANSIENT_QUEUE_TTL_MINUTES
 import it.pagopa.ecommerce.eventdispatcher.utils.queueSuccessfulResponse
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import java.time.Duration
@@ -94,7 +96,9 @@ class TransactionExpirationQueueConsumerTests {
       deadLetterQueueAsyncClient = deadLetterQueueAsyncClient,
       expirationQueueAsyncClient = expirationQueueAsyncClient,
       sendPaymentResultTimeoutSeconds = sendPaymentResultTimeout,
-      sendPaymentResultTimeoutOffsetSeconds = sendPaymentResultOffset)
+      sendPaymentResultTimeoutOffsetSeconds = sendPaymentResultOffset,
+      transientQueueTTLMinutes = TRANSIENT_QUEUE_TTL_MINUTES,
+      deadLetterTTLMinutes = DEAD_LETTER_QUEUE_TTL_MINUTES)
 
   @Test
   fun `messageReceiver receives activated messages successfully`() {
@@ -295,7 +299,7 @@ class TransactionExpirationQueueConsumerTests {
             TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
         },
         eq(Duration.ZERO),
-        eq(null))
+        eq(Duration.ofMinutes(DEAD_LETTER_QUEUE_TTL_MINUTES.toLong())))
   }
 
   @Test
@@ -345,7 +349,7 @@ class TransactionExpirationQueueConsumerTests {
             TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
         },
         eq(Duration.ZERO),
-        eq(null))
+        eq(Duration.ofMinutes(DEAD_LETTER_QUEUE_TTL_MINUTES.toLong())))
   }
 
   @Test
@@ -2077,7 +2081,7 @@ class TransactionExpirationQueueConsumerTests {
               TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
           },
           eq(Duration.ZERO),
-          eq(null))
+          eq(Duration.ofMinutes(DEAD_LETTER_QUEUE_TTL_MINUTES.toLong())))
     }
 
   @Test
@@ -2114,7 +2118,7 @@ class TransactionExpirationQueueConsumerTests {
               TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
           },
           eq(Duration.ZERO),
-          eq(null))
+          eq(Duration.ofMinutes(DEAD_LETTER_QUEUE_TTL_MINUTES.toLong())))
     }
 
   @Test
@@ -2538,7 +2542,7 @@ class TransactionExpirationQueueConsumerTests {
               TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
           },
           eq(Duration.ZERO),
-          eq(null))
+          eq(Duration.ofMinutes(DEAD_LETTER_QUEUE_TTL_MINUTES.toLong())))
       /*
        * check view update statuses and events stored into event store
        */
@@ -2669,7 +2673,7 @@ class TransactionExpirationQueueConsumerTests {
           argThat<Duration> {
             expectedRetryEventVisibilityTimeout.toSeconds() - this.toSeconds() <= 1
           },
-          eq(null))
+          eq(Duration.ofMinutes(TRANSIENT_QUEUE_TTL_MINUTES.toLong())))
     }
 
   @Test
@@ -2740,7 +2744,7 @@ class TransactionExpirationQueueConsumerTests {
               TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
           },
           eq(Duration.ZERO),
-          eq(null))
+          eq(Duration.ofMinutes(DEAD_LETTER_QUEUE_TTL_MINUTES.toLong())))
       /*
        * check view update statuses and events stored into event store
        */

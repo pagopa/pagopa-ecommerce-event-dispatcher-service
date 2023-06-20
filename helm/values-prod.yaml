@@ -52,6 +52,7 @@ microservice-chart:
       ELASTIC_APM_LOG_SENDING: "true"
       SEND_PAYMENT_RESULT_TIMEOUT_SECONDS: "3900"
       SEND_PAYMENT_RESULT_EXPIRATION_OFFSET_SECONDS: "5"
+      TRANSIENT_QUEUES_TTL_MINUTES: "43200"
     envSecret:
       ECOMMERCE_STORAGE_QUEUE_KEY: ecommerce-storage-account-key
       MONGO_PASSWORD: mongo-ecommerce-password
@@ -160,6 +161,7 @@ microservice-chart:
     ELASTIC_APM_LOG_SENDING: "true"
     SEND_PAYMENT_RESULT_TIMEOUT_SECONDS: "3900"
     SEND_PAYMENT_RESULT_EXPIRATION_OFFSET_SECONDS: "5"
+    TRANSIENT_QUEUES_TTL_MINUTES: "43200"
   envSecret:
     ECOMMERCE_STORAGE_QUEUE_KEY: ecommerce-storage-account-key
     MONGO_PASSWORD: mongo-ecommerce-password
