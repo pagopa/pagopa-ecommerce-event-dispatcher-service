@@ -101,9 +101,11 @@ microservice-chart:
     ELASTIC_APM_SERVICE_NAME: pagopa-ecommerce-event-dispatcher-service
     ELASTIC_APM_APPLICATION_PACKAGES: it.pagopa.ecommerce.eventdispatcher
     ELASTIC_APM_SERVER_URL: http://quickstart-apm-http.elastic-system.svc:8200
-    ELASTIC_APM_LOG_SENDING: "true"
+    ELASTIC_APM_LOG_SENDING: "false"
     SEND_PAYMENT_RESULT_TIMEOUT_SECONDS: "3900"
     SEND_PAYMENT_RESULT_EXPIRATION_OFFSET_SECONDS: "5"
+    ECS_SERVICE_NAME: pagopa-ecommerce-event-dispatcher-service
+    ECS_SERVICE_ENVIRONMENT: dev
   envSecret:
     ECOMMERCE_STORAGE_QUEUE_KEY: ecommerce-storage-account-key
     MONGO_PASSWORD: mongo-ecommerce-password

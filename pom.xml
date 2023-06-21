@@ -8,10 +8,11 @@
 		<relativePath /> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>it.pagopa.ecommerce</groupId>
-	<artifactId>event-dispatcher</artifactId>
+	<artifactId>pagopa-ecommerce-event-dispatcher-service</artifactId>
 	<version>0.6.3</version>
-	<name>event-dispatcher</name>
-	<description>Demo project for Spring Boot</description>
+	<name>pagopa-ecommerce-event-dispatcher-service</name>
+	<description>pagoPA ecommerce microservice to handle transaction events and perform async operations such as
+	send user email, refund based on transaction status</description>
 	<properties>
 		<java.version>17</java.version>
 		<kotlin.version>1.6.21</kotlin.version>
@@ -24,6 +25,7 @@
 		</sonar.coverage.exclusions>
 		<spotless.version>2.28.0</spotless.version>
 		<mock-web-server.version>4.11.0</mock-web-server.version>
+		<ecs-logging-version>1.5.0</ecs-logging-version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -157,6 +159,11 @@
 			<groupId>com.google.code.findbugs</groupId>
 			<artifactId>jsr305</artifactId>
 			<version>3.0.2</version>
+		</dependency>
+		<dependency>
+			<groupId>co.elastic.logging</groupId>
+			<artifactId>logback-ecs-encoder</artifactId>
+			<version>${ecs-logging-version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.jacoco</groupId>
