@@ -25,7 +25,7 @@ class ClosureRetryService(
   private val eventStoreRepository: TransactionsEventStoreRepository<TransactionRetriedData>,
   @Value("\${closePaymentRetry.paymentTokenValidityTimeOffset}")
   private val paymentTokenValidityTimeOffset: Int,
-  @Value("\${azurestorage.queues.transientQueues.ttlMinutes}")
+  @Value("\${azurestorage.queues.transientQueues.ttlSeconds}")
   private val transientQueuesTTLSeconds: Int
 ) :
   RetryEventService<TransactionClosureRetriedEvent>(

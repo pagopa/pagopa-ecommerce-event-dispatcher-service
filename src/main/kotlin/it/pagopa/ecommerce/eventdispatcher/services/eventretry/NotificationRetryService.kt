@@ -21,7 +21,7 @@ class NotificationRetryService(
   @Autowired private val viewRepository: TransactionsViewRepository,
   @Autowired
   private val eventStoreRepository: TransactionsEventStoreRepository<TransactionRetriedData>,
-  @Value("\${azurestorage.queues.transientQueues.ttlMinutes}")
+  @Value("\${azurestorage.queues.transientQueues.ttlSeconds}")
   private val transientQueuesTTLSeconds: Int
 ) :
   RetryEventService<TransactionUserReceiptAddRetriedEvent>(

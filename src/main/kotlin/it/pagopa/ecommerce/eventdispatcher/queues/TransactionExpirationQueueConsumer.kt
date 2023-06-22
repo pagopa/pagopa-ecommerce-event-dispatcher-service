@@ -45,7 +45,7 @@ class TransactionExpirationQueueConsumer(
   @Value("\${sendPaymentResult.timeoutSeconds}") private val sendPaymentResultTimeoutSeconds: Int,
   @Value("\${sendPaymentResult.expirationOffset}")
   private val sendPaymentResultTimeoutOffsetSeconds: Int,
-  @Value("\${azurestorage.queues.transientQueues.ttlMinutes}")
+  @Value("\${azurestorage.queues.transientQueues.ttlSeconds}")
   private val transientQueueTTLSeconds: Int,
   @Value("\${azurestorage.queues.deadLetterQueue.ttlSeconds}") private val deadLetterTTLSeconds: Int
 ) {
