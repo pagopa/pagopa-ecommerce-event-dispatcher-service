@@ -24,14 +24,17 @@ class ClosureRetryService(
   @Autowired
   private val eventStoreRepository: TransactionsEventStoreRepository<TransactionRetriedData>,
   @Value("\${closePaymentRetry.paymentTokenValidityTimeOffset}")
-  private val paymentTokenValidityTimeOffset: Int
+  private val paymentTokenValidityTimeOffset: Int,
+  @Value("\${azurestorage.queues.transientQueues.ttlSeconds}")
+  private val transientQueuesTTLSeconds: Int
 ) :
   RetryEventService<TransactionClosureRetriedEvent>(
     queueAsyncClient = closureRetryQueueAsyncClient,
     retryOffset = closePaymentRetryOffset,
     maxAttempts = maxAttempts,
     viewRepository = viewRepository,
-    retryEventStoreRepository = eventStoreRepository) {
+    retryEventStoreRepository = eventStoreRepository,
+    transientQueuesTTLSeconds = transientQueuesTTLSeconds) {
 
   override fun buildRetryEvent(
     transactionId: TransactionId,

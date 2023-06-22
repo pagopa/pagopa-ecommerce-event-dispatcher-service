@@ -24,6 +24,7 @@ import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.integration.annotation.ServiceActivator
 import org.springframework.messaging.handler.annotation.Header
 import org.springframework.messaging.handler.annotation.Payload
@@ -45,7 +46,8 @@ class TransactionNotificationsRetryQueueConsumer(
   @Autowired private val refundRetryService: RefundRetryService,
   @Autowired private val userReceiptMailBuilder: UserReceiptMailBuilder,
   @Autowired private val notificationsServiceClient: NotificationsServiceClient,
-  @Autowired private val deadLetterQueueAsyncClient: QueueAsyncClient
+  @Autowired private val deadLetterQueueAsyncClient: QueueAsyncClient,
+  @Value("\${azurestorage.queues.deadLetterQueue.ttlSeconds}") private val deadLetterTTLSeconds: Int
 ) {
   var logger: Logger =
     LoggerFactory.getLogger(TransactionNotificationsRetryQueueConsumer::class.java)
@@ -132,6 +134,10 @@ class TransactionNotificationsRetryQueueConsumer(
             }
         }
     return runPipelineWithDeadLetterQueue(
-      checkPointer, notificationResendPipeline, payload, deadLetterQueueAsyncClient)
+      checkPointer,
+      notificationResendPipeline,
+      payload,
+      deadLetterQueueAsyncClient,
+      deadLetterTTLSeconds)
   }
 }
