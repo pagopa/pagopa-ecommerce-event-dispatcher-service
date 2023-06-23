@@ -8,6 +8,7 @@ import io.opentelemetry.api.trace.Span
 import io.opentelemetry.api.trace.SpanKind
 import io.opentelemetry.api.trace.Tracer
 import io.opentelemetry.context.Context
+import io.opentelemetry.context.Scope
 import io.opentelemetry.context.propagation.TextMapGetter
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
@@ -454,7 +455,7 @@ fun <T> runPipelineWithDeadLetterQueue(
   tracer: Tracer? = null,
   spanName: String? = null
 ): Mono<Void> {
-  fun createSpanWithRemoteTracingContext(): Span? {
+  fun createSpanWithRemoteTracingContext(): Pair<Scope, Span>? {
     if (openTelemetry != null && headers != null && tracer != null && spanName != null) {
       logger.info("Creating new span with remote context")
 
@@ -469,8 +470,8 @@ fun <T> runPipelineWithDeadLetterQueue(
               headers?.get(key, String::class.java)
           })
 
-      extractedContext.makeCurrent()
-      return tracer.spanBuilder(spanName).setSpanKind(SpanKind.CONSUMER).startSpan()
+      return extractedContext.makeCurrent() to
+        tracer.spanBuilder(spanName).setSpanKind(SpanKind.CONSUMER).startSpan()
     }
 
     return null
@@ -517,14 +518,17 @@ fun <T> runPipelineWithDeadLetterQueue(
   return if (openTelemetry != null && headers != null && tracer != null && spanName != null) {
     val tracedDeadLetterPipeline =
       Mono.usingWhen(
-        Mono.just(createSpanWithRemoteTracingContext()!!),
-        {
+        Mono.fromRunnable<Pair<Scope, Span>> { createSpanWithRemoteTracingContext()!! },
+        { (_, span) ->
           logger.info(
-            "Extending remote transaction with trace id: ${it.spanContext.traceId} span id: ${it.spanContext.spanId} context: ${it.spanContext.traceState.asMap()}")
+            "Extending remote transaction with trace id: ${span.spanContext.traceId} span id: ${span.spanContext.spanId} context: ${span.spanContext.traceState.asMap()}")
           deadLetterPipeline
         },
-        {
-          return@usingWhen Mono.fromRunnable<Void> { it.end() }
+        { (scope, span) ->
+          return@usingWhen Mono.fromRunnable<Void> {
+            span.end()
+            scope.close()
+          }
         })
 
     tracedDeadLetterPipeline
