@@ -72,7 +72,7 @@ class TransactionExpirationQueueConsumer(
     val binaryData = BinaryData.fromBytes(payload)
     val transactionId = getTransactionIdFromPayload(binaryData)
 
-    logger.info("[transactionId: {}] traceparent header: {}", transactionId, headers["traceparent"])
+    logger.info("[transactionId: {}] headers: {}", transactionId, headers.toMap())
 
     val events =
       transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(transactionId)
