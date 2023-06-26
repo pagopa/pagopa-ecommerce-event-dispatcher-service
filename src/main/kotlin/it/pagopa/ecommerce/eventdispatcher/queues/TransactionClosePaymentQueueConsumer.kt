@@ -22,6 +22,7 @@ import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.integration.annotation.ServiceActivator
 import org.springframework.messaging.handler.annotation.Header
 import org.springframework.messaging.handler.annotation.Payload
@@ -39,7 +40,8 @@ class TransactionClosePaymentQueueConsumer(
   @Autowired private val transactionsViewRepository: TransactionsViewRepository,
   @Autowired private val nodeService: NodeService,
   @Autowired private val closureRetryService: ClosureRetryService,
-  @Autowired private val deadLetterQueueAsyncClient: QueueAsyncClient
+  @Autowired private val deadLetterQueueAsyncClient: QueueAsyncClient,
+  @Value("\${azurestorage.queues.deadLetterQueue.ttlSeconds}") private val deadLetterTTLSeconds: Int
 ) {
   var logger: Logger = LoggerFactory.getLogger(TransactionClosePaymentQueueConsumer::class.java)
 
@@ -121,7 +123,7 @@ class TransactionClosePaymentQueueConsumer(
         .then()
 
     return runPipelineWithDeadLetterQueue(
-      checkPointer, closurePipeline, payload, deadLetterQueueAsyncClient)
+      checkPointer, closurePipeline, payload, deadLetterQueueAsyncClient, deadLetterTTLSeconds)
   }
 
   private fun updateTransactionStatus(

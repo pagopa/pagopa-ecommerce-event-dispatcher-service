@@ -16,11 +16,13 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRe
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.NotificationRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryService
+import it.pagopa.ecommerce.eventdispatcher.utils.DEAD_LETTER_QUEUE_TTL_SECONDS
 import it.pagopa.ecommerce.eventdispatcher.utils.UserReceiptMailBuilder
 import it.pagopa.ecommerce.eventdispatcher.utils.queueSuccessfulResponse
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.notifications.v1.dto.NotificationEmailRequestDto
 import it.pagopa.generated.notifications.v1.dto.NotificationEmailResponseDto
+import java.time.Duration
 import java.time.ZonedDateTime
 import java.util.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -80,16 +82,17 @@ class TransactionNotificationsRetryQueueConsumerTest {
 
   private val transactionNotificationsRetryQueueConsumer =
     TransactionNotificationsRetryQueueConsumer(
-      transactionsEventStoreRepository,
-      transactionUserReceiptRepository,
-      transactionsViewRepository,
-      notificationRetryService,
-      transactionRefundRepository,
-      paymentGatewayClient,
-      refundRetryService,
-      userReceiptMailBuilder,
-      notificationsServiceClient,
-      deadLetterQueueAsyncClient)
+      transactionsEventStoreRepository = transactionsEventStoreRepository,
+      transactionUserReceiptRepository = transactionUserReceiptRepository,
+      transactionsViewRepository = transactionsViewRepository,
+      notificationRetryService = notificationRetryService,
+      transactionsRefundedEventStoreRepository = transactionRefundRepository,
+      paymentGatewayClient = paymentGatewayClient,
+      refundRetryService = refundRetryService,
+      userReceiptMailBuilder = userReceiptMailBuilder,
+      notificationsServiceClient = notificationsServiceClient,
+      deadLetterQueueAsyncClient = deadLetterQueueAsyncClient,
+      deadLetterTTLSeconds = DEAD_LETTER_QUEUE_TTL_SECONDS)
 
   @Test
   fun `Should successfully retry send user email for send payment result outcome OK`() = runTest {
@@ -689,7 +692,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
           this.toObject(TransactionUserReceiptAddErrorEvent::class.java).eventCode ==
             TransactionEventCode.TRANSACTION_ADD_USER_RECEIPT_ERROR_EVENT
         },
-        any(),
-        anyOrNull())
+        eq(Duration.ZERO),
+        eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
   }
 }

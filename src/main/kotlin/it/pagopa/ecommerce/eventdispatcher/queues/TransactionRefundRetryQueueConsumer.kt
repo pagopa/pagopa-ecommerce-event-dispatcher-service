@@ -17,6 +17,7 @@ import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryServic
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.integration.annotation.ServiceActivator
 import org.springframework.messaging.handler.annotation.Header
 import org.springframework.messaging.handler.annotation.Payload
@@ -36,7 +37,8 @@ class TransactionRefundRetryQueueConsumer(
     TransactionsEventStoreRepository<TransactionRefundedData>,
   @Autowired private val transactionsViewRepository: TransactionsViewRepository,
   @Autowired private val refundRetryService: RefundRetryService,
-  @Autowired private val deadLetterQueueAsyncClient: QueueAsyncClient
+  @Autowired private val deadLetterQueueAsyncClient: QueueAsyncClient,
+  @Value("\${azurestorage.queues.deadLetterQueue.ttlSeconds}") private val deadLetterTTLSeconds: Int
 ) {
 
   var logger: Logger = LoggerFactory.getLogger(TransactionRefundRetryQueueConsumer::class.java)
@@ -87,6 +89,6 @@ class TransactionRefundRetryQueueConsumer(
           }
         }
     return runPipelineWithDeadLetterQueue(
-      checkPointer, refundPipeline, payload, deadLetterQueueAsyncClient)
+      checkPointer, refundPipeline, payload, deadLetterQueueAsyncClient, deadLetterTTLSeconds)
   }
 }

@@ -20,14 +20,17 @@ class NotificationRetryService(
   @Value("\${notificationRetry.maxAttempts}") private val maxAttempts: Int,
   @Autowired private val viewRepository: TransactionsViewRepository,
   @Autowired
-  private val eventStoreRepository: TransactionsEventStoreRepository<TransactionRetriedData>
+  private val eventStoreRepository: TransactionsEventStoreRepository<TransactionRetriedData>,
+  @Value("\${azurestorage.queues.transientQueues.ttlSeconds}")
+  private val transientQueuesTTLSeconds: Int
 ) :
   RetryEventService<TransactionUserReceiptAddRetriedEvent>(
     queueAsyncClient = notificationRetryQueueAsyncClient,
     retryOffset = notificationRetryOffset,
     maxAttempts = maxAttempts,
     viewRepository = viewRepository,
-    retryEventStoreRepository = eventStoreRepository) {
+    retryEventStoreRepository = eventStoreRepository,
+    transientQueuesTTLSeconds = transientQueuesTTLSeconds) {
 
   override fun buildRetryEvent(
     transactionId: TransactionId,
