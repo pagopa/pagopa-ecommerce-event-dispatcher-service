@@ -20,14 +20,17 @@ class RefundRetryService(
   @Value("\${refundRetry.maxAttempts}") private val maxAttempts: Int,
   @Autowired private val viewRepository: TransactionsViewRepository,
   @Autowired
-  private val eventStoreRepository: TransactionsEventStoreRepository<TransactionRetriedData>
+  private val eventStoreRepository: TransactionsEventStoreRepository<TransactionRetriedData>,
+  @Value("\${azurestorage.queues.transientQueues.ttlSeconds}")
+  private val transientQueuesTTLSeconds: Int
 ) :
   RetryEventService<TransactionRefundRetriedEvent>(
     queueAsyncClient = refundRetryQueueAsyncClient,
     retryOffset = refundRetryOffset,
     maxAttempts = maxAttempts,
     viewRepository = viewRepository,
-    retryEventStoreRepository = eventStoreRepository) {
+    retryEventStoreRepository = eventStoreRepository,
+    transientQueuesTTLSeconds = transientQueuesTTLSeconds) {
 
   override fun buildRetryEvent(
     transactionId: TransactionId,

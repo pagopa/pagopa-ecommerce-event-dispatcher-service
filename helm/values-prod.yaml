@@ -52,6 +52,7 @@ microservice-chart:
       ELASTIC_APM_LOG_SENDING: "false"
       SEND_PAYMENT_RESULT_TIMEOUT_SECONDS: "3900"
       SEND_PAYMENT_RESULT_EXPIRATION_OFFSET_SECONDS: "5"
+      TRANSIENT_QUEUES_TTL_SECONDS: "2592000"
       ECS_SERVICE_NAME: pagopa-ecommerce-event-dispatcher-service-blue
       ECS_SERVICE_ENVIRONMENT: prod
     envSecret:
@@ -65,7 +66,7 @@ microservice-chart:
       PAYMENT_TRANSACTIONS_GATEWAY_API_KEY: payment-transactions-gateway-api-key
   image:
     repository: pagopapcommonacr.azurecr.io/pagopaecommerceeventdispatcherservice
-    tag: "0.6.4"
+    tag: "0.6.6"
     pullPolicy: Always
   livenessProbe:
     httpGet:
@@ -164,6 +165,7 @@ microservice-chart:
     SEND_PAYMENT_RESULT_EXPIRATION_OFFSET_SECONDS: "5"
     ECS_SERVICE_NAME: pagopa-ecommerce-event-dispatcher-service
     ECS_SERVICE_ENVIRONMENT: prod
+    TRANSIENT_QUEUES_TTL_SECONDS: "2592000"
   envSecret:
     ECOMMERCE_STORAGE_QUEUE_KEY: ecommerce-storage-account-key
     MONGO_PASSWORD: mongo-ecommerce-password
