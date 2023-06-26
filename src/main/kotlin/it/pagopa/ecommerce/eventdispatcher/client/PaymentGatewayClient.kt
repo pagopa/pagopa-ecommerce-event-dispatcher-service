@@ -2,6 +2,7 @@ package it.pagopa.ecommerce.eventdispatcher.client
 
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadGatewayException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.GatewayTimeoutException
+import it.pagopa.ecommerce.eventdispatcher.exceptions.RefundNotAllowedException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.TransactionNotFound
 import it.pagopa.generated.ecommerce.gateway.v1.api.VposInternalApi
 import it.pagopa.generated.ecommerce.gateway.v1.api.XPayInternalApi
@@ -32,6 +33,7 @@ class PaymentGatewayClient {
         HttpStatus.NOT_FOUND -> TransactionNotFound(requestId)
         HttpStatus.GATEWAY_TIMEOUT -> GatewayTimeoutException()
         HttpStatus.INTERNAL_SERVER_ERROR -> BadGatewayException("")
+        HttpStatus.CONFLICT -> RefundNotAllowedException("")
         else -> exception
       }
     }
@@ -45,6 +47,7 @@ class PaymentGatewayClient {
         HttpStatus.NOT_FOUND -> TransactionNotFound(requestId)
         HttpStatus.GATEWAY_TIMEOUT -> GatewayTimeoutException()
         HttpStatus.INTERNAL_SERVER_ERROR -> BadGatewayException("")
+        HttpStatus.CONFLICT -> RefundNotAllowedException("")
         else -> exception
       }
     }
