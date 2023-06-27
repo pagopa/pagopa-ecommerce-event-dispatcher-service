@@ -17,6 +17,7 @@ import it.pagopa.ecommerce.commons.domain.v1.TransactionWithClosureError
 import it.pagopa.ecommerce.commons.domain.v1.pojos.*
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
+import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.RefundNotAllowedException
 import it.pagopa.ecommerce.eventdispatcher.queues.QueueCommonsLogger.logger
@@ -32,7 +33,6 @@ import java.time.ZonedDateTime
 import java.util.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import org.springframework.messaging.MessageHeaders
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
@@ -451,11 +451,12 @@ fun <T> runPipelineWithDeadLetterQueue(
   deadLetterQueueAsyncClient: QueueAsyncClient,
   deadLetterQueueTTLSeconds: Int,
   openTelemetry: OpenTelemetry? = null,
-  headers: MessageHeaders? = null,
+  tracingInfo: TracingInfo? = null,
   tracer: Tracer? = null,
   spanName: String? = null
 ): Mono<Void> {
-  val shouldTrace = openTelemetry != null && headers != null && tracer != null && spanName != null
+  val shouldTrace =
+    openTelemetry != null && tracingInfo != null && tracer != null && spanName != null
 
   fun createSpanWithRemoteTracingContext(): Pair<Scope, Span>? {
     if (shouldTrace) {
@@ -467,12 +468,19 @@ fun <T> runPipelineWithDeadLetterQueue(
           .textMapPropagator
           .extract(
             Context.current(),
-            headers,
-            object : TextMapGetter<MessageHeaders> {
-              override fun keys(headers: MessageHeaders): Iterable<String> = headers.keys
+            tracingInfo,
+            object : TextMapGetter<TracingInfo> {
+              override fun keys(t: TracingInfo): Iterable<String> =
+                setOf("traceparent", "tracestate", "baggage")
 
-              override fun get(headers: MessageHeaders?, key: String): String? =
-                headers?.get(key, String::class.java)
+              override fun get(info: TracingInfo?, key: String): String? {
+                return when (key) {
+                  "traceparent" -> info?.traceparent
+                  "tracestate" -> info?.tracestate
+                  "baggage" -> info?.baggage
+                  else -> null
+                }
+              }
             })
 
       return extractedContext.makeCurrent() to
@@ -515,10 +523,10 @@ fun <T> runPipelineWithDeadLetterQueue(
       }
 
   logger.info(
-    "Tracing preconditions: `shouldTrace`: {} `openTelemetry != null`: {}, `headers != null`: {}, `tracer != null`: {}, `spanName != null` {}",
+    "Tracing preconditions: `shouldTrace`: {} `openTelemetry != null`: {}, `tracingInfo != null`: {}, `tracer != null`: {}, `spanName != null` {}",
     shouldTrace,
     openTelemetry != null,
-    headers != null,
+    tracingInfo != null,
     tracer != null,
     spanName != null)
   return if (shouldTrace) {

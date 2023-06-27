@@ -1,6 +1,7 @@
 package it.pagopa.ecommerce.eventdispatcher.queues
 
 import com.azure.core.util.BinaryData
+import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
@@ -8,6 +9,7 @@ import io.opentelemetry.api.OpenTelemetry
 import io.opentelemetry.api.trace.Tracer
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.TransactionWithClosureError
+import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.utils.v1.TransactionUtils
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
@@ -70,9 +72,11 @@ class TransactionExpirationQueueConsumer(
     @Headers headers: MessageHeaders
   ): Mono<Void> {
     val binaryData = BinaryData.fromBytes(payload)
-    val transactionId = getTransactionIdFromPayload(binaryData)
+    val queueEvent =
+      binaryData.toObject(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {})
+    val transactionId = queueEvent.event.transactionId
 
-    logger.info("[transactionId: {}] headers: {}", transactionId, headers.toMap())
+    logger.info("[transaction id: {}, tracing info: {}]", transactionId, queueEvent.tracingInfo)
 
     val events =
       transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(transactionId)
@@ -161,7 +165,7 @@ class TransactionExpirationQueueConsumer(
       deadLetterQueueAsyncClient,
       deadLetterTTLSeconds,
       openTelemetry,
-      headers,
+      queueEvent.tracingInfo,
       tracer,
       this::class.simpleName!!)
   }
