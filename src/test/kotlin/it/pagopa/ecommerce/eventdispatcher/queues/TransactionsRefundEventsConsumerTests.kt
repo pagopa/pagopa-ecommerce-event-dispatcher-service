@@ -17,7 +17,6 @@ import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryServic
 import it.pagopa.ecommerce.eventdispatcher.utils.DEAD_LETTER_QUEUE_TTL_SECONDS
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
-import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse409Dto
 import java.time.ZonedDateTime
 import java.util.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -520,7 +519,7 @@ class TransactionsRefundEventsConsumerTests {
       val refundRequestedEvent =
         TransactionRefundRequestedEvent(
           TRANSACTION_ID, TransactionRefundedData(TransactionStatusDto.REFUND_REQUESTED))
-                as TransactionEvent<Any>
+          as TransactionEvent<Any>
 
       val events =
         listOf(
@@ -536,8 +535,8 @@ class TransactionsRefundEventsConsumerTests {
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
       given(
-        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
-          TRANSACTION_ID))
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
         .willReturn(events.toFlux())
       given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
       given(transactionsRefundedEventStoreRepository.save(refundEventStoreCaptor.capture()))
@@ -553,8 +552,8 @@ class TransactionsRefundEventsConsumerTests {
       /* test */
 
       StepVerifier.create(
-        transactionRefundedEventsConsumer.messageReceiver(
-          BinaryData.fromObject(refundRequestedEvent).toBytes(), checkpointer))
+          transactionRefundedEventsConsumer.messageReceiver(
+            BinaryData.fromObject(refundRequestedEvent).toBytes(), checkpointer))
         .expectNext()
         .verifyComplete()
 
@@ -584,7 +583,7 @@ class TransactionsRefundEventsConsumerTests {
       val refundRequestedEvent =
         TransactionRefundRequestedEvent(
           TRANSACTION_ID, TransactionRefundedData(TransactionStatusDto.REFUND_REQUESTED))
-                as TransactionEvent<Any>
+          as TransactionEvent<Any>
 
       val events =
         listOf(
@@ -600,8 +599,8 @@ class TransactionsRefundEventsConsumerTests {
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
       given(
-        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
-          TRANSACTION_ID))
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
         .willReturn(events.toFlux())
       given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
       given(transactionsRefundedEventStoreRepository.save(refundEventStoreCaptor.capture()))
@@ -617,8 +616,8 @@ class TransactionsRefundEventsConsumerTests {
       /* test */
 
       StepVerifier.create(
-        transactionRefundedEventsConsumer.messageReceiver(
-          BinaryData.fromObject(refundRequestedEvent).toBytes(), checkpointer))
+          transactionRefundedEventsConsumer.messageReceiver(
+            BinaryData.fromObject(refundRequestedEvent).toBytes(), checkpointer))
         .expectNext()
         .verifyComplete()
 
