@@ -363,6 +363,9 @@ fun updateNotifiedTransactionStatus(
     when (transaction.transactionUserReceiptData.responseOutcome!!) {
       TransactionUserReceiptData.Outcome.OK -> TransactionStatusDto.NOTIFIED_OK
       TransactionUserReceiptData.Outcome.KO -> TransactionStatusDto.NOTIFIED_KO
+      else ->
+        throw RuntimeException(
+          "Unexpected transaction user receipt data response outcome ${transaction.transactionUserReceiptData.responseOutcome} for transaction with id: ${transaction.transactionId.value()}")
     }
   val event =
     TransactionUserReceiptAddedEvent(
@@ -430,7 +433,8 @@ fun <T> runPipelineWithDeadLetterQueue(
   checkPointer: Checkpointer,
   pipeline: Mono<T>,
   eventPayload: ByteArray,
-  deadLetterQueueAsyncClient: QueueAsyncClient
+  deadLetterQueueAsyncClient: QueueAsyncClient,
+  deadLetterQueueTTLSeconds: Int
 ): Mono<Void> {
   // parse the event as a TransactionActivatedEvent just to extract transactionId and event code
   val binaryData = BinaryData.fromBytes(eventPayload)
@@ -448,7 +452,7 @@ fun <T> runPipelineWithDeadLetterQueue(
         .sendMessageWithResponse(
           binaryData,
           Duration.ZERO,
-          null, // timeToLive
+          Duration.ofSeconds(deadLetterQueueTTLSeconds.toLong()), // timeToLive
         )
         .doOnNext {
           logger.info(

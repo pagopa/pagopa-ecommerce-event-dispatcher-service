@@ -45,6 +45,9 @@ class TransactionExpirationQueueConsumer(
   @Value("\${sendPaymentResult.timeoutSeconds}") private val sendPaymentResultTimeoutSeconds: Int,
   @Value("\${sendPaymentResult.expirationOffset}")
   private val sendPaymentResultTimeoutOffsetSeconds: Int,
+  @Value("\${azurestorage.queues.transientQueues.ttlSeconds}")
+  private val transientQueueTTLSeconds: Int,
+  @Value("\${azurestorage.queues.deadLetterQueue.ttlSeconds}") private val deadLetterTTLSeconds: Int
 ) {
 
   var logger: Logger = LoggerFactory.getLogger(TransactionExpirationQueueConsumer::class.java)
@@ -80,25 +83,25 @@ class TransactionExpirationQueueConsumer(
                 Duration.ofSeconds(sendPaymentResultTimeoutOffsetSeconds.toLong())
               val expired = timeLeft < sendPaymentResultOffset
               logger.info(
-                "Time left for send payment result: $timeLeft, timeout offset: $sendPaymentResultOffset  --> expired: $expired")
+                "Transaction ${it.transactionId.value()} - Time left for send payment result: $timeLeft, timeout offset: $sendPaymentResultOffset  --> expired: $expired")
               if (expired) {
                 logger.error(
-                  "No send payment result received on time! Transaction will be expired.")
+                  "Transaction ${it.transactionId.value()} - No send payment result received on time! Transaction will be expired.")
                 deadLetterQueueAsyncClient
                   .sendMessageWithResponse(
                     binaryData,
                     Duration.ZERO,
-                    null,
+                    Duration.ofSeconds(deadLetterTTLSeconds.toLong()),
                   )
                   .thenReturn(true)
               } else {
                 logger.info(
-                  "Transaction still waiting for sendPaymentResult outcome, expiration event sent with visibility timeout: $timeLeft")
+                  "Transaction ${it.transactionId.value()} still waiting for sendPaymentResult outcome, expiration event sent with visibility timeout: $timeLeft")
                 expirationQueueAsyncClient
                   .sendMessageWithResponse(
                     binaryData,
                     timeLeft,
-                    null,
+                    Duration.ofSeconds(transientQueueTTLSeconds.toLong()),
                   )
                   .thenReturn(false)
               }
@@ -141,6 +144,6 @@ class TransactionExpirationQueueConsumer(
         }
 
     return runPipelineWithDeadLetterQueue(
-      checkPointer, refundPipeline, payload, deadLetterQueueAsyncClient)
+      checkPointer, refundPipeline, payload, deadLetterQueueAsyncClient, deadLetterTTLSeconds)
   }
 }
