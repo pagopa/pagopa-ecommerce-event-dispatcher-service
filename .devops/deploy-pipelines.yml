@@ -473,6 +473,7 @@ stages:
                   inputs:
                     targetType: "inline"
                     script: |
+                      helm repo add microservice-chart https://pagopa.github.io/aks-microservice-chart-blueprint
                       helm dep build helm
                 - template: azure-templates/helm-microservice-chart-deploy.yml
                   parameters:
