@@ -9,7 +9,7 @@
 	</parent>
 	<groupId>it.pagopa.ecommerce</groupId>
 	<artifactId>pagopa-ecommerce-event-dispatcher-service</artifactId>
-	<version>0.6.6</version>
+	<version>0.6.7</version>
 	<name>pagopa-ecommerce-event-dispatcher-service</name>
 	<description>pagoPA ecommerce microservice to handle transaction events and perform async operations such as
 	send user email, refund based on transaction status</description>
@@ -339,7 +339,7 @@
 							<goal>generate</goal>
 						</goals>
 						<configuration>
-							<inputSpec>https://raw.githubusercontent.com/pagopa/pagopa-infra/main/src/core/api/payment_transactions_gateway_api/internal/v1/_openapi.json.tpl</inputSpec>
+							<inputSpec>https://raw.githubusercontent.com/pagopa/pagopa-infra/f1f4663b1b69d13449db5e91e86b0a7dd9ca195b/src/core/api/payment_transactions_gateway_api/internal/v1/_openapi.json.tpl</inputSpec>
 							<generatorName>java</generatorName>
 							<library>webclient</library>
 							<generateApiDocumentation>false</generateApiDocumentation>
