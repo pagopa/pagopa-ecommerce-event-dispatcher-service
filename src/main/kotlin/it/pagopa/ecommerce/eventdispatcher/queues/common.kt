@@ -16,11 +16,9 @@ import it.pagopa.ecommerce.eventdispatcher.queues.QueueCommonsLogger.logger
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryService
-import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponse409Dto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto.StatusEnum
 import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
-import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse409Dto
 import java.nio.charset.StandardCharsets
 import java.time.Duration
 import java.time.ZonedDateTime
@@ -206,7 +204,7 @@ fun refundTransaction(
           Mono.just(tx)
         }
         .flatMap {
-          when(exception){
+          when (exception) {
             // Enqueue retry event only if refund is allowed
             !is RefundNotAllowedException -> refundRetryService.enqueueRetryEvent(it, retryCount)
             else -> Mono.empty()
