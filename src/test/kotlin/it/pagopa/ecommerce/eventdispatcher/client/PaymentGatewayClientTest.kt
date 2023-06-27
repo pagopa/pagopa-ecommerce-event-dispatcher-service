@@ -1,6 +1,7 @@
 package it.pagopa.ecommerce.eventdispatcher.client
 
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadGatewayException
+import it.pagopa.ecommerce.eventdispatcher.exceptions.RefundNotAllowedException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.TransactionNotFound
 import it.pagopa.ecommerce.eventdispatcher.utils.getMockedVPosRefundRequest
 import it.pagopa.ecommerce.eventdispatcher.utils.getMockedXPayRefundRequest
@@ -215,5 +216,45 @@ class PaymentGatewayClientTest {
       }
 
     assertInstanceOf(Exception::class.java, exc)
+  }
+
+  @Test
+  fun pgsClient_Exception_409_refund_xpay() {
+    val testUIID: UUID = UUID.randomUUID()
+
+    // preconditions
+    Mockito.`when`(xpayApi.refundXpayRequest(testUIID))
+      .thenReturn(
+        Mono.error(
+          WebClientResponseException.Conflict.create(
+            409, "", HttpHeaders.EMPTY, ByteArray(0), Charset.defaultCharset())))
+
+    // test
+    val exc =
+      assertThrows(Exception::class.java) {
+        paymentGatewayClient.requestXPayRefund(testUIID).block()
+      }
+
+    assertInstanceOf(RefundNotAllowedException::class.java, exc)
+  }
+
+  @Test
+  fun pgsClient_Exception_409_refund_vpos() {
+    val testUIID: UUID = UUID.randomUUID()
+
+    // preconditions
+    Mockito.`when`(xpayApi.refundXpayRequest(testUIID))
+      .thenReturn(
+        Mono.error(
+          WebClientResponseException.Conflict.create(
+            409, "", HttpHeaders.EMPTY, ByteArray(0), Charset.defaultCharset())))
+
+    // test
+    val exc =
+      assertThrows(Exception::class.java) {
+        paymentGatewayClient.requestXPayRefund(testUIID).block()
+      }
+
+    assertInstanceOf(RefundNotAllowedException::class.java, exc)
   }
 }
