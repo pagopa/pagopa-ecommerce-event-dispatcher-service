@@ -179,7 +179,6 @@ stages:
               steps:
                 - checkout: self
                   displayName: "Checkout"
-                - task: KubectlInstaller@0
                 - task: Bash@3
                   name: update_chart_version
                   displayName: 'Setup helm microservice chart'
@@ -286,7 +285,6 @@ stages:
               steps:
                 - checkout: self
                   displayName: "Checkout"
-                - task: KubectlInstaller@0
                 - task: Bash@3
                   name: update_chart_version
                   displayName: 'Setup helm microservice chart'
@@ -310,6 +308,12 @@ stages:
   - stage: "Prod_WaitForApproval"
     displayName: 'PROD approval deployment'
     dependsOn: [ Deploy_UAT_Green,Release ]
+    condition: |
+      and(
+        eq(${{parameters.UAT_PROD_DEPLOY}}, true),
+        in(dependencies.Deploy_UAT_Green.result, 'Succeeded'),
+        in(dependencies.Release.result, 'Succeeded', 'Skipped')
+      )
     variables:
       prod_version: $[ stageDependencies.Release.make_release.outputs['chart_current_version.appVersion'] ]
     jobs:
@@ -327,12 +331,14 @@ stages:
 
   - stage: "Build_PROD_Blue"
     displayName: 'PROD blue Build'
-    condition:
-      and(
-      succeeded(),
-      eq(${{parameters.PROD_SKIP_BLUE_DEPLOYMENT}}, False)
-      )
     dependsOn: [ Prod_WaitForApproval,Release ]
+    condition: |
+      and(
+        eq(${{parameters.UAT_PROD_DEPLOY}}, true),
+        eq(${{parameters.PROD_SKIP_BLUE_DEPLOYMENT}}, False),
+        eq(dependencies.Prod_WaitForApproval.result, 'Succeeded'),
+        in(dependencies.Release.result, 'Succeeded', 'Skipped')
+      )
     variables:
       prod_version: $[ stageDependencies.Release.make_release.outputs['chart_current_version.appVersion'] ]
     jobs:
@@ -365,6 +371,13 @@ stages:
   - stage: "Deploy_PROD_Blue"
     displayName: 'PROD blue deployment'
     dependsOn: [ Build_PROD_Blue,Release ]
+    condition: |
+      and(
+        eq(${{parameters.UAT_PROD_DEPLOY}}, true),
+        eq(${{parameters.PROD_SKIP_BLUE_DEPLOYMENT}}, False),
+        eq(dependencies.Build_PROD_Blue.result, 'Succeeded'),
+        in(dependencies.Release.result, 'Succeeded', 'Skipped')
+      )
     variables:
       prod_version: $[ stageDependencies.Release.make_release.outputs['chart_current_version.appVersion'] ]
     jobs:
@@ -421,6 +434,12 @@ stages:
   - stage: "Build_PROD_Green"
     displayName: 'PROD green Build'
     dependsOn: [ PROD_Green_WaitForApproval,Release ]
+    condition: |
+      and(
+        eq(${{parameters.UAT_PROD_DEPLOY}}, true),
+        in(dependencies.PROD_Green_WaitForApproval.result, 'Succeeded'),
+        in(dependencies.Release.result, 'Succeeded', 'Skipped')
+      )
     variables:
       prod_version: $[ stageDependencies.Release.make_release.outputs['chart_current_version.appVersion'] ]
     jobs:
@@ -453,6 +472,12 @@ stages:
   - stage: "Deploy_PROD_Green"
     displayName: 'PROD green deployment'
     dependsOn: [ Build_PROD_Green,Release ]
+    condition: |
+      and(
+        eq(${{parameters.UAT_PROD_DEPLOY}}, true),
+        in(dependencies.Build_PROD_Green.result, 'Succeeded'),
+        in(dependencies.Release.result, 'Succeeded', 'Skipped')
+      )
     variables:
       prod_version: $[ stageDependencies.Release.make_release.outputs['chart_current_version.appVersion'] ]
     jobs:
