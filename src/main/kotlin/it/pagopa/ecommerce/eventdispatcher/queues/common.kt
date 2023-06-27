@@ -455,23 +455,28 @@ fun <T> runPipelineWithDeadLetterQueue(
   tracer: Tracer? = null,
   spanName: String? = null
 ): Mono<Void> {
+  val shouldTrace = openTelemetry != null && headers != null && tracer != null && spanName != null
+
   fun createSpanWithRemoteTracingContext(): Pair<Scope, Span>? {
-    if (openTelemetry != null && headers != null && tracer != null && spanName != null) {
+    if (shouldTrace) {
       logger.info("Creating new span with remote context")
 
       val extractedContext =
-        openTelemetry.propagators.textMapPropagator.extract(
-          Context.current(),
-          headers,
-          object : TextMapGetter<MessageHeaders> {
-            override fun keys(headers: MessageHeaders): Iterable<String> = headers.keys
+        openTelemetry!!
+          .propagators
+          .textMapPropagator
+          .extract(
+            Context.current(),
+            headers,
+            object : TextMapGetter<MessageHeaders> {
+              override fun keys(headers: MessageHeaders): Iterable<String> = headers.keys
 
-            override fun get(headers: MessageHeaders?, key: String): String? =
-              headers?.get(key, String::class.java)
-          })
+              override fun get(headers: MessageHeaders?, key: String): String? =
+                headers?.get(key, String::class.java)
+            })
 
       return extractedContext.makeCurrent() to
-        tracer.spanBuilder(spanName).setSpanKind(SpanKind.CONSUMER).startSpan()
+        tracer!!.spanBuilder(spanName!!).setSpanKind(SpanKind.CONSUMER).startSpan()
     }
 
     return null
@@ -510,25 +515,24 @@ fun <T> runPipelineWithDeadLetterQueue(
       }
 
   logger.info(
-    "Tracing preconditions: `openTelemetry != null`: {}, `headers != null`: {}, `tracer != null`: {}, `spanName != null` {}",
+    "Tracing preconditions: `shouldTrace`: {} `openTelemetry != null`: {}, `headers != null`: {}, `tracer != null`: {}, `spanName != null` {}",
+    shouldTrace,
     openTelemetry != null,
     headers != null,
     tracer != null,
     spanName != null)
-  return if (openTelemetry != null && headers != null && tracer != null && spanName != null) {
+  return if (shouldTrace) {
     val tracedDeadLetterPipeline =
-      Mono.usingWhen(
-        Mono.fromRunnable<Pair<Scope, Span>> { createSpanWithRemoteTracingContext()!! },
+      Mono.using(
+        { createSpanWithRemoteTracingContext()!! },
         { (_, span) ->
           logger.info(
             "Extending remote transaction with trace id: ${span.spanContext.traceId} span id: ${span.spanContext.spanId} context: ${span.spanContext.traceState.asMap()}")
           deadLetterPipeline
         },
         { (scope, span) ->
-          return@usingWhen Mono.fromRunnable<Void> {
-            span.end()
-            scope.close()
-          }
+          span.end()
+          scope.close()
         })
 
     tracedDeadLetterPipeline
