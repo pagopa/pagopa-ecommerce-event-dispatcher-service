@@ -33,7 +33,7 @@ class PaymentGatewayClient {
         HttpStatus.NOT_FOUND -> TransactionNotFound(requestId)
         HttpStatus.GATEWAY_TIMEOUT -> GatewayTimeoutException()
         HttpStatus.INTERNAL_SERVER_ERROR -> BadGatewayException("")
-        HttpStatus.CONFLICT -> RefundNotAllowedException("")
+        HttpStatus.CONFLICT -> RefundNotAllowedException(requestId)
         else -> exception
       }
     }
@@ -47,7 +47,7 @@ class PaymentGatewayClient {
         HttpStatus.NOT_FOUND -> TransactionNotFound(requestId)
         HttpStatus.GATEWAY_TIMEOUT -> GatewayTimeoutException()
         HttpStatus.INTERNAL_SERVER_ERROR -> BadGatewayException("")
-        HttpStatus.CONFLICT -> RefundNotAllowedException("")
+        HttpStatus.CONFLICT -> RefundNotAllowedException(requestId)
         else -> exception
       }
     }
