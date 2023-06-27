@@ -37,8 +37,6 @@ microservice-chart:
       MONGO_SSL_ENABLED: "true"
       ECOMMERCE_STORAGE_TRANSIENT_QUEUE_ACCOUNT_NAME: pagopauweuecommercetrsa
       ECOMMERCE_STORAGE_TRANSIENT_QUEUE_ENDPOINT: https://pagopauweuecommercetrsa.queue.core.windows.net/pagopauweuecommercetrsa
-      ECOMMERCE_STORAGE_DEADLETTER_QUEUE_ACCOUNT_NAME: pagopauweuecommercedlsa
-      ECOMMERCE_STORAGE_DEADLETTER_QUEUE_ENDPOINT: https://pagopauweuecommercedlsa.queue.core.windows.net/pagopauweuecommercedlsa
       REFUND_RETRY_EVENT_BASE_INTERVAL_SECONDS: "600"
       REFUND_RETRY_EVENT_MAX_ATTEMPTS: "3"
       CLOSE_PAYMENT_RETRY_EVENT_BASE_INTERVAL_SECONDS: "30"
@@ -59,7 +57,6 @@ microservice-chart:
       ECS_SERVICE_ENVIRONMENT: uat
     envSecret:
       ECOMMERCE_STORAGE_TRANSIENT_QUEUE_KEY: ecommerce-storage-transient-account-key
-      ECOMMERCE_STORAGE_DEADLETTER_QUEUE_KEY: ecommerce-storage-deadletter-account-key
       MONGO_PASSWORD: mongo-ecommerce-password
       NODO_CONNECTION_STRING: nodo-connection-string
       QUEUE_TRANSIENT_CONNECTION_STRING: ecommerce-storage-transient-connection-string
@@ -152,8 +149,6 @@ microservice-chart:
     MONGO_SSL_ENABLED: "true"
     ECOMMERCE_STORAGE_TRANSIENT_QUEUE_ACCOUNT_NAME: pagopauweuecommercetrsa
     ECOMMERCE_STORAGE_TRANSIENT_QUEUE_ENDPOINT: https://pagopauweuecommercetrsa.queue.core.windows.net/pagopauweuecommercetrsa
-    ECOMMERCE_STORAGE_DEADLETTER_QUEUE_ACCOUNT_NAME: pagopauweuecommercedlsa
-    ECOMMERCE_STORAGE_DEADLETTER_QUEUE_ENDPOINT: https://pagopauweuecommercedlsa.queue.core.windows.net/pagopauweuecommercedlsa
     REFUND_RETRY_EVENT_BASE_INTERVAL_SECONDS: "600"
     REFUND_RETRY_EVENT_MAX_ATTEMPTS: "3"
     CLOSE_PAYMENT_RETRY_EVENT_BASE_INTERVAL_SECONDS: "30"
@@ -174,7 +169,6 @@ microservice-chart:
     ECS_SERVICE_ENVIRONMENT: uat
   envSecret:
     ECOMMERCE_STORAGE_TRANSIENT_QUEUE_KEY: ecommerce-storage-transient-account-key
-    ECOMMERCE_STORAGE_DEADLETTER_QUEUE_KEY: ecommerce-storage-deadletter-account-key
     MONGO_PASSWORD: mongo-ecommerce-password
     NODO_CONNECTION_STRING: nodo-connection-string
     QUEUE_TRANSIENT_CONNECTION_STRING: ecommerce-storage-transient-connection-string
