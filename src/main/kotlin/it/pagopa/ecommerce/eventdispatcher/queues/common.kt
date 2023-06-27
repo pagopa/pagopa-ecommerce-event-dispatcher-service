@@ -11,6 +11,7 @@ import it.pagopa.ecommerce.commons.domain.v1.pojos.*
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
+import it.pagopa.ecommerce.eventdispatcher.exceptions.RefundNotAllowedException
 import it.pagopa.ecommerce.eventdispatcher.queues.QueueCommonsLogger.logger
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
@@ -202,7 +203,13 @@ fun refundTransaction(
         } else {
           Mono.just(tx)
         }
-        .flatMap { refundRetryService.enqueueRetryEvent(it, retryCount) }
+        .flatMap {
+          when (exception) {
+            // Enqueue retry event only if refund is allowed
+            !is RefundNotAllowedException -> refundRetryService.enqueueRetryEvent(it, retryCount)
+            else -> Mono.empty()
+          }
+        }
         .thenReturn(tx)
     }
 }
