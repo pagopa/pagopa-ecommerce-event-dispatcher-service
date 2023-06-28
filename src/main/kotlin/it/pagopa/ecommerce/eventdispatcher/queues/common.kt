@@ -8,7 +8,6 @@ import io.opentelemetry.api.trace.Span
 import io.opentelemetry.api.trace.SpanKind
 import io.opentelemetry.api.trace.Tracer
 import io.opentelemetry.context.Context
-import io.opentelemetry.context.Scope
 import io.opentelemetry.context.propagation.TextMapGetter
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
@@ -458,7 +457,7 @@ fun <T> runPipelineWithDeadLetterQueue(
   val shouldTrace =
     openTelemetry != null && tracingInfo != null && tracer != null && spanName != null
 
-  fun createSpanWithRemoteTracingContext(): Pair<Scope, Span>? {
+  fun createSpanWithRemoteTracingContext(): Span? {
     if (shouldTrace) {
       logger.info("Creating new span with remote context")
 
@@ -483,8 +482,11 @@ fun <T> runPipelineWithDeadLetterQueue(
               }
             })
 
-      return extractedContext.makeCurrent() to
-        tracer!!.spanBuilder(spanName!!).setSpanKind(SpanKind.CONSUMER).startSpan()
+      return tracer!!
+        .spanBuilder(spanName!!)
+        .setSpanKind(SpanKind.CONSUMER)
+        .setParent(extractedContext)
+        .startSpan()
     }
 
     return null
@@ -533,15 +535,12 @@ fun <T> runPipelineWithDeadLetterQueue(
     val tracedDeadLetterPipeline =
       Mono.using(
         { createSpanWithRemoteTracingContext()!! },
-        { (_, span) ->
+        { span ->
           logger.info(
             "Extending remote transaction with trace id: ${span.spanContext.traceId} span id: ${span.spanContext.spanId} context: ${span.spanContext.traceState.asMap()}")
           deadLetterPipeline
         },
-        { (scope, span) ->
-          span.end()
-          scope.close()
-        })
+        { span -> span.end() })
 
     tracedDeadLetterPipeline
   } else {
