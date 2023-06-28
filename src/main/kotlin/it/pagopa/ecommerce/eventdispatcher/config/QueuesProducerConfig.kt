@@ -11,7 +11,7 @@ class QueuesProducerConfig {
 
   @Bean
   fun refundRetryQueueAsyncClient(
-    @Value("\${azurestorage.connectionstring}") storageConnectionString: String,
+    @Value("\${azurestorage.transient.connectionstring}") storageConnectionString: String,
     @Value("\${azurestorage.queues.transactionrefundretry.name}") queueEventInitName: String,
   ): QueueAsyncClient {
     return buildQueueAsyncClient(storageConnectionString, queueEventInitName)
@@ -19,7 +19,7 @@ class QueuesProducerConfig {
 
   @Bean
   fun closureRetryQueueAsyncClient(
-    @Value("\${azurestorage.connectionstring}") storageConnectionString: String,
+    @Value("\${azurestorage.transient.connectionstring}") storageConnectionString: String,
     @Value("\${azurestorage.queues.transactionclosepaymentretry.name}") queueEventInitName: String,
   ): QueueAsyncClient {
     return buildQueueAsyncClient(storageConnectionString, queueEventInitName)
@@ -27,7 +27,7 @@ class QueuesProducerConfig {
 
   @Bean
   fun notificationRetryQueueAsyncClient(
-    @Value("\${azurestorage.connectionstring}") storageConnectionString: String,
+    @Value("\${azurestorage.transient.connectionstring}") storageConnectionString: String,
     @Value("\${azurestorage.queues.transactionnotificationretry.name}") queueEventInitName: String,
   ): QueueAsyncClient {
     return buildQueueAsyncClient(storageConnectionString, queueEventInitName)
@@ -35,7 +35,7 @@ class QueuesProducerConfig {
 
   @Bean
   fun deadLetterQueueAsyncClient(
-    @Value("\${azurestorage.connectionstring}") storageConnectionString: String,
+    @Value("\${azurestorage.deadletter.connectionstring}") storageConnectionString: String,
     @Value("\${azurestorage.queues.deadletter.name}") queueEventInitName: String,
   ): QueueAsyncClient {
     return buildQueueAsyncClient(storageConnectionString, queueEventInitName)
@@ -43,7 +43,7 @@ class QueuesProducerConfig {
 
   @Bean
   fun expirationQueueAsyncClient(
-    @Value("\${azurestorage.connectionstring}") storageConnectionString: String,
+    @Value("\${azurestorage.transient.connectionstring}") storageConnectionString: String,
     @Value("\${azurestorage.queues.transactionexpiration.name}") queueEventInitName: String,
   ): QueueAsyncClient {
     return buildQueueAsyncClient(storageConnectionString, queueEventInitName)
