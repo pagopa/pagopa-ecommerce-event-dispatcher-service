@@ -485,7 +485,7 @@ fun <T> runPipelineWithDeadLetterQueue(
       return tracer!!
         .spanBuilder(spanName!!)
         .setSpanKind(SpanKind.CONSUMER)
-        .setParent(extractedContext)
+        .addLink(Span.fromContext(extractedContext).spanContext)
         .startSpan()
     }
 
