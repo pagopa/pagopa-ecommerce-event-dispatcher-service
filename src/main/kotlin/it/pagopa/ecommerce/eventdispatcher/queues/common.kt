@@ -10,6 +10,8 @@ import it.pagopa.ecommerce.commons.domain.v1.TransactionWithClosureError
 import it.pagopa.ecommerce.commons.domain.v1.pojos.*
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
+import it.pagopa.ecommerce.commons.queues.QueueEvent
+import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.RefundNotAllowedException
 import it.pagopa.ecommerce.eventdispatcher.queues.QueueCommonsLogger.logger
@@ -465,6 +467,10 @@ fun <T> runPipelineWithDeadLetterQueue(
           logger.info(
             "Event: [${eventPayload.toString(StandardCharsets.UTF_8)}] successfully sent with visibility timeout: [${it.value.timeNextVisible}] ms to queue: [${deadLetterQueueAsyncClient.queueName}]")
         }
+        .doOnNext {
+          logger.info(
+            "Event: [${eventPayload.toString(StandardCharsets.UTF_8)}] successfully sent with visibility timeout: [${it.value.timeNextVisible}] ms to queue: [${deadLetterQueueAsyncClient.queueName}]")
+        }
         .doOnError { queueException ->
           logger.error(
             "Error sending event: [${eventPayload.toString(StandardCharsets.UTF_8)}] to dead letter queue.",
@@ -472,6 +478,46 @@ fun <T> runPipelineWithDeadLetterQueue(
         }
         .then()
     }
+}
+
+fun <T> runTracedPipelineWithDeadLetterQueue(
+  checkPointer: Checkpointer,
+  pipeline: Mono<T>,
+  queueEvent: QueueEvent<*>,
+  deadLetterQueueAsyncClient: QueueAsyncClient,
+  deadLetterQueueTTLSeconds: Int,
+  tracingUtils: TracingUtils,
+  spanName: String
+): Mono<Void> {
+  val eventLogString = "${queueEvent.event.id}, transactionId: ${queueEvent.event.transactionId}"
+
+  val deadLetterPipeline =
+    checkPointer
+      .success()
+      .doOnSuccess { logger.info("Checkpoint performed successfully for event $eventLogString") }
+      .doOnError { logger.error("Error performing checkpoint for event $eventLogString", it) }
+      .then(pipeline)
+      .then()
+      .onErrorResume { pipelineException ->
+        logger.error("Exception processing event $eventLogString", pipelineException)
+        deadLetterQueueAsyncClient
+          .sendMessageWithResponse(
+            BinaryData.fromObject(queueEvent),
+            Duration.ZERO,
+            Duration.ofSeconds(deadLetterQueueTTLSeconds.toLong()), // timeToLive
+          )
+          .doOnNext {
+            logger.info(
+              "Event: [${queueEvent.event}] successfully sent with visibility timeout: [${it.value.timeNextVisible}] ms to queue: [${deadLetterQueueAsyncClient.queueName}]")
+          }
+          .doOnError { queueException ->
+            logger.error(
+              "Error sending event: [${queueEvent.event}] to dead letter queue.", queueException)
+          }
+          .then()
+      }
+
+  return tracingUtils.traceMonoWithRemoteSpan(queueEvent.tracingInfo, spanName, deadLetterPipeline)
 }
 
 fun getClosePaymentOutcome(tx: BaseTransaction): TransactionClosureData.Outcome? =
