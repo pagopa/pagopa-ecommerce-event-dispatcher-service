@@ -3,13 +3,20 @@ package it.pagopa.ecommerce.eventdispatcher.utils
 import com.azure.core.http.rest.Response
 import com.azure.core.http.rest.ResponseBase
 import com.azure.storage.queue.models.SendMessageResult
+import io.mockk.every
+import io.mockk.mockkStatic
+import io.opentelemetry.api.trace.Span
 import it.pagopa.ecommerce.commons.documents.v1.TransactionAuthorizationRequestData
+import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils
+import it.pagopa.ecommerce.eventdispatcher.queues.createSpanWithRemoteTracingContext
+import it.pagopa.ecommerce.eventdispatcher.queues.traceMonoWithSpan
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import java.time.OffsetDateTime
 import java.util.*
+import kotlin.reflect.KFunction
 import reactor.core.publisher.Mono
 
 fun getMockedClosePaymentRequest(
@@ -90,3 +97,15 @@ fun queueSuccessfulResponse(): Mono<Response<SendMessageResult>> {
 const val TRANSIENT_QUEUE_TTL_SECONDS = 30
 
 const val DEAD_LETTER_QUEUE_TTL_SECONDS = -1
+
+val MOCK_TRACING_INFO = TracingInfo("", "", "")
+
+fun setupTracingMocks() {
+  val traceMonoWithSpanFunction: (Span, Mono<Any>) -> Mono<Any> = ::traceMonoWithSpan
+  val traceMonoWithSpanKFunction = traceMonoWithSpanFunction as KFunction<*>
+  mockkStatic(traceMonoWithSpanKFunction)
+  every { traceMonoWithSpan(any(), any<Mono<Any>>()) } returnsArgument (1)
+
+  mockkStatic(::createSpanWithRemoteTracingContext)
+  every { createSpanWithRemoteTracingContext(any(), any(), any(), any()) } returns Span.getInvalid()
+}

@@ -454,44 +454,6 @@ fun <T> runPipelineWithDeadLetterQueue(
   tracer: Tracer? = null,
   spanName: String? = null
 ): Mono<Void> {
-  val shouldTrace =
-    openTelemetry != null && tracingInfo != null && tracer != null && spanName != null
-
-  fun createSpanWithRemoteTracingContext(): Span? {
-    if (shouldTrace) {
-      logger.info("Creating new span with remote context")
-
-      val extractedContext =
-        openTelemetry!!
-          .propagators
-          .textMapPropagator
-          .extract(
-            Context.current(),
-            tracingInfo,
-            object : TextMapGetter<TracingInfo> {
-              override fun keys(t: TracingInfo): Iterable<String> =
-                setOf("traceparent", "tracestate", "baggage")
-
-              override fun get(info: TracingInfo?, key: String): String? {
-                return when (key) {
-                  "traceparent" -> info?.traceparent
-                  "tracestate" -> info?.tracestate
-                  "baggage" -> info?.baggage
-                  else -> null
-                }
-              }
-            })
-
-      return tracer!!
-        .spanBuilder(spanName!!)
-        .setSpanKind(SpanKind.CONSUMER)
-        .addLink(Span.fromContext(extractedContext).spanContext)
-        .startSpan()
-    }
-
-    return null
-  }
-
   // parse the event as a TransactionActivatedEvent just to extract transactionId and event code
   val binaryData = BinaryData.fromBytes(eventPayload)
   val event = binaryData.toObject(TransactionActivatedEvent::class.java)
@@ -524,25 +486,10 @@ fun <T> runPipelineWithDeadLetterQueue(
           .then()
       }
 
-  logger.info(
-    "Tracing preconditions: `shouldTrace`: {} `openTelemetry != null`: {}, `tracingInfo != null`: {}, `tracer != null`: {}, `spanName != null` {}",
-    shouldTrace,
-    openTelemetry != null,
-    tracingInfo != null,
-    tracer != null,
-    spanName != null)
-  return if (shouldTrace) {
-    val tracedDeadLetterPipeline =
-      Mono.using(
-        { createSpanWithRemoteTracingContext()!! },
-        { span ->
-          logger.info(
-            "Extending remote transaction with trace id: ${span.spanContext.traceId} span id: ${span.spanContext.spanId} context: ${span.spanContext.traceState.asMap()}")
-          deadLetterPipeline
-        },
-        { span -> span.end() })
+  return if (openTelemetry != null && tracer != null && tracingInfo != null && spanName != null) {
+    val span = createSpanWithRemoteTracingContext(openTelemetry, tracer, tracingInfo, spanName)
 
-    tracedDeadLetterPipeline
+    traceMonoWithSpan(span, deadLetterPipeline)
   } else {
     deadLetterPipeline
   }
@@ -582,4 +529,48 @@ fun <T> timeLeftForSendPaymentResult(
   } else {
     Mono.empty()
   }
+}
+
+fun <T> traceMonoWithSpan(span: Span, operation: Mono<T>): Mono<T> {
+  return Mono.using(
+    { span },
+    { s ->
+      logger.info(
+        "Extending remote transaction with trace id: ${s.spanContext.traceId} span id: ${s.spanContext.spanId} context: ${s.spanContext.traceState.asMap()}")
+      operation
+    },
+    Span::end)
+}
+
+fun createSpanWithRemoteTracingContext(
+  openTelemetry: OpenTelemetry,
+  tracer: Tracer,
+  tracingInfo: TracingInfo,
+  spanName: String
+): Span {
+  logger.info("Creating new span with remote context")
+
+  val extractedContext =
+    openTelemetry.propagators.textMapPropagator.extract(
+      Context.current(),
+      tracingInfo,
+      object : TextMapGetter<TracingInfo> {
+        override fun keys(t: TracingInfo): Iterable<String> =
+          setOf("traceparent", "tracestate", "baggage")
+
+        override fun get(info: TracingInfo?, key: String): String? {
+          return when (key) {
+            "traceparent" -> info?.traceparent
+            "tracestate" -> info?.tracestate
+            "baggage" -> info?.baggage
+            else -> null
+          }
+        }
+      })
+
+  return tracer
+    .spanBuilder(spanName)
+    .setSpanKind(SpanKind.CONSUMER)
+    .addLink(Span.fromContext(extractedContext).spanContext)
+    .startSpan()
 }

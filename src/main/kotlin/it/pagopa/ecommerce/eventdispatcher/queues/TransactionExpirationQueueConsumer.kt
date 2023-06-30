@@ -61,10 +61,6 @@ class TransactionExpirationQueueConsumer(
 
   var logger: Logger = LoggerFactory.getLogger(TransactionExpirationQueueConsumer::class.java)
 
-  private fun getTransactionIdFromPayload(data: BinaryData): String {
-    return data.toObject(TransactionActivatedEvent::class.java).transactionId
-  }
-
   @ServiceActivator(inputChannel = "transactionexpiredchannel", outputChannel = "nullChannel")
   fun messageReceiver(
     @Payload payload: ByteArray,
