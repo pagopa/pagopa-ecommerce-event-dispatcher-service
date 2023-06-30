@@ -1,6 +1,7 @@
 package it.pagopa.ecommerce.eventdispatcher.queues
 
 import com.azure.core.util.BinaryData
+import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
@@ -12,6 +13,8 @@ import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v1.TransactionWithCancellationRequested
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithCancellationRequested
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
+import it.pagopa.ecommerce.commons.queues.QueueEvent
+import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadClosePaymentRequest
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
@@ -45,13 +48,11 @@ class TransactionClosePaymentQueueConsumer(
   @Autowired private val nodeService: NodeService,
   @Autowired private val closureRetryService: ClosureRetryService,
   @Autowired private val deadLetterQueueAsyncClient: QueueAsyncClient,
-  @Value("\${azurestorage.queues.deadLetterQueue.ttlSeconds}") private val deadLetterTTLSeconds: Int
+  @Value("\${azurestorage.queues.deadLetterQueue.ttlSeconds}")
+  private val deadLetterTTLSeconds: Int,
+  @Autowired private val tracingUtils: TracingUtils
 ) {
   var logger: Logger = LoggerFactory.getLogger(TransactionClosePaymentQueueConsumer::class.java)
-
-  private fun getTransactionIdFromPayload(data: BinaryData): Mono<String> {
-    return data.toObjectAsync(TransactionUserCanceledEvent::class.java).map { it.transactionId }
-  }
 
   @ServiceActivator(inputChannel = "transactionclosureschannel", outputChannel = "nullChannel")
   fun messageReceiver(
@@ -65,7 +66,10 @@ class TransactionClosePaymentQueueConsumer(
     emptyTransaction: EmptyTransaction
   ): Mono<Void> {
     val binaryData = BinaryData.fromBytes(payload)
-    val transactionId = getTransactionIdFromPayload(binaryData)
+    val queueEvent =
+      binaryData.toObjectAsync(
+        object : TypeReference<QueueEvent<TransactionUserCanceledEvent>>() {})
+    val transactionId = queueEvent.map { it.event.transactionId }
     val baseTransaction =
       reduceEvents(transactionId, transactionsEventStoreRepository, emptyTransaction)
     val closurePipeline =
@@ -150,8 +154,16 @@ class TransactionClosePaymentQueueConsumer(
         }
         .then()
 
-    return runPipelineWithDeadLetterQueue(
-      checkPointer, closurePipeline, payload, deadLetterQueueAsyncClient, deadLetterTTLSeconds)
+    return queueEvent.flatMap {
+      runTracedPipelineWithDeadLetterQueue(
+        checkPointer,
+        closurePipeline,
+        it,
+        deadLetterQueueAsyncClient,
+        deadLetterTTLSeconds,
+        tracingUtils,
+        this::class.simpleName!!)
+    }
   }
 
   private fun updateTransactionStatus(
