@@ -154,14 +154,13 @@ class TransactionExpirationQueueConsumer(
             refundRetryService)
         }
 
-    return runPipelineWithDeadLetterQueue(
+    return runTracedPipelineWithDeadLetterQueue(
       checkPointer,
       refundPipeline,
-      payload,
+      queueEvent,
       deadLetterQueueAsyncClient,
       deadLetterTTLSeconds,
       openTelemetry,
-      queueEvent.tracingInfo,
       tracer,
       this::class.simpleName!!)
   }
