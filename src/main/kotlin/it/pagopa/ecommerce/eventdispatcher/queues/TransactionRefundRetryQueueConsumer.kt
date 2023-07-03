@@ -1,14 +1,18 @@
 package it.pagopa.ecommerce.eventdispatcher.queues
 
 import com.azure.core.util.BinaryData
+import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
+import io.opentelemetry.api.OpenTelemetry
+import io.opentelemetry.api.trace.Tracer
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v1.Transaction
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
+import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
@@ -38,13 +42,17 @@ class TransactionRefundRetryQueueConsumer(
   @Autowired private val transactionsViewRepository: TransactionsViewRepository,
   @Autowired private val refundRetryService: RefundRetryService,
   @Autowired private val deadLetterQueueAsyncClient: QueueAsyncClient,
-  @Value("\${azurestorage.queues.deadLetterQueue.ttlSeconds}") private val deadLetterTTLSeconds: Int
+  @Value("\${azurestorage.queues.deadLetterQueue.ttlSeconds}")
+  private val deadLetterTTLSeconds: Int,
+  @Autowired private val openTelemetry: OpenTelemetry,
+  @Autowired private val tracer: Tracer
 ) {
 
   var logger: Logger = LoggerFactory.getLogger(TransactionRefundRetryQueueConsumer::class.java)
 
-  private fun parseInputEvent(data: BinaryData): Mono<TransactionRefundRetriedEvent> {
-    return data.toObjectAsync(TransactionRefundRetriedEvent::class.java)
+  private fun parseInputEvent(data: BinaryData): Mono<QueueEvent<TransactionRefundRetriedEvent>> {
+    return data.toObjectAsync(
+      object : TypeReference<QueueEvent<TransactionRefundRetriedEvent>>() {})
   }
 
   @ServiceActivator(inputChannel = "transactionrefundretrychannel", outputChannel = "nullChannel")
@@ -58,7 +66,7 @@ class TransactionRefundRetryQueueConsumer(
       event
         .flatMapMany {
           transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
-            it.transactionId)
+            it.event.transactionId)
         }
         .reduce(EmptyTransaction(), Transaction::applyEvent)
         .cast(BaseTransaction::class.java)
@@ -78,17 +86,26 @@ class TransactionRefundRetryQueueConsumer(
           }
         }
         .flatMap { tx ->
-          event.flatMap { event ->
+          event.flatMap { queueEvent ->
             refundTransaction(
               tx,
               transactionsRefundedEventStoreRepository,
               transactionsViewRepository,
               paymentGatewayClient,
               refundRetryService,
-              event.data.retryCount)
+              queueEvent.event.data.retryCount)
           }
         }
-    return runPipelineWithDeadLetterQueue(
-      checkPointer, refundPipeline, payload, deadLetterQueueAsyncClient, deadLetterTTLSeconds)
+    return event.flatMap {
+      runTracedPipelineWithDeadLetterQueue(
+        checkPointer,
+        refundPipeline,
+        it,
+        deadLetterQueueAsyncClient,
+        deadLetterTTLSeconds,
+        openTelemetry,
+        tracer,
+        this::class.simpleName!!)
+    }
   }
 }
