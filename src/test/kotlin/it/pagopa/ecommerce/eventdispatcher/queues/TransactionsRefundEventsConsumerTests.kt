@@ -1,12 +1,17 @@
 package it.pagopa.ecommerce.eventdispatcher.queues
 
+import com.azure.core.serializer.json.jackson.JacksonJsonSerializerBuilder
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
+import com.fasterxml.jackson.databind.ObjectMapper
+import io.opentelemetry.api.OpenTelemetry
+import io.opentelemetry.api.trace.Tracer
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithRequestedAuthorization
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
+import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.v1.*
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils.*
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
@@ -15,6 +20,7 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRe
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryService
 import it.pagopa.ecommerce.eventdispatcher.utils.DEAD_LETTER_QUEUE_TTL_SECONDS
+import it.pagopa.ecommerce.eventdispatcher.utils.MOCK_TRACING_INFO
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
 import java.time.ZonedDateTime
@@ -23,6 +29,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.reactor.mono
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.ArgumentCaptor
@@ -30,6 +37,7 @@ import org.mockito.Captor
 import org.mockito.Mockito
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.*
+import reactor.core.publisher.Hooks
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toFlux
 import reactor.test.StepVerifier
@@ -49,6 +57,13 @@ class TransactionsRefundEventsConsumerTests {
     TransactionsEventStoreRepository<TransactionRefundedData> =
     mock()
 
+  private val openTelemetry: OpenTelemetry = mock()
+
+  private val tracer: Tracer = mock()
+
+  private val jacksonJsonSerializer =
+    JacksonJsonSerializerBuilder().serializer(ObjectMapper()).build()
+
   @Captor
   private lateinit var refundEventStoreCaptor:
     ArgumentCaptor<TransactionEvent<TransactionRefundedData>>
@@ -65,7 +80,13 @@ class TransactionsRefundEventsConsumerTests {
       transactionsViewRepository = transactionsViewRepository,
       refundRetryService = refundRetryService,
       deadLetterQueueAsyncClient = deadLetterQueueAsyncClient,
-      deadLetterTTLSeconds = DEAD_LETTER_QUEUE_TTL_SECONDS)
+      deadLetterTTLSeconds = DEAD_LETTER_QUEUE_TTL_SECONDS,
+      openTelemetry,
+      tracer,
+      jacksonJsonSerializer)
+
+  @BeforeEach
+  fun setupTracingMocks() = it.pagopa.ecommerce.eventdispatcher.utils.setupTracingMocks()
 
   @Test
   fun `consumer processes refund request event correctly with pgs refund`() = runTest {
@@ -112,7 +133,8 @@ class TransactionsRefundEventsConsumerTests {
     /* test */
     StepVerifier.create(
         transactionRefundedEventsConsumer.messageReceiver(
-          BinaryData.fromObject(refundRequestedEvent).toBytes(), checkpointer))
+          BinaryData.fromObject(QueueEvent(refundRequestedEvent, MOCK_TRACING_INFO)).toBytes(),
+          checkpointer))
       .expectNext()
       .verifyComplete()
 
@@ -175,7 +197,8 @@ class TransactionsRefundEventsConsumerTests {
     /* test */
     StepVerifier.create(
         transactionRefundedEventsConsumer.messageReceiver(
-          BinaryData.fromObject(refundRequestedEvent).toBytes(), checkpointer))
+          BinaryData.fromObject(QueueEvent(refundRequestedEvent, MOCK_TRACING_INFO)).toBytes(),
+          checkpointer))
       .expectNext()
       .verifyComplete()
 
@@ -225,7 +248,8 @@ class TransactionsRefundEventsConsumerTests {
 
       StepVerifier.create(
           transactionRefundedEventsConsumer.messageReceiver(
-            BinaryData.fromObject(refundRequestedEvent).toBytes(), checkpointer))
+            BinaryData.fromObject(QueueEvent(refundRequestedEvent, MOCK_TRACING_INFO)).toBytes(),
+            checkpointer))
         .expectNext()
         .verifyComplete()
 
@@ -285,7 +309,8 @@ class TransactionsRefundEventsConsumerTests {
 
     StepVerifier.create(
         transactionRefundedEventsConsumer.messageReceiver(
-          BinaryData.fromObject(refundRequestedEvent).toBytes(), checkpointer))
+          BinaryData.fromObject(QueueEvent(refundRequestedEvent, MOCK_TRACING_INFO)).toBytes(),
+          checkpointer))
       .expectNext()
       .verifyComplete()
 
@@ -351,7 +376,8 @@ class TransactionsRefundEventsConsumerTests {
 
     StepVerifier.create(
         transactionRefundedEventsConsumer.messageReceiver(
-          BinaryData.fromObject(refundRequestedEvent).toBytes(), checkpointer))
+          BinaryData.fromObject(QueueEvent(refundRequestedEvent, MOCK_TRACING_INFO)).toBytes(),
+          checkpointer))
       .expectNext()
       .verifyComplete()
 
@@ -415,10 +441,12 @@ class TransactionsRefundEventsConsumerTests {
             transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now())))
 
       /* test */
+      Hooks.onOperatorDebug()
 
       StepVerifier.create(
           transactionRefundedEventsConsumer.messageReceiver(
-            BinaryData.fromObject(refundRequestedEvent).toBytes(), checkpointer))
+            BinaryData.fromObject(QueueEvent(refundRequestedEvent, MOCK_TRACING_INFO)).toBytes(),
+            checkpointer))
         .expectNext()
         .verifyComplete()
 
@@ -487,7 +515,8 @@ class TransactionsRefundEventsConsumerTests {
 
       StepVerifier.create(
           transactionRefundedEventsConsumer.messageReceiver(
-            BinaryData.fromObject(refundRequestedEvent).toBytes(), checkpointer))
+            BinaryData.fromObject(QueueEvent(refundRequestedEvent, MOCK_TRACING_INFO)).toBytes(),
+            checkpointer))
         .expectNext()
         .verifyComplete()
 
