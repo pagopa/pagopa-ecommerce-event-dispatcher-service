@@ -7,7 +7,6 @@ import io.mockk.every
 import io.mockk.mockkStatic
 import io.opentelemetry.api.trace.Span
 import it.pagopa.ecommerce.commons.documents.v1.TransactionAuthorizationRequestData
-import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils
 import it.pagopa.ecommerce.eventdispatcher.queues.createSpanWithRemoteTracingContext
 import it.pagopa.ecommerce.eventdispatcher.queues.traceMonoWithSpan
@@ -97,8 +96,6 @@ fun queueSuccessfulResponse(): Mono<Response<SendMessageResult>> {
 const val TRANSIENT_QUEUE_TTL_SECONDS = 30
 
 const val DEAD_LETTER_QUEUE_TTL_SECONDS = -1
-
-val MOCK_TRACING_INFO = TracingInfo("", "", "")
 
 fun setupTracingMocks() {
   val traceMonoWithSpanFunction: (Span, Mono<Any>) -> Mono<Any> = ::traceMonoWithSpan

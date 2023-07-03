@@ -3,7 +3,7 @@ package it.pagopa.ecommerce.eventdispatcher.config
 import io.opentelemetry.api.GlobalOpenTelemetry
 import io.opentelemetry.api.OpenTelemetry
 import io.opentelemetry.api.trace.Tracer
-import it.pagopa.ecommerce.commons.utils.TracingUtils
+import it.pagopa.ecommerce.commons.queues.TracingUtils
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
