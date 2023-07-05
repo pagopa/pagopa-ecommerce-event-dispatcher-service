@@ -17,6 +17,7 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRe
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryService
 import it.pagopa.ecommerce.eventdispatcher.utils.DEAD_LETTER_QUEUE_TTL_SECONDS
+import it.pagopa.ecommerce.eventdispatcher.utils.JSON_SERIALIZER
 import it.pagopa.ecommerce.eventdispatcher.utils.queueSuccessfulResponse
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import java.time.Duration
@@ -55,6 +56,8 @@ class TransactionRefundRetryQueueConsumerTest {
 
   private val tracer: Tracer = mock()
 
+  private val jsonSerializer = JSON_SERIALIZER
+
   @Captor private lateinit var transactionViewRepositoryCaptor: ArgumentCaptor<Transaction>
 
   @Captor
@@ -75,7 +78,8 @@ class TransactionRefundRetryQueueConsumerTest {
       deadLetterQueueAsyncClient = deadLetterQueueAsyncClient,
       deadLetterTTLSeconds = DEAD_LETTER_QUEUE_TTL_SECONDS,
       openTelemetry,
-      tracer)
+      tracer,
+      jsonSerializer)
 
   @BeforeEach
   fun setupTracingMocks() = it.pagopa.ecommerce.eventdispatcher.utils.setupTracingMocks()
@@ -135,7 +139,8 @@ class TransactionRefundRetryQueueConsumerTest {
     /* test */
     StepVerifier.create(
         transactionRefundRetryQueueConsumer.messageReceiver(
-          BinaryData.fromObject(QueueEvent(refundRetriedEvent, MOCK_TRACING_INFO)).toBytes(),
+          BinaryData.fromObject(QueueEvent(refundRetriedEvent, MOCK_TRACING_INFO), jsonSerializer)
+            .toBytes(),
           checkpointer))
       .verifyComplete()
 
@@ -212,7 +217,8 @@ class TransactionRefundRetryQueueConsumerTest {
       /* test */
       StepVerifier.create(
           transactionRefundRetryQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(refundRetriedEvent, MOCK_TRACING_INFO)).toBytes(),
+            BinaryData.fromObject(QueueEvent(refundRetriedEvent, MOCK_TRACING_INFO), jsonSerializer)
+              .toBytes(),
             checkpointer))
         .verifyComplete()
 
@@ -283,7 +289,8 @@ class TransactionRefundRetryQueueConsumerTest {
       /* test */
       StepVerifier.create(
           transactionRefundRetryQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(refundRetriedEvent, MOCK_TRACING_INFO)).toBytes(),
+            BinaryData.fromObject(QueueEvent(refundRetriedEvent, MOCK_TRACING_INFO), jsonSerializer)
+              .toBytes(),
             checkpointer))
         .verifyComplete()
 
@@ -336,7 +343,8 @@ class TransactionRefundRetryQueueConsumerTest {
       /* test */
       StepVerifier.create(
           transactionRefundRetryQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(refundRetriedEvent, MOCK_TRACING_INFO)).toBytes(),
+            BinaryData.fromObject(QueueEvent(refundRetriedEvent, MOCK_TRACING_INFO), jsonSerializer)
+              .toBytes(),
             checkpointer))
         .verifyComplete()
 
@@ -349,7 +357,9 @@ class TransactionRefundRetryQueueConsumerTest {
       verify(deadLetterQueueAsyncClient, times(1))
         .sendMessageWithResponse(
           argThat<BinaryData> {
-            this.toObject(object : TypeReference<QueueEvent<TransactionRefundRetriedEvent>>() {})
+            this.toObject(
+                object : TypeReference<QueueEvent<TransactionRefundRetriedEvent>>() {},
+                jsonSerializer)
               .event
               .eventCode == TransactionEventCode.TRANSACTION_REFUND_RETRIED_EVENT
           },

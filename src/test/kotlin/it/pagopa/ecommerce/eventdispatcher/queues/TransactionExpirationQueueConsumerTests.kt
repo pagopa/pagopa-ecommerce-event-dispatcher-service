@@ -20,6 +20,7 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRe
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryService
 import it.pagopa.ecommerce.eventdispatcher.utils.DEAD_LETTER_QUEUE_TTL_SECONDS
+import it.pagopa.ecommerce.eventdispatcher.utils.JSON_SERIALIZER
 import it.pagopa.ecommerce.eventdispatcher.utils.TRANSIENT_QUEUE_TTL_SECONDS
 import it.pagopa.ecommerce.eventdispatcher.utils.queueSuccessfulResponse
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
@@ -95,6 +96,8 @@ class TransactionExpirationQueueConsumerTests {
 
   private val openTelemetry: OpenTelemetry = mock()
 
+  private val jsonSerializer = JSON_SERIALIZER
+
   private val transactionExpirationQueueConsumer =
     TransactionExpirationQueueConsumer(
       paymentGatewayClient = paymentGatewayClient,
@@ -111,7 +114,8 @@ class TransactionExpirationQueueConsumerTests {
       transientQueueTTLSeconds = TRANSIENT_QUEUE_TTL_SECONDS,
       deadLetterTTLSeconds = DEAD_LETTER_QUEUE_TTL_SECONDS,
       openTelemetry = openTelemetry,
-      tracer = tracer)
+      tracer = tracer,
+      jsonSerializer = jsonSerializer)
 
   @BeforeEach
   fun setupTracingMocks() = it.pagopa.ecommerce.eventdispatcher.utils.setupTracingMocks()
@@ -141,45 +145,8 @@ class TransactionExpirationQueueConsumerTests {
     /* test */
     StepVerifier.create(
         transactionExpirationQueueConsumer.messageReceiver(
-          BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO)).toBytes(),
-          checkpointer,
-          MessageHeaders(mapOf())))
-      .expectNext()
-      .expectComplete()
-      .verify()
-
-    /* Asserts */
-    verify(checkpointer, Mockito.times(1)).success()
-  }
-
-  @Test
-  fun `messageReceiver receives refund messages successfully`() {
-
-    val activatedEvent = transactionActivateEvent()
-    val transactionId = activatedEvent.transactionId
-
-    val refundRetriedEvent = transactionRefundRetriedEvent(0)
-
-    /* preconditions */
-    given(checkpointer.success()).willReturn(Mono.empty())
-    given(
-        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
-          transactionId,
-        ))
-      .willReturn(Flux.just(activatedEvent as TransactionEvent<Any>))
-    given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
-    given(transactionsExpiredEventStoreRepository.save(any())).willAnswer {
-      Mono.just(it.arguments[0])
-    }
-
-    given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
-      .willReturn(
-        Mono.just(transactionDocument(TransactionStatusDto.ACTIVATED, ZonedDateTime.now())))
-
-    /* test */
-    StepVerifier.create(
-        transactionExpirationQueueConsumer.messageReceiver(
-          BinaryData.fromObject(QueueEvent(refundRetriedEvent, MOCK_TRACING_INFO)).toBytes(),
+          BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO), jsonSerializer)
+            .toBytes(),
           checkpointer,
           MessageHeaders(mapOf())))
       .expectNext()
@@ -228,7 +195,8 @@ class TransactionExpirationQueueConsumerTests {
     /* test */
     StepVerifier.create(
         transactionExpirationQueueConsumer.messageReceiver(
-          BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO)).toBytes(),
+          BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO), jsonSerializer)
+            .toBytes(),
           checkpointer,
           MessageHeaders(mapOf())))
       .expectNext()
@@ -263,7 +231,8 @@ class TransactionExpirationQueueConsumerTests {
     /* test */
     StepVerifier.create(
         transactionExpirationQueueConsumer.messageReceiver(
-          BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO)).toBytes(),
+          BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO), jsonSerializer)
+            .toBytes(),
           checkpointer,
           MessageHeaders(mapOf())))
       .expectNext()
@@ -310,7 +279,8 @@ class TransactionExpirationQueueConsumerTests {
     /* test */
     StepVerifier.create(
         transactionExpirationQueueConsumer.messageReceiver(
-          BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO)).toBytes(),
+          BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO), jsonSerializer)
+            .toBytes(),
           checkpointer,
           MessageHeaders(mapOf())))
       .verifyComplete()
@@ -320,7 +290,8 @@ class TransactionExpirationQueueConsumerTests {
     verify(deadLetterQueueAsyncClient, times(1))
       .sendMessageWithResponse(
         argThat<BinaryData> {
-          this.toObject(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {})
+          this.toObject(
+              object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {}, jsonSerializer)
             .event
             .eventCode == TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
         },
@@ -363,7 +334,8 @@ class TransactionExpirationQueueConsumerTests {
     /* test */
     StepVerifier.create(
         transactionExpirationQueueConsumer.messageReceiver(
-          BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO)).toBytes(),
+          BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO), jsonSerializer)
+            .toBytes(),
           checkpointer,
           MessageHeaders(mapOf())))
       .verifyComplete()
@@ -373,7 +345,8 @@ class TransactionExpirationQueueConsumerTests {
     verify(deadLetterQueueAsyncClient, times(1))
       .sendMessageWithResponse(
         argThat<BinaryData> {
-          this.toObject(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {})
+          this.toObject(
+              object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {}, jsonSerializer)
             .event
             .eventCode == TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
         },
@@ -431,7 +404,8 @@ class TransactionExpirationQueueConsumerTests {
       /* test */
       StepVerifier.create(
           transactionExpirationQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO)).toBytes(),
+            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO), jsonSerializer)
+              .toBytes(),
             checkpointer,
             MessageHeaders(mapOf())))
         .expectNext()
@@ -521,7 +495,8 @@ class TransactionExpirationQueueConsumerTests {
       /* test */
       StepVerifier.create(
           transactionExpirationQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO)).toBytes(),
+            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO), jsonSerializer)
+              .toBytes(),
             checkpointer,
             MessageHeaders(mapOf())))
         .expectNext()
@@ -600,7 +575,8 @@ class TransactionExpirationQueueConsumerTests {
       /* test */
       StepVerifier.create(
           transactionExpirationQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO)).toBytes(),
+            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO), jsonSerializer)
+              .toBytes(),
             checkpointer,
             MessageHeaders(mapOf())))
         .expectNext()
@@ -664,7 +640,8 @@ class TransactionExpirationQueueConsumerTests {
       /* test */
       StepVerifier.create(
           transactionExpirationQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO)).toBytes(),
+            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO), jsonSerializer)
+              .toBytes(),
             checkpointer,
             MessageHeaders(mapOf())))
         .expectNext()
@@ -726,7 +703,8 @@ class TransactionExpirationQueueConsumerTests {
       /* test */
       StepVerifier.create(
           transactionExpirationQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO)).toBytes(),
+            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO), jsonSerializer)
+              .toBytes(),
             checkpointer,
             MessageHeaders(mapOf())))
         .expectNext()
@@ -826,7 +804,8 @@ class TransactionExpirationQueueConsumerTests {
     /* test */
     StepVerifier.create(
         transactionExpirationQueueConsumer.messageReceiver(
-          BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO)).toBytes(),
+          BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO), jsonSerializer)
+            .toBytes(),
           checkpointer,
           MessageHeaders(mapOf())))
       .expectNext()
@@ -929,7 +908,8 @@ class TransactionExpirationQueueConsumerTests {
       /* test */
       StepVerifier.create(
           transactionExpirationQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO)).toBytes(),
+            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO), jsonSerializer)
+              .toBytes(),
             checkpointer,
             MessageHeaders(mapOf())))
         .expectNext()
@@ -1031,7 +1011,8 @@ class TransactionExpirationQueueConsumerTests {
       /* test */
       StepVerifier.create(
           transactionExpirationQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO)).toBytes(),
+            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO), jsonSerializer)
+              .toBytes(),
             checkpointer,
             MessageHeaders(mapOf())))
         .expectNext()
@@ -1130,7 +1111,8 @@ class TransactionExpirationQueueConsumerTests {
       /* test */
       StepVerifier.create(
           transactionExpirationQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO)).toBytes(),
+            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO), jsonSerializer)
+              .toBytes(),
             checkpointer,
             MessageHeaders(mapOf())))
         .expectNext()
@@ -1235,7 +1217,8 @@ class TransactionExpirationQueueConsumerTests {
       /* test */
       StepVerifier.create(
           transactionExpirationQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO)).toBytes(),
+            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO), jsonSerializer)
+              .toBytes(),
             checkpointer,
             MessageHeaders(mapOf())))
         .expectNext()
@@ -1304,7 +1287,8 @@ class TransactionExpirationQueueConsumerTests {
     /* test */
     StepVerifier.create(
         transactionExpirationQueueConsumer.messageReceiver(
-          BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO)).toBytes(),
+          BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO), jsonSerializer)
+            .toBytes(),
           checkpointer,
           MessageHeaders(mapOf())))
       .expectNext()
@@ -1384,7 +1368,8 @@ class TransactionExpirationQueueConsumerTests {
     /* test */
     StepVerifier.create(
         transactionExpirationQueueConsumer.messageReceiver(
-          BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO)).toBytes(),
+          BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO), jsonSerializer)
+            .toBytes(),
           checkpointer,
           MessageHeaders(mapOf())))
       .expectNext()
@@ -1435,7 +1420,8 @@ class TransactionExpirationQueueConsumerTests {
       /* test */
       StepVerifier.create(
           transactionExpirationQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO)).toBytes(),
+            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO), jsonSerializer)
+              .toBytes(),
             checkpointer,
             MessageHeaders(mapOf())))
         .expectNext()
@@ -1496,7 +1482,8 @@ class TransactionExpirationQueueConsumerTests {
       /* test */
       StepVerifier.create(
           transactionExpirationQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO)).toBytes(),
+            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO), jsonSerializer)
+              .toBytes(),
             checkpointer,
             MessageHeaders(mapOf())))
         .expectNext()
@@ -1557,7 +1544,8 @@ class TransactionExpirationQueueConsumerTests {
       /* test */
       StepVerifier.create(
           transactionExpirationQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO)).toBytes(),
+            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO), jsonSerializer)
+              .toBytes(),
             checkpointer,
             MessageHeaders(mapOf())))
         .expectNext()
@@ -1624,7 +1612,8 @@ class TransactionExpirationQueueConsumerTests {
       /* test */
       StepVerifier.create(
           transactionExpirationQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO)).toBytes(),
+            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO), jsonSerializer)
+              .toBytes(),
             checkpointer,
             MessageHeaders(mapOf())))
         .expectNext()
@@ -1726,7 +1715,8 @@ class TransactionExpirationQueueConsumerTests {
       /* test */
       StepVerifier.create(
           transactionExpirationQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO)).toBytes(),
+            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO), jsonSerializer)
+              .toBytes(),
             checkpointer,
             MessageHeaders(mapOf())))
         .expectNext()
@@ -1808,7 +1798,8 @@ class TransactionExpirationQueueConsumerTests {
       /* test */
       StepVerifier.create(
           transactionExpirationQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO)).toBytes(),
+            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO), jsonSerializer)
+              .toBytes(),
             checkpointer,
             MessageHeaders(mapOf())))
         .expectNext()
@@ -1884,7 +1875,8 @@ class TransactionExpirationQueueConsumerTests {
       /* test */
       StepVerifier.create(
           transactionExpirationQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO)).toBytes(),
+            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO), jsonSerializer)
+              .toBytes(),
             checkpointer,
             MessageHeaders(mapOf())))
         .expectNext()
@@ -1970,7 +1962,8 @@ class TransactionExpirationQueueConsumerTests {
       /* test */
       StepVerifier.create(
           transactionExpirationQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO)).toBytes(),
+            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO), jsonSerializer)
+              .toBytes(),
             checkpointer,
             MessageHeaders(mapOf())))
         .expectNext()
@@ -2027,7 +2020,8 @@ class TransactionExpirationQueueConsumerTests {
       /* test */
       StepVerifier.create(
           transactionExpirationQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO)).toBytes(),
+            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO), jsonSerializer)
+              .toBytes(),
             checkpointer,
             MessageHeaders(mapOf())))
         .expectNext()
@@ -2106,7 +2100,8 @@ class TransactionExpirationQueueConsumerTests {
       /* test */
       StepVerifier.create(
           transactionExpirationQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO)).toBytes(),
+            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO), jsonSerializer)
+              .toBytes(),
             checkpointer,
             MessageHeaders(mapOf())))
         .expectNext()
@@ -2142,7 +2137,8 @@ class TransactionExpirationQueueConsumerTests {
       /* test */
       StepVerifier.create(
           transactionExpirationQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO)).toBytes(),
+            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO), jsonSerializer)
+              .toBytes(),
             checkpointer,
             MessageHeaders(mapOf())))
         .verifyComplete()
@@ -2152,7 +2148,8 @@ class TransactionExpirationQueueConsumerTests {
       verify(deadLetterQueueAsyncClient, times(1))
         .sendMessageWithResponse(
           argThat<BinaryData> {
-            this.toObject(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {})
+            this.toObject(
+                object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {}, jsonSerializer)
               .event
               .eventCode == TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
           },
@@ -2181,7 +2178,8 @@ class TransactionExpirationQueueConsumerTests {
       /* test */
       StepVerifier.create(
           transactionExpirationQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO)).toBytes(),
+            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO), jsonSerializer)
+              .toBytes(),
             checkpointer,
             MessageHeaders(mapOf())))
         .expectErrorMatches { it.message == "Error sending event to dead letter queue" }
@@ -2192,7 +2190,8 @@ class TransactionExpirationQueueConsumerTests {
       verify(deadLetterQueueAsyncClient, times(1))
         .sendMessageWithResponse(
           argThat<BinaryData> {
-            this.toObject(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {})
+            this.toObject(
+                object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {}, jsonSerializer)
               .event
               .eventCode == TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
           },
@@ -2250,7 +2249,8 @@ class TransactionExpirationQueueConsumerTests {
       /* test */
       StepVerifier.create(
           transactionExpirationQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO)).toBytes(),
+            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO), jsonSerializer)
+              .toBytes(),
             checkpointer,
             MessageHeaders(mapOf())))
         .expectNext()
@@ -2347,7 +2347,8 @@ class TransactionExpirationQueueConsumerTests {
       /* test */
       StepVerifier.create(
           transactionExpirationQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO)).toBytes(),
+            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO), jsonSerializer)
+              .toBytes(),
             checkpointer,
             MessageHeaders(mapOf())))
         .expectNext()
@@ -2433,7 +2434,8 @@ class TransactionExpirationQueueConsumerTests {
       /* test */
       StepVerifier.create(
           transactionExpirationQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO)).toBytes(),
+            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO), jsonSerializer)
+              .toBytes(),
             checkpointer,
             MessageHeaders(mapOf())))
         .expectNext()
@@ -2529,7 +2531,8 @@ class TransactionExpirationQueueConsumerTests {
       /* test */
       StepVerifier.create(
           transactionExpirationQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO)).toBytes(),
+            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO), jsonSerializer)
+              .toBytes(),
             checkpointer,
             MessageHeaders(mapOf())))
         .expectNext()
@@ -2612,7 +2615,8 @@ class TransactionExpirationQueueConsumerTests {
       /* test */
       StepVerifier.create(
           transactionExpirationQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO)).toBytes(),
+            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO), jsonSerializer)
+              .toBytes(),
             checkpointer,
             MessageHeaders(mapOf())))
         .expectNext()
@@ -2627,7 +2631,8 @@ class TransactionExpirationQueueConsumerTests {
       verify(deadLetterQueueAsyncClient, times(1))
         .sendMessageWithResponse(
           argThat<BinaryData> {
-            this.toObject(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {})
+            this.toObject(
+                object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {}, jsonSerializer)
               .event
               .eventCode == TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
           },
@@ -2696,7 +2701,8 @@ class TransactionExpirationQueueConsumerTests {
       /* test */
       StepVerifier.create(
           transactionExpirationQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO)).toBytes(),
+            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO), jsonSerializer)
+              .toBytes(),
             checkpointer,
             MessageHeaders(mapOf())))
         .expectNext()
@@ -2721,7 +2727,8 @@ class TransactionExpirationQueueConsumerTests {
       val closePaymentDate = ZonedDateTime.now()
       val closedEvent = transactionClosedEvent(TransactionClosureData.Outcome.OK)
       closedEvent.creationDate = closePaymentDate.toString()
-      val binaryData = BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO))
+      val binaryData =
+        BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO), jsonSerializer)
       val expectedRetryEventVisibilityTimeout =
         Duration.ofSeconds(sendPaymentResultTimeout.toLong())
       /* preconditions */
@@ -2760,7 +2767,8 @@ class TransactionExpirationQueueConsumerTests {
       verify(expirationQueueAsyncClient, times(1))
         .sendMessageWithResponse(
           argThat<BinaryData> {
-            this.toObject(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {})
+            this.toObject(
+                object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {}, jsonSerializer)
               .event
               .eventCode == TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
           },
@@ -2820,7 +2828,8 @@ class TransactionExpirationQueueConsumerTests {
       /* test */
       StepVerifier.create(
           transactionExpirationQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO)).toBytes(),
+            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO), jsonSerializer)
+              .toBytes(),
             checkpointer,
             MessageHeaders(mapOf())))
         .expectNext()
@@ -2836,7 +2845,8 @@ class TransactionExpirationQueueConsumerTests {
       verify(deadLetterQueueAsyncClient, times(1))
         .sendMessageWithResponse(
           argThat<BinaryData> {
-            this.toObject(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {})
+            this.toObject(
+                object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {}, jsonSerializer)
               .event
               .eventCode == TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
           },

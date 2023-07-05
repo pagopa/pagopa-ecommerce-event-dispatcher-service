@@ -1,5 +1,6 @@
 package it.pagopa.ecommerce.eventdispatcher.queues
 
+import com.azure.core.serializer.json.jackson.JacksonJsonSerializer
 import com.azure.core.util.BinaryData
 import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.AzureHeaders
@@ -52,7 +53,8 @@ class TransactionNotificationsQueueConsumer(
   @Value("\${azurestorage.queues.deadLetterQueue.ttlSeconds}")
   private val deadLetterTTLSeconds: Int,
   @Autowired private val openTelemetry: OpenTelemetry,
-  @Autowired private val tracer: Tracer
+  @Autowired private val tracer: Tracer,
+  @Autowired private val jsonSerializer: JacksonJsonSerializer
 ) {
   var logger: Logger = LoggerFactory.getLogger(TransactionNotificationsQueueConsumer::class.java)
 
@@ -70,7 +72,8 @@ class TransactionNotificationsQueueConsumer(
     val binaryData = BinaryData.fromBytes(payload)
     val queueEvent =
       binaryData.toObjectAsync(
-        object : TypeReference<QueueEvent<TransactionUserReceiptRequestedEvent>>() {})
+        object : TypeReference<QueueEvent<TransactionUserReceiptRequestedEvent>>() {},
+        jsonSerializer)
     val transactionId = queueEvent.map { it.event.transactionId }
     val baseTransaction =
       reduceEvents(transactionId, transactionsEventStoreRepository, emptyTransaction)
@@ -130,7 +133,8 @@ class TransactionNotificationsQueueConsumer(
         deadLetterTTLSeconds,
         openTelemetry,
         tracer,
-        this::class.simpleName!!)
+        this::class.simpleName!!,
+        jsonSerializer)
     }
   }
 }

@@ -18,6 +18,7 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewReposito
 import it.pagopa.ecommerce.eventdispatcher.services.NodeService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.ClosureRetryService
 import it.pagopa.ecommerce.eventdispatcher.utils.DEAD_LETTER_QUEUE_TTL_SECONDS
+import it.pagopa.ecommerce.eventdispatcher.utils.JSON_SERIALIZER
 import it.pagopa.ecommerce.eventdispatcher.utils.queueSuccessfulResponse
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
@@ -65,6 +66,8 @@ class TransactionClosePaymentQueueConsumerTests {
 
   private val tracer: Tracer = mock()
 
+  private val jsonSerializer = JSON_SERIALIZER
+
   @Captor private lateinit var viewArgumentCaptor: ArgumentCaptor<Transaction>
 
   @Captor
@@ -86,7 +89,8 @@ class TransactionClosePaymentQueueConsumerTests {
       deadLetterQueueAsyncClient = deadLetterQueueAsyncClient,
       deadLetterTTLSeconds = DEAD_LETTER_QUEUE_TTL_SECONDS,
       openTelemetry,
-      tracer)
+      tracer,
+      jsonSerializer)
 
   @BeforeEach
   fun setupTracingMocks() = it.pagopa.ecommerce.eventdispatcher.utils.setupTracingMocks()
@@ -129,7 +133,8 @@ class TransactionClosePaymentQueueConsumerTests {
 
     StepVerifier.create(
         transactionClosureEventsConsumer.messageReceiver(
-          BinaryData.fromObject(QueueEvent(cancelRequestEvent, MOCK_TRACING_INFO)).toBytes(),
+          BinaryData.fromObject(QueueEvent(cancelRequestEvent, MOCK_TRACING_INFO), jsonSerializer)
+            .toBytes(),
           checkpointer))
       .expectNext()
       .verifyComplete()
@@ -190,7 +195,8 @@ class TransactionClosePaymentQueueConsumerTests {
 
     StepVerifier.create(
         transactionClosureEventsConsumer.messageReceiver(
-          BinaryData.fromObject(QueueEvent(cancelRequestEvent, MOCK_TRACING_INFO)).toBytes(),
+          BinaryData.fromObject(QueueEvent(cancelRequestEvent, MOCK_TRACING_INFO), jsonSerializer)
+            .toBytes(),
           checkpointer))
       .expectNext()
       .verifyComplete()
@@ -255,7 +261,8 @@ class TransactionClosePaymentQueueConsumerTests {
 
     StepVerifier.create(
         transactionClosureEventsConsumer.messageReceiver(
-          BinaryData.fromObject(QueueEvent(cancelRequestEvent, MOCK_TRACING_INFO)).toBytes(),
+          BinaryData.fromObject(QueueEvent(cancelRequestEvent, MOCK_TRACING_INFO), jsonSerializer)
+            .toBytes(),
           checkpointer))
       .expectNext()
       .verifyComplete()
@@ -285,7 +292,8 @@ class TransactionClosePaymentQueueConsumerTests {
       transactionDocument(
         TransactionStatusDto.CANCELLATION_REQUESTED,
         ZonedDateTime.parse(activationEvent.creationDate))
-    val payload = BinaryData.fromObject(QueueEvent(cancelRequestEvent, MOCK_TRACING_INFO))
+    val payload =
+      BinaryData.fromObject(QueueEvent(cancelRequestEvent, MOCK_TRACING_INFO), jsonSerializer)
     /* preconditions */
     given(checkpointer.success()).willReturn(Mono.empty())
     given(
@@ -311,7 +319,8 @@ class TransactionClosePaymentQueueConsumerTests {
     verify(deadLetterQueueAsyncClient, times(1))
       .sendMessageWithResponse(
         argThat<BinaryData> {
-          this.toObject(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {})
+          this.toObject(
+              object : TypeReference<QueueEvent<TransactionUserCanceledEvent>>() {}, jsonSerializer)
             .event
             .eventCode == TransactionEventCode.TRANSACTION_USER_CANCELED_EVENT
         },

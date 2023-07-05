@@ -173,7 +173,8 @@ class TransactionsRefundQueueConsumer(
         deadLetterTTLSeconds,
         openTelemetry,
         tracer,
-        this::class.simpleName!!)
+        this::class.simpleName!!,
+        jsonSerializer)
     }
   }
 }

@@ -72,6 +72,8 @@ class TransactionNotificationsQueueConsumerTest {
 
   private val tracer: Tracer = mock()
 
+  private val jsonSerializer = JSON_SERIALIZER
+
   @Captor private lateinit var transactionViewRepositoryCaptor: ArgumentCaptor<Transaction>
 
   @Captor
@@ -100,7 +102,8 @@ class TransactionNotificationsQueueConsumerTest {
       deadLetterQueueAsyncClient = deadLetterQueueAsyncClient,
       deadLetterTTLSeconds = DEAD_LETTER_QUEUE_TTL_SECONDS,
       openTelemetry,
-      tracer)
+      tracer,
+      jsonSerializer)
 
   @BeforeEach
   fun setupTracingMocks() = it.pagopa.ecommerce.eventdispatcher.utils.setupTracingMocks()
@@ -142,7 +145,9 @@ class TransactionNotificationsQueueConsumerTest {
 
     StepVerifier.create(
         transactionNotificationsRetryQueueConsumer.messageReceiver(
-          BinaryData.fromObject(QueueEvent(notificationRequested, MOCK_TRACING_INFO)).toBytes(),
+          BinaryData.fromObject(
+              QueueEvent(notificationRequested, MOCK_TRACING_INFO), jsonSerializer)
+            .toBytes(),
           checkpointer))
       .expectNext()
       .verifyComplete()
@@ -214,7 +219,9 @@ class TransactionNotificationsQueueConsumerTest {
 
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(notificationRequested, MOCK_TRACING_INFO)).toBytes(),
+            BinaryData.fromObject(
+                QueueEvent(notificationRequested, MOCK_TRACING_INFO), jsonSerializer)
+              .toBytes(),
             checkpointer))
         .expectNext()
         .verifyComplete()
@@ -304,7 +311,9 @@ class TransactionNotificationsQueueConsumerTest {
 
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(notificationRequested, MOCK_TRACING_INFO)).toBytes(),
+            BinaryData.fromObject(
+                QueueEvent(notificationRequested, MOCK_TRACING_INFO), jsonSerializer)
+              .toBytes(),
             checkpointer))
         .expectNext()
         .verifyComplete()
@@ -383,7 +392,9 @@ class TransactionNotificationsQueueConsumerTest {
         .willReturn(Mono.empty())
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(notificationRequested, MOCK_TRACING_INFO)).toBytes(),
+            BinaryData.fromObject(
+                QueueEvent(notificationRequested, MOCK_TRACING_INFO), jsonSerializer)
+              .toBytes(),
             checkpointer))
         .expectNext()
         .verifyComplete()
@@ -448,7 +459,9 @@ class TransactionNotificationsQueueConsumerTest {
         .willReturn(Mono.empty())
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(notificationRequested, MOCK_TRACING_INFO)).toBytes(),
+            BinaryData.fromObject(
+                QueueEvent(notificationRequested, MOCK_TRACING_INFO), jsonSerializer)
+              .toBytes(),
             checkpointer))
         .expectNext()
         .verifyComplete()
@@ -479,7 +492,7 @@ class TransactionNotificationsQueueConsumerTest {
     }
 
   @Test
-  fun `Should return mono error for failure enqueuing notification retry event send payment result OK`() =
+  fun `Should return mono error for failure enqueuing notification retry event send payment result OK`() {
     runTest {
       val transactionUserReceiptData =
         transactionUserReceiptData(TransactionUserReceiptData.Outcome.OK)
@@ -497,7 +510,9 @@ class TransactionNotificationsQueueConsumerTest {
       val transactionId = TRANSACTION_ID
       val document =
         transactionDocument(TransactionStatusDto.NOTIFICATION_REQUESTED, ZonedDateTime.now())
+
       Hooks.onOperatorDebug()
+
       given(checkpointer.success()).willReturn(Mono.empty())
       given(
           transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
@@ -522,7 +537,9 @@ class TransactionNotificationsQueueConsumerTest {
 
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(notificationRequested, MOCK_TRACING_INFO)).toBytes(),
+            BinaryData.fromObject(
+                QueueEvent(notificationRequested, MOCK_TRACING_INFO), jsonSerializer)
+              .toBytes(),
             checkpointer))
         .verifyComplete()
       verify(checkpointer, times(1)).success()
@@ -552,13 +569,16 @@ class TransactionNotificationsQueueConsumerTest {
       verify(deadLetterQueueAsyncClient, times(1))
         .sendMessageWithResponse(
           argThat<BinaryData> {
-            this.toObject(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {})
+            this.toObject(
+                object : TypeReference<QueueEvent<TransactionUserReceiptRequestedEvent>>() {},
+                jsonSerializer)
               .event
               .eventCode == TransactionEventCode.TRANSACTION_USER_RECEIPT_REQUESTED_EVENT
           },
           eq(Duration.ZERO),
           eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
     }
+  }
 
   @Test
   fun `Should not process event for wrong transaction status`() = runTest {
@@ -576,7 +596,9 @@ class TransactionNotificationsQueueConsumerTest {
 
     StepVerifier.create(
         transactionNotificationsRetryQueueConsumer.messageReceiver(
-          BinaryData.fromObject(QueueEvent(notificationRequested, MOCK_TRACING_INFO)).toBytes(),
+          BinaryData.fromObject(
+              QueueEvent(notificationRequested, MOCK_TRACING_INFO), jsonSerializer)
+            .toBytes(),
           checkpointer))
       .verifyComplete()
     verify(checkpointer, times(1)).success()
@@ -593,7 +615,9 @@ class TransactionNotificationsQueueConsumerTest {
     verify(deadLetterQueueAsyncClient, times(1))
       .sendMessageWithResponse(
         argThat<BinaryData> {
-          this.toObject(object : TypeReference<QueueEvent<TransactionRefundRetriedEvent>>() {})
+          this.toObject(
+              object : TypeReference<QueueEvent<TransactionUserReceiptRequestedEvent>>() {},
+              jsonSerializer)
             .event
             .eventCode == TransactionEventCode.TRANSACTION_USER_RECEIPT_REQUESTED_EVENT
         },
@@ -723,7 +747,9 @@ class TransactionNotificationsQueueConsumerTest {
         .willReturn(Mono.empty())
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(notificationRequested, MOCK_TRACING_INFO)).toBytes(),
+            BinaryData.fromObject(
+                QueueEvent(notificationRequested, MOCK_TRACING_INFO), jsonSerializer)
+              .toBytes(),
             checkpointer))
         .expectNext()
         .verifyComplete()

@@ -1,6 +1,7 @@
 package it.pagopa.ecommerce.eventdispatcher.queues
 
 import com.azure.core.util.BinaryData
+import com.azure.core.util.serializer.JsonSerializer
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
 import io.opentelemetry.api.OpenTelemetry
@@ -494,7 +495,8 @@ fun <T> runTracedPipelineWithDeadLetterQueue(
   deadLetterQueueTTLSeconds: Int,
   openTelemetry: OpenTelemetry,
   tracer: Tracer,
-  spanName: String
+  spanName: String,
+  jsonSerializer: JsonSerializer
 ): Mono<Void> {
   // parse the event as a TransactionActivatedEvent just to extract transactionId and event code
   val eventLogString =
@@ -511,7 +513,7 @@ fun <T> runTracedPipelineWithDeadLetterQueue(
         logger.error("Exception processing event $eventLogString", pipelineException)
         deadLetterQueueAsyncClient
           .sendMessageWithResponse(
-            BinaryData.fromObject(queueEvent),
+            BinaryData.fromObject(queueEvent, jsonSerializer),
             Duration.ZERO,
             Duration.ofSeconds(deadLetterQueueTTLSeconds.toLong()), // timeToLive
           )
