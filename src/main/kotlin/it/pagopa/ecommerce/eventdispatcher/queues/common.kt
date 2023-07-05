@@ -2,6 +2,7 @@ package it.pagopa.ecommerce.eventdispatcher.queues
 
 import com.azure.core.util.BinaryData
 import com.azure.core.util.serializer.JsonSerializer
+import com.azure.core.util.tracing.Tracer.PARENT_TRACE_CONTEXT_KEY
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
 import io.opentelemetry.api.OpenTelemetry
@@ -36,6 +37,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import reactor.util.context.Context as ReactorContext
 
 object QueueCommonsLogger {
   val logger: Logger = LoggerFactory.getLogger(QueueCommonsLogger::class.java)
@@ -576,7 +578,7 @@ fun <T> traceMonoWithSpan(span: Span, operation: Mono<T>): Mono<T> {
     { s ->
       logger.info(
         "Extending remote transaction with trace id: ${s.spanContext.traceId} span id: ${s.spanContext.spanId} context: ${s.spanContext.traceState.asMap()}")
-      operation
+      operation.contextWrite(ReactorContext.of(PARENT_TRACE_CONTEXT_KEY, Context.current().with(s)))
     },
     Span::end)
 }
