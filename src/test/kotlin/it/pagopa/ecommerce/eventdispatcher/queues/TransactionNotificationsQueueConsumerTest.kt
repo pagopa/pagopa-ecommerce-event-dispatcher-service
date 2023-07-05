@@ -471,7 +471,7 @@ class TransactionNotificationsQueueConsumerTest {
     }
 
   @Test
-  fun `Should return mono error for failure enqueuing notification retry event send payment result OK`() =
+  fun `Should return mono error for failure enqueuing notification retry event send payment result OK`() {
     runTest {
       val transactionUserReceiptData =
         transactionUserReceiptData(TransactionUserReceiptData.Outcome.OK)
@@ -489,7 +489,9 @@ class TransactionNotificationsQueueConsumerTest {
       val transactionId = TRANSACTION_ID
       val document =
         transactionDocument(TransactionStatusDto.NOTIFICATION_REQUESTED, ZonedDateTime.now())
+
       Hooks.onOperatorDebug()
+
       given(checkpointer.success()).willReturn(Mono.empty())
       given(
           transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
@@ -544,13 +546,15 @@ class TransactionNotificationsQueueConsumerTest {
       verify(deadLetterQueueAsyncClient, times(1))
         .sendMessageWithResponse(
           argThat<BinaryData> {
-            this.toObject(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {})
+            this.toObject(
+                object : TypeReference<QueueEvent<TransactionUserReceiptRequestedEvent>>() {})
               .event
               .eventCode == TransactionEventCode.TRANSACTION_USER_RECEIPT_REQUESTED_EVENT
           },
           eq(Duration.ZERO),
           eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
     }
+  }
 
   @Test
   fun `Should not process event for wrong transaction status`() = runTest {
@@ -585,7 +589,8 @@ class TransactionNotificationsQueueConsumerTest {
     verify(deadLetterQueueAsyncClient, times(1))
       .sendMessageWithResponse(
         argThat<BinaryData> {
-          this.toObject(object : TypeReference<QueueEvent<TransactionRefundRetriedEvent>>() {})
+          this.toObject(
+              object : TypeReference<QueueEvent<TransactionUserReceiptRequestedEvent>>() {})
             .event
             .eventCode == TransactionEventCode.TRANSACTION_USER_RECEIPT_REQUESTED_EVENT
         },

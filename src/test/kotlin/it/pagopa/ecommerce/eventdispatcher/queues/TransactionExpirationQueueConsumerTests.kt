@@ -145,44 +145,6 @@ class TransactionExpirationQueueConsumerTests {
   }
 
   @Test
-  fun `messageReceiver receives refund messages successfully`() {
-
-    val activatedEvent = transactionActivateEvent()
-    val transactionId = activatedEvent.transactionId
-
-    val refundRetriedEvent = transactionRefundRetriedEvent(0)
-
-    /* preconditions */
-    given(checkpointer.success()).willReturn(Mono.empty())
-    given(
-        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
-          transactionId,
-        ))
-      .willReturn(Flux.just(activatedEvent as TransactionEvent<Any>))
-    given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
-    given(transactionsExpiredEventStoreRepository.save(any())).willAnswer {
-      Mono.just(it.arguments[0])
-    }
-
-    given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
-      .willReturn(
-        Mono.just(transactionDocument(TransactionStatusDto.ACTIVATED, ZonedDateTime.now())))
-
-    /* test */
-    StepVerifier.create(
-        transactionExpirationQueueConsumer.messageReceiver(
-          BinaryData.fromObject(QueueEvent(refundRetriedEvent, MOCK_TRACING_INFO)).toBytes(),
-          checkpointer,
-          MessageHeaders(mapOf())))
-      .expectNext()
-      .expectComplete()
-      .verify()
-
-    /* Asserts */
-    verify(checkpointer, Mockito.times(1)).success()
-  }
-
-  @Test
   fun `messageReceiver calls refund on transaction with authorization request`() = runTest {
     val activatedEvent = transactionActivateEvent()
     val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()

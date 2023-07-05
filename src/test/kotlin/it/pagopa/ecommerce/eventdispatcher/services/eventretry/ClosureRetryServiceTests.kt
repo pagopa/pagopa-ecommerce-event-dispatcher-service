@@ -6,8 +6,8 @@ import com.azure.core.util.BinaryData
 import com.azure.storage.queue.QueueAsyncClient
 import com.azure.storage.queue.models.SendMessageResult
 import it.pagopa.ecommerce.commons.documents.v1.Transaction
+import it.pagopa.ecommerce.commons.documents.v1.TransactionClosureRetriedEvent
 import it.pagopa.ecommerce.commons.documents.v1.TransactionEvent
-import it.pagopa.ecommerce.commons.documents.v1.TransactionRefundRetriedEvent
 import it.pagopa.ecommerce.commons.documents.v1.TransactionRetriedData
 import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
@@ -103,7 +103,7 @@ class ClosureRetryServiceTests {
         any<BinaryData>(), any(), eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_SECONDS.toLong())))
     val savedEvent = eventStoreCaptor.value
     val savedView = viewRepositoryCaptor.value
-    val eventSentOnQueue = queueCaptor.value.toObject(TransactionRefundRetriedEvent::class.java)
+    val eventSentOnQueue = queueCaptor.value.toObject(TransactionClosureRetriedEvent::class.java)
     assertEquals(TransactionEventCode.TRANSACTION_CLOSURE_RETRIED_EVENT, savedEvent.eventCode)
     assertEquals(TransactionStatusDto.CLOSURE_ERROR, savedView.status)
     assertEquals(maxAttempts, eventSentOnQueue.data.retryCount)
@@ -148,7 +148,7 @@ class ClosureRetryServiceTests {
         any<BinaryData>(), any(), eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_SECONDS.toLong())))
     val savedEvent = eventStoreCaptor.value
     val savedView = viewRepositoryCaptor.value
-    val eventSentOnQueue = queueCaptor.value.toObject(TransactionRefundRetriedEvent::class.java)
+    val eventSentOnQueue = queueCaptor.value.toObject(TransactionClosureRetriedEvent::class.java)
     assertEquals(TransactionEventCode.TRANSACTION_CLOSURE_RETRIED_EVENT, savedEvent.eventCode)
     assertEquals(TransactionStatusDto.CLOSURE_ERROR, savedView.status)
     assertEquals(1, eventSentOnQueue.data.retryCount)
