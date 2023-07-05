@@ -304,7 +304,7 @@ class TransactionClosePaymentQueueConsumerTests {
     verify(deadLetterQueueAsyncClient, times(1))
       .sendMessageWithResponse(
         argThat<BinaryData> {
-          this.toObject(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {})
+          this.toObject(object : TypeReference<QueueEvent<TransactionUserCanceledEvent>>() {})
             .event
             .eventCode == TransactionEventCode.TRANSACTION_USER_CANCELED_EVENT
         },

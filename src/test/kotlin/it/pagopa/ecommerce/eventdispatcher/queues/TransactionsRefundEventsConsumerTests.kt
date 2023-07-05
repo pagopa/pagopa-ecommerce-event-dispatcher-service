@@ -1,10 +1,8 @@
 package it.pagopa.ecommerce.eventdispatcher.queues
 
-import com.azure.core.serializer.json.jackson.JacksonJsonSerializerBuilder
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
-import com.fasterxml.jackson.databind.ObjectMapper
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithRequestedAuthorization
@@ -56,9 +54,6 @@ class TransactionsRefundEventsConsumerTests {
     mock()
 
   private val tracingUtils = TracingUtilsTests.getMock()
-
-  private val jacksonJsonSerializer =
-    JacksonJsonSerializerBuilder().serializer(ObjectMapper()).build()
 
   @Captor
   private lateinit var refundEventStoreCaptor:
@@ -573,7 +568,8 @@ class TransactionsRefundEventsConsumerTests {
 
       StepVerifier.create(
           transactionRefundedEventsConsumer.messageReceiver(
-            BinaryData.fromObject(refundRequestedEvent).toBytes(), checkpointer))
+            BinaryData.fromObject(QueueEvent(refundRequestedEvent, MOCK_TRACING_INFO)).toBytes(),
+            checkpointer))
         .expectNext()
         .verifyComplete()
 
@@ -637,7 +633,8 @@ class TransactionsRefundEventsConsumerTests {
 
       StepVerifier.create(
           transactionRefundedEventsConsumer.messageReceiver(
-            BinaryData.fromObject(refundRequestedEvent).toBytes(), checkpointer))
+            BinaryData.fromObject(QueueEvent(refundRequestedEvent, MOCK_TRACING_INFO)).toBytes(),
+            checkpointer))
         .expectNext()
         .verifyComplete()
 

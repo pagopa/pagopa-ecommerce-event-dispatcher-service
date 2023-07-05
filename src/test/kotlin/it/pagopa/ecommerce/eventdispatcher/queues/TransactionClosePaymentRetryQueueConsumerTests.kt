@@ -1,10 +1,9 @@
 package it.pagopa.ecommerce.eventdispatcher.queues
 
-import com.azure.core.serializer.json.jackson.JacksonJsonSerializerBuilder
 import com.azure.core.util.BinaryData
+import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
-import com.fasterxml.jackson.databind.ObjectMapper
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
@@ -72,9 +71,6 @@ class TransactionClosePaymentRetryQueueConsumerTests {
   private val deadLetterQueueAsyncClient: QueueAsyncClient = mock()
 
   private val tracingUtils = TracingUtilsTests.getMock()
-
-  private val jacksonJsonSerializer =
-    JacksonJsonSerializerBuilder().serializer(ObjectMapper()).build()
 
   @Captor private lateinit var viewArgumentCaptor: ArgumentCaptor<Transaction>
 
@@ -518,8 +514,9 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       verify(deadLetterQueueAsyncClient, times(1))
         .sendMessageWithResponse(
           argThat<BinaryData> {
-            this.toObject(TransactionActivatedEvent::class.java).eventCode ==
-              TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT
+            this.toObject(object : TypeReference<QueueEvent<TransactionClosureErrorEvent>>() {})
+              .event
+              .eventCode == TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT
           },
           eq(Duration.ZERO),
           eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
@@ -534,6 +531,8 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       val fakeTransactionAtPreviousState = transactionActivated(ZonedDateTime.now().toString())
 
       val events = listOf(activatedEvent as TransactionEvent<Any>)
+
+      val closureErrorEvent = transactionClosureErrorEvent() as TransactionEvent<Any>
 
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
@@ -553,7 +552,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
       StepVerifier.create(
           transactionClosureErrorEventsConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO)).toBytes(),
+            BinaryData.fromObject(QueueEvent(closureErrorEvent, MOCK_TRACING_INFO)).toBytes(),
             checkpointer,
             emptyTransactionMock))
         .verifyComplete()
@@ -568,8 +567,9 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       verify(deadLetterQueueAsyncClient, times(1))
         .sendMessageWithResponse(
           argThat<BinaryData> {
-            this.toObject(TransactionActivatedEvent::class.java).eventCode ==
-              TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
+            this.toObject(object : TypeReference<QueueEvent<TransactionClosureErrorEvent>>() {})
+              .event
+              .eventCode == TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT
           },
           eq(Duration.ZERO),
           eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
@@ -680,8 +680,9 @@ class TransactionClosePaymentRetryQueueConsumerTests {
     verify(deadLetterQueueAsyncClient, times(1))
       .sendMessageWithResponse(
         argThat<BinaryData> {
-          this.toObject(TransactionClosureErrorEvent::class.java).eventCode ==
-            TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT
+          this.toObject(object : TypeReference<QueueEvent<TransactionClosureErrorEvent>>() {})
+            .event
+            .eventCode == TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT
         },
         eq(Duration.ZERO),
         eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
@@ -1118,8 +1119,9 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       verify(deadLetterQueueAsyncClient, times(1))
         .sendMessageWithResponse(
           argThat<BinaryData> {
-            this.toObject(TransactionActivatedEvent::class.java).eventCode ==
-              TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT
+            this.toObject(object : TypeReference<QueueEvent<TransactionClosureErrorEvent>>() {})
+              .event
+              .eventCode == TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT
           },
           eq(Duration.ZERO),
           eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
