@@ -35,8 +35,8 @@ microservice-chart:
       MONGO_USERNAME: pagopa-p-weu-ecommerce-cosmos-account
       MONGO_PORT: "10255"
       MONGO_SSL_ENABLED: "true"
-      ECOMMERCE_STORAGE_QUEUE_ACCOUNT_NAME: pagopapweuecommercesa
-      ECOMMERCE_STORAGE_QUEUE_ENDPOINT: https://pagopapweuecommercesa.queue.core.windows.net/pagopauweuecommercesa
+      ECOMMERCE_STORAGE_TRANSIENT_QUEUE_ACCOUNT_NAME: pagopapweuecommercetrsa
+      ECOMMERCE_STORAGE_TRANSIENT_QUEUE_ENDPOINT: https://pagopapweuecommercetrsa.queue.core.windows.net/pagopauweuecommercetrsa
       REFUND_RETRY_EVENT_BASE_INTERVAL_SECONDS: "600"
       REFUND_RETRY_EVENT_MAX_ATTEMPTS: "3"
       CLOSE_PAYMENT_RETRY_EVENT_BASE_INTERVAL_SECONDS: "30"
@@ -57,10 +57,11 @@ microservice-chart:
       ECS_SERVICE_NAME: pagopa-ecommerce-event-dispatcher-service-blue
       ECS_SERVICE_ENVIRONMENT: prod
     envSecret:
-      ECOMMERCE_STORAGE_QUEUE_KEY: ecommerce-storage-account-key
+      ECOMMERCE_STORAGE_TRANSIENT_QUEUE_KEY: ecommerce-storage-transient-account-key
       MONGO_PASSWORD: mongo-ecommerce-password
       NODO_CONNECTION_STRING: nodo-connection-string
-      QUEUE_CONNECTION_STRING: ecommerce-storage-connection-string
+      QUEUE_TRANSIENT_CONNECTION_STRING: ecommerce-storage-transient-connection-string
+      QUEUE_DEADLETTER_CONNECTION_STRING: ecommerce-storage-deadletter-connection-string
       NOTIFICATIONS_SERVICE_API_KEY: notifications-service-api-key
       PERSONAL_DATA_VAULT_API_KEY: personal-data-vault-api-key
       ELASTIC_APM_SECRET_TOKEN: elastic-apm-secret-token
@@ -147,8 +148,8 @@ microservice-chart:
     MONGO_USERNAME: pagopa-p-weu-ecommerce-cosmos-account
     MONGO_PORT: "10255"
     MONGO_SSL_ENABLED: "true"
-    ECOMMERCE_STORAGE_QUEUE_ACCOUNT_NAME: pagopapweuecommercesa
-    ECOMMERCE_STORAGE_QUEUE_ENDPOINT: https://pagopapweuecommercesa.queue.core.windows.net/pagopapweuecommercesa
+    ECOMMERCE_STORAGE_TRANSIENT_QUEUE_ACCOUNT_NAME: pagopapweuecommercetrsa
+    ECOMMERCE_STORAGE_TRANSIENT_QUEUE_ENDPOINT: https://pagopapweuecommercetrsa.queue.core.windows.net/pagopapweuecommercetrsa
     REFUND_RETRY_EVENT_BASE_INTERVAL_SECONDS: "600"
     REFUND_RETRY_EVENT_MAX_ATTEMPTS: "3"
     CLOSE_PAYMENT_RETRY_EVENT_BASE_INTERVAL_SECONDS: "30"
@@ -169,10 +170,11 @@ microservice-chart:
     ECS_SERVICE_ENVIRONMENT: prod
     TRANSIENT_QUEUES_TTL_SECONDS: "2592000"
   envSecret:
-    ECOMMERCE_STORAGE_QUEUE_KEY: ecommerce-storage-account-key
+    ECOMMERCE_STORAGE_TRANSIENT_QUEUE_KEY: ecommerce-storage-transient-account-key
     MONGO_PASSWORD: mongo-ecommerce-password
     NODO_CONNECTION_STRING: nodo-connection-string
-    QUEUE_CONNECTION_STRING: ecommerce-storage-connection-string
+    QUEUE_TRANSIENT_CONNECTION_STRING: ecommerce-storage-transient-connection-string
+    QUEUE_DEADLETTER_CONNECTION_STRING: ecommerce-storage-deadletter-connection-string
     NOTIFICATIONS_SERVICE_API_KEY: notifications-service-api-key
     PERSONAL_DATA_VAULT_API_KEY: personal-data-vault-api-key
     ELASTIC_APM_SECRET_TOKEN: elastic-apm-secret-token
