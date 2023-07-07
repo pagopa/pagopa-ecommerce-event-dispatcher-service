@@ -1,5 +1,6 @@
 package it.pagopa.ecommerce.eventdispatcher.services
 
+import it.pagopa.ecommerce.commons.documents.v1.Transaction
 import it.pagopa.ecommerce.commons.documents.v1.TransactionEvent
 import it.pagopa.ecommerce.commons.domain.v1.TransactionId
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
@@ -49,9 +50,9 @@ class NodeServiceTests {
     runTest {
       val transactionOutcome = OutcomeEnum.KO
 
-      val activatedEvent = transactionActivateEvent() as TransactionEvent<Any>
-      val canceledEvent = transactionUserCanceledEvent() as TransactionEvent<Any>
-      val events = listOf(activatedEvent, canceledEvent)
+      val activatedEvent = transactionActivateEvent()
+      val canceledEvent = transactionUserCanceledEvent()
+      val events = listOf(activatedEvent, canceledEvent) as List<TransactionEvent<Any>>
       val transactionId = activatedEvent.transactionId
 
       val closePaymentResponse =
@@ -63,12 +64,22 @@ class NodeServiceTests {
             TRANSACTION_ID))
         .willReturn(events.toFlux())
 
-      given(nodeClient.closePayment(any())).willReturn(Mono.just(closePaymentResponse))
+      given(nodeClient.closePayment(capture(closePaymentRequestCaptor)))
+        .willReturn(Mono.just(closePaymentResponse))
 
       /* test */
       assertEquals(
         closePaymentResponse,
         nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
+      assertEquals(
+        "Annullato",
+        closePaymentRequestCaptor.value.transactionDetails.transaction.transactionStatus)
+      assertEquals(
+        Transaction.ClientId.CHECKOUT.name,
+        closePaymentRequestCaptor.value.transactionDetails.info.clientId)
+      assertNull(closePaymentRequestCaptor.value.transactionDetails.transaction.fee)
+      assertNull(closePaymentRequestCaptor.value.transactionDetails.transaction.grandTotal)
+      assertNotNull(closePaymentRequestCaptor.value.transactionDetails.transaction.amount)
     }
 
   @Test
@@ -76,11 +87,11 @@ class NodeServiceTests {
     runTest {
       val transactionOutcome = OutcomeEnum.KO
 
-      val activatedEvent = transactionActivateEvent() as TransactionEvent<Any>
-      val canceledEvent = transactionUserCanceledEvent() as TransactionEvent<Any>
-      val closureError = transactionClosureErrorEvent() as TransactionEvent<Any>
+      val activatedEvent = transactionActivateEvent()
+      val canceledEvent = transactionUserCanceledEvent()
+      val closureError = transactionClosureErrorEvent()
 
-      val events = listOf(activatedEvent, canceledEvent, closureError)
+      val events = listOf(activatedEvent, canceledEvent, closureError) as List<TransactionEvent<Any>>
       val transactionId = activatedEvent.transactionId
 
       val closePaymentResponse =
@@ -92,12 +103,20 @@ class NodeServiceTests {
             TRANSACTION_ID))
         .willReturn(events.toFlux())
 
-      given(nodeClient.closePayment(any())).willReturn(Mono.just(closePaymentResponse))
-
+      given(nodeClient.closePayment(capture(closePaymentRequestCaptor)))
+        .willReturn(Mono.just(closePaymentResponse))
+      val response = nodeService.closePayment(TransactionId(transactionId), transactionOutcome)
       /* test */
+      assertEquals(closePaymentResponse, response)
       assertEquals(
-        closePaymentResponse,
-        nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
+        "Annullato",
+        closePaymentRequestCaptor.value.transactionDetails.transaction.transactionStatus)
+      assertEquals(
+        Transaction.ClientId.CHECKOUT.name,
+        closePaymentRequestCaptor.value.transactionDetails.info.clientId)
+      assertNull(closePaymentRequestCaptor.value.transactionDetails.transaction.fee)
+      assertNull(closePaymentRequestCaptor.value.transactionDetails.transaction.grandTotal)
+      assertNotNull(closePaymentRequestCaptor.value.transactionDetails.transaction.amount)
     }
 
   @Test
