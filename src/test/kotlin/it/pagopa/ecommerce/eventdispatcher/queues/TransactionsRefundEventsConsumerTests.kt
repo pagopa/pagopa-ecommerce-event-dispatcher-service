@@ -1,7 +1,5 @@
 package it.pagopa.ecommerce.eventdispatcher.queues
 
-import com.azure.core.serializer.json.jackson.JacksonJsonSerializerBuilder
-import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
 import io.opentelemetry.api.OpenTelemetry
@@ -61,7 +59,7 @@ class TransactionsRefundEventsConsumerTests {
 
   private val tracer: Tracer = mock()
 
-  private val jsonSerializer = JacksonJsonSerializerBuilder().serializer(OBJECT_MAPPER).build()
+  private val objectMapper = OBJECT_MAPPER
 
   @Captor
   private lateinit var refundEventStoreCaptor:
@@ -82,7 +80,7 @@ class TransactionsRefundEventsConsumerTests {
       deadLetterTTLSeconds = DEAD_LETTER_QUEUE_TTL_SECONDS,
       openTelemetry,
       tracer,
-      jsonSerializer)
+      objectMapper)
 
   @BeforeEach
   fun setupTracingMocks() = it.pagopa.ecommerce.eventdispatcher.utils.setupTracingMocks()
@@ -132,8 +130,7 @@ class TransactionsRefundEventsConsumerTests {
     /* test */
     StepVerifier.create(
         transactionRefundedEventsConsumer.messageReceiver(
-          BinaryData.fromObject(QueueEvent(refundRequestedEvent, MOCK_TRACING_INFO), jsonSerializer)
-            .toBytes(),
+          objectMapper.writeValueAsBytes(QueueEvent(refundRequestedEvent, MOCK_TRACING_INFO)),
           checkpointer))
       .expectNext()
       .verifyComplete()
@@ -197,8 +194,7 @@ class TransactionsRefundEventsConsumerTests {
     /* test */
     StepVerifier.create(
         transactionRefundedEventsConsumer.messageReceiver(
-          BinaryData.fromObject(QueueEvent(refundRequestedEvent, MOCK_TRACING_INFO), jsonSerializer)
-            .toBytes(),
+          objectMapper.writeValueAsBytes(QueueEvent(refundRequestedEvent, MOCK_TRACING_INFO)),
           checkpointer))
       .expectNext()
       .verifyComplete()
@@ -249,9 +245,7 @@ class TransactionsRefundEventsConsumerTests {
 
       StepVerifier.create(
           transactionRefundedEventsConsumer.messageReceiver(
-            BinaryData.fromObject(
-                QueueEvent(refundRequestedEvent, MOCK_TRACING_INFO), jsonSerializer)
-              .toBytes(),
+            objectMapper.writeValueAsBytes(QueueEvent(refundRequestedEvent, MOCK_TRACING_INFO)),
             checkpointer))
         .expectNext()
         .verifyComplete()
@@ -312,8 +306,7 @@ class TransactionsRefundEventsConsumerTests {
 
     StepVerifier.create(
         transactionRefundedEventsConsumer.messageReceiver(
-          BinaryData.fromObject(QueueEvent(refundRequestedEvent, MOCK_TRACING_INFO), jsonSerializer)
-            .toBytes(),
+          objectMapper.writeValueAsBytes(QueueEvent(refundRequestedEvent, MOCK_TRACING_INFO)),
           checkpointer))
       .expectNext()
       .verifyComplete()
@@ -380,8 +373,7 @@ class TransactionsRefundEventsConsumerTests {
 
     StepVerifier.create(
         transactionRefundedEventsConsumer.messageReceiver(
-          BinaryData.fromObject(QueueEvent(refundRequestedEvent, MOCK_TRACING_INFO), jsonSerializer)
-            .toBytes(),
+          objectMapper.writeValueAsBytes(QueueEvent(refundRequestedEvent, MOCK_TRACING_INFO)),
           checkpointer))
       .expectNext()
       .verifyComplete()
@@ -450,9 +442,7 @@ class TransactionsRefundEventsConsumerTests {
 
       StepVerifier.create(
           transactionRefundedEventsConsumer.messageReceiver(
-            BinaryData.fromObject(
-                QueueEvent(refundRequestedEvent, MOCK_TRACING_INFO), jsonSerializer)
-              .toBytes(),
+            objectMapper.writeValueAsBytes(QueueEvent(refundRequestedEvent, MOCK_TRACING_INFO)),
             checkpointer))
         .expectNext()
         .verifyComplete()
@@ -522,9 +512,7 @@ class TransactionsRefundEventsConsumerTests {
 
       StepVerifier.create(
           transactionRefundedEventsConsumer.messageReceiver(
-            BinaryData.fromObject(
-                QueueEvent(refundRequestedEvent, MOCK_TRACING_INFO), jsonSerializer)
-              .toBytes(),
+            objectMapper.writeValueAsBytes(QueueEvent(refundRequestedEvent, MOCK_TRACING_INFO)),
             checkpointer))
         .expectNext()
         .verifyComplete()
@@ -591,7 +579,8 @@ class TransactionsRefundEventsConsumerTests {
 
       StepVerifier.create(
           transactionRefundedEventsConsumer.messageReceiver(
-            BinaryData.fromObject(refundRequestedEvent).toBytes(), checkpointer))
+            objectMapper.writeValueAsBytes(QueueEvent(refundRequestedEvent, MOCK_TRACING_INFO)),
+            checkpointer))
         .expectNext()
         .verifyComplete()
 
@@ -655,7 +644,8 @@ class TransactionsRefundEventsConsumerTests {
 
       StepVerifier.create(
           transactionRefundedEventsConsumer.messageReceiver(
-            BinaryData.fromObject(refundRequestedEvent).toBytes(), checkpointer))
+            objectMapper.writeValueAsBytes(QueueEvent(refundRequestedEvent, MOCK_TRACING_INFO)),
+            checkpointer))
         .expectNext()
         .verifyComplete()
 

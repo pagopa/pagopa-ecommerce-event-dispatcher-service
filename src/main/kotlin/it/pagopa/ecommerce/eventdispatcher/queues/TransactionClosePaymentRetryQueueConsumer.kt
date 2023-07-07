@@ -1,11 +1,10 @@
 package it.pagopa.ecommerce.eventdispatcher.queues
 
-import com.azure.core.serializer.json.jackson.JacksonJsonSerializer
-import com.azure.core.util.BinaryData
-import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
+import com.fasterxml.jackson.core.type.TypeReference
+import com.fasterxml.jackson.databind.ObjectMapper
 import io.opentelemetry.api.OpenTelemetry
 import io.opentelemetry.api.trace.Tracer
 import io.vavr.control.Either
@@ -60,7 +59,7 @@ class TransactionClosePaymentRetryQueueConsumer(
   private val deadLetterTTLSeconds: Int,
   @Autowired private val openTelemetry: OpenTelemetry,
   @Autowired private val tracer: Tracer,
-  @Autowired private val jsonSerializer: JacksonJsonSerializer
+  @Autowired private val objectMapper: ObjectMapper
 ) {
   var logger: Logger =
     LoggerFactory.getLogger(TransactionClosePaymentRetryQueueConsumer::class.java)
@@ -80,15 +79,19 @@ class TransactionClosePaymentRetryQueueConsumer(
   }
 
   private fun parseEvent(
-    data: BinaryData
+    payload: ByteArray
   ): Mono<
     Either<QueueEvent<TransactionClosureErrorEvent>, QueueEvent<TransactionClosureRetriedEvent>>> {
     val closureRetriedEvent =
-      data.toObjectAsync(
-        object : TypeReference<QueueEvent<TransactionClosureRetriedEvent>>() {}, jsonSerializer)
+      Mono.fromCallable {
+        objectMapper.readValue(
+          payload, object : TypeReference<QueueEvent<TransactionClosureRetriedEvent>>() {})
+      }
     val closureErrorEvent =
-      data.toObjectAsync(
-        object : TypeReference<QueueEvent<TransactionClosureErrorEvent>>() {}, jsonSerializer)
+      Mono.fromCallable {
+        objectMapper.readValue(
+          payload, object : TypeReference<QueueEvent<TransactionClosureErrorEvent>>() {})
+      }
 
     return closureRetriedEvent
       .map<
@@ -110,8 +113,7 @@ class TransactionClosePaymentRetryQueueConsumer(
     checkPointer: Checkpointer,
     emptyTransaction: EmptyTransaction
   ): Mono<Void> {
-    val binaryData = BinaryData.fromBytes(payload)
-    val queueEvent = parseEvent(binaryData)
+    val queueEvent = parseEvent(payload)
     val transactionId = queueEvent.map { getTransactionId(it) }
     val retryCount = queueEvent.map { getRetryCount(it) }
     val baseTransaction =
@@ -225,7 +227,7 @@ class TransactionClosePaymentRetryQueueConsumer(
         openTelemetry,
         tracer,
         this::class.simpleName!!,
-        jsonSerializer)
+        objectMapper)
     }
   }
 

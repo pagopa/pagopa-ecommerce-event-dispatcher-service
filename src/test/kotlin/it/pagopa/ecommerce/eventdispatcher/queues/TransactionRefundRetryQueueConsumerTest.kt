@@ -1,9 +1,9 @@
 package it.pagopa.ecommerce.eventdispatcher.queues
 
 import com.azure.core.util.BinaryData
-import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
+import com.fasterxml.jackson.core.type.TypeReference
 import io.opentelemetry.api.OpenTelemetry
 import io.opentelemetry.api.trace.Tracer
 import it.pagopa.ecommerce.commons.documents.v1.*
@@ -17,7 +17,7 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRe
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryService
 import it.pagopa.ecommerce.eventdispatcher.utils.DEAD_LETTER_QUEUE_TTL_SECONDS
-import it.pagopa.ecommerce.eventdispatcher.utils.JSON_SERIALIZER
+import it.pagopa.ecommerce.eventdispatcher.utils.OBJECT_MAPPER
 import it.pagopa.ecommerce.eventdispatcher.utils.queueSuccessfulResponse
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import java.time.Duration
@@ -56,7 +56,7 @@ class TransactionRefundRetryQueueConsumerTest {
 
   private val tracer: Tracer = mock()
 
-  private val jsonSerializer = JSON_SERIALIZER
+  private val objectMapper = OBJECT_MAPPER
 
   @Captor private lateinit var transactionViewRepositoryCaptor: ArgumentCaptor<Transaction>
 
@@ -79,7 +79,7 @@ class TransactionRefundRetryQueueConsumerTest {
       deadLetterTTLSeconds = DEAD_LETTER_QUEUE_TTL_SECONDS,
       openTelemetry,
       tracer,
-      jsonSerializer)
+      objectMapper)
 
   @BeforeEach
   fun setupTracingMocks() = it.pagopa.ecommerce.eventdispatcher.utils.setupTracingMocks()
@@ -139,8 +139,7 @@ class TransactionRefundRetryQueueConsumerTest {
     /* test */
     StepVerifier.create(
         transactionRefundRetryQueueConsumer.messageReceiver(
-          BinaryData.fromObject(QueueEvent(refundRetriedEvent, MOCK_TRACING_INFO), jsonSerializer)
-            .toBytes(),
+          objectMapper.writeValueAsBytes(QueueEvent(refundRetriedEvent, MOCK_TRACING_INFO)),
           checkpointer))
       .verifyComplete()
 
@@ -217,8 +216,7 @@ class TransactionRefundRetryQueueConsumerTest {
       /* test */
       StepVerifier.create(
           transactionRefundRetryQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(refundRetriedEvent, MOCK_TRACING_INFO), jsonSerializer)
-              .toBytes(),
+            objectMapper.writeValueAsBytes(QueueEvent(refundRetriedEvent, MOCK_TRACING_INFO)),
             checkpointer))
         .verifyComplete()
 
@@ -289,8 +287,7 @@ class TransactionRefundRetryQueueConsumerTest {
       /* test */
       StepVerifier.create(
           transactionRefundRetryQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(refundRetriedEvent, MOCK_TRACING_INFO), jsonSerializer)
-              .toBytes(),
+            objectMapper.writeValueAsBytes(QueueEvent(refundRetriedEvent, MOCK_TRACING_INFO)),
             checkpointer))
         .verifyComplete()
 
@@ -343,8 +340,7 @@ class TransactionRefundRetryQueueConsumerTest {
       /* test */
       StepVerifier.create(
           transactionRefundRetryQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(refundRetriedEvent, MOCK_TRACING_INFO), jsonSerializer)
-              .toBytes(),
+            objectMapper.writeValueAsBytes(QueueEvent(refundRetriedEvent, MOCK_TRACING_INFO)),
             checkpointer))
         .verifyComplete()
 
@@ -357,9 +353,10 @@ class TransactionRefundRetryQueueConsumerTest {
       verify(deadLetterQueueAsyncClient, times(1))
         .sendMessageWithResponse(
           argThat<BinaryData> {
-            this.toObject(
-                object : TypeReference<QueueEvent<TransactionRefundRetriedEvent>>() {},
-                jsonSerializer)
+            objectMapper
+              .readValue(
+                this.toBytes(),
+                object : TypeReference<QueueEvent<TransactionRefundRetriedEvent>>() {})
               .event
               .eventCode == TransactionEventCode.TRANSACTION_REFUND_RETRIED_EVENT
           },

@@ -1,11 +1,11 @@
 package it.pagopa.ecommerce.eventdispatcher.queues
 
-import com.azure.core.serializer.json.jackson.JacksonJsonSerializer
 import com.azure.core.util.BinaryData
-import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
+import com.fasterxml.jackson.core.type.TypeReference
+import com.fasterxml.jackson.databind.ObjectMapper
 import io.opentelemetry.api.OpenTelemetry
 import io.opentelemetry.api.trace.Tracer
 import it.pagopa.ecommerce.commons.documents.v1.*
@@ -58,7 +58,7 @@ class TransactionExpirationQueueConsumer(
   private val deadLetterTTLSeconds: Int,
   @Autowired private val openTelemetry: OpenTelemetry,
   @Autowired private val tracer: Tracer,
-  @Autowired private val jsonSerializer: JacksonJsonSerializer
+  @Autowired private val objectMapper: ObjectMapper
 ) {
 
   var logger: Logger = LoggerFactory.getLogger(TransactionExpirationQueueConsumer::class.java)
@@ -71,8 +71,8 @@ class TransactionExpirationQueueConsumer(
   ): Mono<Void> {
     val binaryData = BinaryData.fromBytes(payload)
     val queueEvent =
-      binaryData.toObject(
-        object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {}, jsonSerializer)
+      objectMapper.readValue(
+        payload, object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {})
     val transactionId = queueEvent.event.transactionId
 
     logger.info("[transaction id: {}, tracing info: {}]", transactionId, queueEvent.tracingInfo)
@@ -166,6 +166,6 @@ class TransactionExpirationQueueConsumer(
       openTelemetry,
       tracer,
       this::class.simpleName!!,
-      jsonSerializer)
+      objectMapper)
   }
 }

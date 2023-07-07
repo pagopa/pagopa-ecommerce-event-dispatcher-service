@@ -1,11 +1,10 @@
 package it.pagopa.ecommerce.eventdispatcher.queues
 
-import com.azure.core.serializer.json.jackson.JacksonJsonSerializer
-import com.azure.core.util.BinaryData
-import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
+import com.fasterxml.jackson.core.type.TypeReference
+import com.fasterxml.jackson.databind.ObjectMapper
 import io.opentelemetry.api.OpenTelemetry
 import io.opentelemetry.api.trace.Tracer
 import io.vavr.control.Either
@@ -57,7 +56,7 @@ class TransactionNotificationsRetryQueueConsumer(
   private val deadLetterTTLSeconds: Int,
   @Autowired private val openTelemetry: OpenTelemetry,
   @Autowired private val tracer: Tracer,
-  @Autowired private val jsonSerializer: JacksonJsonSerializer
+  @Autowired private val objectMapper: ObjectMapper
 ) {
   var logger: Logger =
     LoggerFactory.getLogger(TransactionNotificationsRetryQueueConsumer::class.java)
@@ -81,20 +80,24 @@ class TransactionNotificationsRetryQueueConsumer(
   }
 
   private fun parseEvent(
-    data: BinaryData
+    payload: ByteArray
   ): Mono<
     Either<
       QueueEvent<TransactionUserReceiptAddErrorEvent>,
       QueueEvent<TransactionUserReceiptAddRetriedEvent>>> {
     val notificationErrorEvent =
-      data.toObjectAsync(
-        object : TypeReference<QueueEvent<TransactionUserReceiptAddErrorEvent>>() {},
-        jsonSerializer)
+      Mono.fromCallable {
+        objectMapper.readValue(
+          payload, object : TypeReference<QueueEvent<TransactionUserReceiptAddErrorEvent>>() {})
+      }
 
     val notificationRetryEvent =
-      data.toObjectAsync(
-        object : TypeReference<QueueEvent<TransactionUserReceiptAddRetriedEvent>>() {},
-        jsonSerializer)
+      Mono.fromCallable {
+        objectMapper.readValue(
+          payload,
+          object : TypeReference<QueueEvent<TransactionUserReceiptAddRetriedEvent>>() {},
+        )
+      }
 
     return notificationErrorEvent
       .map<
@@ -110,8 +113,7 @@ class TransactionNotificationsRetryQueueConsumer(
     @Payload payload: ByteArray,
     @Header(AzureHeaders.CHECKPOINTER) checkPointer: Checkpointer
   ): Mono<Void> {
-    val binaryData = BinaryData.fromBytes(payload)
-    val event = parseEvent(binaryData)
+    val event = parseEvent(payload)
     val transactionId = event.map { getTransactionIdFromPayload(it) }
     val retryCount = event.map { getRetryCountFromPayload(it) }
     val baseTransaction =
@@ -184,7 +186,7 @@ class TransactionNotificationsRetryQueueConsumer(
         openTelemetry,
         tracer,
         this::class.simpleName!!,
-        jsonSerializer)
+        objectMapper)
     }
   }
 }

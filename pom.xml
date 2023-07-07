@@ -17,7 +17,7 @@
 		<java.version>17</java.version>
 		<kotlin.version>1.6.21</kotlin.version>
 		<kotlinx-coroutines.version>1.6.2</kotlinx-coroutines.version>
-		<spring-cloud-azure.version>4.0.0</spring-cloud-azure.version>
+		<spring-cloud-azure.version>4.9.0</spring-cloud-azure.version>
 		<jacoco.version>0.8.8</jacoco.version>
 		<pagopa-ecommerce-commons.version>0.18.2</pagopa-ecommerce-commons.version>
 		<sonar.coverage.exclusions> <!-- the members of the following list should be in the same line -->
@@ -82,12 +82,10 @@
 		<dependency>
 			<groupId>com.azure.spring</groupId>
 			<artifactId>spring-cloud-azure-starter-integration-storage-queue</artifactId>
-			<version>4.3.0</version>
 		</dependency>
 		<dependency>
 			<groupId>com.azure</groupId>
 			<artifactId>azure-storage-queue</artifactId>
-			<version>12.13.0</version>
 		</dependency>
 		<dependency>
 			<groupId>org.jetbrains.kotlin</groupId>
@@ -103,16 +101,6 @@
 			<groupId>io.vavr</groupId>
 			<artifactId>vavr</artifactId>
 			<version>0.10.4</version>
-		</dependency>
-		<dependency>
-			<groupId>com.azure</groupId>
-			<artifactId>azure-core</artifactId>
-			<version>1.40.0</version>
-		</dependency>
-		<dependency>
-			<groupId>com.azure</groupId>
-			<artifactId>azure-core-serializer-json-jackson</artifactId>
-			<version>1.4.1</version>
 		</dependency>
 		<dependency>
 			<groupId>org.slf4j</groupId>

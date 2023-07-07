@@ -2,8 +2,6 @@ package it.pagopa.ecommerce.eventdispatcher.utils
 
 import com.azure.core.http.rest.Response
 import com.azure.core.http.rest.ResponseBase
-import com.azure.core.serializer.json.jackson.JacksonJsonSerializer
-import com.azure.core.serializer.json.jackson.JacksonJsonSerializerBuilder
 import com.azure.storage.queue.models.SendMessageResult
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 import com.fasterxml.jackson.databind.DeserializationFeature
@@ -36,9 +34,6 @@ val OBJECT_MAPPER: ObjectMapper =
     .configure(DeserializationFeature.READ_UNKNOWN_ENUM_VALUES_AS_NULL, true)
     .configure(DeserializationFeature.FAIL_ON_NULL_CREATOR_PROPERTIES, true)
     .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, true)
-
-val JSON_SERIALIZER: JacksonJsonSerializer =
-  JacksonJsonSerializerBuilder().serializer(OBJECT_MAPPER).build()
 
 fun getMockedClosePaymentRequest(
   transactionId: UUID,
