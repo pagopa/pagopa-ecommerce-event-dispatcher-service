@@ -60,12 +60,12 @@ class NodeService(
         when (it.status) {
           TransactionStatusDto.CLOSURE_ERROR -> {
             if (it is TransactionWithClosureError) {
-              when (transactionOutcome) {
-                ClosePaymentRequestV2Dto.OutcomeEnum.KO -> {
-                  val transactionAtPreviousState = it.transactionAtPreviousState()
-                  transactionAtPreviousState
-                    .map { trx ->
-                      trx.fold(
+              val transactionAtPreviousState = it.transactionAtPreviousState()
+              transactionAtPreviousState
+                .map { trxPreviousStatus ->
+                  when (transactionOutcome) {
+                    ClosePaymentRequestV2Dto.OutcomeEnum.KO -> {
+                      trxPreviousStatus.fold(
                         { transactionWithCancellation ->
                           buildClosePaymentForCancellationRequest(
                             transactionWithCancellation, transactionOutcome, transactionId)
@@ -77,18 +77,13 @@ class NodeService(
                             transactionId)
                         })
                     }
-                    .orElseThrow { RuntimeException(CASTING_ERROR + it.transactionAtPreviousState) }
-                }
-                ClosePaymentRequestV2Dto.OutcomeEnum.OK -> {
-                  val transactionAtPreviousState = it.transactionAtPreviousState()
-                  transactionAtPreviousState
-                    .map { event ->
-                      val authCompleted = event.get()
+                    ClosePaymentRequestV2Dto.OutcomeEnum.OK -> {
+                      val authCompleted = trxPreviousStatus.get()
                       buildClosePaymentOKRequest(authCompleted, transactionOutcome, transactionId)
                     }
-                    .orElseThrow { RuntimeException(CASTING_ERROR + it.transactionAtPreviousState) }
+                  }
                 }
-              }
+                .orElseThrow { RuntimeException(CASTING_ERROR + it.transactionAtPreviousState) }
             } else {
               throw RuntimeException(CASTING_ERROR_TRANSACTION_WITH_CLOSURE_ERROR)
             }
