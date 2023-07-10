@@ -129,16 +129,20 @@ class TransactionNotificationsRetryQueueConsumer(
         .flatMap { tx ->
           mono { userReceiptMailBuilder.buildNotificationEmailRequestDto(tx) }
             .flatMap { notificationsServiceClient.sendNotificationEmail(it) }
-            .flatMap {
+            .zipWith(event, ::Pair)
+            .flatMap { (_, queueEvent) ->
               updateNotifiedTransactionStatus(
                   tx, transactionsViewRepository, transactionUserReceiptRepository)
                 .flatMap {
+                  val tracingInfo = queueEvent.fold({ it.tracingInfo }, { it.tracingInfo })
+
                   notificationRefundTransactionPipeline(
                     tx,
                     transactionsRefundedEventStoreRepository,
                     transactionsViewRepository,
                     paymentGatewayClient,
-                    refundRetryService)
+                    refundRetryService,
+                    tracingInfo)
                 }
             }
             .then()
@@ -156,13 +160,18 @@ class TransactionNotificationsRetryQueueConsumer(
                   logger.error(
                     "No more attempts left for user receipt send retry", enqueueException)
 
-                  notificationRefundTransactionPipeline(
-                      tx,
-                      transactionsRefundedEventStoreRepository,
-                      transactionsViewRepository,
-                      paymentGatewayClient,
-                      refundRetryService)
-                    .then()
+                  event
+                    .map { queueEvent -> queueEvent.fold({ it.tracingInfo }, { it.tracingInfo }) }
+                    .flatMap {
+                      notificationRefundTransactionPipeline(
+                          tx,
+                          transactionsRefundedEventStoreRepository,
+                          transactionsViewRepository,
+                          paymentGatewayClient,
+                          refundRetryService,
+                          it)
+                        .then()
+                    }
                 }
                 .then()
             }

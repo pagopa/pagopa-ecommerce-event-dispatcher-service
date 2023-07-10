@@ -146,13 +146,18 @@ class TransactionsRefundQueueConsumer(
           logger.info("Handling refund request for transaction with id ${it.transactionId.value()}")
         }
         .cast(BaseTransactionWithRefundRequested::class.java)
-        .flatMap { tx ->
+        .zipWith(queueEvent, ::Pair)
+        .flatMap { (tx, queueEvent) ->
+          val tracingInfo =
+            queueEvent.fold({ it.tracingInfo }, { it.tracingInfo }, { it.tracingInfo })
+
           refundTransaction(
             tx,
             transactionsRefundedEventStoreRepository,
             transactionsViewRepository,
             paymentGatewayClient,
-            refundRetryService)
+            refundRetryService,
+            tracingInfo)
         }
 
     return queueEvent.flatMap { e ->

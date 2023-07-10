@@ -16,6 +16,7 @@ import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithCompletedA
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
+import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
@@ -172,15 +173,18 @@ class TransactionClosePaymentRetryQueueConsumer(
                 canceledByUser = canceledByUser,
                 wasAuthorized = wasAuthorized)
             }
+            .zipWith(queueEvent, ::Pair)
             /*
              * The refund process is started only iff the previous transaction was authorized
              * and the Nodo returned closePaymentV2 response outcome KO
              */
-            .flatMap {
-              it.fold(
+            .flatMap { (closePaymentOutcomeEvent, queueEvent) ->
+              val tracingInfo = queueEvent.fold({ it.tracingInfo }, { it.tracingInfo })
+              closePaymentOutcomeEvent.fold(
                 { Mono.empty() },
                 { transactionClosedEvent ->
-                  refundTransactionPipeline(tx, transactionClosedEvent.data.responseOutcome)
+                  refundTransactionPipeline(
+                    tx, transactionClosedEvent.data.responseOutcome, tracingInfo)
                 })
             }
             .then()
@@ -202,7 +206,10 @@ class TransactionClosePaymentRetryQueueConsumer(
                   .onErrorResume(NoRetryAttemptsLeftException::class.java) { exception ->
                     logger.error(
                       "No more attempts left for closure retry, refunding transaction", exception)
-                    refundTransactionPipeline(tx, null).then()
+                    queueEvent
+                      .map { queueEvent -> queueEvent.fold({ it.tracingInfo }, { it.tracingInfo }) }
+                      .flatMap { refundTransactionPipeline(tx, null, it) }
+                      .then()
                   }
                   .then()
               }
@@ -225,7 +232,8 @@ class TransactionClosePaymentRetryQueueConsumer(
 
   private fun refundTransactionPipeline(
     transaction: TransactionWithClosureError,
-    closureOutcome: TransactionClosureData.Outcome?
+    closureOutcome: TransactionClosureData.Outcome?,
+    tracingInfo: TracingInfo
   ): Mono<BaseTransaction> {
     val transactionAtPreviousState = transaction.transactionAtPreviousState()
     val wasAuthorized = wasTransactionAuthorized(transactionAtPreviousState)
@@ -235,6 +243,7 @@ class TransactionClosePaymentRetryQueueConsumer(
       "Transaction Nodo ClosePaymentV2 response outcome: ${nodoOutcome}, was authorized: $wasAuthorized --> to be refunded: $toBeRefunded")
     val transactionWithCompletedAuthorization =
       getBaseTransactionWithCompletedAuthorization(transactionAtPreviousState)
+
     return Mono.just(transactionWithCompletedAuthorization)
       .filter { it.isPresent && toBeRefunded }
       .flatMap { tx ->
@@ -247,7 +256,8 @@ class TransactionClosePaymentRetryQueueConsumer(
           transactionsRefundedEventStoreRepository,
           transactionsViewRepository,
           paymentGatewayClient,
-          refundRetryService)
+          refundRetryService,
+          tracingInfo)
       }
   }
 

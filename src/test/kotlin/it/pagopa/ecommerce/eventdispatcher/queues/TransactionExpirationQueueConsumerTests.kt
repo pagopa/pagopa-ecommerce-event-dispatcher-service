@@ -369,7 +369,7 @@ class TransactionExpirationQueueConsumerTests {
       }
       given(paymentGatewayClient.requestVPosRefund(any()))
         .willReturn(Mono.just(gatewayClientResponse))
-      given(refundRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture()))
+      given(refundRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture(), any()))
         .willReturn(Mono.empty())
 
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
@@ -1572,7 +1572,7 @@ class TransactionExpirationQueueConsumerTests {
       }
       given(paymentGatewayClient.requestVPosRefund(any()))
         .willReturn(Mono.just(gatewayClientResponse))
-      given(refundRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture()))
+      given(refundRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture(), any()))
         .willReturn(Mono.empty())
       Hooks.onOperatorDebug()
       /* test */
@@ -1674,7 +1674,7 @@ class TransactionExpirationQueueConsumerTests {
       }
       given(paymentGatewayClient.requestVPosRefund(any()))
         .willReturn(Mono.just(gatewayClientResponse))
-      given(refundRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture()))
+      given(refundRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture(), any()))
         .willReturn(Mono.empty())
       Hooks.onOperatorDebug()
       /* test */
