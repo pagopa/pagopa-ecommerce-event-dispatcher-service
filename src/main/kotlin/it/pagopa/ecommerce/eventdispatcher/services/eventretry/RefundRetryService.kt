@@ -24,7 +24,7 @@ class RefundRetryService(
   @Value("\${azurestorage.queues.transientQueues.ttlSeconds}")
   private val transientQueuesTTLSeconds: Int
 ) :
-  TracedRetryEventService<TransactionRefundRetriedEvent>(
+  RetryEventService<TransactionRefundRetriedEvent>(
     queueAsyncClient = refundRetryQueueAsyncClient,
     retryOffset = refundRetryOffset,
     maxAttempts = maxAttempts,
