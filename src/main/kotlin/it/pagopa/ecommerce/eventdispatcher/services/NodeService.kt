@@ -53,53 +53,50 @@ class NodeService(
       baseTransaction.map {
         when (it.status) {
           TransactionStatusDto.CLOSURE_ERROR -> {
-            val r =
-              when (transactionOutcome) {
-                ClosePaymentRequestV2Dto.OutcomeEnum.KO -> {
-                  if (it is TransactionWithClosureError) {
-                    val transactionAtPreviousState = it.transactionAtPreviousState()
-                    transactionAtPreviousState
-                      .map { trx ->
-                        trx.fold(
-                          { transactionWithCancellation ->
-                            buildClosePaymentForCancellationRequest(
-                              transactionWithCancellation, transactionOutcome, transactionId)
-                          },
-                          { transactionWithCompletedAuthorization ->
-                            buildClosePaymentRequest(
-                              transactionWithCompletedAuthorization,
-                              transactionOutcome,
-                              transactionId)
-                          })
-                      }
-                      .orElseThrow {
-                        RuntimeException(
-                          "Unexpected error while casting request into TransactionWithClosureError into transactionAtPreviousState")
-                      }
-                  } else {
-                    throw RuntimeException(
-                      "Unexpected error while casting request into TransactionWithClosureError")
-                  }
+            when (transactionOutcome) {
+              ClosePaymentRequestV2Dto.OutcomeEnum.KO -> {
+                if (it is TransactionWithClosureError) {
+                  val transactionAtPreviousState = it.transactionAtPreviousState()
+                  transactionAtPreviousState
+                    .map { trx ->
+                      trx.fold(
+                        { transactionWithCancellation ->
+                          buildClosePaymentForCancellationRequest(
+                            transactionWithCancellation, transactionOutcome, transactionId)
+                        },
+                        { transactionWithCompletedAuthorization ->
+                          buildClosePaymentKORequest(
+                            transactionWithCompletedAuthorization,
+                            transactionOutcome,
+                            transactionId)
+                        })
+                    }
+                    .orElseThrow {
+                      RuntimeException(
+                        "Unexpected error while casting request into TransactionWithClosureError into transactionAtPreviousState")
+                    }
+                } else {
+                  throw RuntimeException(
+                    "Unexpected error while casting request into TransactionWithClosureError")
                 }
-                ClosePaymentRequestV2Dto.OutcomeEnum.OK ->
-                  if (it is TransactionWithClosureError) {
-                    val transactionAtPreviousState = it.transactionAtPreviousState()
-                    transactionAtPreviousState
-                      .map { event ->
-                        val authCompleted = event.get()
-                        buildClosePaymentRequest(authCompleted, transactionOutcome, transactionId)
-                      }
-                      .orElseThrow {
-                        RuntimeException(
-                          "Unexpected transactionAtPreviousStep: ${it.transactionAtPreviousState}")
-                      }
-                  } else {
-                    throw RuntimeException(
-                      "Unexpected error while casting request into TransactionWithClosureError")
-                  }
               }
-
-            return@map r
+              ClosePaymentRequestV2Dto.OutcomeEnum.OK ->
+                if (it is TransactionWithClosureError) {
+                  val transactionAtPreviousState = it.transactionAtPreviousState()
+                  transactionAtPreviousState
+                    .map { event ->
+                      val authCompleted = event.get()
+                      buildClosePaymentOKRequest(authCompleted, transactionOutcome, transactionId)
+                    }
+                    .orElseThrow {
+                      RuntimeException(
+                        "Unexpected transactionAtPreviousStep: ${it.transactionAtPreviousState}")
+                    }
+                } else {
+                  throw RuntimeException(
+                    "Unexpected error while casting request into TransactionWithClosureError")
+                }
+            }
           }
           TransactionStatusDto.CANCELLATION_REQUESTED ->
             buildClosePaymentForCancellationRequest(
@@ -159,14 +156,65 @@ class NodeService(
             }
           info =
             InfoDto().apply {
-              type = "CP"
+              type = getPaymentTypeCode(transactionWithCancellation)
               clientId = transactionWithCancellation.clientId.name
             }
           user = UserDto().apply { type = UserDto.TypeEnum.GUEST }
         }
     }
 
-  private fun buildClosePaymentRequest(
+  private fun buildClosePaymentKORequest(
+    authCompleted: BaseTransactionWithCompletedAuthorization,
+    transactionOutcome: ClosePaymentRequestV2Dto.OutcomeEnum,
+    transactionId: TransactionId
+  ): ClosePaymentRequestV2Dto =
+    ClosePaymentRequestV2Dto().apply {
+      paymentTokens =
+        authCompleted.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken.value }
+      outcome = transactionOutcome
+      this.transactionId = transactionId.value()
+      transactionDetails =
+        TransactionDetailsDto().apply {
+          transaction =
+            TransactionDto().apply {
+              this.transactionId = transactionId.value()
+              transactionStatus = getTransactionDetailsStatus(authCompleted)
+              paymentGateway = authCompleted.transactionAuthorizationRequestData.paymentGateway.name
+              fee = authCompleted.transactionAuthorizationRequestData.fee.toBigDecimal()
+              amount = authCompleted.transactionAuthorizationRequestData.amount.toBigDecimal()
+              grandTotal =
+                (authCompleted.transactionAuthorizationRequestData.amount.plus(
+                    authCompleted.transactionAuthorizationRequestData.fee))
+                  .toBigDecimal()
+              rrn = authCompleted.transactionAuthorizationCompletedData.rrn
+              authorizationCode =
+                authCompleted.transactionAuthorizationCompletedData.authorizationCode
+              creationDate = authCompleted.creationDate.toOffsetDateTime()
+              timestampOperation =
+                authCompleted.transactionAuthorizationCompletedData.timestampOperation
+              psp =
+                PspDto().apply {
+                  idPsp = authCompleted.transactionAuthorizationRequestData.pspId
+                  idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
+                  businessName = authCompleted.transactionAuthorizationRequestData.pspBusinessName
+                  brokerName = authCompleted.transactionAuthorizationRequestData.brokerName
+                  pspOnUs = authCompleted.transactionAuthorizationRequestData.isPspOnUs
+                }
+            }
+          info =
+            InfoDto().apply {
+              type = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
+              brandLogo = authCompleted.transactionAuthorizationRequestData.logo.toString()
+              brand = authCompleted.transactionAuthorizationRequestData.brand?.name
+              paymentMethodName =
+                authCompleted.transactionAuthorizationRequestData.paymentMethodName
+              clientId = authCompleted.transactionActivatedData.clientId.name
+            }
+          user = UserDto().apply { type = UserDto.TypeEnum.GUEST }
+        }
+    }
+
+  private fun buildClosePaymentOKRequest(
     authCompleted: BaseTransactionWithCompletedAuthorization,
     transactionOutcome: ClosePaymentRequestV2Dto.OutcomeEnum,
     transactionId: TransactionId
@@ -218,6 +266,7 @@ class NodeService(
             TransactionDto().apply {
               this.transactionId = transactionId.value()
               transactionStatus = getTransactionDetailsStatus(authCompleted)
+              paymentGateway = authCompleted.transactionAuthorizationRequestData.paymentGateway.name
               fee = authCompleted.transactionAuthorizationRequestData.fee.toBigDecimal()
               amount = authCompleted.transactionAuthorizationRequestData.amount.toBigDecimal()
               grandTotal =
@@ -228,17 +277,25 @@ class NodeService(
               authorizationCode =
                 authCompleted.transactionAuthorizationCompletedData.authorizationCode
               creationDate = authCompleted.creationDate.toOffsetDateTime()
+              timestampOperation =
+                authCompleted.transactionAuthorizationCompletedData.timestampOperation
               psp =
                 PspDto().apply {
                   idPsp = authCompleted.transactionAuthorizationRequestData.pspId
                   idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
                   businessName = authCompleted.transactionAuthorizationRequestData.pspBusinessName
+                  brokerName = authCompleted.transactionAuthorizationRequestData.brokerName
+                  pspOnUs = authCompleted.transactionAuthorizationRequestData.isPspOnUs
                 }
             }
           info =
             InfoDto().apply {
               type = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
               brandLogo = authCompleted.transactionAuthorizationRequestData.logo.toString()
+              brand = authCompleted.transactionAuthorizationRequestData.brand?.name
+              paymentMethodName =
+                authCompleted.transactionAuthorizationRequestData.paymentMethodName
+              clientId = authCompleted.transactionActivatedData.clientId.name
             }
           user = UserDto().apply { type = UserDto.TypeEnum.GUEST }
         }

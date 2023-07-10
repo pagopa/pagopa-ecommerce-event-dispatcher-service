@@ -71,6 +71,7 @@ class NodeServiceTests {
       assertEquals(
         closePaymentResponse,
         nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
+      println("ressss" + closePaymentRequestCaptor.value)
       assertEquals(
         "Annullato",
         closePaymentRequestCaptor.value.transactionDetails.transaction.transactionStatus)
@@ -91,7 +92,8 @@ class NodeServiceTests {
       val canceledEvent = transactionUserCanceledEvent()
       val closureError = transactionClosureErrorEvent()
 
-      val events = listOf(activatedEvent, canceledEvent, closureError) as List<TransactionEvent<Any>>
+      val events =
+        listOf(activatedEvent, canceledEvent, closureError) as List<TransactionEvent<Any>>
       val transactionId = activatedEvent.transactionId
 
       val closePaymentResponse =
@@ -105,9 +107,10 @@ class NodeServiceTests {
 
       given(nodeClient.closePayment(capture(closePaymentRequestCaptor)))
         .willReturn(Mono.just(closePaymentResponse))
-      val response = nodeService.closePayment(TransactionId(transactionId), transactionOutcome)
       /* test */
-      assertEquals(closePaymentResponse, response)
+      assertEquals(
+        closePaymentResponse,
+        nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
       assertEquals(
         "Annullato",
         closePaymentRequestCaptor.value.transactionDetails.transaction.transactionStatus)
@@ -284,6 +287,7 @@ class NodeServiceTests {
         closePaymentRequestCaptor.value.transactionDetails.info.type)
 
       // Check additionalPaymentInfo
+      println("eccolo" + closePaymentRequestCaptor.value)
       assertNull(closePaymentRequestCaptor.value.additionalPaymentInformations)
     }
 
