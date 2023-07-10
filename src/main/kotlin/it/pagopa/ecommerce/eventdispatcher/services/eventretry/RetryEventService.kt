@@ -1,12 +1,13 @@
 package it.pagopa.ecommerce.eventdispatcher.services.eventretry
 
-import com.azure.core.util.BinaryData
-import com.azure.storage.queue.QueueAsyncClient
+import it.pagopa.ecommerce.commons.client.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v1.TransactionEvent
 import it.pagopa.ecommerce.commons.documents.v1.TransactionRetriedData
 import it.pagopa.ecommerce.commons.domain.v1.TransactionId
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
+import it.pagopa.ecommerce.commons.queues.QueueEvent
+import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.TooLateRetryAttemptException
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
@@ -28,7 +29,11 @@ abstract class RetryEventService<E>(
   private val transientQueuesTTLSeconds: Int
 ) where E : TransactionEvent<TransactionRetriedData> {
 
-  fun enqueueRetryEvent(baseTransaction: BaseTransaction, retriedCount: Int): Mono<Void> {
+  fun enqueueRetryEvent(
+    baseTransaction: BaseTransaction,
+    retriedCount: Int,
+    tracingInfo: TracingInfo
+  ): Mono<Void> {
     val retryEvent =
       buildRetryEvent(baseTransaction.transactionId, TransactionRetriedData(retriedCount + 1))
     val visibilityTimeout = Duration.ofSeconds((retryOffset * retryEvent.data.retryCount).toLong())
@@ -47,7 +52,7 @@ abstract class RetryEventService<E>(
             visibilityTimeout = Instant.now().plus(visibilityTimeout)))
       }
       .flatMap { storeEventAndUpdateView(it, newTransactionStatus()) }
-      .flatMap { enqueueMessage(it, visibilityTimeout) }
+      .flatMap { enqueueMessage(it, visibilityTimeout, tracingInfo) }
       .doOnError {
         logger.error(
           "Error processing retry event for transaction with id: [${retryEvent.transactionId}]", it)
@@ -75,11 +80,15 @@ abstract class RetryEventService<E>(
         viewRepository.save(it).flatMap { Mono.just(event) }
       }
 
-  private fun enqueueMessage(event: E, visibilityTimeout: Duration): Mono<Void> =
+  private fun enqueueMessage(
+    event: E,
+    visibilityTimeout: Duration,
+    tracingInfo: TracingInfo
+  ): Mono<Void> =
     Mono.just(event).flatMap { eventToSend ->
       queueAsyncClient
         .sendMessageWithResponse(
-          BinaryData.fromObject(eventToSend),
+          QueueEvent(event, tracingInfo),
           visibilityTimeout,
           Duration.ofSeconds(transientQueuesTTLSeconds.toLong()), // timeToLive
         )

@@ -28,7 +28,7 @@ class ClosureRetryService(
   @Value("\${azurestorage.queues.transientQueues.ttlSeconds}")
   private val transientQueuesTTLSeconds: Int
 ) :
-  TracedRetryEventService<TransactionClosureRetriedEvent>(
+  RetryEventService<TransactionClosureRetriedEvent>(
     queueAsyncClient = closureRetryQueueAsyncClient,
     retryOffset = closePaymentRetryOffset,
     maxAttempts = maxAttempts,
