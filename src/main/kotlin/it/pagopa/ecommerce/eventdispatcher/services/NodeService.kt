@@ -71,7 +71,7 @@ class NodeService(
                             transactionWithCancellation, transactionOutcome, transactionId)
                         },
                         { transactionWithCompletedAuthorization ->
-                          buildClosePaymentKORequest(
+                          buildClosePaymentRequest(
                             transactionWithCompletedAuthorization,
                             transactionOutcome,
                             transactionId)
@@ -79,7 +79,7 @@ class NodeService(
                     }
                     ClosePaymentRequestV2Dto.OutcomeEnum.OK -> {
                       val authCompleted = trxPreviousStatus.get()
-                      buildClosePaymentOKRequest(authCompleted, transactionOutcome, transactionId)
+                      buildClosePaymentRequest(authCompleted, transactionOutcome, transactionId)
                     }
                   }
                 }
@@ -156,57 +156,7 @@ class NodeService(
     }
   }
 
-  private fun buildClosePaymentKORequest(
-    authCompleted: BaseTransactionWithCompletedAuthorization,
-    transactionOutcome: ClosePaymentRequestV2Dto.OutcomeEnum,
-    transactionId: TransactionId
-  ): ClosePaymentRequestV2Dto =
-    ClosePaymentRequestV2Dto().apply {
-      paymentTokens =
-        authCompleted.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken.value }
-      outcome = transactionOutcome
-      this.transactionId = transactionId.value()
-      transactionDetails =
-        TransactionDetailsDto().apply {
-          transaction =
-            TransactionDto().apply {
-              this.transactionId = transactionId.value()
-              transactionStatus = getTransactionDetailsStatus(authCompleted)
-              paymentGateway = authCompleted.transactionAuthorizationRequestData.paymentGateway.name
-              fee = authCompleted.transactionAuthorizationRequestData.fee.toBigDecimal()
-              amount = authCompleted.transactionAuthorizationRequestData.amount.toBigDecimal()
-              grandTotal =
-                (authCompleted.transactionAuthorizationRequestData.amount.plus(
-                    authCompleted.transactionAuthorizationRequestData.fee))
-                  .toBigDecimal()
-              rrn = authCompleted.transactionAuthorizationCompletedData.rrn
-              errorCode = authCompleted.transactionAuthorizationCompletedData.errorCode
-              creationDate = authCompleted.creationDate.toOffsetDateTime()
-              timestampOperation =
-                authCompleted.transactionAuthorizationCompletedData.timestampOperation
-              psp =
-                PspDto().apply {
-                  idPsp = authCompleted.transactionAuthorizationRequestData.pspId
-                  idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
-                  businessName = authCompleted.transactionAuthorizationRequestData.pspBusinessName
-                  brokerName = authCompleted.transactionAuthorizationRequestData.brokerName
-                  pspOnUs = authCompleted.transactionAuthorizationRequestData.isPspOnUs
-                }
-            }
-          info =
-            InfoDto().apply {
-              type = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
-              brandLogo = authCompleted.transactionAuthorizationRequestData.logo.toString()
-              brand = authCompleted.transactionAuthorizationRequestData.brand?.name
-              paymentMethodName =
-                authCompleted.transactionAuthorizationRequestData.paymentMethodName
-              clientId = authCompleted.transactionActivatedData.clientId.name
-            }
-          user = UserDto().apply { type = UserDto.TypeEnum.GUEST }
-        }
-    }
-
-  private fun buildClosePaymentOKRequest(
+  private fun buildClosePaymentRequest(
     authCompleted: BaseTransactionWithCompletedAuthorization,
     transactionOutcome: ClosePaymentRequestV2Dto.OutcomeEnum,
     transactionId: TransactionId
@@ -230,28 +180,31 @@ class NodeService(
           authCompleted.transactionAuthorizationCompletedData.timestampOperation,
           DateTimeFormatter.ISO_OFFSET_DATE_TIME)
       additionalPaymentInformations =
-        AdditionalPaymentInformationsDto().apply {
-          outcomePaymentGateway =
-            AdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.valueOf(
-              authCompleted.transactionAuthorizationCompletedData.authorizationResultDto.toString())
-          this.authorizationCode =
-            authCompleted.transactionAuthorizationCompletedData.authorizationCode
-          fee =
-            EuroUtils.euroCentsToEuro(authCompleted.transactionAuthorizationRequestData.fee)
-              .toString()
-          this.timestampOperation =
-            OffsetDateTime.parse(
-                authCompleted.transactionAuthorizationCompletedData.timestampOperation,
-                DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-              .truncatedTo(ChronoUnit.SECONDS)
-              .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
-          this.rrn = authCompleted.transactionAuthorizationCompletedData.rrn
-          this.totalAmount =
-            EuroUtils.euroCentsToEuro(
-                (authCompleted.transactionAuthorizationRequestData.amount.plus(
-                  authCompleted.transactionAuthorizationRequestData.fee)))
-              .toString()
-        }
+        if (transactionOutcome == ClosePaymentRequestV2Dto.OutcomeEnum.OK)
+          AdditionalPaymentInformationsDto().apply {
+            outcomePaymentGateway =
+              AdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.valueOf(
+                authCompleted.transactionAuthorizationCompletedData.authorizationResultDto
+                  .toString())
+            this.authorizationCode =
+              authCompleted.transactionAuthorizationCompletedData.authorizationCode
+            fee =
+              EuroUtils.euroCentsToEuro(authCompleted.transactionAuthorizationRequestData.fee)
+                .toString()
+            this.timestampOperation =
+              OffsetDateTime.parse(
+                  authCompleted.transactionAuthorizationCompletedData.timestampOperation,
+                  DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                .truncatedTo(ChronoUnit.SECONDS)
+                .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            this.rrn = authCompleted.transactionAuthorizationCompletedData.rrn
+            this.totalAmount =
+              EuroUtils.euroCentsToEuro(
+                  (authCompleted.transactionAuthorizationRequestData.amount.plus(
+                    authCompleted.transactionAuthorizationRequestData.fee)))
+                .toString()
+          }
+        else null
       transactionDetails =
         TransactionDetailsDto().apply {
           transaction =
@@ -266,8 +219,14 @@ class NodeService(
                     authCompleted.transactionAuthorizationRequestData.fee))
                   .toBigDecimal()
               rrn = authCompleted.transactionAuthorizationCompletedData.rrn
+              errorCode =
+                if (transactionOutcome == ClosePaymentRequestV2Dto.OutcomeEnum.KO)
+                  authCompleted.transactionAuthorizationCompletedData.errorCode
+                else null
               authorizationCode =
-                authCompleted.transactionAuthorizationCompletedData.authorizationCode
+                if (transactionOutcome == ClosePaymentRequestV2Dto.OutcomeEnum.OK)
+                  authCompleted.transactionAuthorizationCompletedData.authorizationCode
+                else null
               creationDate = authCompleted.creationDate.toOffsetDateTime()
               timestampOperation =
                 authCompleted.transactionAuthorizationCompletedData.timestampOperation
