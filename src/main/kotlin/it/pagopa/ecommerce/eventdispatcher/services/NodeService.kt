@@ -40,12 +40,6 @@ class NodeService(
 ) {
   var logger: Logger = LoggerFactory.getLogger(NodeService::class.java)
 
-  companion object {
-    const val CASTING_ERROR = "Unexpected transactionAtPreviousStep:"
-    const val CASTING_ERROR_TRANSACTION_WITH_CLOSURE_ERROR =
-      "Unexpected error while casting request into TransactionWithClosureError"
-  }
-
   suspend fun closePayment(
     transactionId: TransactionId,
     transactionOutcome: ClosePaymentRequestV2Dto.OutcomeEnum
@@ -83,9 +77,13 @@ class NodeService(
                     }
                   }
                 }
-                .orElseThrow { RuntimeException(CASTING_ERROR + it.transactionAtPreviousState) }
+                .orElseThrow {
+                  RuntimeException(
+                    "Unexpected transactionAtPreviousStep: ${it.transactionAtPreviousState} ")
+                }
             } else {
-              throw RuntimeException(CASTING_ERROR_TRANSACTION_WITH_CLOSURE_ERROR)
+              throw RuntimeException(
+                "Unexpected error while casting request into TransactionWithClosureError")
             }
           }
           TransactionStatusDto.CANCELLATION_REQUESTED ->
