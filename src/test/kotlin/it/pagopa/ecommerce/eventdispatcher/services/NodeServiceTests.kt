@@ -71,7 +71,6 @@ class NodeServiceTests {
       assertEquals(
         closePaymentResponse,
         nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
-      println("ressss" + closePaymentRequestCaptor.value)
       assertEquals(
         "Annullato",
         closePaymentRequestCaptor.value.transactionDetails.transaction.transactionStatus)
@@ -287,7 +286,6 @@ class NodeServiceTests {
         closePaymentRequestCaptor.value.transactionDetails.info.type)
 
       // Check additionalPaymentInfo
-      println("eccolo" + closePaymentRequestCaptor.value)
       assertNull(closePaymentRequestCaptor.value.additionalPaymentInformations)
     }
 
