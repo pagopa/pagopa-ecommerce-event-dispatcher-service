@@ -1,6 +1,6 @@
 package it.pagopa.ecommerce.eventdispatcher.services.eventretry
 
-import com.azure.storage.queue.QueueAsyncClient
+import it.pagopa.ecommerce.commons.client.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v1.TransactionClosureRetriedEvent
 import it.pagopa.ecommerce.commons.documents.v1.TransactionRetriedData
 import it.pagopa.ecommerce.commons.domain.v1.TransactionId
@@ -28,7 +28,7 @@ class ClosureRetryService(
   @Value("\${azurestorage.queues.transientQueues.ttlSeconds}")
   private val transientQueuesTTLSeconds: Int
 ) :
-  RetryEventService<TransactionClosureRetriedEvent>(
+  TracedRetryEventService<TransactionClosureRetriedEvent>(
     queueAsyncClient = closureRetryQueueAsyncClient,
     retryOffset = closePaymentRetryOffset,
     maxAttempts = maxAttempts,
