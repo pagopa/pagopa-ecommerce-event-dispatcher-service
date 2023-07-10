@@ -40,6 +40,12 @@ class NodeService(
 ) {
   var logger: Logger = LoggerFactory.getLogger(NodeService::class.java)
 
+  companion object {
+    const val CASTING_ERROR = "Unexpected transactionAtPreviousStep:"
+    const val CASTING_ERROR_TRANSACTION_WITH_CLOSURE_ERROR =
+      "Unexpected error while casting request into TransactionWithClosureError"
+  }
+
   suspend fun closePayment(
     transactionId: TransactionId,
     transactionOutcome: ClosePaymentRequestV2Dto.OutcomeEnum
@@ -71,13 +77,9 @@ class NodeService(
                             transactionId)
                         })
                     }
-                    .orElseThrow {
-                      RuntimeException(
-                        "Unexpected error while casting request into TransactionWithClosureError into transactionAtPreviousState")
-                    }
+                    .orElseThrow { RuntimeException(CASTING_ERROR + it.transactionAtPreviousState) }
                 } else {
-                  throw RuntimeException(
-                    "Unexpected error while casting request into TransactionWithClosureError")
+                  throw RuntimeException(CASTING_ERROR_TRANSACTION_WITH_CLOSURE_ERROR)
                 }
               }
               ClosePaymentRequestV2Dto.OutcomeEnum.OK ->
@@ -88,13 +90,9 @@ class NodeService(
                       val authCompleted = event.get()
                       buildClosePaymentOKRequest(authCompleted, transactionOutcome, transactionId)
                     }
-                    .orElseThrow {
-                      RuntimeException(
-                        "Unexpected transactionAtPreviousStep: ${it.transactionAtPreviousState}")
-                    }
+                    .orElseThrow { RuntimeException(CASTING_ERROR + it.transactionAtPreviousState) }
                 } else {
-                  throw RuntimeException(
-                    "Unexpected error while casting request into TransactionWithClosureError")
+                  throw RuntimeException(CASTING_ERROR_TRANSACTION_WITH_CLOSURE_ERROR)
                 }
             }
           }
@@ -187,8 +185,7 @@ class NodeService(
                     authCompleted.transactionAuthorizationRequestData.fee))
                   .toBigDecimal()
               rrn = authCompleted.transactionAuthorizationCompletedData.rrn
-              authorizationCode =
-                authCompleted.transactionAuthorizationCompletedData.authorizationCode
+              errorCode = authCompleted.transactionAuthorizationCompletedData.errorCode
               creationDate = authCompleted.creationDate.toOffsetDateTime()
               timestampOperation =
                 authCompleted.transactionAuthorizationCompletedData.timestampOperation
