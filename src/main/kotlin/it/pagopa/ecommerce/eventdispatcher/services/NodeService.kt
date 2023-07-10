@@ -59,9 +59,9 @@ class NodeService(
       baseTransaction.map {
         when (it.status) {
           TransactionStatusDto.CLOSURE_ERROR -> {
-            when (transactionOutcome) {
-              ClosePaymentRequestV2Dto.OutcomeEnum.KO -> {
-                if (it is TransactionWithClosureError) {
+            if (it is TransactionWithClosureError) {
+              when (transactionOutcome) {
+                ClosePaymentRequestV2Dto.OutcomeEnum.KO -> {
                   val transactionAtPreviousState = it.transactionAtPreviousState()
                   transactionAtPreviousState
                     .map { trx ->
@@ -78,12 +78,8 @@ class NodeService(
                         })
                     }
                     .orElseThrow { RuntimeException(CASTING_ERROR + it.transactionAtPreviousState) }
-                } else {
-                  throw RuntimeException(CASTING_ERROR_TRANSACTION_WITH_CLOSURE_ERROR)
                 }
-              }
-              ClosePaymentRequestV2Dto.OutcomeEnum.OK ->
-                if (it is TransactionWithClosureError) {
+                ClosePaymentRequestV2Dto.OutcomeEnum.OK -> {
                   val transactionAtPreviousState = it.transactionAtPreviousState()
                   transactionAtPreviousState
                     .map { event ->
@@ -91,9 +87,10 @@ class NodeService(
                       buildClosePaymentOKRequest(authCompleted, transactionOutcome, transactionId)
                     }
                     .orElseThrow { RuntimeException(CASTING_ERROR + it.transactionAtPreviousState) }
-                } else {
-                  throw RuntimeException(CASTING_ERROR_TRANSACTION_WITH_CLOSURE_ERROR)
                 }
+              }
+            } else {
+              throw RuntimeException(CASTING_ERROR_TRANSACTION_WITH_CLOSURE_ERROR)
             }
           }
           TransactionStatusDto.CANCELLATION_REQUESTED ->
