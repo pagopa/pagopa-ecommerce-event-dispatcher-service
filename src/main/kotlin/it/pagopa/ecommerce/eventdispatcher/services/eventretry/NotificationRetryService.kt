@@ -24,7 +24,7 @@ class NotificationRetryService(
   @Value("\${azurestorage.queues.transientQueues.ttlSeconds}")
   private val transientQueuesTTLSeconds: Int
 ) :
-  RetryEventService<TransactionUserReceiptAddRetriedEvent>(
+  TracedRetryEventService<TransactionUserReceiptAddRetriedEvent>(
     queueAsyncClient = notificationRetryQueueAsyncClient,
     retryOffset = notificationRetryOffset,
     maxAttempts = maxAttempts,

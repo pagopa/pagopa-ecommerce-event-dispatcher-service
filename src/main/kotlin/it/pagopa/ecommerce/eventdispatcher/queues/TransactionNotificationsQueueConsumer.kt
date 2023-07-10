@@ -126,8 +126,10 @@ class TransactionNotificationsQueueConsumer(
                 exception)
               updateNotificationErrorTransactionStatus(
                   tx, transactionsViewRepository, transactionUserReceiptRepository)
-                .flatMap {
-                  notificationRetryService.enqueueRetryEvent(tx, 0).doOnError { retryException ->
+                .zipWith(queueEvent, ::Pair)
+                .flatMap { (_, queueEvent) ->
+                  notificationRetryService.enqueueRetryEvent(tx, 0, queueEvent.second).doOnError {
+                    retryException ->
                     logger.error("Exception enqueueing notification retry event", retryException)
                   }
                 }

@@ -2,7 +2,6 @@ package it.pagopa.ecommerce.eventdispatcher.config
 
 import com.azure.storage.queue.QueueAsyncClient
 import com.azure.storage.queue.QueueClientBuilder
-import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
