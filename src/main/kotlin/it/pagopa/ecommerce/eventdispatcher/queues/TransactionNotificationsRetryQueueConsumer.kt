@@ -147,8 +147,10 @@ class TransactionNotificationsRetryQueueConsumer(
                 "Got exception while retrying user receipt mail sending for transaction with id ${tx.transactionId}!",
                 exception)
               retryCount
-                .flatMap { retryCount ->
-                  notificationRetryService.enqueueRetryEvent(tx, retryCount)
+                .zipWith(event, ::Pair)
+                .flatMap { (retryCount, event) ->
+                  val tracingInfo = event.fold({ it.tracingInfo }, { it.tracingInfo })
+                  notificationRetryService.enqueueRetryEvent(tx, retryCount, tracingInfo)
                 }
                 .onErrorResume(NoRetryAttemptsLeftException::class.java) { enqueueException ->
                   logger.error(
