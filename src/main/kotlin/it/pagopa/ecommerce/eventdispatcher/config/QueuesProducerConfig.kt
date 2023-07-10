@@ -2,13 +2,13 @@ package it.pagopa.ecommerce.eventdispatcher.config
 
 import com.azure.storage.queue.QueueAsyncClient
 import com.azure.storage.queue.QueueClientBuilder
+import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
 @Configuration
 class QueuesProducerConfig {
-
   @Bean
   fun refundRetryQueueAsyncClient(
     @Value("\${azurestorage.transient.connectionstring}") storageConnectionString: String,
@@ -20,7 +20,7 @@ class QueuesProducerConfig {
   @Bean
   fun closureRetryQueueAsyncClient(
     @Value("\${azurestorage.transient.connectionstring}") storageConnectionString: String,
-    @Value("\${azurestorage.queues.transactionclosepaymentretry.name}") queueEventInitName: String,
+    @Value("\${azurestorage.queues.transactionclosepaymentretry.name}") queueEventInitName: String
   ): QueueAsyncClient {
     return buildQueueAsyncClient(storageConnectionString, queueEventInitName)
   }

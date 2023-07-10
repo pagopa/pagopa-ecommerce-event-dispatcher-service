@@ -3,11 +3,18 @@ package it.pagopa.ecommerce.eventdispatcher.services.eventretry
 import com.azure.core.http.rest.Response
 import com.azure.core.http.rest.ResponseBase
 import com.azure.core.util.BinaryData
+import com.azure.core.util.serializer.TypeReference
 import com.azure.storage.queue.QueueAsyncClient
 import com.azure.storage.queue.models.SendMessageResult
 import it.pagopa.ecommerce.commons.documents.v1.*
+import it.pagopa.ecommerce.commons.documents.v1.Transaction
+import it.pagopa.ecommerce.commons.documents.v1.TransactionClosureRetriedEvent
+import it.pagopa.ecommerce.commons.documents.v1.TransactionEvent
+import it.pagopa.ecommerce.commons.documents.v1.TransactionRetriedData
 import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
+import it.pagopa.ecommerce.commons.queues.QueueEvent
+import it.pagopa.ecommerce.commons.queues.TracingInfoTest.MOCK_TRACING_INFO
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.TooLateRetryAttemptException
@@ -42,7 +49,8 @@ class ClosureRetryServiceTests {
 
   @Captor private lateinit var viewRepositoryCaptor: ArgumentCaptor<Transaction>
 
-  @Captor private lateinit var queueCaptor: ArgumentCaptor<BinaryData>
+  @Captor
+  private lateinit var queueCaptor: ArgumentCaptor<BinaryData>
 
   @Captor private lateinit var durationCaptor: ArgumentCaptor<Duration>
 
@@ -87,7 +95,8 @@ class ClosureRetryServiceTests {
         closureRetryQueueAsyncClient.sendMessageWithResponse(
           queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
       .willReturn(queueSuccessfulResponse())
-    StepVerifier.create(closureRetryService.enqueueRetryEvent(baseTransaction, maxAttempts - 1))
+    StepVerifier.create(
+        closureRetryService.enqueueRetryEvent(baseTransaction, maxAttempts - 1, MOCK_TRACING_INFO))
       .expectNext()
       .verifyComplete()
 
@@ -97,13 +106,15 @@ class ClosureRetryServiceTests {
     verify(transactionsViewRepository, times(1)).save(any())
     verify(closureRetryQueueAsyncClient, times(1))
       .sendMessageWithResponse(
-        any<BinaryData>(), any(), eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_SECONDS.toLong())))
+        any<BinaryData>(),
+        any(),
+        eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_SECONDS.toLong())))
     val savedEvent = eventStoreCaptor.value
     val savedView = viewRepositoryCaptor.value
-    val eventSentOnQueue = queueCaptor.value.toObject(TransactionClosureRetriedEvent::class.java)
+    val eventSentOnQueue = queueCaptor.value
     assertEquals(TransactionEventCode.TRANSACTION_CLOSURE_RETRIED_EVENT, savedEvent.eventCode)
     assertEquals(TransactionStatusDto.CLOSURE_ERROR, savedView.status)
-    assertEquals(maxAttempts, eventSentOnQueue.data.retryCount)
+    assertEquals(maxAttempts, eventSentOnQueue.toObject(object : TypeReference<QueueEvent<TransactionClosureRetriedEvent>>() {}).event.data.retryCount)
     assertEquals(closureRetryOffset * 3, durationCaptor.value.seconds.toInt())
   }
 
@@ -132,7 +143,8 @@ class ClosureRetryServiceTests {
         closureRetryQueueAsyncClient.sendMessageWithResponse(
           queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
       .willReturn(queueSuccessfulResponse())
-    StepVerifier.create(closureRetryService.enqueueRetryEvent(baseTransaction, 0))
+    StepVerifier.create(
+        closureRetryService.enqueueRetryEvent(baseTransaction, 0, MOCK_TRACING_INFO))
       .expectNext()
       .verifyComplete()
 
@@ -142,13 +154,15 @@ class ClosureRetryServiceTests {
     verify(transactionsViewRepository, times(1)).save(any())
     verify(closureRetryQueueAsyncClient, times(1))
       .sendMessageWithResponse(
-        any<BinaryData>(), any(), eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_SECONDS.toLong())))
+        any<BinaryData>(),
+        any(),
+        eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_SECONDS.toLong())))
     val savedEvent = eventStoreCaptor.value
     val savedView = viewRepositoryCaptor.value
-    val eventSentOnQueue = queueCaptor.value.toObject(TransactionClosureRetriedEvent::class.java)
+    val eventSentOnQueue = queueCaptor.value
     assertEquals(TransactionEventCode.TRANSACTION_CLOSURE_RETRIED_EVENT, savedEvent.eventCode)
     assertEquals(TransactionStatusDto.CLOSURE_ERROR, savedView.status)
-    assertEquals(1, eventSentOnQueue.data.retryCount)
+    assertEquals(1, eventSentOnQueue.toObject(object : TypeReference<QueueEvent<TransactionClosureRetriedEvent>>() {}).event.data.retryCount)
     assertEquals(closureRetryOffset, durationCaptor.value.seconds.toInt())
   }
 
@@ -177,7 +191,8 @@ class ClosureRetryServiceTests {
         closureRetryQueueAsyncClient.sendMessageWithResponse(
           queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
       .willReturn(queueSuccessfulResponse())
-    StepVerifier.create(closureRetryService.enqueueRetryEvent(baseTransaction, maxAttempts))
+    StepVerifier.create(
+        closureRetryService.enqueueRetryEvent(baseTransaction, maxAttempts, MOCK_TRACING_INFO))
       .expectError(NoRetryAttemptsLeftException::class.java)
       .verify()
 
@@ -187,7 +202,9 @@ class ClosureRetryServiceTests {
     verify(transactionsViewRepository, times(0)).save(any())
     verify(closureRetryQueueAsyncClient, times(0))
       .sendMessageWithResponse(
-        any<BinaryData>(), any(), eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_SECONDS.toLong())))
+        any<BinaryData>(),
+        any(),
+        eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_SECONDS.toLong())))
   }
 
   @Test
@@ -215,7 +232,8 @@ class ClosureRetryServiceTests {
         closureRetryQueueAsyncClient.sendMessageWithResponse(
           queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
       .willReturn(queueSuccessfulResponse())
-    StepVerifier.create(closureRetryService.enqueueRetryEvent(baseTransaction, maxAttempts - 1))
+    StepVerifier.create(
+        closureRetryService.enqueueRetryEvent(baseTransaction, maxAttempts - 1, MOCK_TRACING_INFO))
       .expectError(java.lang.RuntimeException::class.java)
       .verify()
 
@@ -225,7 +243,9 @@ class ClosureRetryServiceTests {
     verify(transactionsViewRepository, times(0)).save(any())
     verify(closureRetryQueueAsyncClient, times(0))
       .sendMessageWithResponse(
-        any<BinaryData>(), any(), eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_SECONDS.toLong())))
+        any<BinaryData>(),
+        any(),
+        eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_SECONDS.toLong())))
   }
 
   @Test
@@ -251,7 +271,8 @@ class ClosureRetryServiceTests {
         closureRetryQueueAsyncClient.sendMessageWithResponse(
           queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
       .willReturn(queueSuccessfulResponse())
-    StepVerifier.create(closureRetryService.enqueueRetryEvent(baseTransaction, maxAttempts - 1))
+    StepVerifier.create(
+        closureRetryService.enqueueRetryEvent(baseTransaction, maxAttempts - 1, MOCK_TRACING_INFO))
       .expectError(java.lang.RuntimeException::class.java)
       .verify()
 
@@ -261,7 +282,9 @@ class ClosureRetryServiceTests {
     verify(transactionsViewRepository, times(0)).save(any())
     verify(closureRetryQueueAsyncClient, times(0))
       .sendMessageWithResponse(
-        any<BinaryData>(), any(), eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_SECONDS.toLong())))
+        any<BinaryData>(),
+        any(),
+        eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_SECONDS.toLong())))
   }
 
   @Test
@@ -289,7 +312,8 @@ class ClosureRetryServiceTests {
         closureRetryQueueAsyncClient.sendMessageWithResponse(
           queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
       .willReturn(queueSuccessfulResponse())
-    StepVerifier.create(closureRetryService.enqueueRetryEvent(baseTransaction, maxAttempts - 1))
+    StepVerifier.create(
+        closureRetryService.enqueueRetryEvent(baseTransaction, maxAttempts - 1, MOCK_TRACING_INFO))
       .expectError(java.lang.RuntimeException::class.java)
       .verify()
 
@@ -299,7 +323,9 @@ class ClosureRetryServiceTests {
     verify(transactionsViewRepository, times(1)).save(any())
     verify(closureRetryQueueAsyncClient, times(0))
       .sendMessageWithResponse(
-        any<BinaryData>(), any(), eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_SECONDS.toLong())))
+        any<BinaryData>(),
+        any(),
+        eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_SECONDS.toLong())))
   }
 
   @Test
@@ -331,7 +357,8 @@ class ClosureRetryServiceTests {
         closureRetryQueueAsyncClient.sendMessageWithResponse(
           queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
       .willReturn(queueSuccessfulResponse())
-    StepVerifier.create(closureRetryService.enqueueRetryEvent(baseTransaction, 0))
+    StepVerifier.create(
+        closureRetryService.enqueueRetryEvent(baseTransaction, 0, MOCK_TRACING_INFO))
       .expectError(TooLateRetryAttemptException::class.java)
       .verify()
 
@@ -341,7 +368,9 @@ class ClosureRetryServiceTests {
     verify(transactionsViewRepository, times(0)).save(any())
     verify(closureRetryQueueAsyncClient, times(0))
       .sendMessageWithResponse(
-        any<BinaryData>(), any(), eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_SECONDS.toLong())))
+        any<BinaryData>(),
+        any(),
+        eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_SECONDS.toLong())))
   }
 
   private fun queueSuccessfulResponse(): Mono<Response<SendMessageResult>> {

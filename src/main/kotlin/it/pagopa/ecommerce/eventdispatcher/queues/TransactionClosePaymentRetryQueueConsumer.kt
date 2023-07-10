@@ -210,8 +210,10 @@ class TransactionClosePaymentRetryQueueConsumer(
                  * and the Nodo returned closePaymentV2 response outcome KO
                  */
                 retryCount
-                  .flatMap { retryCount ->
-                    closureRetryService.enqueueRetryEvent(baseTransaction, retryCount)
+                  .zipWith(queueEvent, ::Pair)
+                  .flatMap { (retryCount, queueEvent) ->
+                    val tracingInfo = queueEvent.second
+                    closureRetryService.enqueueRetryEvent(baseTransaction, retryCount, tracingInfo)
                   }
                   .onErrorResume(NoRetryAttemptsLeftException::class.java) { exception ->
                     logger.error(
