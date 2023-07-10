@@ -115,11 +115,13 @@ class TransactionClosePaymentQueueConsumer(
                   .flatMap {
                     reduceEvents(transactionId, transactionsEventStoreRepository, emptyTransaction)
                   }
-                  .flatMap { transactionUpdated ->
-                    closureRetryService.enqueueRetryEvent(transactionUpdated, 0).doOnError(
-                      NoRetryAttemptsLeftException::class.java) { exception ->
-                      logger.error("No more attempts left for closure retry", exception)
-                    }
+                  .zipWith(queueEvent, ::Pair)
+                  .flatMap { (transactionUpdated, queueEvent) ->
+                    closureRetryService
+                      .enqueueRetryEvent(transactionUpdated, 0, queueEvent.tracingInfo)
+                      .doOnError(NoRetryAttemptsLeftException::class.java) { exception ->
+                        logger.error("No more attempts left for closure retry", exception)
+                      }
                   }
               }
             }

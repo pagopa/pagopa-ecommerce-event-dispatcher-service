@@ -8,6 +8,9 @@ import org.springframework.context.annotation.Configuration
 
 @Configuration
 class QueuesProducerConfig {
+  companion object {
+    private val jsonSerializer = StrictJsonSerializerProvider().createInstance()
+  }
 
   @Bean
   fun refundRetryQueueAsyncClient(
@@ -20,9 +23,10 @@ class QueuesProducerConfig {
   @Bean
   fun closureRetryQueueAsyncClient(
     @Value("\${azurestorage.transient.connectionstring}") storageConnectionString: String,
-    @Value("\${azurestorage.queues.transactionclosepaymentretry.name}") queueEventInitName: String,
-  ): QueueAsyncClient {
-    return buildQueueAsyncClient(storageConnectionString, queueEventInitName)
+    @Value("\${azurestorage.queues.transactionclosepaymentretry.name}") queueEventInitName: String
+  ): it.pagopa.ecommerce.commons.client.QueueAsyncClient {
+    return it.pagopa.ecommerce.commons.client.QueueAsyncClient(
+      buildQueueAsyncClient(storageConnectionString, queueEventInitName), jsonSerializer)
   }
 
   @Bean

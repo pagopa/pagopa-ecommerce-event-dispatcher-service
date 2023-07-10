@@ -135,7 +135,7 @@ class TransactionClosePaymentQueueConsumerTests {
       .save(any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
     // mocking
     verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransactionCanceled)
-    verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any())
+    verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
     assertEquals(TransactionStatusDto.CANCELED, viewArgumentCaptor.value.status)
     assertEquals(
       TransactionEventCode.TRANSACTION_CLOSED_EVENT,
@@ -196,7 +196,7 @@ class TransactionClosePaymentQueueConsumerTests {
       .save(any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
     // mocking
     verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransactionCanceled)
-    verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any())
+    verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
     assertEquals(TransactionStatusDto.CANCELED, viewArgumentCaptor.value.status)
     assertEquals(
       TransactionEventCode.TRANSACTION_CLOSED_EVENT,
@@ -243,7 +243,7 @@ class TransactionClosePaymentQueueConsumerTests {
       Mono.just(it.arguments[0])
     }
 
-    given(closureRetryService.enqueueRetryEvent(any(), any())).willReturn(Mono.empty())
+    given(closureRetryService.enqueueRetryEvent(any(), any(), any())).willReturn(Mono.empty())
     /* test */
 
     StepVerifier.create(
@@ -260,7 +260,7 @@ class TransactionClosePaymentQueueConsumerTests {
       .save(any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
     // mocking
     verify(transactionsViewRepository, Mockito.times(0)).save(expectedUpdatedTransactionCanceled)
-    verify(closureRetryService, times(1)).enqueueRetryEvent(any(), any())
+    verify(closureRetryService, times(1)).enqueueRetryEvent(any(), any(), any())
     assertEquals(TransactionStatusDto.CLOSURE_ERROR, viewArgumentCaptor.value.status)
     assertEquals(
       TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT,
@@ -300,7 +300,7 @@ class TransactionClosePaymentQueueConsumerTests {
     verify(nodeService, Mockito.times(0)).closePayment(any(), any())
     verify(transactionClosedEventRepository, Mockito.times(0)).save(any())
     verify(transactionsViewRepository, Mockito.times(0)).save(any())
-    verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any())
+    verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
     verify(deadLetterQueueAsyncClient, times(1))
       .sendMessageWithResponse(
         argThat<BinaryData> {
