@@ -71,15 +71,28 @@ class NodeServiceTests {
       assertEquals(
         closePaymentResponse,
         nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
+
+      assertEquals(transactionId, closePaymentRequestCaptor.value.transactionId)
+      assertEquals(OutcomeEnum.KO, closePaymentRequestCaptor.value.outcome)
+      // check additionalPaymentInformations
+      assertNull(closePaymentRequestCaptor.value.additionalPaymentInformations)
+      // check transactionDetails
       assertEquals(
-        "Annullato",
+        UserDto.TypeEnum.GUEST, closePaymentRequestCaptor.value.transactionDetails.user.type)
+      assertEquals(
+        TransactionDetailsStatusEnum.TRANSACTION_DETAILS_STATUS_CANCELED.status,
         closePaymentRequestCaptor.value.transactionDetails.transaction.transactionStatus)
       assertEquals(
         Transaction.ClientId.CHECKOUT.name,
         closePaymentRequestCaptor.value.transactionDetails.info.clientId)
+      assertEquals(TIPO_VERSAMENTO_CP, closePaymentRequestCaptor.value.transactionDetails.info.type)
+      assertEquals(
+        closePaymentRequestCaptor.value.transactionDetails.transaction.amount,
+        closePaymentRequestCaptor.value.transactionDetails.transaction.grandTotal)
       assertNull(closePaymentRequestCaptor.value.transactionDetails.transaction.fee)
-      assertNull(closePaymentRequestCaptor.value.transactionDetails.transaction.grandTotal)
       assertNotNull(closePaymentRequestCaptor.value.transactionDetails.transaction.amount)
+      assertNotNull(closePaymentRequestCaptor.value.transactionDetails.transaction.grandTotal)
+      assertNotNull(closePaymentRequestCaptor.value.transactionDetails.transaction.creationDate)
     }
 
   @Test
@@ -110,15 +123,28 @@ class NodeServiceTests {
       assertEquals(
         closePaymentResponse,
         nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
+
+      assertEquals(transactionId, closePaymentRequestCaptor.value.transactionId)
+      assertEquals(OutcomeEnum.KO, closePaymentRequestCaptor.value.outcome)
+      // check additionalPaymentInformations
+      assertNull(closePaymentRequestCaptor.value.additionalPaymentInformations)
+      // check transactionDetails
       assertEquals(
-        "Annullato",
+        UserDto.TypeEnum.GUEST, closePaymentRequestCaptor.value.transactionDetails.user.type)
+      assertEquals(
+        TransactionDetailsStatusEnum.TRANSACTION_DETAILS_STATUS_CANCELED.status,
         closePaymentRequestCaptor.value.transactionDetails.transaction.transactionStatus)
       assertEquals(
         Transaction.ClientId.CHECKOUT.name,
         closePaymentRequestCaptor.value.transactionDetails.info.clientId)
+      assertEquals(TIPO_VERSAMENTO_CP, closePaymentRequestCaptor.value.transactionDetails.info.type)
+      assertEquals(
+        closePaymentRequestCaptor.value.transactionDetails.transaction.amount,
+        closePaymentRequestCaptor.value.transactionDetails.transaction.grandTotal)
       assertNull(closePaymentRequestCaptor.value.transactionDetails.transaction.fee)
-      assertNull(closePaymentRequestCaptor.value.transactionDetails.transaction.grandTotal)
       assertNotNull(closePaymentRequestCaptor.value.transactionDetails.transaction.amount)
+      assertNotNull(closePaymentRequestCaptor.value.transactionDetails.transaction.grandTotal)
+      assertNotNull(closePaymentRequestCaptor.value.transactionDetails.transaction.creationDate)
     }
 
   @Test

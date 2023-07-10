@@ -133,8 +133,14 @@ class NodeService(
     transactionWithCancellation: BaseTransactionWithCancellationRequested,
     transactionOutcome: ClosePaymentRequestV2Dto.OutcomeEnum,
     transactionId: TransactionId
-  ): ClosePaymentRequestV2Dto =
-    ClosePaymentRequestV2Dto().apply {
+  ): ClosePaymentRequestV2Dto {
+    val amount =
+      EuroUtils.euroCentsToEuro(
+        transactionWithCancellation.paymentNotices
+          .stream()
+          .mapToInt { el -> el.transactionAmount.value }
+          .sum())
+    return ClosePaymentRequestV2Dto().apply {
       paymentTokens = transactionWithCancellation.paymentNotices.map { el -> el.paymentToken.value }
       outcome = transactionOutcome
       this.transactionId = transactionId.value()
@@ -143,14 +149,10 @@ class NodeService(
           transaction =
             TransactionDto().apply {
               this.transactionId = transactionId.value()
-              transactionStatus = getTransactionDetailsStatus(transactionWithCancellation)
-              creationDate = transactionWithCancellation.creationDate.toOffsetDateTime()
-              amount =
-                EuroUtils.euroCentsToEuro(
-                  transactionWithCancellation.paymentNotices
-                    .stream()
-                    .mapToInt { el -> el.transactionAmount.value }
-                    .sum())
+              this.transactionStatus = getTransactionDetailsStatus(transactionWithCancellation)
+              this.creationDate = transactionWithCancellation.creationDate.toOffsetDateTime()
+              this.amount = amount
+              this.grandTotal = amount
             }
           info =
             InfoDto().apply {
@@ -160,6 +162,7 @@ class NodeService(
           user = UserDto().apply { type = UserDto.TypeEnum.GUEST }
         }
     }
+  }
 
   private fun buildClosePaymentKORequest(
     authCompleted: BaseTransactionWithCompletedAuthorization,
