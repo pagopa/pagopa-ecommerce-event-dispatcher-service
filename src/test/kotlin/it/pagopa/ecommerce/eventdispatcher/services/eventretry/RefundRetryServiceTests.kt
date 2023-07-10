@@ -3,6 +3,7 @@ package it.pagopa.ecommerce.eventdispatcher.services.eventretry
 import com.azure.core.http.rest.Response
 import com.azure.core.http.rest.ResponseBase
 import com.azure.core.util.BinaryData
+import com.azure.core.util.serializer.TypeReference
 import com.azure.storage.queue.QueueAsyncClient
 import com.azure.storage.queue.models.SendMessageResult
 import it.pagopa.ecommerce.commons.documents.v1.Transaction
@@ -11,6 +12,8 @@ import it.pagopa.ecommerce.commons.documents.v1.TransactionRefundRetriedEvent
 import it.pagopa.ecommerce.commons.documents.v1.TransactionRetriedData
 import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
+import it.pagopa.ecommerce.commons.queues.QueueEvent
+import it.pagopa.ecommerce.commons.queues.TracingInfoTest.MOCK_TRACING_INFO
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
@@ -93,7 +96,8 @@ class RefundRetryServiceTests {
           eq(Duration.ofSeconds((refundRetryOffset * 3).toLong())),
           anyOrNull()))
       .willReturn(queueSuccessfulResponse())
-    StepVerifier.create(refundRetryService.enqueueRetryEvent(baseTransaction, maxAttempts - 1))
+    StepVerifier.create(
+        refundRetryService.enqueueRetryEvent(baseTransaction, maxAttempts - 1, MOCK_TRACING_INFO))
       .expectNext()
       .verifyComplete()
 
@@ -106,10 +110,16 @@ class RefundRetryServiceTests {
         any<BinaryData>(), any(), eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_SECONDS.toLong())))
     val savedEvent = eventStoreCaptor.value
     val savedView = viewRepositoryCaptor.value
-    val eventSentOnQueue = queueCaptor.value.toObject(TransactionRefundRetriedEvent::class.java)
+    val eventSentOnQueue = queueCaptor.value
     assertEquals(TransactionEventCode.TRANSACTION_REFUND_RETRIED_EVENT, savedEvent.eventCode)
     assertEquals(TransactionStatusDto.REFUND_ERROR, savedView.status)
-    assertEquals(maxAttempts, eventSentOnQueue.data.retryCount)
+    assertEquals(
+      maxAttempts,
+      eventSentOnQueue
+        .toObject(object : TypeReference<QueueEvent<TransactionRefundRetriedEvent>>() {})
+        .event
+        .data
+        .retryCount)
   }
 
   @Test
@@ -142,7 +152,7 @@ class RefundRetryServiceTests {
         refundRetryQueueAsyncClient.sendMessageWithResponse(
           queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
       .willReturn(queueSuccessfulResponse())
-    StepVerifier.create(refundRetryService.enqueueRetryEvent(baseTransaction, 0))
+    StepVerifier.create(refundRetryService.enqueueRetryEvent(baseTransaction, 0, MOCK_TRACING_INFO))
       .expectNext()
       .verifyComplete()
 
@@ -155,10 +165,16 @@ class RefundRetryServiceTests {
         any<BinaryData>(), any(), eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_SECONDS.toLong())))
     val savedEvent = eventStoreCaptor.value
     val savedView = viewRepositoryCaptor.value
-    val eventSentOnQueue = queueCaptor.value.toObject(TransactionRefundRetriedEvent::class.java)
+    val eventSentOnQueue = queueCaptor.value
     assertEquals(TransactionEventCode.TRANSACTION_REFUND_RETRIED_EVENT, savedEvent.eventCode)
     assertEquals(TransactionStatusDto.REFUND_ERROR, savedView.status)
-    assertEquals(1, eventSentOnQueue.data.retryCount)
+    assertEquals(
+      1,
+      eventSentOnQueue
+        .toObject(object : TypeReference<QueueEvent<TransactionRefundRetriedEvent>>() {})
+        .event
+        .data
+        .retryCount)
     assertEquals(refundRetryOffset, durationCaptor.value.seconds.toInt())
   }
 
@@ -192,7 +208,8 @@ class RefundRetryServiceTests {
         refundRetryQueueAsyncClient.sendMessageWithResponse(
           queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
       .willReturn(queueSuccessfulResponse())
-    StepVerifier.create(refundRetryService.enqueueRetryEvent(baseTransaction, maxAttempts))
+    StepVerifier.create(
+        refundRetryService.enqueueRetryEvent(baseTransaction, maxAttempts, MOCK_TRACING_INFO))
       .expectError(NoRetryAttemptsLeftException::class.java)
       .verify()
 
@@ -235,7 +252,8 @@ class RefundRetryServiceTests {
         refundRetryQueueAsyncClient.sendMessageWithResponse(
           queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
       .willReturn(queueSuccessfulResponse())
-    StepVerifier.create(refundRetryService.enqueueRetryEvent(baseTransaction, maxAttempts - 1))
+    StepVerifier.create(
+        refundRetryService.enqueueRetryEvent(baseTransaction, maxAttempts - 1, MOCK_TRACING_INFO))
       .expectError(java.lang.RuntimeException::class.java)
       .verify()
 
@@ -276,7 +294,8 @@ class RefundRetryServiceTests {
         refundRetryQueueAsyncClient.sendMessageWithResponse(
           queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
       .willReturn(queueSuccessfulResponse())
-    StepVerifier.create(refundRetryService.enqueueRetryEvent(baseTransaction, maxAttempts - 1))
+    StepVerifier.create(
+        refundRetryService.enqueueRetryEvent(baseTransaction, maxAttempts - 1, MOCK_TRACING_INFO))
       .expectError(java.lang.RuntimeException::class.java)
       .verify()
 
@@ -319,7 +338,8 @@ class RefundRetryServiceTests {
         refundRetryQueueAsyncClient.sendMessageWithResponse(
           queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
       .willReturn(queueSuccessfulResponse())
-    StepVerifier.create(refundRetryService.enqueueRetryEvent(baseTransaction, maxAttempts - 1))
+    StepVerifier.create(
+        refundRetryService.enqueueRetryEvent(baseTransaction, maxAttempts - 1, MOCK_TRACING_INFO))
       .expectError(java.lang.RuntimeException::class.java)
       .verify()
 

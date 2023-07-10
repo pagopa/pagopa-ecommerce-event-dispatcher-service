@@ -121,9 +121,9 @@ class TransactionClosePaymentRetryQueueConsumer(
     emptyTransaction: EmptyTransaction
   ): Mono<Void> {
     val binaryData = BinaryData.fromBytes(payload)
-    val queueEvent = parseEvent(binaryData)
-    val transactionId = queueEvent.map { getTransactionId(it.first) }
-    val retryCount = queueEvent.map { getRetryCount(it.first) }
+    val eventData = parseEvent(binaryData)
+    val transactionId = eventData.map { getTransactionId(it.first) }
+    val retryCount = eventData.map { getRetryCount(it.first) }
     val baseTransaction =
       reduceEvents(transactionId, transactionsEventStoreRepository, emptyTransaction)
     val closurePipeline =
@@ -188,15 +188,18 @@ class TransactionClosePaymentRetryQueueConsumer(
                 canceledByUser = canceledByUser,
                 wasAuthorized = wasAuthorized)
             }
+            .zipWith(eventData, ::Pair)
             /*
              * The refund process is started only iff the previous transaction was authorized
              * and the Nodo returned closePaymentV2 response outcome KO
              */
-            .flatMap {
-              it.fold(
+            .flatMap { (closePaymentOutcomeEvent, eventData) ->
+              val tracingInfo = eventData.second
+              closePaymentOutcomeEvent.fold(
                 { Mono.empty() },
                 { transactionClosedEvent ->
-                  refundTransactionPipeline(tx, transactionClosedEvent.data.responseOutcome)
+                  refundTransactionPipeline(
+                    tx, transactionClosedEvent.data.responseOutcome, tracingInfo)
                 })
             }
             .then()
@@ -210,7 +213,7 @@ class TransactionClosePaymentRetryQueueConsumer(
                  * and the Nodo returned closePaymentV2 response outcome KO
                  */
                 retryCount
-                  .zipWith(queueEvent, ::Pair)
+                  .zipWith(eventData, ::Pair)
                   .flatMap { (retryCount, queueEvent) ->
                     val tracingInfo = queueEvent.second
                     closureRetryService.enqueueRetryEvent(baseTransaction, retryCount, tracingInfo)
@@ -218,14 +221,14 @@ class TransactionClosePaymentRetryQueueConsumer(
                   .onErrorResume(NoRetryAttemptsLeftException::class.java) { exception ->
                     logger.error(
                       "No more attempts left for closure retry, refunding transaction", exception)
-                    refundTransactionPipeline(tx, null).then()
+                    eventData.flatMap { refundTransactionPipeline(tx, null, it.second) }.then()
                   }
                   .then()
               }
             }
         }
 
-    return queueEvent.flatMap { (event, tracingInfo) ->
+    return eventData.flatMap { (event, tracingInfo) ->
       val e = event.fold({ it }, { it })
 
       if (tracingInfo != null) {
@@ -250,7 +253,8 @@ class TransactionClosePaymentRetryQueueConsumer(
 
   private fun refundTransactionPipeline(
     transaction: TransactionWithClosureError,
-    closureOutcome: TransactionClosureData.Outcome?
+    closureOutcome: TransactionClosureData.Outcome?,
+    tracingInfo: TracingInfo?
   ): Mono<BaseTransaction> {
     val transactionAtPreviousState = transaction.transactionAtPreviousState()
     val wasAuthorized = wasTransactionAuthorized(transactionAtPreviousState)
@@ -260,6 +264,7 @@ class TransactionClosePaymentRetryQueueConsumer(
       "Transaction Nodo ClosePaymentV2 response outcome: ${nodoOutcome}, was authorized: $wasAuthorized --> to be refunded: $toBeRefunded")
     val transactionWithCompletedAuthorization =
       getBaseTransactionWithCompletedAuthorization(transactionAtPreviousState)
+
     return Mono.just(transactionWithCompletedAuthorization)
       .filter { it.isPresent && toBeRefunded }
       .flatMap { tx ->
@@ -272,7 +277,8 @@ class TransactionClosePaymentRetryQueueConsumer(
           transactionsRefundedEventStoreRepository,
           transactionsViewRepository,
           paymentGatewayClient,
-          refundRetryService)
+          refundRetryService,
+          tracingInfo)
       }
   }
 

@@ -153,7 +153,9 @@ class TransactionExpirationQueueConsumer(
           updateTransactionToRefundRequested(
             it, transactionsRefundedEventStoreRepository, transactionsViewRepository)
         }
-        .flatMap { tx ->
+        .zipWith(queueEvent, ::Pair)
+        .flatMap { (tx, event) ->
+          val tracingInfo = event.fold({ it.tracingInfo }, { it.tracingInfo })
           val transaction =
             if (tx is TransactionWithClosureError) {
               tx.transactionAtPreviousState
@@ -165,7 +167,8 @@ class TransactionExpirationQueueConsumer(
             transactionsRefundedEventStoreRepository,
             transactionsViewRepository,
             paymentGatewayClient,
-            refundRetryService)
+            refundRetryService,
+            tracingInfo)
         }
 
     return queueEvent.flatMap { e ->

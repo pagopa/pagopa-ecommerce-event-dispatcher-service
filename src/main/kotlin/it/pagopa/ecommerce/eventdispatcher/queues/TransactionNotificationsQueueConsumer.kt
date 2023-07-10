@@ -84,8 +84,8 @@ class TransactionNotificationsQueueConsumer(
     emptyTransaction: EmptyTransaction
   ): Mono<Void> {
     val binaryData = BinaryData.fromBytes(payload)
-    val queueEvent = parseEvent(binaryData)
-    val transactionId = queueEvent.map { it.first.transactionId }
+    val eventData = parseEvent(binaryData)
+    val transactionId = eventData.map { it.first.transactionId }
     val baseTransaction =
       reduceEvents(transactionId, transactionsEventStoreRepository, emptyTransaction)
     val notificationResendPipeline =
@@ -111,13 +111,15 @@ class TransactionNotificationsQueueConsumer(
               updateNotifiedTransactionStatus(
                 tx, transactionsViewRepository, transactionUserReceiptRepository)
             }
-            .flatMap {
+            .zipWith(eventData, ::Pair)
+            .flatMap { (_, eventData) ->
               notificationRefundTransactionPipeline(
                 tx,
                 transactionsRefundedEventStoreRepository,
                 transactionsViewRepository,
                 paymentGatewayClient,
-                refundRetryService)
+                refundRetryService,
+                eventData.second)
             }
             .then()
             .onErrorResume { exception ->
@@ -126,7 +128,7 @@ class TransactionNotificationsQueueConsumer(
                 exception)
               updateNotificationErrorTransactionStatus(
                   tx, transactionsViewRepository, transactionUserReceiptRepository)
-                .zipWith(queueEvent, ::Pair)
+                .zipWith(eventData, ::Pair)
                 .flatMap { (_, queueEvent) ->
                   notificationRetryService.enqueueRetryEvent(tx, 0, queueEvent.second).doOnError {
                     retryException ->
@@ -137,7 +139,7 @@ class TransactionNotificationsQueueConsumer(
             }
         }
 
-    return queueEvent.flatMap { (e, tracingInfo) ->
+    return eventData.flatMap { (e, tracingInfo) ->
       if (tracingInfo != null) {
         runTracedPipelineWithDeadLetterQueue(
           checkPointer,

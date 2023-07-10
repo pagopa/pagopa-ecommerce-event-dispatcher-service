@@ -96,13 +96,14 @@ class TransactionRefundRetryQueueConsumer(
           }
         }
         .flatMap { tx ->
-          event.flatMap { (e, _) ->
+          event.flatMap { (e, tracingInfo) ->
             refundTransaction(
               tx,
               transactionsRefundedEventStoreRepository,
               transactionsViewRepository,
               paymentGatewayClient,
               refundRetryService,
+              tracingInfo,
               e.data.retryCount)
           }
         }
