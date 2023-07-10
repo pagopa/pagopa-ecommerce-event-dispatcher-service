@@ -16,8 +16,9 @@ class QueuesProducerConfig {
   fun refundRetryQueueAsyncClient(
     @Value("\${azurestorage.transient.connectionstring}") storageConnectionString: String,
     @Value("\${azurestorage.queues.transactionrefundretry.name}") queueEventInitName: String,
-  ): QueueAsyncClient {
-    return buildQueueAsyncClient(storageConnectionString, queueEventInitName)
+  ): it.pagopa.ecommerce.commons.client.QueueAsyncClient {
+    return it.pagopa.ecommerce.commons.client.QueueAsyncClient(
+      buildQueueAsyncClient(storageConnectionString, queueEventInitName), jsonSerializer)
   }
 
   @Bean

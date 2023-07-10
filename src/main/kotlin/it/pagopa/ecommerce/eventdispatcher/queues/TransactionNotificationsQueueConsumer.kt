@@ -95,13 +95,15 @@ class TransactionNotificationsQueueConsumer(
               updateNotifiedTransactionStatus(
                 tx, transactionsViewRepository, transactionUserReceiptRepository)
             }
-            .flatMap {
+            .zipWith(queueEvent, ::Pair)
+            .flatMap { (_, queueEvent) ->
               notificationRefundTransactionPipeline(
                 tx,
                 transactionsRefundedEventStoreRepository,
                 transactionsViewRepository,
                 paymentGatewayClient,
-                refundRetryService)
+                refundRetryService,
+                queueEvent.tracingInfo)
             }
             .then()
             .onErrorResume { exception ->

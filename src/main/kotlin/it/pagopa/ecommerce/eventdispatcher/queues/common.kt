@@ -11,6 +11,7 @@ import it.pagopa.ecommerce.commons.domain.v1.pojos.*
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
+import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.RefundNotAllowedException
@@ -148,6 +149,7 @@ fun refundTransaction(
   transactionsViewRepository: TransactionsViewRepository,
   paymentGatewayClient: PaymentGatewayClient,
   refundRetryService: RefundRetryService,
+  tracingInfo: TracingInfo,
   retryCount: Int = 0
 ): Mono<BaseTransaction> {
   return Mono.just(tx)
@@ -208,7 +210,8 @@ fun refundTransaction(
         .flatMap {
           when (exception) {
             // Enqueue retry event only if refund is allowed
-            !is RefundNotAllowedException -> refundRetryService.enqueueRetryEvent(it, retryCount)
+            !is RefundNotAllowedException ->
+              refundRetryService.enqueueRetryEvent(it, retryCount, tracingInfo)
             else -> Mono.empty()
           }
         }
@@ -417,6 +420,7 @@ fun notificationRefundTransactionPipeline(
   transactionsViewRepository: TransactionsViewRepository,
   paymentGatewayClient: PaymentGatewayClient,
   refundRetryService: RefundRetryService,
+  tracingInfo: TracingInfo,
 ): Mono<BaseTransaction> {
   val userReceiptOutcome = transaction.transactionUserReceiptData.responseOutcome
   val toBeRefunded = userReceiptOutcome == TransactionUserReceiptData.Outcome.KO
@@ -434,7 +438,8 @@ fun notificationRefundTransactionPipeline(
         transactionsRefundedEventStoreRepository,
         transactionsViewRepository,
         paymentGatewayClient,
-        refundRetryService)
+        refundRetryService,
+        tracingInfo)
     }
 }
 

@@ -91,6 +91,7 @@ class TransactionRefundRetryQueueConsumer(
               transactionsViewRepository,
               paymentGatewayClient,
               refundRetryService,
+              queueEvent.tracingInfo,
               queueEvent.event.data.retryCount)
           }
         }
