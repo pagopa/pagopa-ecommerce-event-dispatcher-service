@@ -1,5 +1,6 @@
 package it.pagopa.ecommerce.eventdispatcher.client
 
+import it.pagopa.ecommerce.eventdispatcher.exceptions.BadClosePaymentRequest
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadGatewayException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.GatewayTimeoutException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.TransactionNotFound
@@ -34,6 +35,7 @@ class NodeClient(@Autowired private val nodeApi: NodoApi) {
         throw when (exception.statusCode) {
           HttpStatus.NOT_FOUND ->
             TransactionNotFound(UUID.fromString(closePaymentRequest.transactionId))
+          HttpStatus.BAD_REQUEST -> BadClosePaymentRequest("")
           HttpStatus.REQUEST_TIMEOUT -> GatewayTimeoutException()
           HttpStatus.INTERNAL_SERVER_ERROR -> BadGatewayException("")
           else -> exception
