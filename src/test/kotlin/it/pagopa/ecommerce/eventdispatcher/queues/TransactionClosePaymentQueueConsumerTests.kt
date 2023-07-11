@@ -8,6 +8,8 @@ import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
 import it.pagopa.ecommerce.commons.domain.v1.TransactionId
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils.*
+import it.pagopa.ecommerce.eventdispatcher.exceptions.BadClosePaymentRequest
+import it.pagopa.ecommerce.eventdispatcher.exceptions.TransactionNotFound
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.NodeService
@@ -299,4 +301,122 @@ class TransactionClosePaymentQueueConsumerTests {
         eq(Duration.ZERO),
         eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
   }
+
+  @Test
+  fun `consumer receive unrecoverable error (400 Bad Request) error from close payment and do not send a retry event`() =
+    runTest {
+      val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
+      val cancelRequestEvent = transactionUserCanceledEvent() as TransactionEvent<Any>
+
+      val events = listOf(activationEvent, cancelRequestEvent)
+
+      val transactionDocument =
+        transactionDocument(
+          TransactionStatusDto.CANCELLATION_REQUESTED,
+          ZonedDateTime.parse(activationEvent.creationDate))
+
+      val expectedUpdatedTransactionCanceled =
+        transactionDocument(
+          TransactionStatusDto.CANCELED, ZonedDateTime.parse(activationEvent.creationDate))
+
+      val transactionId = TransactionId(TRANSACTION_ID)
+
+      /* preconditions */
+      given(checkpointer.success()).willReturn(Mono.empty())
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
+        .willReturn(events.toFlux())
+      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturn(Mono.just(transactionDocument))
+      given(nodeService.closePayment(transactionId, ClosePaymentRequestV2Dto.OutcomeEnum.KO))
+        .willThrow(BadClosePaymentRequest("Bad request"))
+
+      given(
+          transactionClosureErrorEventStoreRepository.save(
+            closureErrorEventStoreRepositoryCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
+
+      given(transactionsViewRepository.save(viewArgumentCaptor.capture())).willAnswer {
+        Mono.just(it.arguments[0])
+      }
+
+      given(closureRetryService.enqueueRetryEvent(any(), any())).willReturn(Mono.empty())
+      /* test */
+
+      StepVerifier.create(
+          transactionClosureEventsConsumer.messageReceiver(
+            BinaryData.fromObject(cancelRequestEvent).toBytes(), checkpointer))
+        .expectNext()
+        .verifyComplete()
+
+      /* Asserts */
+      verify(checkpointer, Mockito.times(1)).success()
+      verify(nodeService, Mockito.times(1)).closePayment(any(), any())
+      verify(transactionClosedEventRepository, Mockito.times(0))
+        .save(
+          any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
+      // mocking
+      verify(transactionsViewRepository, Mockito.times(0)).save(expectedUpdatedTransactionCanceled)
+      verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any())
+    }
+
+  @Test
+  fun `consumer receive unrecoverable error (404 Not found) error from close payment and do not send a retry event`() =
+    runTest {
+      val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
+      val cancelRequestEvent = transactionUserCanceledEvent() as TransactionEvent<Any>
+
+      val events = listOf(activationEvent, cancelRequestEvent)
+
+      val transactionDocument =
+        transactionDocument(
+          TransactionStatusDto.CANCELLATION_REQUESTED,
+          ZonedDateTime.parse(activationEvent.creationDate))
+
+      val expectedUpdatedTransactionCanceled =
+        transactionDocument(
+          TransactionStatusDto.CANCELED, ZonedDateTime.parse(activationEvent.creationDate))
+
+      val transactionId = TransactionId(TRANSACTION_ID)
+
+      /* preconditions */
+      given(checkpointer.success()).willReturn(Mono.empty())
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
+        .willReturn(events.toFlux())
+      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturn(Mono.just(transactionDocument))
+      given(nodeService.closePayment(transactionId, ClosePaymentRequestV2Dto.OutcomeEnum.KO))
+        .willThrow(TransactionNotFound(transactionId.uuid))
+
+      given(
+          transactionClosureErrorEventStoreRepository.save(
+            closureErrorEventStoreRepositoryCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
+
+      given(transactionsViewRepository.save(viewArgumentCaptor.capture())).willAnswer {
+        Mono.just(it.arguments[0])
+      }
+
+      given(closureRetryService.enqueueRetryEvent(any(), any())).willReturn(Mono.empty())
+      /* test */
+
+      StepVerifier.create(
+          transactionClosureEventsConsumer.messageReceiver(
+            BinaryData.fromObject(cancelRequestEvent).toBytes(), checkpointer))
+        .expectNext()
+        .verifyComplete()
+
+      /* Asserts */
+      verify(checkpointer, Mockito.times(1)).success()
+      verify(nodeService, Mockito.times(1)).closePayment(any(), any())
+      verify(transactionClosedEventRepository, Mockito.times(0))
+        .save(
+          any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
+      // mocking
+      verify(transactionsViewRepository, Mockito.times(0)).save(expectedUpdatedTransactionCanceled)
+      verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any())
+    }
 }
