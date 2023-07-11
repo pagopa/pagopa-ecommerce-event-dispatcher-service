@@ -65,7 +65,7 @@ class NodeService(
                             transactionWithCancellation, transactionOutcome, transactionId)
                         },
                         { transactionWithCompletedAuthorization ->
-                          buildClosePaymentRequest(
+                          buildAuthorizationCompletedClosePaymentRequest(
                             transactionWithCompletedAuthorization,
                             transactionOutcome,
                             transactionId)
@@ -73,7 +73,8 @@ class NodeService(
                     }
                     ClosePaymentRequestV2Dto.OutcomeEnum.OK -> {
                       val authCompleted = trxPreviousStatus.get()
-                      buildClosePaymentRequest(authCompleted, transactionOutcome, transactionId)
+                      buildAuthorizationCompletedClosePaymentRequest(
+                        authCompleted, transactionOutcome, transactionId)
                     }
                   }
                 }
@@ -154,7 +155,7 @@ class NodeService(
     }
   }
 
-  private fun buildClosePaymentRequest(
+  private fun buildAuthorizationCompletedClosePaymentRequest(
     authCompleted: BaseTransactionWithCompletedAuthorization,
     transactionOutcome: ClosePaymentRequestV2Dto.OutcomeEnum,
     transactionId: TransactionId
