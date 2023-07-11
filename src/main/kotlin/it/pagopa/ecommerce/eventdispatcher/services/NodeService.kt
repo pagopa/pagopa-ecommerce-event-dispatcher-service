@@ -62,7 +62,7 @@ class NodeService(
                       trxPreviousStatus.fold(
                         { transactionWithCancellation ->
                           buildClosePaymentForCancellationRequest(
-                            transactionWithCancellation, transactionOutcome, transactionId)
+                            transactionWithCancellation, transactionId)
                         },
                         { transactionWithCompletedAuthorization ->
                           buildAuthorizationCompletedClosePaymentRequest(
@@ -89,7 +89,7 @@ class NodeService(
           }
           TransactionStatusDto.CANCELLATION_REQUESTED ->
             buildClosePaymentForCancellationRequest(
-              it as BaseTransactionWithCancellationRequested, transactionOutcome, transactionId)
+              it as BaseTransactionWithCancellationRequested, transactionId)
           else -> {
             throw BadTransactionStatusException(
               transactionId = it.transactionId,
@@ -122,7 +122,6 @@ class NodeService(
 
   private fun buildClosePaymentForCancellationRequest(
     transactionWithCancellation: BaseTransactionWithCancellationRequested,
-    transactionOutcome: ClosePaymentRequestV2Dto.OutcomeEnum,
     transactionId: TransactionId
   ): ClosePaymentRequestV2Dto {
     val amount =
@@ -133,7 +132,7 @@ class NodeService(
           .sum())
     return ClosePaymentRequestV2Dto().apply {
       paymentTokens = transactionWithCancellation.paymentNotices.map { el -> el.paymentToken.value }
-      outcome = transactionOutcome
+      outcome = ClosePaymentRequestV2Dto.OutcomeEnum.KO
       this.transactionId = transactionId.value()
       transactionDetails =
         TransactionDetailsDto().apply {
