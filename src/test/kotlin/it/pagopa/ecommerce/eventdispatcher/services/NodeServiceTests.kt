@@ -53,7 +53,9 @@ class NodeServiceTests {
       val canceledEvent = transactionUserCanceledEvent()
       val events = listOf(activatedEvent, canceledEvent) as List<TransactionEvent<Any>>
       val transactionId = activatedEvent.transactionId
-
+      val amount =
+        EuroUtils.euroCentsToEuro(
+          activatedEvent.data.paymentNotices.stream().mapToInt { el -> el.amount }.sum())
       val closePaymentResponse =
         ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
 
@@ -91,6 +93,9 @@ class NodeServiceTests {
       assertNull(closePaymentRequestCaptor.value.transactionDetails.transaction.fee)
       assertNotNull(closePaymentRequestCaptor.value.transactionDetails.transaction.amount)
       assertNotNull(closePaymentRequestCaptor.value.transactionDetails.transaction.grandTotal)
+      assertEquals(amount, closePaymentRequestCaptor.value.transactionDetails.transaction.amount)
+      assertEquals(
+        amount, closePaymentRequestCaptor.value.transactionDetails.transaction.grandTotal)
       assertNotNull(closePaymentRequestCaptor.value.transactionDetails.transaction.creationDate)
     }
 
@@ -106,6 +111,9 @@ class NodeServiceTests {
       val events =
         listOf(activatedEvent, canceledEvent, closureError) as List<TransactionEvent<Any>>
       val transactionId = activatedEvent.transactionId
+      val amount =
+        EuroUtils.euroCentsToEuro(
+          activatedEvent.data.paymentNotices.stream().mapToInt { el -> el.amount }.sum())
 
       val closePaymentResponse =
         ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
@@ -143,6 +151,9 @@ class NodeServiceTests {
       assertNull(closePaymentRequestCaptor.value.transactionDetails.transaction.fee)
       assertNotNull(closePaymentRequestCaptor.value.transactionDetails.transaction.amount)
       assertNotNull(closePaymentRequestCaptor.value.transactionDetails.transaction.grandTotal)
+      assertEquals(amount, closePaymentRequestCaptor.value.transactionDetails.transaction.amount)
+      assertEquals(
+        amount, closePaymentRequestCaptor.value.transactionDetails.transaction.grandTotal)
       assertNotNull(closePaymentRequestCaptor.value.transactionDetails.transaction.creationDate)
     }
 
