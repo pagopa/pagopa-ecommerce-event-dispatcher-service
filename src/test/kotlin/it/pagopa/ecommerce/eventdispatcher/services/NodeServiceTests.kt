@@ -14,7 +14,6 @@ import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto.OutcomeEnum
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.UserDto
-import java.math.BigDecimal
 import java.time.OffsetDateTime
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
@@ -218,13 +217,13 @@ class NodeServiceTests {
       assertEquals(
         transactionId, closePaymentRequestCaptor.value.transactionDetails.transaction.transactionId)
       assertEquals(
-        BigDecimal(authEvent.data.fee),
+        EuroUtils.euroCentsToEuro(authEvent.data.fee),
         closePaymentRequestCaptor.value.transactionDetails.transaction.fee)
       assertEquals(
-        BigDecimal(authEvent.data.amount),
+        EuroUtils.euroCentsToEuro(authEvent.data.amount),
         closePaymentRequestCaptor.value.transactionDetails.transaction.amount)
       assertEquals(
-        BigDecimal(authEvent.data.fee).add(BigDecimal(authEvent.data.amount)),
+        EuroUtils.euroCentsToEuro(authEvent.data.fee.plus(authEvent.data.amount)),
         closePaymentRequestCaptor.value.transactionDetails.transaction.grandTotal)
       assertEquals(
         authCompletedEvent.data.authorizationCode,
@@ -323,13 +322,13 @@ class NodeServiceTests {
       assertEquals(
         transactionId, closePaymentRequestCaptor.value.transactionDetails.transaction.transactionId)
       assertEquals(
-        BigDecimal(authEvent.data.fee),
+        EuroUtils.euroCentsToEuro(authEvent.data.fee),
         closePaymentRequestCaptor.value.transactionDetails.transaction.fee)
       assertEquals(
-        BigDecimal(authEvent.data.amount),
+        EuroUtils.euroCentsToEuro(authEvent.data.amount),
         closePaymentRequestCaptor.value.transactionDetails.transaction.amount)
       assertEquals(
-        BigDecimal(authEvent.data.fee).add(BigDecimal(authEvent.data.amount)),
+        EuroUtils.euroCentsToEuro(authEvent.data.fee.plus(authEvent.data.amount)),
         closePaymentRequestCaptor.value.transactionDetails.transaction.grandTotal)
       assertEquals(
         authCompletedEvent.data.errorCode,

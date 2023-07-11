@@ -172,7 +172,7 @@ class NodeService(
         EuroUtils.euroCentsToEuro(
           (authCompleted.transactionAuthorizationRequestData.amount.plus(
             authCompleted.transactionAuthorizationRequestData.fee)))
-      fee = authCompleted.transactionAuthorizationRequestData.fee.toBigDecimal()
+      fee = EuroUtils.euroCentsToEuro(authCompleted.transactionAuthorizationRequestData.fee)
       this.timestampOperation =
         OffsetDateTime.parse(
           authCompleted.transactionAuthorizationCompletedData.timestampOperation,
@@ -210,12 +210,13 @@ class NodeService(
               this.transactionId = transactionId.value()
               transactionStatus = getTransactionDetailsStatus(authCompleted)
               paymentGateway = authCompleted.transactionAuthorizationRequestData.paymentGateway.name
-              fee = authCompleted.transactionAuthorizationRequestData.fee.toBigDecimal()
-              amount = authCompleted.transactionAuthorizationRequestData.amount.toBigDecimal()
+              fee = EuroUtils.euroCentsToEuro(authCompleted.transactionAuthorizationRequestData.fee)
+              amount =
+                EuroUtils.euroCentsToEuro(authCompleted.transactionAuthorizationRequestData.amount)
               grandTotal =
-                (authCompleted.transactionAuthorizationRequestData.amount.plus(
-                    authCompleted.transactionAuthorizationRequestData.fee))
-                  .toBigDecimal()
+                EuroUtils.euroCentsToEuro(
+                  (authCompleted.transactionAuthorizationRequestData.amount.plus(
+                    authCompleted.transactionAuthorizationRequestData.fee)))
               rrn = authCompleted.transactionAuthorizationCompletedData.rrn
               errorCode =
                 if (transactionOutcome == ClosePaymentRequestV2Dto.OutcomeEnum.KO)
