@@ -29,7 +29,7 @@ const val TIPO_VERSAMENTO_CP = "CP"
 
 enum class TransactionDetailsStatusEnum(val status: String) {
   TRANSACTION_DETAILS_STATUS_CANCELED("Annullato"),
-  TRANSACTION_DETAILS_STATUS_AUTHORIZED("Autorizzato"),
+  TRANSACTION_DETAILS_STATUS_CONFIRMED("Confermato"),
   TRANSACTION_DETAILS_STATUS_DENIED("Rifiutato")
 }
 
@@ -106,7 +106,7 @@ class NodeService(
   private fun getTransactionDetailsStatus(it: BaseTransaction): String =
     when (getAuthorizationOutcome(it)) {
       AuthorizationResultDto.OK ->
-        TransactionDetailsStatusEnum.TRANSACTION_DETAILS_STATUS_AUTHORIZED.status
+        TransactionDetailsStatusEnum.TRANSACTION_DETAILS_STATUS_CONFIRMED.status
       AuthorizationResultDto.KO ->
         TransactionDetailsStatusEnum.TRANSACTION_DETAILS_STATUS_DENIED.status
       else -> TransactionDetailsStatusEnum.TRANSACTION_DETAILS_STATUS_CANCELED.status
