@@ -223,7 +223,7 @@ class NodeServiceTests {
         }
       // Check Transaction Details
       assertEquals(
-        TransactionDetailsStatusEnum.TRANSACTION_DETAILS_STATUS_AUTHORIZED.status,
+        TransactionDetailsStatusEnum.TRANSACTION_DETAILS_STATUS_CONFIRMED.status,
         closePaymentRequestCaptor.value.transactionDetails.transaction.transactionStatus)
       assertEquals(
         transactionId, closePaymentRequestCaptor.value.transactionDetails.transaction.transactionId)

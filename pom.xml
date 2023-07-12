@@ -320,7 +320,7 @@
 						</goals>
 						<configuration>
 							<inputSpec>
-								https://raw.githubusercontent.com/pagopa/pagopa-infra/df87697f23ac384723c9c63f33201b277a9d59dc/src/core/api/nodopagamenti_api/nodoPerPM/v2/_swagger.json.tpl
+								https://raw.githubusercontent.com/pagopa/pagopa-infra/eff0d7e961328c9888d73dc17d96695301df1861/src/core/api/nodopagamenti_api/nodoPerPM/v2/_swagger.json.tpl
 							</inputSpec>
 							<generatorName>java</generatorName>
 							<library>webclient</library>
