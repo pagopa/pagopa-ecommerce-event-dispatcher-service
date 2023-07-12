@@ -1,5 +1,6 @@
 package it.pagopa.ecommerce.eventdispatcher.client
 
+import it.pagopa.ecommerce.eventdispatcher.exceptions.BadClosePaymentRequest
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadGatewayException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.GatewayTimeoutException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.TransactionNotFound
@@ -108,5 +109,24 @@ class NodeClientTest {
 
     /* test */
     assertThrows<BadGatewayException> { nodeClient.closePayment(closePaymentRequest).awaitSingle() }
+  }
+
+  @Test
+  fun `closePayment throws BadClosePaymentRequest on Node 400`() = runTest {
+    val transactionId: UUID = UUID.randomUUID()
+
+    val closePaymentRequest = getMockedClosePaymentRequest(transactionId, OutcomeEnum.OK)
+
+    /* preconditions */
+    given(nodeApi.closePaymentV2(closePaymentRequest, CLOSE_PAYMENT_CLIENT_ID))
+      .willReturn(
+        Mono.error(
+          WebClientResponseException.create(
+            400, "Bad request", HttpHeaders.EMPTY, ByteArray(0), Charset.defaultCharset())))
+
+    /* test */
+    assertThrows<BadClosePaymentRequest> {
+      nodeClient.closePayment(closePaymentRequest).awaitSingle()
+    }
   }
 }
