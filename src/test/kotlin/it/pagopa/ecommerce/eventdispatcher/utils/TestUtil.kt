@@ -28,6 +28,7 @@ fun getMockedClosePaymentRequest(
       "pspChannelCode",
       "requestId",
       "pspBusinessName",
+      false,
       "authorizationRequestId",
       TransactionAuthorizationRequestData.PaymentGateway.VPOS,
       TransactionTestUtils.LOGO_URI,
