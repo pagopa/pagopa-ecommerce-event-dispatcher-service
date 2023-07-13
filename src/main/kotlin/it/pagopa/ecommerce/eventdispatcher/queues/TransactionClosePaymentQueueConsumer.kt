@@ -4,20 +4,24 @@ import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
-import it.pagopa.ecommerce.commons.documents.v1.*
+import it.pagopa.ecommerce.commons.documents.v1.TransactionClosedEvent
+import it.pagopa.ecommerce.commons.documents.v1.TransactionClosureData
+import it.pagopa.ecommerce.commons.documents.v1.TransactionClosureErrorEvent
+import it.pagopa.ecommerce.commons.documents.v1.TransactionUserCanceledEvent
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v1.TransactionWithCancellationRequested
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithCancellationRequested
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
+import it.pagopa.ecommerce.eventdispatcher.exceptions.BadClosePaymentRequest
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
+import it.pagopa.ecommerce.eventdispatcher.exceptions.TransactionNotFound
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.NodeService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.ClosureRetryService
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
-import java.util.*
 import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -91,32 +95,56 @@ class TransactionClosePaymentQueueConsumer(
             .then()
             .onErrorResume { exception ->
               baseTransaction.flatMap { baseTransaction ->
-                logger.error(
-                  "Got exception while calling closePaymentV2 for transaction with id ${baseTransaction.transactionId}!",
-                  exception)
+                when (exception) {
+                  is BadClosePaymentRequest ->
+                    mono { baseTransaction }
+                      .flatMap {
+                        logger.error(
+                          "Got unrecoverable error (400 - Bad Request) while calling closePaymentV2 for transaction with id ${it.transactionId}!",
+                          exception)
+                        Mono.empty()
+                      }
+                  is TransactionNotFound ->
+                    mono { baseTransaction }
+                      .flatMap {
+                        logger.error(
+                          "Got unrecoverable error (404 - Not Founds) while calling closePaymentV2 for transaction with id ${it.transactionId}!",
+                          exception)
+                        Mono.empty()
+                      }
+                  else -> {
+                    logger.error(
+                      "Got exception while calling closePaymentV2 for transaction with id ${baseTransaction.transactionId}!",
+                      exception)
 
-                mono { baseTransaction }
-                  .map { tx -> TransactionClosureErrorEvent(tx.transactionId.value().toString()) }
-                  .flatMap { transactionClosureErrorEvent ->
-                    transactionClosureErrorEventStoreRepository.save(transactionClosureErrorEvent)
+                    mono { baseTransaction }
+                      .map { tx ->
+                        TransactionClosureErrorEvent(tx.transactionId.value().toString())
+                      }
+                      .flatMap { transactionClosureErrorEvent ->
+                        transactionClosureErrorEventStoreRepository.save(
+                          transactionClosureErrorEvent)
+                      }
+                      .flatMap {
+                        transactionsViewRepository.findByTransactionId(
+                          baseTransaction.transactionId.value())
+                      }
+                      .flatMap { tx ->
+                        tx.status = TransactionStatusDto.CLOSURE_ERROR
+                        transactionsViewRepository.save(tx)
+                      }
+                      .flatMap {
+                        reduceEvents(
+                          transactionId, transactionsEventStoreRepository, emptyTransaction)
+                      }
+                      .flatMap { transactionUpdated ->
+                        closureRetryService.enqueueRetryEvent(transactionUpdated, 0).doOnError(
+                          NoRetryAttemptsLeftException::class.java) { exception ->
+                          logger.error("No more attempts left for closure retry", exception)
+                        }
+                      }
                   }
-                  .flatMap {
-                    transactionsViewRepository.findByTransactionId(
-                      baseTransaction.transactionId.value())
-                  }
-                  .flatMap { tx ->
-                    tx.status = TransactionStatusDto.CLOSURE_ERROR
-                    transactionsViewRepository.save(tx)
-                  }
-                  .flatMap {
-                    reduceEvents(transactionId, transactionsEventStoreRepository, emptyTransaction)
-                  }
-                  .flatMap { transactionUpdated ->
-                    closureRetryService.enqueueRetryEvent(transactionUpdated, 0).doOnError(
-                      NoRetryAttemptsLeftException::class.java) { exception ->
-                      logger.error("No more attempts left for closure retry", exception)
-                    }
-                  }
+                }
               }
             }
         }
