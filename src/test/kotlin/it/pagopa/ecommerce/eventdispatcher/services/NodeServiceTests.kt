@@ -326,6 +326,15 @@ class NodeServiceTests {
       assertEquals(
         closePaymentResponse,
         nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
+
+      // Check close payment request information
+      assertNull(closePaymentRequestCaptor.value.fee)
+      assertNull(closePaymentRequestCaptor.value.idChannel)
+      assertNull(closePaymentRequestCaptor.value.idBrokerPSP)
+      assertNull(closePaymentRequestCaptor.value.timestampOperation)
+      assertNull(closePaymentRequestCaptor.value.paymentMethod)
+      assertNull(closePaymentRequestCaptor.value.totalAmount)
+      assertNull(closePaymentRequestCaptor.value.idPSP)
       // Check Transaction Details
       assertEquals(
         TransactionDetailsStatusEnum.TRANSACTION_DETAILS_STATUS_DENIED.status,
