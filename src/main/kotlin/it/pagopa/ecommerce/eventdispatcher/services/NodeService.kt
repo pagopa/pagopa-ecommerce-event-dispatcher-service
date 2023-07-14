@@ -163,20 +163,22 @@ class NodeService(
       paymentTokens =
         authCompleted.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken.value }
       outcome = transactionOutcome
-      idPSP = authCompleted.transactionAuthorizationRequestData.pspId
-      paymentMethod = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
-      idBrokerPSP = authCompleted.transactionAuthorizationRequestData.brokerName
-      idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
+      if (transactionOutcome == ClosePaymentRequestV2Dto.OutcomeEnum.OK) {
+        idPSP = authCompleted.transactionAuthorizationRequestData.pspId
+        paymentMethod = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
+        idBrokerPSP = authCompleted.transactionAuthorizationRequestData.brokerName
+        idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
+        totalAmount =
+          EuroUtils.euroCentsToEuro(
+            (authCompleted.transactionAuthorizationRequestData.amount.plus(
+              authCompleted.transactionAuthorizationRequestData.fee)))
+        fee = EuroUtils.euroCentsToEuro(authCompleted.transactionAuthorizationRequestData.fee)
+        this.timestampOperation =
+          OffsetDateTime.parse(
+            authCompleted.transactionAuthorizationCompletedData.timestampOperation,
+            DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+      }
       this.transactionId = transactionId.value()
-      totalAmount =
-        EuroUtils.euroCentsToEuro(
-          (authCompleted.transactionAuthorizationRequestData.amount.plus(
-            authCompleted.transactionAuthorizationRequestData.fee)))
-      fee = EuroUtils.euroCentsToEuro(authCompleted.transactionAuthorizationRequestData.fee)
-      this.timestampOperation =
-        OffsetDateTime.parse(
-          authCompleted.transactionAuthorizationCompletedData.timestampOperation,
-          DateTimeFormatter.ISO_OFFSET_DATE_TIME)
       additionalPaymentInformations =
         if (transactionOutcome == ClosePaymentRequestV2Dto.OutcomeEnum.OK)
           AdditionalPaymentInformationsDto().apply {
