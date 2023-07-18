@@ -87,7 +87,7 @@ class UserReceiptMailBuilderTest {
               baseTransaction.transactionAuthorizationCompletedData.rrn,
               baseTransaction.transactionAuthorizationCompletedData.authorizationCode,
               PaymentMethodTemplate(
-                TransactionTestUtils.PAYMENT_METHOD_NAME,
+                TransactionTestUtils.PAYMENT_METHOD_DESCRIPTION,
                 TransactionTestUtils.LOGO_URI.toString(),
                 null,
                 false)),
@@ -180,7 +180,7 @@ class UserReceiptMailBuilderTest {
               baseTransaction.transactionAuthorizationRequestData.authorizationRequestId,
               baseTransaction.transactionAuthorizationCompletedData.authorizationCode,
               PaymentMethodTemplate(
-                TransactionTestUtils.PAYMENT_METHOD_NAME,
+                TransactionTestUtils.PAYMENT_METHOD_DESCRIPTION,
                 TransactionTestUtils.LOGO_URI.toString(),
                 null,
                 false)),
