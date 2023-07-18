@@ -1,7 +1,6 @@
 package it.pagopa.ecommerce.eventdispatcher.queues
 
 import com.azure.core.util.BinaryData
-import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v1.*
@@ -9,9 +8,6 @@ import it.pagopa.ecommerce.commons.domain.v1.Email
 import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithRequestedUserReceipt
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
-import it.pagopa.ecommerce.commons.queues.QueueEvent
-import it.pagopa.ecommerce.commons.queues.TracingInfoTest.MOCK_TRACING_INFO
-import it.pagopa.ecommerce.commons.queues.TracingUtilsTests
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils.*
 import it.pagopa.ecommerce.eventdispatcher.client.NotificationsServiceClient
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
@@ -19,7 +15,10 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRe
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.NotificationRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryService
-import it.pagopa.ecommerce.eventdispatcher.utils.*
+import it.pagopa.ecommerce.eventdispatcher.utils.ConfidentialMailUtils
+import it.pagopa.ecommerce.eventdispatcher.utils.DEAD_LETTER_QUEUE_TTL_SECONDS
+import it.pagopa.ecommerce.eventdispatcher.utils.UserReceiptMailBuilder
+import it.pagopa.ecommerce.eventdispatcher.utils.queueSuccessfulResponse
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.notifications.templates.success.SuccessTemplate
 import it.pagopa.generated.notifications.v1.dto.NotificationEmailRequestDto
@@ -66,8 +65,6 @@ class TransactionNotificationsQueueConsumerTest {
   private val paymentGatewayClient: PaymentGatewayClient = mock()
   private val refundRetryService: RefundRetryService = mock()
 
-  private val tracingUtils = TracingUtilsTests.getMock()
-
   @Captor private lateinit var transactionViewRepositoryCaptor: ArgumentCaptor<Transaction>
 
   @Captor
@@ -94,8 +91,7 @@ class TransactionNotificationsQueueConsumerTest {
       paymentGatewayClient = paymentGatewayClient,
       refundRetryService = refundRetryService,
       deadLetterQueueAsyncClient = deadLetterQueueAsyncClient,
-      deadLetterTTLSeconds = DEAD_LETTER_QUEUE_TTL_SECONDS,
-      tracingUtils = tracingUtils)
+      deadLetterTTLSeconds = DEAD_LETTER_QUEUE_TTL_SECONDS)
 
   @Test
   fun `Should successfully send user email for send payment result outcome OK`() = runTest {
@@ -134,8 +130,7 @@ class TransactionNotificationsQueueConsumerTest {
 
     StepVerifier.create(
         transactionNotificationsRetryQueueConsumer.messageReceiver(
-          BinaryData.fromObject(QueueEvent(notificationRequested, MOCK_TRACING_INFO)).toBytes(),
-          checkpointer))
+          BinaryData.fromObject(notificationRequested).toBytes(), checkpointer))
       .expectNext()
       .verifyComplete()
     verify(checkpointer, times(1)).success()
@@ -206,8 +201,7 @@ class TransactionNotificationsQueueConsumerTest {
 
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(notificationRequested, MOCK_TRACING_INFO)).toBytes(),
-            checkpointer))
+            BinaryData.fromObject(notificationRequested).toBytes(), checkpointer))
         .expectNext()
         .verifyComplete()
       verify(checkpointer, times(1)).success()
@@ -296,8 +290,7 @@ class TransactionNotificationsQueueConsumerTest {
 
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(notificationRequested, MOCK_TRACING_INFO)).toBytes(),
-            checkpointer))
+            BinaryData.fromObject(notificationRequested).toBytes(), checkpointer))
         .expectNext()
         .verifyComplete()
       verify(checkpointer, times(1)).success()
@@ -375,8 +368,7 @@ class TransactionNotificationsQueueConsumerTest {
         .willReturn(Mono.empty())
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(notificationRequested, MOCK_TRACING_INFO)).toBytes(),
-            checkpointer))
+            BinaryData.fromObject(notificationRequested).toBytes(), checkpointer))
         .expectNext()
         .verifyComplete()
       verify(checkpointer, times(1)).success()
@@ -440,8 +432,7 @@ class TransactionNotificationsQueueConsumerTest {
         .willReturn(Mono.empty())
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(notificationRequested, MOCK_TRACING_INFO)).toBytes(),
-            checkpointer))
+            BinaryData.fromObject(notificationRequested).toBytes(), checkpointer))
         .expectNext()
         .verifyComplete()
       verify(checkpointer, times(1)).success()
@@ -514,8 +505,7 @@ class TransactionNotificationsQueueConsumerTest {
 
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(notificationRequested, MOCK_TRACING_INFO)).toBytes(),
-            checkpointer))
+            BinaryData.fromObject(notificationRequested).toBytes(), checkpointer))
         .verifyComplete()
       verify(checkpointer, times(1)).success()
       verify(transactionsEventStoreRepository, times(1))
@@ -544,9 +534,8 @@ class TransactionNotificationsQueueConsumerTest {
       verify(deadLetterQueueAsyncClient, times(1))
         .sendMessageWithResponse(
           argThat<BinaryData> {
-            this.toObject(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {})
-              .event
-              .eventCode == TransactionEventCode.TRANSACTION_USER_RECEIPT_REQUESTED_EVENT
+            this.toObject(TransactionActivatedEvent::class.java).eventCode ==
+              TransactionEventCode.TRANSACTION_USER_RECEIPT_REQUESTED_EVENT
           },
           eq(Duration.ZERO),
           eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
@@ -568,8 +557,7 @@ class TransactionNotificationsQueueConsumerTest {
 
     StepVerifier.create(
         transactionNotificationsRetryQueueConsumer.messageReceiver(
-          BinaryData.fromObject(QueueEvent(notificationRequested, MOCK_TRACING_INFO)).toBytes(),
-          checkpointer))
+          BinaryData.fromObject(notificationRequested).toBytes(), checkpointer))
       .verifyComplete()
     verify(checkpointer, times(1)).success()
     verify(transactionsEventStoreRepository, times(1))
@@ -585,9 +573,8 @@ class TransactionNotificationsQueueConsumerTest {
     verify(deadLetterQueueAsyncClient, times(1))
       .sendMessageWithResponse(
         argThat<BinaryData> {
-          this.toObject(object : TypeReference<QueueEvent<TransactionRefundRetriedEvent>>() {})
-            .event
-            .eventCode == TransactionEventCode.TRANSACTION_USER_RECEIPT_REQUESTED_EVENT
+          this.toObject(TransactionRefundRetriedEvent::class.java).eventCode ==
+            TransactionEventCode.TRANSACTION_USER_RECEIPT_REQUESTED_EVENT
         },
         eq(Duration.ZERO),
         eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
@@ -715,8 +702,7 @@ class TransactionNotificationsQueueConsumerTest {
         .willReturn(Mono.empty())
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(notificationRequested, MOCK_TRACING_INFO)).toBytes(),
-            checkpointer))
+            BinaryData.fromObject(notificationRequested).toBytes(), checkpointer))
         .expectNext()
         .verifyComplete()
       verify(checkpointer, times(1)).success()

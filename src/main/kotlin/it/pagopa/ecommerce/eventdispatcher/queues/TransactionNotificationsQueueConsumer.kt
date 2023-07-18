@@ -1,7 +1,6 @@
 package it.pagopa.ecommerce.eventdispatcher.queues
 
 import com.azure.core.util.BinaryData
-import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
@@ -9,8 +8,6 @@ import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v1.pojos.*
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
-import it.pagopa.ecommerce.commons.queues.QueueEvent
-import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.client.NotificationsServiceClient
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
@@ -48,11 +45,12 @@ class TransactionNotificationsQueueConsumer(
   @Autowired private val paymentGatewayClient: PaymentGatewayClient,
   @Autowired private val refundRetryService: RefundRetryService,
   @Autowired private val deadLetterQueueAsyncClient: QueueAsyncClient,
-  @Value("\${azurestorage.queues.deadLetterQueue.ttlSeconds}")
-  private val deadLetterTTLSeconds: Int,
-  @Autowired private val tracingUtils: TracingUtils
+  @Value("\${azurestorage.queues.deadLetterQueue.ttlSeconds}") private val deadLetterTTLSeconds: Int
 ) {
   var logger: Logger = LoggerFactory.getLogger(TransactionNotificationsQueueConsumer::class.java)
+
+  private fun getTransactionIdFromPayload(data: BinaryData) =
+    data.toObjectAsync(TransactionUserReceiptRequestedEvent::class.java).map { it.transactionId }
 
   @ServiceActivator(inputChannel = "transactionnotificationschannel", outputChannel = "nullChannel")
   fun messageReceiver(
@@ -66,10 +64,7 @@ class TransactionNotificationsQueueConsumer(
     emptyTransaction: EmptyTransaction
   ): Mono<Void> {
     val binaryData = BinaryData.fromBytes(payload)
-    val queueEvent =
-      binaryData.toObjectAsync(
-        object : TypeReference<QueueEvent<TransactionUserReceiptRequestedEvent>>() {})
-    val transactionId = queueEvent.map { it.event.transactionId }
+    val transactionId = getTransactionIdFromPayload(binaryData)
     val baseTransaction =
       reduceEvents(transactionId, transactionsEventStoreRepository, emptyTransaction)
     val notificationResendPipeline =
@@ -118,16 +113,11 @@ class TransactionNotificationsQueueConsumer(
                 .then()
             }
         }
-
-    return queueEvent.flatMap {
-      runTracedPipelineWithDeadLetterQueue(
-        checkPointer,
-        notificationResendPipeline,
-        it,
-        deadLetterQueueAsyncClient,
-        deadLetterTTLSeconds,
-        tracingUtils,
-        this::class.simpleName!!)
-    }
+    return runPipelineWithDeadLetterQueue(
+      checkPointer,
+      notificationResendPipeline,
+      payload,
+      deadLetterQueueAsyncClient,
+      deadLetterTTLSeconds)
   }
 }
