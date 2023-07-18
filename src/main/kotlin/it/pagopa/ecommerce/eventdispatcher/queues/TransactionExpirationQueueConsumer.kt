@@ -5,6 +5,7 @@ import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
+import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.TransactionWithClosureError
 import it.pagopa.ecommerce.commons.queues.QueueEvent
@@ -57,7 +58,23 @@ class TransactionExpirationQueueConsumer(
   @Autowired private val tracingUtils: TracingUtils
 ) {
 
-  var logger: Logger = LoggerFactory.getLogger(TransactionExpirationQueueConsumer::class.java)
+  val logger: Logger = LoggerFactory.getLogger(TransactionExpirationQueueConsumer::class.java)
+
+  private fun parseEvent(
+    data: BinaryData
+  ): Mono<Either<QueueEvent<TransactionActivatedEvent>, QueueEvent<TransactionExpiredEvent>>> {
+    val transactionActivatedEvent =
+      data.toObjectAsync(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {})
+
+    val transactionExpiredEvent =
+      data.toObjectAsync(object : TypeReference<QueueEvent<TransactionExpiredEvent>>() {})
+
+    return transactionExpiredEvent
+      .map<Either<QueueEvent<TransactionActivatedEvent>, QueueEvent<TransactionExpiredEvent>>?> {
+        Either.right(it)
+      }
+      .onErrorResume { transactionActivatedEvent.map { Either.left(it) } }
+  }
 
   @ServiceActivator(inputChannel = "transactionexpiredchannel", outputChannel = "nullChannel")
   fun messageReceiver(
@@ -66,9 +83,9 @@ class TransactionExpirationQueueConsumer(
     @Headers headers: MessageHeaders
   ): Mono<Void> {
     val binaryData = BinaryData.fromBytes(payload)
-    val queueEvent =
-      binaryData.toObjectAsync(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {})
-    val transactionId = queueEvent.map { it.event.transactionId }
+    val queueEvent = parseEvent(binaryData)
+    val transactionId =
+      queueEvent.map { e -> e.fold({ it.event.transactionId }, { it.event.transactionId }) }
     val events =
       transactionId.flatMapMany {
         transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(it)
@@ -151,11 +168,13 @@ class TransactionExpirationQueueConsumer(
             refundRetryService)
         }
 
-    return queueEvent.flatMap {
+    return queueEvent.flatMap { e ->
+      val event = e.fold({ it }, { it })
+
       runTracedPipelineWithDeadLetterQueue(
         checkPointer,
         refundPipeline,
-        it,
+        event,
         deadLetterQueueAsyncClient,
         deadLetterTTLSeconds,
         tracingUtils,
