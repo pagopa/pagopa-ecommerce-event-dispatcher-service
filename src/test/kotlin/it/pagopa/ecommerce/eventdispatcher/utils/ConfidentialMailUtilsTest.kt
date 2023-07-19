@@ -40,6 +40,24 @@ class ConfidentialMailUtilsTest {
   }
 
   @Test
+  fun `Should decrypt email in upper case correctly`() = runTest {
+    val uppercaseMail = TransactionTestUtils.EMAIL_STRING.uppercase()
+    /*
+     * Prerequisite
+     */
+    given(confidentialDataManager.decrypt(any(), any<Function<String, Email>>()))
+      .willReturn(Mono.just(Email(uppercaseMail)))
+    /*
+     * Test
+     */
+    val email = confidentialMailUtils.toEmail(TransactionTestUtils.EMAIL)
+    /*
+     * Assertions
+     */
+    assertEquals(uppercaseMail, email.value)
+  }
+
+  @Test
   fun `Should throw exception when an error occurs decrypting email`() = runTest {
 
     /*
