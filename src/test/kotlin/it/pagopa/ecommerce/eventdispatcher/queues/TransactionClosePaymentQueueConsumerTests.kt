@@ -295,7 +295,7 @@ class TransactionClosePaymentQueueConsumerTests {
     verify(deadLetterQueueAsyncClient, times(1))
       .sendMessageWithResponse(
         argThat<BinaryData> {
-          this.toObject(TransactionActivatedEvent::class.java).eventCode ==
+          this.toObject(TransactionUserCanceledEvent::class.java).eventCode ==
             TransactionEventCode.TRANSACTION_USER_CANCELED_EVENT
         },
         eq(Duration.ZERO),

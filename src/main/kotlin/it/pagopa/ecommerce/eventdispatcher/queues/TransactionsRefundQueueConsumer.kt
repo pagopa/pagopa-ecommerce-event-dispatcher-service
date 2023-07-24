@@ -5,6 +5,7 @@ import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v1.TransactionExpiredEvent
+import it.pagopa.ecommerce.commons.documents.v1.TransactionRefundRequestedEvent
 import it.pagopa.ecommerce.commons.documents.v1.TransactionRefundRetriedEvent
 import it.pagopa.ecommerce.commons.documents.v1.TransactionRefundedData
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
@@ -27,6 +28,52 @@ import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.switchIfEmpty
 
+class RefundQueueEvent(
+  private val refundRequestedEvent: TransactionRefundRequestedEvent?,
+  private val refundRetriedEvent: TransactionRefundRetriedEvent?,
+  private val expiredEvent: TransactionExpiredEvent?
+) {
+  companion object {
+    fun fromRefundRequested(
+      refundRequestedEvent: TransactionRefundRequestedEvent
+    ): RefundQueueEvent = RefundQueueEvent(refundRequestedEvent, null, null)
+
+    fun fromRefundRetried(refundRetriedEvent: TransactionRefundRetriedEvent): RefundQueueEvent =
+      RefundQueueEvent(null, refundRetriedEvent, null)
+
+    fun fromExpired(expiredEvent: TransactionExpiredEvent): RefundQueueEvent =
+      RefundQueueEvent(null, null, expiredEvent)
+  }
+
+  init {
+    /*
+     * Require that only one variant is not null
+     */
+    val conditions =
+      listOf(refundRequestedEvent != null, refundRetriedEvent != null, expiredEvent != null)
+
+    require(conditions.filter { it }.size == 1) {
+      "Only one variant can be non-null! Initializer: $refundRetriedEvent $refundRequestedEvent $expiredEvent"
+    }
+  }
+
+  fun <T> fold(
+    onRefundRequested: (TransactionRefundRequestedEvent) -> T,
+    onRefundRetried: (TransactionRefundRetriedEvent) -> T,
+    onExpired: (TransactionExpiredEvent) -> T
+  ): T {
+    return if (refundRequestedEvent != null) {
+      onRefundRequested(refundRequestedEvent)
+    } else if (refundRetriedEvent != null) {
+      onRefundRetried(refundRetriedEvent)
+    } else if (expiredEvent != null) {
+      onExpired(expiredEvent)
+    } else {
+      throw RuntimeException("Violated invariant: one variant must be initialized")
+    }
+  }
+}
+
 /**
  * Event consumer for transactions to refund. These events are input in the event queue only when a
  * transaction is stuck in an REFUND_REQUESTED state **and** needs to be reverted
@@ -46,13 +93,19 @@ class TransactionsRefundQueueConsumer(
 
   var logger: Logger = LoggerFactory.getLogger(TransactionsRefundQueueConsumer::class.java)
 
-  private fun getTransactionIdFromPayload(data: BinaryData): Mono<String> {
-    val idFromActivatedEvent =
-      data.toObjectAsync(TransactionExpiredEvent::class.java).map { it.transactionId }
-    val idFromRefundedEvent =
-      data.toObjectAsync(TransactionRefundRetriedEvent::class.java).map { it.transactionId }
+  private fun parseEvent(data: BinaryData): Mono<RefundQueueEvent> {
+    val refundRequestedEvent = data.toObjectAsync(TransactionRefundRequestedEvent::class.java)
+    val refundRetriedEvent = data.toObjectAsync(TransactionRefundRetriedEvent::class.java)
+    val expiredEvent = data.toObjectAsync(TransactionExpiredEvent::class.java)
 
-    return Mono.firstWithValue(idFromActivatedEvent, idFromRefundedEvent)
+    return refundRequestedEvent
+      .map(RefundQueueEvent::fromRefundRequested)
+      .onErrorResume { refundRetriedEvent.map(RefundQueueEvent::fromRefundRetried) }
+      .onErrorResume { expiredEvent.map(RefundQueueEvent::fromExpired) }
+  }
+
+  private fun getTransactionIdFromPayload(event: RefundQueueEvent): String {
+    return event.fold({ it.transactionId }, { it.transactionId }, { it.transactionId })
   }
 
   @ServiceActivator(inputChannel = "transactionsrefundchannel", outputChannel = "nullChannel")
@@ -61,7 +114,8 @@ class TransactionsRefundQueueConsumer(
     @Header(AzureHeaders.CHECKPOINTER) checkPointer: Checkpointer
   ): Mono<Void> {
     val binaryData = BinaryData.fromBytes(payload)
-    val transactionId = getTransactionIdFromPayload(binaryData)
+    val queueEvent = parseEvent(binaryData)
+    val transactionId = queueEvent.map { getTransactionIdFromPayload(it) }
 
     val refundPipeline =
       transactionId

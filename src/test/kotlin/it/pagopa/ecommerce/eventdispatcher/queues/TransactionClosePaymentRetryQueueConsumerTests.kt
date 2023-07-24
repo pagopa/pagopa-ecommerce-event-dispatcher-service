@@ -501,7 +501,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       verify(deadLetterQueueAsyncClient, times(1))
         .sendMessageWithResponse(
           argThat<BinaryData> {
-            this.toObject(TransactionActivatedEvent::class.java).eventCode ==
+            this.toObject(TransactionClosureErrorEvent::class.java).eventCode ==
               TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT
           },
           eq(Duration.ZERO),
@@ -515,6 +515,8 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       val emptyTransactionMock: EmptyTransaction = mock()
       val transactionWithClosureError: TransactionWithClosureError = mock()
       val fakeTransactionAtPreviousState = transactionActivated(ZonedDateTime.now().toString())
+
+      val closureErrorEvent = transactionClosureErrorEvent() as TransactionEvent<Any>
 
       val events = listOf(activatedEvent as TransactionEvent<Any>)
 
@@ -536,7 +538,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
       StepVerifier.create(
           transactionClosureErrorEventsConsumer.messageReceiver(
-            BinaryData.fromObject(activatedEvent).toBytes(), checkpointer, emptyTransactionMock))
+            BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer, emptyTransactionMock))
         .verifyComplete()
 
       /* Asserts */
@@ -549,8 +551,8 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       verify(deadLetterQueueAsyncClient, times(1))
         .sendMessageWithResponse(
           argThat<BinaryData> {
-            this.toObject(TransactionActivatedEvent::class.java).eventCode ==
-              TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
+            this.toObject(TransactionClosureErrorEvent::class.java).eventCode ==
+              TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT
           },
           eq(Duration.ZERO),
           eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
@@ -1092,7 +1094,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       verify(deadLetterQueueAsyncClient, times(1))
         .sendMessageWithResponse(
           argThat<BinaryData> {
-            this.toObject(TransactionActivatedEvent::class.java).eventCode ==
+            this.toObject(TransactionClosureErrorEvent::class.java).eventCode ==
               TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT
           },
           eq(Duration.ZERO),
