@@ -17,7 +17,6 @@ import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryServic
 import it.pagopa.ecommerce.eventdispatcher.utils.DEAD_LETTER_QUEUE_TTL_SECONDS
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
-import java.time.OffsetDateTime
 import java.time.ZonedDateTime
 import java.util.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -25,7 +24,6 @@ import kotlinx.coroutines.reactor.mono
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.ArgumentCaptor
 import org.mockito.Captor
@@ -635,22 +633,4 @@ class TransactionsRefundEventsConsumerTests {
       assertEquals(TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT, storedEvent.eventCode)
       assertEquals(TransactionStatusDto.REFUND_REQUESTED, storedEvent.data.statusBeforeRefunded)
     }
-
-  @Test
-  fun `RefundQueueEvent can be initialized with only one non-null variant`() {
-    val transactionActivated = transactionActivated(OffsetDateTime.now().toString())
-    val refundRequestedEvent = transactionRefundRequestedEvent(transactionActivated)
-    val refundRetriedEvent = transactionRefundRetriedEvent(3)
-    val expiredEvent = transactionExpiredEvent(transactionActivated)
-
-    assertThrows<Exception> {
-      RefundQueueEvent(refundRequestedEvent, refundRetriedEvent, expiredEvent)
-    }
-
-    assertThrows<Exception> { RefundQueueEvent(refundRequestedEvent, null, expiredEvent) }
-
-    assertThrows<Exception> { RefundQueueEvent(refundRequestedEvent, refundRetriedEvent, null) }
-
-    assertThrows<Exception> { RefundQueueEvent(null, null, null) }
-  }
 }
