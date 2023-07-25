@@ -126,11 +126,6 @@
 			<scope>test</scope>
 		</dependency>
 		<dependency>
-			<groupId>io.mockk</groupId>
-			<artifactId>mockk-jvm</artifactId>
-			<version>1.13.5</version>
-		</dependency>
-		<dependency>
 			<groupId>org.jetbrains.kotlinx</groupId>
 			<artifactId>kotlinx-coroutines-test</artifactId>
 			<version>${kotlinx-coroutines.version}</version>
