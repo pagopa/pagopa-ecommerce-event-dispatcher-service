@@ -85,18 +85,16 @@ abstract class TracedRetryEventService<E>(
     visibilityTimeout: Duration,
     tracingInfo: TracingInfo
   ): Mono<Void> =
-    Mono.just(event).flatMap { eventToSend ->
-      queueAsyncClient
-        .sendMessageWithResponse(
-          QueueEvent(event, tracingInfo),
-          visibilityTimeout,
-          Duration.ofSeconds(transientQueuesTTLSeconds.toLong()), // timeToLive
-        )
-        .doOnNext {
-          logger.info(
-            "Event: [$event] successfully sent with visibility timeout: [${it.value.timeNextVisible}] ms to queue: [${queueAsyncClient.queueName}]")
-        }
-        .then()
-        .doOnError { exception -> logger.error("Error sending event: [${event}].", exception) }
-    }
+    queueAsyncClient
+      .sendMessageWithResponse(
+        QueueEvent(event, tracingInfo),
+        visibilityTimeout,
+        Duration.ofSeconds(transientQueuesTTLSeconds.toLong()), // timeToLive
+      )
+      .doOnNext {
+        logger.info(
+          "Event: [$event] successfully sent with visibility timeout: [${it.value.timeNextVisible}] ms to queue: [${queueAsyncClient.queueName}]")
+      }
+      .then()
+      .doOnError { exception -> logger.error("Error sending event: [${event}].", exception) }
 }
