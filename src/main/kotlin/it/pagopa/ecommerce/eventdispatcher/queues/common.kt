@@ -467,10 +467,6 @@ fun <T> runPipelineWithDeadLetterQueue(
           logger.info(
             "Event: [${eventPayload.toString(StandardCharsets.UTF_8)}] successfully sent with visibility timeout: [${it.value.timeNextVisible}] ms to queue: [${deadLetterQueueAsyncClient.queueName}]")
         }
-        .doOnNext {
-          logger.info(
-            "Event: [${eventPayload.toString(StandardCharsets.UTF_8)}] successfully sent with visibility timeout: [${it.value.timeNextVisible}] ms to queue: [${deadLetterQueueAsyncClient.queueName}]")
-        }
         .doOnError { queueException ->
           logger.error(
             "Error sending event: [${eventPayload.toString(StandardCharsets.UTF_8)}] to dead letter queue.",
