@@ -4,7 +4,8 @@ import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
-import it.pagopa.ecommerce.commons.documents.v1.TransactionExpiredEvent
+import io.vavr.control.Either
+import it.pagopa.ecommerce.commons.documents.v1.TransactionRefundRequestedEvent
 import it.pagopa.ecommerce.commons.documents.v1.TransactionRefundRetriedEvent
 import it.pagopa.ecommerce.commons.documents.v1.TransactionRefundedData
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
@@ -46,13 +47,21 @@ class TransactionsRefundQueueConsumer(
 
   var logger: Logger = LoggerFactory.getLogger(TransactionsRefundQueueConsumer::class.java)
 
-  private fun getTransactionIdFromPayload(data: BinaryData): Mono<String> {
-    val idFromActivatedEvent =
-      data.toObjectAsync(TransactionExpiredEvent::class.java).map { it.transactionId }
-    val idFromRefundedEvent =
-      data.toObjectAsync(TransactionRefundRetriedEvent::class.java).map { it.transactionId }
+  private fun parseEvent(
+    data: BinaryData
+  ): Mono<Either<TransactionRefundRetriedEvent, TransactionRefundRequestedEvent>> {
+    val refundRequestedEvent = data.toObjectAsync(TransactionRefundRequestedEvent::class.java)
+    val refundRetriedEvent = data.toObjectAsync(TransactionRefundRetriedEvent::class.java)
 
-    return Mono.firstWithValue(idFromActivatedEvent, idFromRefundedEvent)
+    return refundRequestedEvent
+      .map { Either.right<TransactionRefundRetriedEvent, TransactionRefundRequestedEvent>(it) }
+      .onErrorResume { refundRetriedEvent.map { Either.left(it) } }
+  }
+
+  private fun getTransactionIdFromPayload(
+    event: Either<TransactionRefundRetriedEvent, TransactionRefundRequestedEvent>
+  ): String {
+    return event.fold({ it.transactionId }, { it.transactionId })
   }
 
   @ServiceActivator(inputChannel = "transactionsrefundchannel", outputChannel = "nullChannel")
@@ -61,7 +70,8 @@ class TransactionsRefundQueueConsumer(
     @Header(AzureHeaders.CHECKPOINTER) checkPointer: Checkpointer
   ): Mono<Void> {
     val binaryData = BinaryData.fromBytes(payload)
-    val transactionId = getTransactionIdFromPayload(binaryData)
+    val queueEvent = parseEvent(binaryData)
+    val transactionId = queueEvent.map { getTransactionIdFromPayload(it) }
 
     val refundPipeline =
       transactionId

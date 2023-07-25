@@ -534,7 +534,7 @@ class TransactionNotificationsQueueConsumerTest {
       verify(deadLetterQueueAsyncClient, times(1))
         .sendMessageWithResponse(
           argThat<BinaryData> {
-            this.toObject(TransactionActivatedEvent::class.java).eventCode ==
+            this.toObject(TransactionUserReceiptRequestedEvent::class.java).eventCode ==
               TransactionEventCode.TRANSACTION_USER_RECEIPT_REQUESTED_EVENT
           },
           eq(Duration.ZERO),
@@ -573,7 +573,7 @@ class TransactionNotificationsQueueConsumerTest {
     verify(deadLetterQueueAsyncClient, times(1))
       .sendMessageWithResponse(
         argThat<BinaryData> {
-          this.toObject(TransactionRefundRetriedEvent::class.java).eventCode ==
+          this.toObject(TransactionUserReceiptRequestedEvent::class.java).eventCode ==
             TransactionEventCode.TRANSACTION_USER_RECEIPT_REQUESTED_EVENT
         },
         eq(Duration.ZERO),

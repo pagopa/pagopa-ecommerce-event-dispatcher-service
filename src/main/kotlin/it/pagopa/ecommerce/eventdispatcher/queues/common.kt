@@ -1,6 +1,7 @@
 package it.pagopa.ecommerce.eventdispatcher.queues
 
 import com.azure.core.util.BinaryData
+import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v1.*
@@ -10,6 +11,8 @@ import it.pagopa.ecommerce.commons.domain.v1.TransactionWithClosureError
 import it.pagopa.ecommerce.commons.domain.v1.pojos.*
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
+import it.pagopa.ecommerce.commons.queues.QueueEvent
+import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.RefundNotAllowedException
 import it.pagopa.ecommerce.eventdispatcher.queues.QueueCommonsLogger.logger
@@ -443,10 +446,9 @@ fun <T> runPipelineWithDeadLetterQueue(
   deadLetterQueueAsyncClient: QueueAsyncClient,
   deadLetterQueueTTLSeconds: Int
 ): Mono<Void> {
-  // parse the event as a TransactionActivatedEvent just to extract transactionId and event code
   val binaryData = BinaryData.fromBytes(eventPayload)
-  val event = binaryData.toObject(TransactionActivatedEvent::class.java)
-  val eventLogString = "${event.eventCode}, transactionId: ${event.transactionId}"
+  val event = binaryData.toObject(object : TypeReference<Map<String, Any>>() {})
+  val eventLogString = "${event["eventCode"]}, transactionId: ${event["transactionId"]}"
   return checkPointer
     .success()
     .doOnSuccess { logger.info("Checkpoint performed successfully for event $eventLogString") }
@@ -472,6 +474,46 @@ fun <T> runPipelineWithDeadLetterQueue(
         }
         .then()
     }
+}
+
+fun <T> runTracedPipelineWithDeadLetterQueue(
+  checkPointer: Checkpointer,
+  pipeline: Mono<T>,
+  queueEvent: QueueEvent<*>,
+  deadLetterQueueAsyncClient: QueueAsyncClient,
+  deadLetterQueueTTLSeconds: Int,
+  tracingUtils: TracingUtils,
+  spanName: String
+): Mono<Void> {
+  val eventLogString = "${queueEvent.event.id}, transactionId: ${queueEvent.event.transactionId}"
+
+  val deadLetterPipeline =
+    checkPointer
+      .success()
+      .doOnSuccess { logger.info("Checkpoint performed successfully for event $eventLogString") }
+      .doOnError { logger.error("Error performing checkpoint for event $eventLogString", it) }
+      .then(pipeline)
+      .then()
+      .onErrorResume { pipelineException ->
+        logger.error("Exception processing event $eventLogString", pipelineException)
+        deadLetterQueueAsyncClient
+          .sendMessageWithResponse(
+            BinaryData.fromObject(queueEvent),
+            Duration.ZERO,
+            Duration.ofSeconds(deadLetterQueueTTLSeconds.toLong()), // timeToLive
+          )
+          .doOnNext {
+            logger.info(
+              "Event: [${queueEvent.event}] successfully sent with visibility timeout: [${it.value.timeNextVisible}] ms to queue: [${deadLetterQueueAsyncClient.queueName}]")
+          }
+          .doOnError { queueException ->
+            logger.error(
+              "Error sending event: [${queueEvent.event}] to dead letter queue.", queueException)
+          }
+          .then()
+      }
+
+  return tracingUtils.traceMonoWithRemoteSpan(queueEvent.tracingInfo, spanName, deadLetterPipeline)
 }
 
 fun getClosePaymentOutcome(tx: BaseTransaction): TransactionClosureData.Outcome? =

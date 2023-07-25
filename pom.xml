@@ -19,7 +19,7 @@
 		<kotlinx-coroutines.version>1.6.2</kotlinx-coroutines.version>
 		<spring-cloud-azure.version>4.0.0</spring-cloud-azure.version>
 		<jacoco.version>0.8.8</jacoco.version>
-		<pagopa-ecommerce-commons.version>0.19.2</pagopa-ecommerce-commons.version>
+		<pagopa-ecommerce-commons.version>0.19.4</pagopa-ecommerce-commons.version>
 		<sonar.coverage.exclusions> <!-- the members of the following list should be in the same line -->
 			**/it/pagopa/transactions/**
 		</sonar.coverage.exclusions>
@@ -205,6 +205,23 @@
 			<version>4.1.82.Final</version>
 			<classifier>osx-aarch_64</classifier>
 		</dependency>
+		<dependency>
+			<groupId>io.opentelemetry</groupId>
+			<artifactId>opentelemetry-api</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>io.opentelemetry</groupId>
+			<artifactId>opentelemetry-sdk</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>io.opentelemetry</groupId>
+			<artifactId>opentelemetry-exporter-otlp</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>io.opentelemetry</groupId>
+			<artifactId>opentelemetry-semconv</artifactId>
+			<version>1.27.0-alpha</version>
+		</dependency>
 	</dependencies>
 	<dependencyManagement>
 		<dependencies>
@@ -212,6 +229,13 @@
 				<groupId>com.azure.spring</groupId>
 				<artifactId>spring-cloud-azure-dependencies</artifactId>
 				<version>${spring-cloud-azure.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+			<dependency>
+				<groupId>io.opentelemetry</groupId>
+				<artifactId>opentelemetry-bom</artifactId>
+				<version>1.27.0</version>
 				<type>pom</type>
 				<scope>import</scope>
 			</dependency>
