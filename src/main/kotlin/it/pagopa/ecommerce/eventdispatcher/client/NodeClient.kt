@@ -1,5 +1,6 @@
 package it.pagopa.ecommerce.eventdispatcher.client
 
+import it.pagopa.ecommerce.commons.domain.v1.TransactionId
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadClosePaymentRequest
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadGatewayException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.GatewayTimeoutException
@@ -7,7 +8,6 @@ import it.pagopa.ecommerce.eventdispatcher.exceptions.TransactionNotFound
 import it.pagopa.generated.ecommerce.nodo.v2.api.NodoApi
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
-import java.util.*
 import kotlinx.coroutines.reactor.awaitSingle
 import kotlinx.coroutines.reactor.mono
 import org.springframework.beans.factory.annotation.Autowired
@@ -34,7 +34,7 @@ class NodeClient(@Autowired private val nodeApi: NodoApi) {
       } catch (exception: WebClientResponseException) {
         throw when (exception.statusCode) {
           HttpStatus.NOT_FOUND ->
-            TransactionNotFound(UUID.fromString(closePaymentRequest.transactionId))
+            TransactionNotFound(TransactionId(closePaymentRequest.transactionId).uuid)
           HttpStatus.BAD_REQUEST -> BadClosePaymentRequest("")
           HttpStatus.REQUEST_TIMEOUT -> GatewayTimeoutException()
           HttpStatus.INTERNAL_SERVER_ERROR -> BadGatewayException("")

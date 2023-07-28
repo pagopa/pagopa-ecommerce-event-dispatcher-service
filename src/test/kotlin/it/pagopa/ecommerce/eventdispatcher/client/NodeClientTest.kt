@@ -1,5 +1,7 @@
 package it.pagopa.ecommerce.eventdispatcher.client
 
+import it.pagopa.ecommerce.commons.domain.v1.TransactionId
+import it.pagopa.ecommerce.commons.v1.TransactionTestUtils
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadClosePaymentRequest
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadGatewayException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.GatewayTimeoutException
@@ -9,7 +11,6 @@ import it.pagopa.generated.ecommerce.nodo.v2.api.NodoApi
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto.OutcomeEnum
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
 import java.nio.charset.Charset
-import java.util.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.reactor.awaitSingle
 import kotlinx.coroutines.test.runTest
@@ -33,12 +34,14 @@ class NodeClientTest {
   @Mock private lateinit var nodeApi: NodoApi
 
   @InjectMocks private lateinit var nodeClient: NodeClient
+
   companion object {
     const val CLOSE_PAYMENT_CLIENT_ID: String = "ecomm"
   }
+
   @Test
   fun `closePayment returns successfully`() = runTest {
-    val transactionId: UUID = UUID.randomUUID()
+    val transactionId = TransactionId(TransactionTestUtils.TRANSACTION_ID)
 
     val closePaymentRequest = getMockedClosePaymentRequest(transactionId, OutcomeEnum.OK)
     val expected =
@@ -56,7 +59,7 @@ class NodeClientTest {
 
   @Test
   fun `closePayment throws TransactionEventNotFoundException on Node 404`() = runTest {
-    val transactionId: UUID = UUID.randomUUID()
+    val transactionId = TransactionId(TransactionTestUtils.TRANSACTION_ID)
 
     val closePaymentRequest = getMockedClosePaymentRequest(transactionId, OutcomeEnum.OK)
 
@@ -73,7 +76,7 @@ class NodeClientTest {
 
   @Test
   fun `closePayment throws GatewayTimeoutException on Node 408`() = runTest {
-    val transactionId: UUID = UUID.randomUUID()
+    val transactionId = TransactionId(TransactionTestUtils.TRANSACTION_ID)
 
     val closePaymentRequest = getMockedClosePaymentRequest(transactionId, OutcomeEnum.OK)
 
@@ -92,7 +95,7 @@ class NodeClientTest {
 
   @Test
   fun `closePayment throws BadGatewayException on Node 500`() = runTest {
-    val transactionId: UUID = UUID.randomUUID()
+    val transactionId = TransactionId(TransactionTestUtils.TRANSACTION_ID)
 
     val closePaymentRequest = getMockedClosePaymentRequest(transactionId, OutcomeEnum.OK)
 
@@ -113,7 +116,7 @@ class NodeClientTest {
 
   @Test
   fun `closePayment throws BadClosePaymentRequest on Node 400`() = runTest {
-    val transactionId: UUID = UUID.randomUUID()
+    val transactionId = TransactionId(TransactionTestUtils.TRANSACTION_ID)
 
     val closePaymentRequest = getMockedClosePaymentRequest(transactionId, OutcomeEnum.OK)
 
