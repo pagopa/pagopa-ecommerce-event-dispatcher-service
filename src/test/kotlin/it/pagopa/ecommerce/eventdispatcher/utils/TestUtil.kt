@@ -4,6 +4,7 @@ import com.azure.core.http.rest.Response
 import com.azure.core.http.rest.ResponseBase
 import com.azure.storage.queue.models.SendMessageResult
 import it.pagopa.ecommerce.commons.documents.v1.TransactionAuthorizationRequestData
+import it.pagopa.ecommerce.commons.domain.v1.TransactionId
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
@@ -13,7 +14,7 @@ import java.util.*
 import reactor.core.publisher.Mono
 
 fun getMockedClosePaymentRequest(
-  transactionId: UUID,
+  transactionId: TransactionId,
   outcome: ClosePaymentRequestV2Dto.OutcomeEnum
 ): ClosePaymentRequestV2Dto {
 
@@ -42,7 +43,7 @@ fun getMockedClosePaymentRequest(
     paymentMethod = authEventData.paymentTypeCode
     idBrokerPSP = authEventData.brokerName
     idChannel = authEventData.pspChannelCode
-    this.transactionId = transactionId.toString()
+    this.transactionId = transactionId.value()
     totalAmount = (authEventData.amount + authEventData.fee).toBigDecimal()
     timestampOperation = OffsetDateTime.now()
   }
