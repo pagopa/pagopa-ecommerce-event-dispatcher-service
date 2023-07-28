@@ -1,6 +1,7 @@
 package it.pagopa.ecommerce.eventdispatcher.queues
 
 import com.azure.core.util.BinaryData
+import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
@@ -13,6 +14,8 @@ import it.pagopa.ecommerce.commons.domain.v1.Transaction
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithRefundRequested
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
+import it.pagopa.ecommerce.commons.queues.QueueEvent
+import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
@@ -42,26 +45,37 @@ class TransactionsRefundQueueConsumer(
   @Autowired private val transactionsViewRepository: TransactionsViewRepository,
   @Autowired private val refundRetryService: RefundRetryService,
   @Autowired private val deadLetterQueueAsyncClient: QueueAsyncClient,
-  @Value("\${azurestorage.queues.deadLetterQueue.ttlSeconds}") private val deadLetterTTLSeconds: Int
+  @Value("\${azurestorage.queues.deadLetterQueue.ttlSeconds}")
+  private val deadLetterTTLSeconds: Int,
+  @Autowired private val tracingUtils: TracingUtils,
 ) {
 
   var logger: Logger = LoggerFactory.getLogger(TransactionsRefundQueueConsumer::class.java)
 
   private fun parseEvent(
     data: BinaryData
-  ): Mono<Either<TransactionRefundRetriedEvent, TransactionRefundRequestedEvent>> {
-    val refundRequestedEvent = data.toObjectAsync(TransactionRefundRequestedEvent::class.java)
-    val refundRetriedEvent = data.toObjectAsync(TransactionRefundRetriedEvent::class.java)
+  ): Mono<
+    Either<
+      QueueEvent<TransactionRefundRetriedEvent>, QueueEvent<TransactionRefundRequestedEvent>>> {
+    val refundRequestedEvent =
+      data.toObjectAsync(object : TypeReference<QueueEvent<TransactionRefundRequestedEvent>>() {})
+    val refundRetriedEvent =
+      data.toObjectAsync(object : TypeReference<QueueEvent<TransactionRefundRetriedEvent>>() {})
 
     return refundRequestedEvent
-      .map { Either.right<TransactionRefundRetriedEvent, TransactionRefundRequestedEvent>(it) }
+      .map {
+        Either.right<
+          QueueEvent<TransactionRefundRetriedEvent>, QueueEvent<TransactionRefundRequestedEvent>>(
+          it)
+      }
       .onErrorResume { refundRetriedEvent.map { Either.left(it) } }
   }
 
   private fun getTransactionIdFromPayload(
-    event: Either<TransactionRefundRetriedEvent, TransactionRefundRequestedEvent>
+    event:
+      Either<QueueEvent<TransactionRefundRetriedEvent>, QueueEvent<TransactionRefundRequestedEvent>>
   ): String {
-    return event.fold({ it.transactionId }, { it.transactionId })
+    return event.fold({ it.event.transactionId }, { it.event.transactionId })
   }
 
   @ServiceActivator(inputChannel = "transactionsrefundchannel", outputChannel = "nullChannel")
@@ -101,7 +115,17 @@ class TransactionsRefundQueueConsumer(
             refundRetryService)
         }
 
-    return runPipelineWithDeadLetterQueue(
-      checkPointer, refundPipeline, payload, deadLetterQueueAsyncClient, deadLetterTTLSeconds)
+    return queueEvent.flatMap { e ->
+      val event = e.fold({ it }, { it })
+
+      runTracedPipelineWithDeadLetterQueue(
+        checkPointer,
+        refundPipeline,
+        event,
+        deadLetterQueueAsyncClient,
+        deadLetterTTLSeconds,
+        tracingUtils,
+        this::class.simpleName!!)
+    }
   }
 }
