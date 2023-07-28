@@ -6,7 +6,7 @@ microservice-chart:
     create: true
   image:
     repository: pagopadcommonacr.azurecr.io/pagopaecommerceeventdispatcherservice
-    tag: "0.8.3"
+    tag: "0.8.5"
     pullPolicy: Always
   livenessProbe:
     httpGet:

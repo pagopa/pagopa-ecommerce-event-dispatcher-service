@@ -1,6 +1,7 @@
 package it.pagopa.ecommerce.eventdispatcher.queues
 
 import com.azure.core.util.BinaryData
+import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v1.*
@@ -10,6 +11,9 @@ import it.pagopa.ecommerce.commons.domain.v1.TransactionId
 import it.pagopa.ecommerce.commons.domain.v1.TransactionWithClosureError
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
+import it.pagopa.ecommerce.commons.queues.QueueEvent
+import it.pagopa.ecommerce.commons.queues.TracingInfoTest.MOCK_TRACING_INFO
+import it.pagopa.ecommerce.commons.queues.TracingUtilsTests
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils.*
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
@@ -66,6 +70,8 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
   private val deadLetterQueueAsyncClient: QueueAsyncClient = mock()
 
+  private val tracingUtils = TracingUtilsTests.getMock()
+
   @Captor private lateinit var viewArgumentCaptor: ArgumentCaptor<Transaction>
 
   @Captor
@@ -89,7 +95,8 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       paymentGatewayClient = paymentGatewayClient,
       refundRetryService = refundRetryService,
       deadLetterQueueAsyncClient = deadLetterQueueAsyncClient,
-      deadLetterTTLSeconds = DEAD_LETTER_QUEUE_TTL_SECONDS)
+      deadLetterTTLSeconds = DEAD_LETTER_QUEUE_TTL_SECONDS,
+      tracingUtils = tracingUtils)
 
   @Test
   fun `consumer processes bare closure error message correctly with OK closure outcome for authorization completed transaction`() =
@@ -136,7 +143,8 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
       StepVerifier.create(
           transactionClosureErrorEventsConsumer.messageReceiver(
-            BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer))
+            BinaryData.fromObject(QueueEvent(closureErrorEvent, MOCK_TRACING_INFO)).toBytes(),
+            checkpointer))
         .expectNext()
         .verifyComplete()
 
@@ -208,7 +216,8 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
       StepVerifier.create(
           transactionClosureErrorEventsConsumer.messageReceiver(
-            BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer))
+            BinaryData.fromObject(QueueEvent(closureErrorEvent, MOCK_TRACING_INFO)).toBytes(),
+            checkpointer))
         .expectNext()
         .verifyComplete()
 
@@ -280,7 +289,8 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
       StepVerifier.create(
           transactionClosureErrorEventsConsumer.messageReceiver(
-            BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer))
+            BinaryData.fromObject(QueueEvent(closureErrorEvent, MOCK_TRACING_INFO)).toBytes(),
+            checkpointer))
         .expectNext()
         .verifyComplete()
 
@@ -344,7 +354,8 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
       StepVerifier.create(
           transactionClosureErrorEventsConsumer.messageReceiver(
-            BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer))
+            BinaryData.fromObject(QueueEvent(closureErrorEvent, MOCK_TRACING_INFO)).toBytes(),
+            checkpointer))
         .expectNext()
         .verifyComplete()
 
@@ -408,7 +419,8 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
       StepVerifier.create(
           transactionClosureErrorEventsConsumer.messageReceiver(
-            BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer))
+            BinaryData.fromObject(QueueEvent(closureErrorEvent, MOCK_TRACING_INFO)).toBytes(),
+            checkpointer))
         .expectNext()
         .verifyComplete()
 
@@ -484,7 +496,8 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
       StepVerifier.create(
           transactionClosureErrorEventsConsumer.messageReceiver(
-            BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer))
+            BinaryData.fromObject(QueueEvent(closureErrorEvent, MOCK_TRACING_INFO)).toBytes(),
+            checkpointer))
         .verifyComplete()
 
       /* Asserts */
@@ -501,8 +514,9 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       verify(deadLetterQueueAsyncClient, times(1))
         .sendMessageWithResponse(
           argThat<BinaryData> {
-            this.toObject(TransactionClosureErrorEvent::class.java).eventCode ==
-              TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT
+            this.toObject(object : TypeReference<QueueEvent<TransactionClosureErrorEvent>>() {})
+              .event
+              .eventCode == TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT
           },
           eq(Duration.ZERO),
           eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
@@ -538,7 +552,9 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
       StepVerifier.create(
           transactionClosureErrorEventsConsumer.messageReceiver(
-            BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer, emptyTransactionMock))
+            BinaryData.fromObject(QueueEvent(closureErrorEvent, MOCK_TRACING_INFO)).toBytes(),
+            checkpointer,
+            emptyTransactionMock))
         .verifyComplete()
 
       /* Asserts */
@@ -551,8 +567,9 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       verify(deadLetterQueueAsyncClient, times(1))
         .sendMessageWithResponse(
           argThat<BinaryData> {
-            this.toObject(TransactionClosureErrorEvent::class.java).eventCode ==
-              TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT
+            this.toObject(object : TypeReference<QueueEvent<TransactionClosureErrorEvent>>() {})
+              .event
+              .eventCode == TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT
           },
           eq(Duration.ZERO),
           eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
@@ -602,7 +619,8 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
     StepVerifier.create(
         transactionClosureErrorEventsConsumer.messageReceiver(
-          BinaryData.fromObject(closureRetriedEvent).toBytes(), checkpointer))
+          BinaryData.fromObject(QueueEvent(closureRetriedEvent, MOCK_TRACING_INFO)).toBytes(),
+          checkpointer))
       .expectNext()
       .verifyComplete()
 
@@ -648,7 +666,8 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
     StepVerifier.create(
         transactionClosureErrorEventsConsumer.messageReceiver(
-          BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer))
+          BinaryData.fromObject(QueueEvent(closureErrorEvent, MOCK_TRACING_INFO)).toBytes(),
+          checkpointer))
       .verifyComplete()
 
     /* Asserts */
@@ -661,8 +680,9 @@ class TransactionClosePaymentRetryQueueConsumerTests {
     verify(deadLetterQueueAsyncClient, times(1))
       .sendMessageWithResponse(
         argThat<BinaryData> {
-          this.toObject(TransactionClosureErrorEvent::class.java).eventCode ==
-            TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT
+          this.toObject(object : TypeReference<QueueEvent<TransactionClosureErrorEvent>>() {})
+            .event
+            .eventCode == TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT
         },
         eq(Duration.ZERO),
         eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
@@ -724,7 +744,8 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
       StepVerifier.create(
           transactionClosureErrorEventsConsumer.messageReceiver(
-            BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer))
+            BinaryData.fromObject(QueueEvent(closureErrorEvent, MOCK_TRACING_INFO)).toBytes(),
+            checkpointer))
         .expectNext()
         .verifyComplete()
 
@@ -813,7 +834,8 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
     StepVerifier.create(
         transactionClosureErrorEventsConsumer.messageReceiver(
-          BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer))
+          BinaryData.fromObject(QueueEvent(closureErrorEvent, MOCK_TRACING_INFO)).toBytes(),
+          checkpointer))
       .expectNext()
       .verifyComplete()
 
@@ -900,7 +922,8 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
     StepVerifier.create(
         transactionClosureErrorEventsConsumer.messageReceiver(
-          BinaryData.fromObject(closureRetriedEvent).toBytes(), checkpointer))
+          BinaryData.fromObject(QueueEvent(closureRetriedEvent, MOCK_TRACING_INFO)).toBytes(),
+          checkpointer))
       .expectNext()
       .verifyComplete()
 
@@ -990,7 +1013,8 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
     StepVerifier.create(
         transactionClosureErrorEventsConsumer.messageReceiver(
-          BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer))
+          BinaryData.fromObject(QueueEvent(closureErrorEvent, MOCK_TRACING_INFO)).toBytes(),
+          checkpointer))
       .expectNext()
       .verifyComplete()
 
@@ -1079,7 +1103,8 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
       StepVerifier.create(
           transactionClosureErrorEventsConsumer.messageReceiver(
-            BinaryData.fromObject(closureErrorEvent).toBytes(), checkpointer))
+            BinaryData.fromObject(QueueEvent(closureErrorEvent, MOCK_TRACING_INFO)).toBytes(),
+            checkpointer))
         .verifyComplete()
 
       /* Asserts */
@@ -1094,8 +1119,9 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       verify(deadLetterQueueAsyncClient, times(1))
         .sendMessageWithResponse(
           argThat<BinaryData> {
-            this.toObject(TransactionClosureErrorEvent::class.java).eventCode ==
-              TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT
+            this.toObject(object : TypeReference<QueueEvent<TransactionClosureErrorEvent>>() {})
+              .event
+              .eventCode == TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT
           },
           eq(Duration.ZERO),
           eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
