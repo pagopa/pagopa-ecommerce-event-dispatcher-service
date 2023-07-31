@@ -595,7 +595,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
           transactionUserReceiptRequestedEvent(transactionUserReceiptData),
           notificationErrorEvent,
           notificationRetriedEvent)
-                as List<TransactionEvent<Any>>
+          as List<TransactionEvent<Any>>
       val baseTransaction =
         reduceEvents(*events.toTypedArray()) as BaseTransactionWithRequestedUserReceipt
       val transactionId = TRANSACTION_ID
@@ -604,8 +604,8 @@ class TransactionNotificationsRetryQueueConsumerTest {
       Hooks.onOperatorDebug()
       given(checkpointer.success()).willReturn(Mono.empty())
       given(
-        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
-          TRANSACTION_ID))
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
         .willReturn(Flux.fromIterable(events))
       given(userReceiptMailBuilder.buildNotificationEmailRequestDto(baseTransaction))
         .willReturn(NotificationEmailRequestDto())
@@ -621,10 +621,8 @@ class TransactionNotificationsRetryQueueConsumerTest {
       given(notificationRetryService.enqueueRetryEvent(any(), capture(retryCountCaptor)))
         .willReturn(Mono.empty())
       StepVerifier.create(
-        transactionNotificationsRetryQueueConsumer.messageReceiver(
-          BinaryData.fromObject(notificationRetriedEvent)
-            .toBytes(),
-          checkpointer))
+          transactionNotificationsRetryQueueConsumer.messageReceiver(
+            BinaryData.fromObject(notificationRetriedEvent).toBytes(), checkpointer))
         .expectNext()
         .verifyComplete()
       verify(checkpointer, times(1)).success()

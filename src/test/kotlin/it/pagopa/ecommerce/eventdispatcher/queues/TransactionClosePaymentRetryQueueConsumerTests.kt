@@ -790,7 +790,11 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
     val events =
       listOf(
-        activationEvent, authorizationRequestEvent, authorizationUpdateEvent, closureErrorEvent, closureRetriedEvent)
+        activationEvent,
+        authorizationRequestEvent,
+        authorizationUpdateEvent,
+        closureErrorEvent,
+        closureRetriedEvent as TransactionEvent<Any>)
 
     val expectedUpdatedTransaction =
       transactionDocument(
