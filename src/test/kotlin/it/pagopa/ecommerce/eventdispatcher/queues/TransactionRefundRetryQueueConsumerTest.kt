@@ -222,6 +222,153 @@ class TransactionRefundRetryQueueConsumerTest {
     }
 
   @Test
+  fun `messageReceiver consume legacy event correctly with OK outcome from gateway`() = runTest {
+    val activatedEvent = TransactionTestUtils.transactionActivateEvent()
+
+    val authorizationRequestedEvent = TransactionTestUtils.transactionAuthorizationRequestedEvent()
+
+    val expiredEvent =
+      TransactionTestUtils.transactionExpiredEvent(
+        TransactionTestUtils.reduceEvents(activatedEvent, authorizationRequestedEvent))
+    val refundRequestedEvent =
+      TransactionTestUtils.transactionRefundRequestedEvent(
+        TransactionTestUtils.reduceEvents(
+          activatedEvent, authorizationRequestedEvent, expiredEvent))
+    val refundErrorEvent =
+      TransactionTestUtils.transactionRefundErrorEvent(
+        TransactionTestUtils.reduceEvents(
+          activatedEvent, authorizationRequestedEvent, expiredEvent, refundRequestedEvent))
+    val refundRetriedEvent = TransactionTestUtils.transactionRefundRetriedEvent(0)
+
+    val gatewayClientResponse =
+      VposDeleteResponseDto().apply { status = VposDeleteResponseDto.StatusEnum.CANCELLED }
+
+    /* preconditions */
+    given(checkpointer.success()).willReturn(Mono.empty())
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+          any(),
+        ))
+      .willReturn(
+        Flux.just(
+          activatedEvent as TransactionEvent<Any>,
+          authorizationRequestedEvent as TransactionEvent<Any>,
+          expiredEvent as TransactionEvent<Any>,
+          refundRequestedEvent as TransactionEvent<Any>,
+          refundRetriedEvent as TransactionEvent<Any>,
+          refundErrorEvent as TransactionEvent<Any>))
+
+    given(
+        transactionsRefundedEventStoreRepository.save(transactionRefundEventStoreCaptor.capture()))
+      .willAnswer { Mono.just(it.arguments[0]) }
+    given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
+      Mono.just(it.arguments[0])
+    }
+    given(paymentGatewayClient.requestVPosRefund(any()))
+      .willReturn(Mono.just(gatewayClientResponse))
+    given(refundRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture()))
+      .willReturn(Mono.empty())
+    given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
+      .willReturn(
+        Mono.just(
+          TransactionTestUtils.transactionDocument(
+            TransactionStatusDto.REFUND_ERROR, ZonedDateTime.now())))
+    /* test */
+    StepVerifier.create(
+        transactionRefundRetryQueueConsumer.messageReceiver(
+          BinaryData.fromObject(refundRetriedEvent).toBytes(), checkpointer))
+      .verifyComplete()
+
+    /* Asserts */
+    verify(checkpointer, times(1)).success()
+    verify(paymentGatewayClient, times(1)).requestVPosRefund(any())
+    assertEquals(
+      TransactionStatusDto.REFUNDED,
+      transactionViewRepositoryCaptor.value.status,
+      "Unexpected view status")
+    assertEquals(
+      TransactionEventCode.TRANSACTION_REFUNDED_EVENT,
+      transactionRefundEventStoreCaptor.value.eventCode,
+      "Unexpected event code")
+    verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any())
+  }
+
+  @Test
+  fun `messageReceiver consume legacy event correctly with KO outcome from gateway writing refund error event`() =
+    runTest {
+      val retryCount = 0
+      val activatedEvent = TransactionTestUtils.transactionActivateEvent()
+
+      val authorizationRequestedEvent =
+        TransactionTestUtils.transactionAuthorizationRequestedEvent()
+
+      val expiredEvent =
+        TransactionTestUtils.transactionExpiredEvent(
+          TransactionTestUtils.reduceEvents(activatedEvent, authorizationRequestedEvent))
+      val refundRequestedEvent =
+        TransactionTestUtils.transactionRefundRequestedEvent(
+          TransactionTestUtils.reduceEvents(
+            activatedEvent, authorizationRequestedEvent, expiredEvent))
+      val refundErrorEvent =
+        TransactionTestUtils.transactionRefundErrorEvent(
+          TransactionTestUtils.reduceEvents(
+            activatedEvent, authorizationRequestedEvent, expiredEvent, refundRequestedEvent))
+      val refundRetriedEvent = TransactionTestUtils.transactionRefundRetriedEvent(retryCount)
+
+      val gatewayClientResponse =
+        VposDeleteResponseDto().apply { status = VposDeleteResponseDto.StatusEnum.CREATED }
+
+      /* preconditions */
+      given(checkpointer.success()).willReturn(Mono.empty())
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            any(),
+          ))
+        .willReturn(
+          Flux.just(
+            activatedEvent as TransactionEvent<Any>,
+            authorizationRequestedEvent as TransactionEvent<Any>,
+            expiredEvent as TransactionEvent<Any>,
+            refundRequestedEvent as TransactionEvent<Any>,
+            refundRetriedEvent as TransactionEvent<Any>,
+            refundErrorEvent as TransactionEvent<Any>))
+
+      given(
+          transactionsRefundedEventStoreRepository.save(
+            transactionRefundEventStoreCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
+      given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
+        Mono.just(it.arguments[0])
+      }
+      given(paymentGatewayClient.requestVPosRefund(any()))
+        .willReturn(Mono.just(gatewayClientResponse))
+      given(refundRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture()))
+        .willReturn(Mono.empty())
+      given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
+        .willReturn(
+          Mono.just(
+            TransactionTestUtils.transactionDocument(
+              TransactionStatusDto.REFUND_ERROR, ZonedDateTime.now())))
+      /* test */
+      StepVerifier.create(
+          transactionRefundRetryQueueConsumer.messageReceiver(
+            BinaryData.fromObject(refundRetriedEvent).toBytes(), checkpointer))
+        .verifyComplete()
+
+      /* Asserts */
+      verify(checkpointer, times(1)).success()
+      verify(paymentGatewayClient, times(1)).requestVPosRefund(any())
+      verify(transactionsRefundedEventStoreRepository, times(1)).save(any())
+      verify(transactionsViewRepository, times(1)).save(any())
+      verify(refundRetryService, times(1)).enqueueRetryEvent(any(), any())
+      assertEquals(retryCount, retryCountCaptor.value)
+      assertEquals(TransactionStatusDto.REFUND_ERROR, transactionViewRepositoryCaptor.value.status)
+      assertEquals(
+        TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT,
+        transactionRefundEventStoreCaptor.value.eventCode)
+    }
+
+  @Test
   fun `messageReceiver consume event correctly with KO outcome from gateway not writing refund error event for retried event`() =
     runTest {
       val retryCount = 1

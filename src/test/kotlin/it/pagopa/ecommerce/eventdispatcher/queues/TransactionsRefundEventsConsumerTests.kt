@@ -1,10 +1,8 @@
 package it.pagopa.ecommerce.eventdispatcher.queues
 
-import com.azure.core.serializer.json.jackson.JacksonJsonSerializerBuilder
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
-import com.fasterxml.jackson.databind.ObjectMapper
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithRequestedAuthorization
@@ -56,9 +54,6 @@ class TransactionsRefundEventsConsumerTests {
     mock()
 
   private val tracingUtils = TracingUtilsTests.getMock()
-
-  private val jacksonJsonSerializer =
-    JacksonJsonSerializerBuilder().serializer(ObjectMapper()).build()
 
   @Captor
   private lateinit var refundEventStoreCaptor:
@@ -140,6 +135,69 @@ class TransactionsRefundEventsConsumerTests {
     assertEquals(TransactionEventCode.TRANSACTION_REFUNDED_EVENT, storedEvent.eventCode)
     assertEquals(TransactionStatusDto.REFUND_REQUESTED, storedEvent.data.statusBeforeRefunded)
   }
+
+  @Test
+  fun `consumer processes refund request event correctly with pgs refund with legacy event`() =
+    runTest {
+      val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
+      val authorizationRequestEvent =
+        transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
+      val authorizationCompleteEvent =
+        transactionAuthorizationCompletedEvent() as TransactionEvent<Any>
+      val closedEvent =
+        transactionClosedEvent(TransactionClosureData.Outcome.KO) as TransactionEvent<Any>
+      val refundRequestedEvent =
+        TransactionRefundRequestedEvent(
+          TRANSACTION_ID, TransactionRefundedData(TransactionStatusDto.REFUND_REQUESTED))
+          as TransactionEvent<Any>
+
+      val gatewayClientResponse =
+        VposDeleteResponseDto().apply { status = VposDeleteResponseDto.StatusEnum.CANCELLED }
+
+      val events =
+        listOf(
+          activationEvent,
+          authorizationRequestEvent,
+          authorizationCompleteEvent,
+          closedEvent,
+          refundRequestedEvent)
+
+      val transaction =
+        reduceEvents(*events.toTypedArray()) as BaseTransactionWithRequestedAuthorization
+
+      /* preconditions */
+      given(checkpointer.success()).willReturn(Mono.empty())
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
+        .willReturn(events.toFlux())
+      given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
+      given(transactionsRefundedEventStoreRepository.save(refundEventStoreCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
+      given(paymentGatewayClient.requestVPosRefund(any()))
+        .willReturn(Mono.just(gatewayClientResponse))
+      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturn(
+          mono { transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now()) })
+
+      /* test */
+      StepVerifier.create(
+          transactionRefundedEventsConsumer.messageReceiver(
+            BinaryData.fromObject(refundRequestedEvent).toBytes(), checkpointer))
+        .expectNext()
+        .verifyComplete()
+
+      /* Asserts */
+      verify(checkpointer, Mockito.times(1)).success()
+      verify(paymentGatewayClient, Mockito.times(1))
+        .requestVPosRefund(
+          UUID.fromString(transaction.transactionAuthorizationRequestData.authorizationRequestId))
+      verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
+      verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any())
+      val storedEvent = refundEventStoreCaptor.value
+      assertEquals(TransactionEventCode.TRANSACTION_REFUNDED_EVENT, storedEvent.eventCode)
+      assertEquals(TransactionStatusDto.REFUND_REQUESTED, storedEvent.data.statusBeforeRefunded)
+    }
 
   @Test
   fun `consumer processes refund request event correctly with pgs refund (xpay)`() = runTest {
@@ -317,6 +375,73 @@ class TransactionsRefundEventsConsumerTests {
     assertEquals(TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT, storedEvent.eventCode)
     assertEquals(TransactionStatusDto.REFUND_REQUESTED, storedEvent.data.statusBeforeRefunded)
   }
+
+  @Test
+  fun `consumer enqueue refund retry event for KO response from PGS (vpos) with legacy event`() =
+    runTest {
+      val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
+      val authorizationRequestEvent =
+        transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
+      val authorizationCompleteEvent =
+        transactionAuthorizationCompletedEvent() as TransactionEvent<Any>
+      val closedEvent =
+        transactionClosedEvent(TransactionClosureData.Outcome.KO) as TransactionEvent<Any>
+      val refundRequestedEvent =
+        TransactionRefundRequestedEvent(
+          TRANSACTION_ID, TransactionRefundedData(TransactionStatusDto.REFUND_REQUESTED))
+          as TransactionEvent<Any>
+
+      val gatewayClientResponse =
+        VposDeleteResponseDto().apply { status = VposDeleteResponseDto.StatusEnum.CREATED }
+
+      val events =
+        listOf(
+          activationEvent,
+          authorizationRequestEvent,
+          authorizationCompleteEvent,
+          closedEvent,
+          refundRequestedEvent)
+
+      val transaction =
+        reduceEvents(*events.toTypedArray()) as BaseTransactionWithRequestedAuthorization
+
+      /* preconditions */
+      given(checkpointer.success()).willReturn(Mono.empty())
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
+        .willReturn(events.toFlux())
+      given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
+      given(transactionsRefundedEventStoreRepository.save(refundEventStoreCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
+      given(paymentGatewayClient.requestVPosRefund(any()))
+        .willReturn(Mono.just(gatewayClientResponse))
+      given(refundRetryService.enqueueRetryEvent(any(), any())).willReturn(Mono.empty())
+      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturn(
+          Mono.just(
+            transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now())))
+
+      /* test */
+
+      StepVerifier.create(
+          transactionRefundedEventsConsumer.messageReceiver(
+            BinaryData.fromObject(refundRequestedEvent).toBytes(), checkpointer))
+        .expectNext()
+        .verifyComplete()
+
+      /* Asserts */
+      verify(checkpointer, Mockito.times(1)).success()
+      verify(paymentGatewayClient, Mockito.times(1))
+        .requestVPosRefund(
+          UUID.fromString(transaction.transactionAuthorizationRequestData.authorizationRequestId))
+      verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
+      verify(refundRetryService, times(1)).enqueueRetryEvent(any(), any())
+
+      val storedEvent = refundEventStoreCaptor.value
+      assertEquals(TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT, storedEvent.eventCode)
+      assertEquals(TransactionStatusDto.REFUND_REQUESTED, storedEvent.data.statusBeforeRefunded)
+    }
 
   @Test
   fun `consumer enqueue refund retry event for KO response from PGS (xpay)`() = runTest {
