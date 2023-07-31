@@ -579,6 +579,69 @@ class TransactionNotificationsRetryQueueConsumerTest {
     }
 
   @Test
+  fun `Should enqueue notification retry event for failure retry calling notification service send payment result outcome OK with legacy event`() =
+    runTest {
+      val attempt = 1
+      val transactionUserReceiptData =
+        transactionUserReceiptData(TransactionUserReceiptData.Outcome.OK)
+      val notificationErrorEvent = transactionUserReceiptAddErrorEvent(transactionUserReceiptData)
+      val notificationRetriedEvent = transactionUserReceiptAddRetriedEvent(attempt)
+      val events =
+        listOf(
+          transactionActivateEvent(),
+          transactionAuthorizationRequestedEvent(),
+          transactionAuthorizationCompletedEvent(),
+          transactionClosedEvent(TransactionClosureData.Outcome.OK),
+          transactionUserReceiptRequestedEvent(transactionUserReceiptData),
+          notificationErrorEvent,
+          notificationRetriedEvent)
+                as List<TransactionEvent<Any>>
+      val baseTransaction =
+        reduceEvents(*events.toTypedArray()) as BaseTransactionWithRequestedUserReceipt
+      val transactionId = TRANSACTION_ID
+      val document =
+        transactionDocument(TransactionStatusDto.NOTIFICATION_ERROR, ZonedDateTime.now())
+      Hooks.onOperatorDebug()
+      given(checkpointer.success()).willReturn(Mono.empty())
+      given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+          TRANSACTION_ID))
+        .willReturn(Flux.fromIterable(events))
+      given(userReceiptMailBuilder.buildNotificationEmailRequestDto(baseTransaction))
+        .willReturn(NotificationEmailRequestDto())
+      given(notificationsServiceClient.sendNotificationEmail(any()))
+        .willReturn(Mono.error(RuntimeException("Error calling notification service")))
+      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturn(Mono.just(document))
+      given(transactionsViewRepository.save(capture(transactionViewRepositoryCaptor))).willAnswer {
+        Mono.just(it.arguments[0])
+      }
+      given(transactionUserReceiptRepository.save(capture(transactionUserReceiptCaptor)))
+        .willAnswer { Mono.just(it.arguments[0]) }
+      given(notificationRetryService.enqueueRetryEvent(any(), capture(retryCountCaptor)))
+        .willReturn(Mono.empty())
+      StepVerifier.create(
+        transactionNotificationsRetryQueueConsumer.messageReceiver(
+          BinaryData.fromObject(notificationRetriedEvent)
+            .toBytes(),
+          checkpointer))
+        .expectNext()
+        .verifyComplete()
+      verify(checkpointer, times(1)).success()
+      verify(transactionsEventStoreRepository, times(1))
+        .findByTransactionIdOrderByCreationDateAsc(transactionId)
+      verify(notificationsServiceClient, times(1)).sendNotificationEmail(any())
+      verify(notificationRetryService, times(1)).enqueueRetryEvent(any(), any())
+      verify(transactionsViewRepository, times(0)).save(any())
+      verify(transactionRefundRepository, times(0)).save(any())
+      verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
+      verify(transactionUserReceiptRepository, times(0)).save(any())
+      verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any())
+      verify(userReceiptMailBuilder, times(1)).buildNotificationEmailRequestDto(baseTransaction)
+      assertEquals(attempt, retryCountCaptor.value)
+    }
+
+  @Test
   fun `Should enqueue notification retry event for failure retry calling notification service send payment result outcome KO`() =
     runTest {
       val attempt = 1
