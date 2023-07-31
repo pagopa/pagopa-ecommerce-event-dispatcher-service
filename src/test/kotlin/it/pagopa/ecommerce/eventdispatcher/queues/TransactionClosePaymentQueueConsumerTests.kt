@@ -148,6 +148,66 @@ class TransactionClosePaymentQueueConsumerTests {
   }
 
   @Test
+  fun `consumer processes bare legacy close message correctly with OK closure outcome`() = runTest {
+    val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
+    val cancelRequestEvent = transactionUserCanceledEvent() as TransactionEvent<Any>
+
+    val events = listOf(activationEvent, cancelRequestEvent)
+
+    val transactionDocument =
+      transactionDocument(
+        TransactionStatusDto.CANCELLATION_REQUESTED,
+        ZonedDateTime.parse(activationEvent.creationDate))
+
+    val expectedUpdatedTransactionCanceled =
+      transactionDocument(
+        TransactionStatusDto.CANCELED, ZonedDateTime.parse(activationEvent.creationDate))
+
+    val transactionId = TransactionId(TRANSACTION_ID)
+
+    /* preconditions */
+    given(checkpointer.success()).willReturn(Mono.empty())
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
+      .willReturn(events.toFlux())
+    given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+      .willReturn(Mono.just(transactionDocument))
+    given(transactionsViewRepository.save(viewArgumentCaptor.capture())).willAnswer {
+      Mono.just(it.arguments[0])
+    }
+    given(transactionClosedEventRepository.save(closedEventStoreRepositoryCaptor.capture()))
+      .willAnswer { Mono.just(it.arguments[0]) }
+    given(nodeService.closePayment(transactionId, ClosePaymentRequestV2Dto.OutcomeEnum.KO))
+      .willReturn(
+        ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK })
+
+    /* test */
+
+    StepVerifier.create(
+        transactionClosureEventsConsumer.messageReceiver(
+          BinaryData.fromObject(cancelRequestEvent).toBytes(), checkpointer))
+      .expectNext()
+      .verifyComplete()
+
+    /* Asserts */
+    verify(checkpointer, Mockito.times(1)).success()
+    verify(nodeService, Mockito.times(1))
+      .closePayment(transactionId, ClosePaymentRequestV2Dto.OutcomeEnum.KO)
+    verify(transactionClosedEventRepository, Mockito.times(1))
+      .save(any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
+    // mocking
+    verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransactionCanceled)
+    verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any())
+    assertEquals(TransactionStatusDto.CANCELED, viewArgumentCaptor.value.status)
+    assertEquals(
+      TransactionEventCode.TRANSACTION_CLOSED_EVENT,
+      closedEventStoreRepositoryCaptor.value.eventCode)
+    assertEquals(
+      TransactionClosureData.Outcome.OK,
+      closedEventStoreRepositoryCaptor.value.data.responseOutcome)
+  }
+
+  @Test
   fun `consumer processes bare close message correctly with KO closure outcome`() = runTest {
     val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
     val cancelRequestEvent = transactionUserCanceledEvent() as TransactionEvent<Any>
@@ -187,6 +247,66 @@ class TransactionClosePaymentQueueConsumerTests {
         transactionClosureEventsConsumer.messageReceiver(
           BinaryData.fromObject(QueueEvent(cancelRequestEvent, MOCK_TRACING_INFO)).toBytes(),
           checkpointer))
+      .expectNext()
+      .verifyComplete()
+
+    /* Asserts */
+    verify(checkpointer, Mockito.times(1)).success()
+    verify(nodeService, Mockito.times(1))
+      .closePayment(transactionId, ClosePaymentRequestV2Dto.OutcomeEnum.KO)
+    verify(transactionClosedEventRepository, Mockito.times(1))
+      .save(any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
+    // mocking
+    verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransactionCanceled)
+    verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any())
+    assertEquals(TransactionStatusDto.CANCELED, viewArgumentCaptor.value.status)
+    assertEquals(
+      TransactionEventCode.TRANSACTION_CLOSED_EVENT,
+      closedEventStoreRepositoryCaptor.value.eventCode)
+    assertEquals(
+      TransactionClosureData.Outcome.KO,
+      closedEventStoreRepositoryCaptor.value.data.responseOutcome)
+  }
+
+  @Test
+  fun `consumer processes bare legacy close message correctly with KO closure outcome`() = runTest {
+    val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
+    val cancelRequestEvent = transactionUserCanceledEvent() as TransactionEvent<Any>
+
+    val events = listOf(activationEvent, cancelRequestEvent)
+
+    val transactionDocument =
+      transactionDocument(
+        TransactionStatusDto.CANCELLATION_REQUESTED,
+        ZonedDateTime.parse(activationEvent.creationDate))
+
+    val expectedUpdatedTransactionCanceled =
+      transactionDocument(
+        TransactionStatusDto.CANCELED, ZonedDateTime.parse(activationEvent.creationDate))
+
+    val transactionId = TransactionId(TRANSACTION_ID)
+
+    /* preconditions */
+    given(checkpointer.success()).willReturn(Mono.empty())
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
+      .willReturn(events.toFlux())
+    given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+      .willReturn(Mono.just(transactionDocument))
+    given(transactionsViewRepository.save(viewArgumentCaptor.capture())).willAnswer {
+      Mono.just(it.arguments[0])
+    }
+    given(transactionClosedEventRepository.save(closedEventStoreRepositoryCaptor.capture()))
+      .willAnswer { Mono.just(it.arguments[0]) }
+    given(nodeService.closePayment(transactionId, ClosePaymentRequestV2Dto.OutcomeEnum.KO))
+      .willReturn(
+        ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.KO })
+
+    /* test */
+
+    StepVerifier.create(
+        transactionClosureEventsConsumer.messageReceiver(
+          BinaryData.fromObject(cancelRequestEvent).toBytes(), checkpointer))
       .expectNext()
       .verifyComplete()
 

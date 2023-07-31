@@ -14,6 +14,7 @@ import it.pagopa.ecommerce.commons.domain.v1.TransactionWithCancellationRequeste
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithCancellationRequested
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
+import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadClosePaymentRequest
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
@@ -54,6 +55,22 @@ class TransactionClosePaymentQueueConsumer(
 ) {
   var logger: Logger = LoggerFactory.getLogger(TransactionClosePaymentQueueConsumer::class.java)
 
+  private fun parseEvent(
+    binaryData: BinaryData
+  ): Mono<Pair<TransactionUserCanceledEvent, TracingInfo?>> {
+    val queueEvent =
+      binaryData
+        .toObjectAsync(object : TypeReference<QueueEvent<TransactionUserCanceledEvent>>() {})
+        .map { Pair(it.event, it.tracingInfo) }
+
+    val untracedEvent =
+      binaryData.toObjectAsync(object : TypeReference<TransactionUserCanceledEvent>() {}).map {
+        Pair(it, null)
+      }
+
+    return queueEvent.onErrorResume { untracedEvent }
+  }
+
   @ServiceActivator(inputChannel = "transactionclosureschannel", outputChannel = "nullChannel")
   fun messageReceiver(
     @Payload payload: ByteArray,
@@ -66,10 +83,8 @@ class TransactionClosePaymentQueueConsumer(
     emptyTransaction: EmptyTransaction
   ): Mono<Void> {
     val binaryData = BinaryData.fromBytes(payload)
-    val queueEvent =
-      binaryData.toObjectAsync(
-        object : TypeReference<QueueEvent<TransactionUserCanceledEvent>>() {})
-    val transactionId = queueEvent.map { it.event.transactionId }
+    val queueEvent = parseEvent(binaryData)
+    val transactionId = queueEvent.map { it.first.transactionId }
     val baseTransaction =
       reduceEvents(transactionId, transactionsEventStoreRepository, emptyTransaction)
     val closurePipeline =
@@ -155,14 +170,26 @@ class TransactionClosePaymentQueueConsumer(
         .then()
 
     return queueEvent.flatMap {
-      runTracedPipelineWithDeadLetterQueue(
-        checkPointer,
-        closurePipeline,
-        it,
-        deadLetterQueueAsyncClient,
-        deadLetterTTLSeconds,
-        tracingUtils,
-        this::class.simpleName!!)
+      val (event, tracingInfo) = it
+
+      if (tracingInfo != null) {
+        runTracedPipelineWithDeadLetterQueue(
+          checkPointer,
+          closurePipeline,
+          QueueEvent(event, tracingInfo),
+          deadLetterQueueAsyncClient,
+          deadLetterTTLSeconds,
+          tracingUtils,
+          this::class.simpleName!!)
+      } else {
+        runPipelineWithDeadLetterQueue(
+          checkPointer,
+          closurePipeline,
+          BinaryData.fromObject(event).toBytes(),
+          deadLetterQueueAsyncClient,
+          deadLetterTTLSeconds,
+        )
+      }
     }
   }
 
