@@ -11,6 +11,7 @@ import it.pagopa.ecommerce.commons.domain.v1.Transaction
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
+import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
@@ -48,9 +49,20 @@ class TransactionRefundRetryQueueConsumer(
 
   var logger: Logger = LoggerFactory.getLogger(TransactionRefundRetryQueueConsumer::class.java)
 
-  private fun parseInputEvent(data: BinaryData): Mono<QueueEvent<TransactionRefundRetriedEvent>> {
-    return data.toObjectAsync(
-      object : TypeReference<QueueEvent<TransactionRefundRetriedEvent>>() {})
+  private fun parseEvent(
+    data: BinaryData
+  ): Mono<Pair<TransactionRefundRetriedEvent, TracingInfo?>> {
+    val refundRetriedEvent =
+      data
+        .toObjectAsync(object : TypeReference<QueueEvent<TransactionRefundRetriedEvent>>() {})
+        .map { it.event to it.tracingInfo }
+
+    val untracedRefundRetriedEvent =
+      data.toObjectAsync(object : TypeReference<TransactionRefundRetriedEvent>() {}).map {
+        it to null
+      }
+
+    return Mono.firstWithValue(refundRetriedEvent, untracedRefundRetriedEvent)
   }
 
   @ServiceActivator(inputChannel = "transactionrefundretrychannel", outputChannel = "nullChannel")
@@ -59,12 +71,12 @@ class TransactionRefundRetryQueueConsumer(
     @Header(AzureHeaders.CHECKPOINTER) checkPointer: Checkpointer
   ): Mono<Void> {
     val binaryData = BinaryData.fromBytes(payload)
-    val event = parseInputEvent(binaryData)
+    val event = parseEvent(binaryData)
     val baseTransaction =
       event
         .flatMapMany {
           transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
-            it.event.transactionId)
+            it.first.transactionId)
         }
         .reduce(EmptyTransaction(), Transaction::applyEvent)
         .cast(BaseTransaction::class.java)
@@ -84,25 +96,35 @@ class TransactionRefundRetryQueueConsumer(
           }
         }
         .flatMap { tx ->
-          event.flatMap { queueEvent ->
+          event.flatMap { (e, _) ->
             refundTransaction(
               tx,
               transactionsRefundedEventStoreRepository,
               transactionsViewRepository,
               paymentGatewayClient,
               refundRetryService,
-              queueEvent.event.data.retryCount)
+              e.data.retryCount)
           }
         }
-    return event.flatMap {
-      runTracedPipelineWithDeadLetterQueue(
-        checkPointer,
-        refundPipeline,
-        it,
-        deadLetterQueueAsyncClient,
-        deadLetterTTLSeconds,
-        tracingUtils,
-        this::class.simpleName!!)
+    return event.flatMap { (e, tracingInfo) ->
+      if (tracingInfo != null) {
+        runTracedPipelineWithDeadLetterQueue(
+          checkPointer,
+          refundPipeline,
+          QueueEvent(e, tracingInfo),
+          deadLetterQueueAsyncClient,
+          deadLetterTTLSeconds,
+          tracingUtils,
+          this::class.simpleName!!)
+      } else {
+        runPipelineWithDeadLetterQueue(
+          checkPointer,
+          refundPipeline,
+          BinaryData.fromObject(e).toBytes(),
+          deadLetterQueueAsyncClient,
+          deadLetterTTLSeconds,
+        )
+      }
     }
   }
 }
