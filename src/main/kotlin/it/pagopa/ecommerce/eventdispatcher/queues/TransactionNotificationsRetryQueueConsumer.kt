@@ -12,6 +12,7 @@ import it.pagopa.ecommerce.commons.domain.v1.TransactionWithUserReceiptError
 import it.pagopa.ecommerce.commons.domain.v1.pojos.*
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
+import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.client.NotificationsServiceClient
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
@@ -59,43 +60,57 @@ class TransactionNotificationsRetryQueueConsumer(
     LoggerFactory.getLogger(TransactionNotificationsRetryQueueConsumer::class.java)
 
   private fun getTransactionIdFromPayload(
-    event:
-      Either<
-        QueueEvent<TransactionUserReceiptAddErrorEvent>,
-        QueueEvent<TransactionUserReceiptAddRetriedEvent>>
+    event: Either<TransactionUserReceiptAddErrorEvent, TransactionUserReceiptAddRetriedEvent>
   ): String {
-    return event.fold({ it.event.transactionId }, { it.event.transactionId })
+    return event.fold({ it.transactionId }, { it.transactionId })
   }
 
   private fun getRetryCountFromPayload(
-    event:
-      Either<
-        QueueEvent<TransactionUserReceiptAddErrorEvent>,
-        QueueEvent<TransactionUserReceiptAddRetriedEvent>>
+    event: Either<TransactionUserReceiptAddErrorEvent, TransactionUserReceiptAddRetriedEvent>
   ): Int {
-    return event.fold({ 0 }, { Optional.ofNullable(it.event.data.retryCount).orElse(0) })
+    return event.fold({ 0 }, { Optional.ofNullable(it.data.retryCount).orElse(0) })
   }
 
   private fun parseEvent(
     data: BinaryData
   ): Mono<
-    Either<
-      QueueEvent<TransactionUserReceiptAddErrorEvent>,
-      QueueEvent<TransactionUserReceiptAddRetriedEvent>>> {
+    Pair<
+      Either<TransactionUserReceiptAddErrorEvent, TransactionUserReceiptAddRetriedEvent>,
+      TracingInfo?>> {
     val notificationErrorEvent =
-      data.toObjectAsync(
-        object : TypeReference<QueueEvent<TransactionUserReceiptAddErrorEvent>>() {})
+      data
+        .toObjectAsync(object : TypeReference<QueueEvent<TransactionUserReceiptAddErrorEvent>>() {})
+        .map {
+          Either.left<TransactionUserReceiptAddErrorEvent, TransactionUserReceiptAddRetriedEvent>(
+            it.event) to it.tracingInfo
+        }
 
     val notificationRetryEvent =
-      data.toObjectAsync(
-        object : TypeReference<QueueEvent<TransactionUserReceiptAddRetriedEvent>>() {})
+      data
+        .toObjectAsync(
+          object : TypeReference<QueueEvent<TransactionUserReceiptAddRetriedEvent>>() {})
+        .map {
+          Either.right<TransactionUserReceiptAddErrorEvent, TransactionUserReceiptAddRetriedEvent>(
+            it.event) to it.tracingInfo
+        }
 
-    return notificationErrorEvent
-      .map<
-        Either<
-          QueueEvent<TransactionUserReceiptAddErrorEvent>,
-          QueueEvent<TransactionUserReceiptAddRetriedEvent>>> { Either.left(it) }
-      .onErrorResume { notificationRetryEvent.map { Either.right(it) } }
+    val untracedNotificationErrorEvent =
+      data.toObjectAsync(object : TypeReference<TransactionUserReceiptAddErrorEvent>() {}).map {
+        Either.left<TransactionUserReceiptAddErrorEvent, TransactionUserReceiptAddRetriedEvent>(
+          it) to null
+      }
+
+    val untracedNotificationRetryEvent =
+      data.toObjectAsync(object : TypeReference<TransactionUserReceiptAddRetriedEvent>() {}).map {
+        Either.right<TransactionUserReceiptAddErrorEvent, TransactionUserReceiptAddRetriedEvent>(
+          it) to null
+      }
+
+    return Mono.firstWithValue(
+      notificationErrorEvent,
+      notificationRetryEvent,
+      untracedNotificationErrorEvent,
+      untracedNotificationRetryEvent)
   }
 
   @ServiceActivator(
@@ -105,9 +120,9 @@ class TransactionNotificationsRetryQueueConsumer(
     @Header(AzureHeaders.CHECKPOINTER) checkPointer: Checkpointer
   ): Mono<Void> {
     val binaryData = BinaryData.fromBytes(payload)
-    val event = parseEvent(binaryData)
-    val transactionId = event.map { getTransactionIdFromPayload(it) }
-    val retryCount = event.map { getRetryCountFromPayload(it) }
+    val eventData = parseEvent(binaryData)
+    val transactionId = eventData.map { getTransactionIdFromPayload(it.first) }
+    val retryCount = eventData.map { getRetryCountFromPayload(it.first) }
     val baseTransaction =
       reduceEvents(transactionId, transactionsEventStoreRepository, EmptyTransaction())
     val notificationResendPipeline =
@@ -166,17 +181,29 @@ class TransactionNotificationsRetryQueueConsumer(
             }
         }
 
-    return event.flatMap { it ->
-      val e = it.fold({ it as QueueEvent<*> }, { it as QueueEvent<*> })
+    return eventData.flatMap { (e, tracingInfo) ->
+      if (tracingInfo != null) {
+        val event = e.fold({ QueueEvent(it, tracingInfo) }, { QueueEvent(it, tracingInfo) })
 
-      runTracedPipelineWithDeadLetterQueue(
-        checkPointer,
-        notificationResendPipeline,
-        e,
-        deadLetterQueueAsyncClient,
-        deadLetterTTLSeconds,
-        tracingUtils,
-        this::class.simpleName!!)
+        runTracedPipelineWithDeadLetterQueue(
+          checkPointer,
+          notificationResendPipeline,
+          event,
+          deadLetterQueueAsyncClient,
+          deadLetterTTLSeconds,
+          tracingUtils,
+          this::class.simpleName!!)
+      } else {
+        val eventBytes =
+          e.fold({ BinaryData.fromObject(it).toBytes() }, { BinaryData.fromObject(it).toBytes() })
+
+        runPipelineWithDeadLetterQueue(
+          checkPointer,
+          notificationResendPipeline,
+          eventBytes,
+          deadLetterQueueAsyncClient,
+          deadLetterTTLSeconds)
+      }
     }
   }
 }
