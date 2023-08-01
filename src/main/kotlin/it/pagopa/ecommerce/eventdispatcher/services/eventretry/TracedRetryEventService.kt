@@ -1,6 +1,7 @@
 package it.pagopa.ecommerce.eventdispatcher.services.eventretry
 
-import it.pagopa.ecommerce.commons.client.QueueAsyncClient
+import com.azure.core.util.BinaryData
+import com.azure.storage.queue.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v1.TransactionEvent
 import it.pagopa.ecommerce.commons.documents.v1.TransactionRetriedData
 import it.pagopa.ecommerce.commons.domain.v1.TransactionId
@@ -32,7 +33,7 @@ abstract class TracedRetryEventService<E>(
   fun enqueueRetryEvent(
     baseTransaction: BaseTransaction,
     retriedCount: Int,
-    tracingInfo: TracingInfo
+    tracingInfo: TracingInfo?
   ): Mono<Void> {
     val retryEvent =
       buildRetryEvent(baseTransaction.transactionId, TransactionRetriedData(retriedCount + 1))
@@ -83,11 +84,11 @@ abstract class TracedRetryEventService<E>(
   private fun enqueueMessage(
     event: E,
     visibilityTimeout: Duration,
-    tracingInfo: TracingInfo
+    tracingInfo: TracingInfo?
   ): Mono<Void> =
     queueAsyncClient
       .sendMessageWithResponse(
-        QueueEvent(event, tracingInfo),
+        queuePayload(event, tracingInfo),
         visibilityTimeout,
         Duration.ofSeconds(transientQueuesTTLSeconds.toLong()), // timeToLive
       )
@@ -97,4 +98,12 @@ abstract class TracedRetryEventService<E>(
       }
       .then()
       .doOnError { exception -> logger.error("Error sending event: [${event}].", exception) }
+
+  private fun queuePayload(event: E, tracingInfo: TracingInfo?): BinaryData {
+    return if (tracingInfo != null) {
+      BinaryData.fromObject(QueueEvent(event, tracingInfo))
+    } else {
+      BinaryData.fromObject(event)
+    }
+  }
 }
