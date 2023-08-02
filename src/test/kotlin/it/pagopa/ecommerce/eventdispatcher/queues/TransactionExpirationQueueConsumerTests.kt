@@ -181,6 +181,45 @@ class TransactionExpirationQueueConsumerTests {
   }
 
   @Test
+  fun `messageReceiver receives legacy expiration messages successfully`() {
+    val activatedEvent = transactionActivateEvent()
+    val tx = reduceEvents(activatedEvent)
+
+    val expiredEvent = transactionExpiredEvent(tx)
+
+    val transactionId = activatedEvent.transactionId
+
+    /* preconditions */
+    given(checkpointer.success()).willReturn(Mono.empty())
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+          transactionId,
+        ))
+      .willReturn(
+        Flux.just(activatedEvent as TransactionEvent<Any>, expiredEvent as TransactionEvent<Any>))
+    given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
+    given(transactionsExpiredEventStoreRepository.save(any())).willAnswer {
+      Mono.just(it.arguments[0])
+    }
+
+    given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+      .willReturn(
+        Mono.just(
+          transactionDocument(TransactionStatusDto.EXPIRED_NOT_AUTHORIZED, ZonedDateTime.now())))
+
+    /* test */
+    StepVerifier.create(
+        transactionExpirationQueueConsumer.messageReceiver(
+          BinaryData.fromObject(expiredEvent).toBytes(), checkpointer, MessageHeaders(mapOf())))
+      .expectNext()
+      .expectComplete()
+      .verify()
+
+    /* Asserts */
+    verify(checkpointer, Mockito.times(1)).success()
+  }
+
+  @Test
   fun `messageReceiver calls refund on transaction with authorization request`() = runTest {
     val activatedEvent = transactionActivateEvent()
     val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
