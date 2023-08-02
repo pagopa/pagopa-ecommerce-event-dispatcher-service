@@ -9,6 +9,7 @@ import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.TransactionWithClosureError
 import it.pagopa.ecommerce.commons.queues.QueueEvent
+import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.commons.utils.v1.TransactionUtils
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
@@ -62,18 +63,32 @@ class TransactionExpirationQueueConsumer(
 
   private fun parseEvent(
     data: BinaryData
-  ): Mono<Either<QueueEvent<TransactionActivatedEvent>, QueueEvent<TransactionExpiredEvent>>> {
+  ): Mono<Pair<Either<TransactionActivatedEvent, TransactionExpiredEvent>, TracingInfo?>> {
     val transactionActivatedEvent =
-      data.toObjectAsync(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {})
+      data.toObjectAsync(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {}).map {
+        Either.left<TransactionActivatedEvent, TransactionExpiredEvent>(it.event) to it.tracingInfo
+      }
 
     val transactionExpiredEvent =
-      data.toObjectAsync(object : TypeReference<QueueEvent<TransactionExpiredEvent>>() {})
-
-    return transactionExpiredEvent
-      .map<Either<QueueEvent<TransactionActivatedEvent>, QueueEvent<TransactionExpiredEvent>>?> {
-        Either.right(it)
+      data.toObjectAsync(object : TypeReference<QueueEvent<TransactionExpiredEvent>>() {}).map {
+        Either.right<TransactionActivatedEvent, TransactionExpiredEvent>(it.event) to it.tracingInfo
       }
-      .onErrorResume { transactionActivatedEvent.map { Either.left(it) } }
+
+    val untracedTransactionActivatedEvent =
+      data.toObjectAsync(object : TypeReference<TransactionActivatedEvent>() {}).map {
+        Either.left<TransactionActivatedEvent, TransactionExpiredEvent>(it) to null
+      }
+
+    val untracedTransactionExpiredEvent =
+      data.toObjectAsync(object : TypeReference<TransactionExpiredEvent>() {}).map {
+        Either.right<TransactionActivatedEvent, TransactionExpiredEvent>(it) to null
+      }
+
+    return Mono.firstWithValue(
+      transactionActivatedEvent,
+      transactionExpiredEvent,
+      untracedTransactionActivatedEvent,
+      untracedTransactionExpiredEvent)
   }
 
   @ServiceActivator(inputChannel = "transactionexpiredchannel", outputChannel = "nullChannel")
@@ -85,7 +100,7 @@ class TransactionExpirationQueueConsumer(
     val binaryData = BinaryData.fromBytes(payload)
     val queueEvent = parseEvent(binaryData)
     val transactionId =
-      queueEvent.map { e -> e.fold({ it.event.transactionId }, { it.event.transactionId }) }
+      queueEvent.map { e -> e.first.fold({ it.transactionId }, { it.transactionId }) }
     val events =
       transactionId.flatMapMany {
         transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(it)
@@ -103,7 +118,8 @@ class TransactionExpirationQueueConsumer(
           val sendPaymentResultTimeLeft =
             timeLeftForSendPaymentResult(it, sendPaymentResultTimeoutSeconds, events)
           sendPaymentResultTimeLeft
-            .flatMap { timeLeft ->
+            .zipWith(queueEvent, ::Pair)
+            .flatMap { (timeLeft) ->
               val sendPaymentResultOffset =
                 Duration.ofSeconds(sendPaymentResultTimeoutOffsetSeconds.toLong())
               val expired = timeLeft < sendPaymentResultOffset
@@ -122,6 +138,7 @@ class TransactionExpirationQueueConsumer(
               } else {
                 logger.info(
                   "Transaction ${it.transactionId.value()} still waiting for sendPaymentResult outcome, expiration event sent with visibility timeout: $timeLeft")
+
                 expirationQueueAsyncClient
                   .sendMessageWithResponse(
                     binaryData,
@@ -153,7 +170,9 @@ class TransactionExpirationQueueConsumer(
           updateTransactionToRefundRequested(
             it, transactionsRefundedEventStoreRepository, transactionsViewRepository)
         }
-        .flatMap { tx ->
+        .zipWith(queueEvent, ::Pair)
+        .flatMap { (tx, event) ->
+          val tracingInfo = event.second
           val transaction =
             if (tx is TransactionWithClosureError) {
               tx.transactionAtPreviousState
@@ -165,20 +184,32 @@ class TransactionExpirationQueueConsumer(
             transactionsRefundedEventStoreRepository,
             transactionsViewRepository,
             paymentGatewayClient,
-            refundRetryService)
+            refundRetryService,
+            tracingInfo)
         }
 
     return queueEvent.flatMap { e ->
-      val event = e.fold({ it }, { it })
+      val tracingInfo = e.second
 
-      runTracedPipelineWithDeadLetterQueue(
-        checkPointer,
-        refundPipeline,
-        event,
-        deadLetterQueueAsyncClient,
-        deadLetterTTLSeconds,
-        tracingUtils,
-        this::class.simpleName!!)
+      val event = e.first.fold({ it }, { it })
+
+      if (tracingInfo != null) {
+        runTracedPipelineWithDeadLetterQueue(
+          checkPointer,
+          refundPipeline,
+          QueueEvent(event, tracingInfo),
+          deadLetterQueueAsyncClient,
+          deadLetterTTLSeconds,
+          tracingUtils,
+          this::class.simpleName!!)
+      } else {
+        runPipelineWithDeadLetterQueue(
+          checkPointer,
+          refundPipeline,
+          BinaryData.fromObject(event).toBytes(),
+          deadLetterQueueAsyncClient,
+          deadLetterTTLSeconds)
+      }
     }
   }
 }

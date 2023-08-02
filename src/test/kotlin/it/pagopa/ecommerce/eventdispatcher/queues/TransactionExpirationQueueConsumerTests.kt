@@ -10,7 +10,6 @@ import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
-import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingInfoTest.MOCK_TRACING_INFO
 import it.pagopa.ecommerce.commons.queues.TracingUtilsTests
 import it.pagopa.ecommerce.commons.utils.v1.TransactionUtils
@@ -76,6 +75,8 @@ class TransactionExpirationQueueConsumerTests {
 
   @Captor private lateinit var retryCountCaptor: ArgumentCaptor<Int>
 
+  @Captor private lateinit var queueEventCaptor: ArgumentCaptor<BinaryData>
+
   @Captor private lateinit var binaryDataCaptor: ArgumentCaptor<BinaryData>
 
   @Captor private lateinit var visibilityTimeoutCaptor: ArgumentCaptor<Duration>
@@ -137,6 +138,79 @@ class TransactionExpirationQueueConsumerTests {
           BinaryData.fromObject(QueueEvent(activatedEvent, MOCK_TRACING_INFO)).toBytes(),
           checkpointer,
           MessageHeaders(mapOf())))
+      .expectNext()
+      .expectComplete()
+      .verify()
+
+    /* Asserts */
+    verify(checkpointer, Mockito.times(1)).success()
+  }
+
+  @Test
+  fun `messageReceiver receives legacy activated messages successfully`() {
+    val activatedEvent = transactionActivateEvent()
+    val transactionId = activatedEvent.transactionId
+
+    /* preconditions */
+    given(checkpointer.success()).willReturn(Mono.empty())
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+          transactionId,
+        ))
+      .willReturn(Flux.just(activatedEvent as TransactionEvent<Any>))
+    given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
+    given(transactionsExpiredEventStoreRepository.save(any())).willAnswer {
+      Mono.just(it.arguments[0])
+    }
+
+    given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+      .willReturn(
+        Mono.just(
+          transactionDocument(TransactionStatusDto.NOTIFICATION_ERROR, ZonedDateTime.now())))
+
+    /* test */
+    StepVerifier.create(
+        transactionExpirationQueueConsumer.messageReceiver(
+          BinaryData.fromObject(activatedEvent).toBytes(), checkpointer, MessageHeaders(mapOf())))
+      .expectNext()
+      .expectComplete()
+      .verify()
+
+    /* Asserts */
+    verify(checkpointer, Mockito.times(1)).success()
+  }
+
+  @Test
+  fun `messageReceiver receives legacy expiration messages successfully`() {
+    val activatedEvent = transactionActivateEvent()
+    val tx = reduceEvents(activatedEvent)
+
+    val expiredEvent = transactionExpiredEvent(tx)
+
+    val transactionId = activatedEvent.transactionId
+
+    /* preconditions */
+    given(checkpointer.success()).willReturn(Mono.empty())
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+          transactionId,
+        ))
+      .willReturn(
+        Flux.just(activatedEvent as TransactionEvent<Any>, expiredEvent as TransactionEvent<Any>))
+    given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
+    given(transactionsExpiredEventStoreRepository.save(any())).willAnswer {
+      Mono.just(it.arguments[0])
+    }
+
+    given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+      .willReturn(
+        Mono.just(
+          transactionDocument(TransactionStatusDto.EXPIRED_NOT_AUTHORIZED, ZonedDateTime.now())))
+
+    /* test */
+    StepVerifier.create(
+        transactionExpirationQueueConsumer.messageReceiver(
+          BinaryData.fromObject(expiredEvent).toBytes(), checkpointer, MessageHeaders(mapOf())))
       .expectNext()
       .expectComplete()
       .verify()
@@ -370,7 +444,7 @@ class TransactionExpirationQueueConsumerTests {
       }
       given(paymentGatewayClient.requestVPosRefund(any()))
         .willReturn(Mono.just(gatewayClientResponse))
-      given(refundRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture()))
+      given(refundRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture(), any()))
         .willReturn(Mono.empty())
 
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
@@ -1573,7 +1647,7 @@ class TransactionExpirationQueueConsumerTests {
       }
       given(paymentGatewayClient.requestVPosRefund(any()))
         .willReturn(Mono.just(gatewayClientResponse))
-      given(refundRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture()))
+      given(refundRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture(), any()))
         .willReturn(Mono.empty())
       Hooks.onOperatorDebug()
       /* test */
@@ -1675,7 +1749,7 @@ class TransactionExpirationQueueConsumerTests {
       }
       given(paymentGatewayClient.requestVPosRefund(any()))
         .willReturn(Mono.just(gatewayClientResponse))
-      given(refundRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture()))
+      given(refundRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture(), any()))
         .willReturn(Mono.empty())
       Hooks.onOperatorDebug()
       /* test */
@@ -2694,7 +2768,7 @@ class TransactionExpirationQueueConsumerTests {
 
       given(
           expirationQueueAsyncClient.sendMessageWithResponse(
-            binaryDataCaptor.capture(), visibilityTimeoutCaptor.capture(), anyOrNull()))
+            queueEventCaptor.capture(), visibilityTimeoutCaptor.capture(), anyOrNull()))
         .willReturn(queueSuccessfulResponse())
 
       Hooks.onOperatorDebug()
@@ -2715,9 +2789,7 @@ class TransactionExpirationQueueConsumerTests {
       verify(expirationQueueAsyncClient, times(1))
         .sendMessageWithResponse(
           argThat<BinaryData> {
-            this.toObject(
-                object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {},
-                StrictJsonSerializerProvider().createInstance())
+            this.toObject(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {})
               .event
               .eventCode == TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
           },

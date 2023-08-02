@@ -144,16 +144,20 @@ class TransactionNotificationsRetryQueueConsumer(
         .flatMap { tx ->
           mono { userReceiptMailBuilder.buildNotificationEmailRequestDto(tx) }
             .flatMap { notificationsServiceClient.sendNotificationEmail(it) }
-            .flatMap {
+            .zipWith(eventData, ::Pair)
+            .flatMap { (_, eventData) ->
               updateNotifiedTransactionStatus(
                   tx, transactionsViewRepository, transactionUserReceiptRepository)
                 .flatMap {
+                  val tracingInfo = eventData.second
+
                   notificationRefundTransactionPipeline(
                     tx,
                     transactionsRefundedEventStoreRepository,
                     transactionsViewRepository,
                     paymentGatewayClient,
-                    refundRetryService)
+                    refundRetryService,
+                    tracingInfo)
                 }
             }
             .then()
@@ -162,20 +166,27 @@ class TransactionNotificationsRetryQueueConsumer(
                 "Got exception while retrying user receipt mail sending for transaction with id ${tx.transactionId}!",
                 exception)
               retryCount
-                .flatMap { retryCount ->
-                  notificationRetryService.enqueueRetryEvent(tx, retryCount)
+                .zipWith(eventData, ::Pair)
+                .flatMap { (retryCount, eventData) ->
+                  val tracingInfo = eventData.second
+                  val v = notificationRetryService.enqueueRetryEvent(tx, retryCount, tracingInfo)
+                  logger.info("enq response: {}", v)
+                  v
                 }
                 .onErrorResume(NoRetryAttemptsLeftException::class.java) { enqueueException ->
                   logger.error(
                     "No more attempts left for user receipt send retry", enqueueException)
 
-                  notificationRefundTransactionPipeline(
-                      tx,
-                      transactionsRefundedEventStoreRepository,
-                      transactionsViewRepository,
-                      paymentGatewayClient,
-                      refundRetryService)
-                    .then()
+                  eventData.flatMap {
+                    notificationRefundTransactionPipeline(
+                        tx,
+                        transactionsRefundedEventStoreRepository,
+                        transactionsViewRepository,
+                        paymentGatewayClient,
+                        refundRetryService,
+                        it.second)
+                      .then()
+                  }
                 }
                 .then()
             }

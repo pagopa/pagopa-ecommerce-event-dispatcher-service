@@ -102,8 +102,8 @@ class TransactionsRefundQueueConsumer(
     @Header(AzureHeaders.CHECKPOINTER) checkPointer: Checkpointer
   ): Mono<Void> {
     val binaryData = BinaryData.fromBytes(payload)
-    val queueEvent = parseEvent(binaryData)
-    val transactionId = queueEvent.map { getTransactionIdFromPayload(it.first) }
+    val eventData = parseEvent(binaryData)
+    val transactionId = eventData.map { getTransactionIdFromPayload(it.first) }
 
     val refundPipeline =
       transactionId
@@ -124,16 +124,20 @@ class TransactionsRefundQueueConsumer(
           logger.info("Handling refund request for transaction with id ${it.transactionId.value()}")
         }
         .cast(BaseTransactionWithRefundRequested::class.java)
-        .flatMap { tx ->
+        .zipWith(eventData, ::Pair)
+        .flatMap { (tx, eventData) ->
+          val tracingInfo = eventData.second
+
           refundTransaction(
             tx,
             transactionsRefundedEventStoreRepository,
             transactionsViewRepository,
             paymentGatewayClient,
-            refundRetryService)
+            refundRetryService,
+            tracingInfo)
         }
 
-    return queueEvent.flatMap { (e, tracingInfo) ->
+    return eventData.flatMap { (e, tracingInfo) ->
       if (tracingInfo != null) {
         val event = e.fold({ QueueEvent(it, tracingInfo) }, { QueueEvent(it, tracingInfo) })
 

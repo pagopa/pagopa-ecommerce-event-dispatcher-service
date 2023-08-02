@@ -147,8 +147,8 @@ class TransactionNotificationsRetryQueueConsumerTest {
       .findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID)
     verify(transactionUserReceiptRepository, times(1)).save(any())
     verify(notificationsServiceClient, times(1)).sendNotificationEmail(any())
-    verify(notificationRetryService, times(0)).enqueueRetryEvent(any(), any())
-    verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any())
+    verify(notificationRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
+    verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
     verify(transactionsViewRepository, times(1)).save(any())
     verify(transactionRefundRepository, times(0)).save(any())
     verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
@@ -218,12 +218,12 @@ class TransactionNotificationsRetryQueueConsumerTest {
     verify(transactionsEventStoreRepository, times(1))
       .findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID)
     verify(notificationsServiceClient, times(1)).sendNotificationEmail(any())
-    verify(notificationRetryService, times(0)).enqueueRetryEvent(any(), any())
+    verify(notificationRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
     verify(transactionsViewRepository, times(3)).save(any())
     verify(transactionRefundRepository, times(2)).save(any())
     verify(paymentGatewayClient, times(1)).requestVPosRefund(any())
     verify(transactionUserReceiptRepository, times(1)).save(any())
-    verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any())
+    verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
     verify(userReceiptMailBuilder, times(1)).buildNotificationEmailRequestDto(baseTransaction)
     val savedEvent = transactionUserReceiptCaptor.value
     assertEquals(TransactionEventCode.TRANSACTION_USER_RECEIPT_ADDED_EVENT, savedEvent.eventCode)
@@ -295,8 +295,8 @@ class TransactionNotificationsRetryQueueConsumerTest {
         .findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID)
       verify(transactionUserReceiptRepository, times(1)).save(any())
       verify(notificationsServiceClient, times(1)).sendNotificationEmail(any())
-      verify(notificationRetryService, times(0)).enqueueRetryEvent(any(), any())
-      verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any())
+      verify(notificationRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
+      verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
       verify(transactionsViewRepository, times(1)).save(any())
       verify(transactionRefundRepository, times(0)).save(any())
       verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
@@ -366,12 +366,12 @@ class TransactionNotificationsRetryQueueConsumerTest {
       verify(transactionsEventStoreRepository, times(1))
         .findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID)
       verify(notificationsServiceClient, times(1)).sendNotificationEmail(any())
-      verify(notificationRetryService, times(0)).enqueueRetryEvent(any(), any())
+      verify(notificationRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
       verify(transactionsViewRepository, times(3)).save(any())
       verify(transactionRefundRepository, times(2)).save(any())
       verify(paymentGatewayClient, times(1)).requestVPosRefund(any())
       verify(transactionUserReceiptRepository, times(1)).save(any())
-      verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any())
+      verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
       verify(userReceiptMailBuilder, times(1)).buildNotificationEmailRequestDto(baseTransaction)
       val savedEvent = transactionUserReceiptCaptor.value
       assertEquals(TransactionEventCode.TRANSACTION_USER_RECEIPT_ADDED_EVENT, savedEvent.eventCode)
@@ -433,7 +433,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
       }
       given(transactionUserReceiptRepository.save(capture(transactionUserReceiptCaptor)))
         .willAnswer { Mono.just(it.arguments[0]) }
-      given(notificationRetryService.enqueueRetryEvent(any(), capture(retryCountCaptor)))
+      given(notificationRetryService.enqueueRetryEvent(any(), capture(retryCountCaptor), any()))
         .willReturn(Mono.empty())
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
@@ -445,12 +445,12 @@ class TransactionNotificationsRetryQueueConsumerTest {
       verify(transactionsEventStoreRepository, times(1))
         .findByTransactionIdOrderByCreationDateAsc(transactionId)
       verify(notificationsServiceClient, times(1)).sendNotificationEmail(any())
-      verify(notificationRetryService, times(1)).enqueueRetryEvent(any(), any())
+      verify(notificationRetryService, times(1)).enqueueRetryEvent(any(), any(), any())
       verify(transactionsViewRepository, times(0)).save(any())
       verify(transactionRefundRepository, times(0)).save(any())
       verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
       verify(transactionUserReceiptRepository, times(0)).save(any())
-      verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any())
+      verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
       verify(userReceiptMailBuilder, times(1)).buildNotificationEmailRequestDto(baseTransaction)
 
       assertEquals(0, retryCountCaptor.value)
@@ -493,7 +493,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
       }
       given(transactionUserReceiptRepository.save(capture(transactionUserReceiptCaptor)))
         .willAnswer { Mono.just(it.arguments[0]) }
-      given(notificationRetryService.enqueueRetryEvent(any(), capture(retryCountCaptor)))
+      given(notificationRetryService.enqueueRetryEvent(any(), capture(retryCountCaptor), any()))
         .willReturn(Mono.empty())
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
@@ -505,12 +505,12 @@ class TransactionNotificationsRetryQueueConsumerTest {
       verify(transactionsEventStoreRepository, times(1))
         .findByTransactionIdOrderByCreationDateAsc(transactionId)
       verify(notificationsServiceClient, times(1)).sendNotificationEmail(any())
-      verify(notificationRetryService, times(1)).enqueueRetryEvent(any(), any())
+      verify(notificationRetryService, times(1)).enqueueRetryEvent(any(), any(), any())
       verify(transactionsViewRepository, times(0)).save(any())
       verify(transactionRefundRepository, times(0)).save(any())
       verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
       verify(transactionUserReceiptRepository, times(0)).save(any())
-      verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any())
+      verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
       verify(userReceiptMailBuilder, times(1)).buildNotificationEmailRequestDto(baseTransaction)
       assertEquals(0, retryCountCaptor.value)
     }
@@ -555,7 +555,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
       }
       given(transactionUserReceiptRepository.save(capture(transactionUserReceiptCaptor)))
         .willAnswer { Mono.just(it.arguments[0]) }
-      given(notificationRetryService.enqueueRetryEvent(any(), capture(retryCountCaptor)))
+      given(notificationRetryService.enqueueRetryEvent(any(), capture(retryCountCaptor), any()))
         .willReturn(Mono.empty())
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
@@ -568,12 +568,12 @@ class TransactionNotificationsRetryQueueConsumerTest {
       verify(transactionsEventStoreRepository, times(1))
         .findByTransactionIdOrderByCreationDateAsc(transactionId)
       verify(notificationsServiceClient, times(1)).sendNotificationEmail(any())
-      verify(notificationRetryService, times(1)).enqueueRetryEvent(any(), any())
+      verify(notificationRetryService, times(1)).enqueueRetryEvent(any(), any(), any())
       verify(transactionsViewRepository, times(0)).save(any())
       verify(transactionRefundRepository, times(0)).save(any())
       verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
       verify(transactionUserReceiptRepository, times(0)).save(any())
-      verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any())
+      verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
       verify(userReceiptMailBuilder, times(1)).buildNotificationEmailRequestDto(baseTransaction)
       assertEquals(attempt, retryCountCaptor.value)
     }
@@ -618,7 +618,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
       }
       given(transactionUserReceiptRepository.save(capture(transactionUserReceiptCaptor)))
         .willAnswer { Mono.just(it.arguments[0]) }
-      given(notificationRetryService.enqueueRetryEvent(any(), capture(retryCountCaptor)))
+      given(notificationRetryService.enqueueRetryEvent(any(), capture(retryCountCaptor), isNull()))
         .willReturn(Mono.empty())
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
@@ -629,12 +629,12 @@ class TransactionNotificationsRetryQueueConsumerTest {
       verify(transactionsEventStoreRepository, times(1))
         .findByTransactionIdOrderByCreationDateAsc(transactionId)
       verify(notificationsServiceClient, times(1)).sendNotificationEmail(any())
-      verify(notificationRetryService, times(1)).enqueueRetryEvent(any(), any())
+      verify(notificationRetryService, times(1)).enqueueRetryEvent(any(), any(), isNull())
       verify(transactionsViewRepository, times(0)).save(any())
       verify(transactionRefundRepository, times(0)).save(any())
       verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
       verify(transactionUserReceiptRepository, times(0)).save(any())
-      verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any())
+      verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), isNull())
       verify(userReceiptMailBuilder, times(1)).buildNotificationEmailRequestDto(baseTransaction)
       assertEquals(attempt, retryCountCaptor.value)
     }
@@ -679,7 +679,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
       }
       given(transactionUserReceiptRepository.save(capture(transactionUserReceiptCaptor)))
         .willAnswer { Mono.just(it.arguments[0]) }
-      given(notificationRetryService.enqueueRetryEvent(any(), capture(retryCountCaptor)))
+      given(notificationRetryService.enqueueRetryEvent(any(), capture(retryCountCaptor), any()))
         .willReturn(Mono.empty())
 
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
@@ -701,12 +701,12 @@ class TransactionNotificationsRetryQueueConsumerTest {
       verify(transactionsEventStoreRepository, times(1))
         .findByTransactionIdOrderByCreationDateAsc(transactionId)
       verify(notificationsServiceClient, times(1)).sendNotificationEmail(any())
-      verify(notificationRetryService, times(1)).enqueueRetryEvent(any(), any())
+      verify(notificationRetryService, times(1)).enqueueRetryEvent(any(), any(), any())
       verify(transactionsViewRepository, times(0)).save(any())
       verify(transactionRefundRepository, times(0)).save(any())
       verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
       verify(transactionUserReceiptRepository, times(0)).save(any())
-      verify(notificationRetryService, times(1)).enqueueRetryEvent(any(), any())
+      verify(notificationRetryService, times(1)).enqueueRetryEvent(any(), any(), any())
       verify(userReceiptMailBuilder, times(1)).buildNotificationEmailRequestDto(baseTransaction)
       assertEquals(attempt, retryCountCaptor.value)
     }
@@ -752,7 +752,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
       given(transactionUserReceiptRepository.save(capture(transactionUserReceiptCaptor)))
         .willAnswer { Mono.just(it.arguments[0]) }
 
-      given(notificationRetryService.enqueueRetryEvent(any(), capture(retryCountCaptor)))
+      given(notificationRetryService.enqueueRetryEvent(any(), capture(retryCountCaptor), any()))
         .willReturn(
           Mono.error(
             NoRetryAttemptsLeftException(
@@ -779,12 +779,12 @@ class TransactionNotificationsRetryQueueConsumerTest {
       verify(transactionsEventStoreRepository, times(1))
         .findByTransactionIdOrderByCreationDateAsc(transactionId)
       verify(notificationsServiceClient, times(1)).sendNotificationEmail(any())
-      verify(notificationRetryService, times(1)).enqueueRetryEvent(any(), any())
+      verify(notificationRetryService, times(1)).enqueueRetryEvent(any(), any(), any())
       verify(transactionsViewRepository, times(0)).save(any())
       verify(transactionRefundRepository, times(0)).save(any())
       verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
       verify(transactionUserReceiptRepository, times(0)).save(any())
-      verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any())
+      verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
       verify(userReceiptMailBuilder, times(1)).buildNotificationEmailRequestDto(baseTransaction)
       assertEquals(attempt, retryCountCaptor.value)
     }
@@ -829,7 +829,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
       }
       given(transactionUserReceiptRepository.save(capture(transactionUserReceiptCaptor)))
         .willAnswer { Mono.just(it.arguments[0]) }
-      given(notificationRetryService.enqueueRetryEvent(any(), capture(retryCountCaptor)))
+      given(notificationRetryService.enqueueRetryEvent(any(), capture(retryCountCaptor), any()))
         .willReturn(
           Mono.error(
             NoRetryAttemptsLeftException(
@@ -860,12 +860,12 @@ class TransactionNotificationsRetryQueueConsumerTest {
       verify(transactionsEventStoreRepository, times(1))
         .findByTransactionIdOrderByCreationDateAsc(transactionId)
       verify(notificationsServiceClient, times(1)).sendNotificationEmail(any())
-      verify(notificationRetryService, times(1)).enqueueRetryEvent(any(), any())
+      verify(notificationRetryService, times(1)).enqueueRetryEvent(any(), any(), any())
       verify(transactionsViewRepository, times(2)).save(any())
       verify(transactionRefundRepository, times(2)).save(any())
       verify(paymentGatewayClient, times(1)).requestVPosRefund(any())
       verify(transactionUserReceiptRepository, times(0)).save(any())
-      verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any())
+      verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
       verify(userReceiptMailBuilder, times(1)).buildNotificationEmailRequestDto(baseTransaction)
       assertEquals(attempt, retryCountCaptor.value)
       val expectedStatuses =
@@ -908,12 +908,12 @@ class TransactionNotificationsRetryQueueConsumerTest {
     verify(transactionsEventStoreRepository, times(1))
       .findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID)
     verify(notificationsServiceClient, times(0)).sendNotificationEmail(any())
-    verify(notificationRetryService, times(0)).enqueueRetryEvent(any(), any())
+    verify(notificationRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
     verify(transactionsViewRepository, times(0)).save(any())
     verify(transactionRefundRepository, times(0)).save(any())
     verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
     verify(transactionUserReceiptRepository, times(0)).save(any())
-    verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any())
+    verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
     verify(userReceiptMailBuilder, times(0)).buildNotificationEmailRequestDto(any())
     verify(deadLetterQueueAsyncClient, times(1))
       .sendMessageWithResponse(

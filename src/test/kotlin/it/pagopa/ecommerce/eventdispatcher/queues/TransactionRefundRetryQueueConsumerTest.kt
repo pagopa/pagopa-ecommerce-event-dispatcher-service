@@ -117,7 +117,7 @@ class TransactionRefundRetryQueueConsumerTest {
     }
     given(paymentGatewayClient.requestVPosRefund(any()))
       .willReturn(Mono.just(gatewayClientResponse))
-    given(refundRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture()))
+    given(refundRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture(), any()))
       .willReturn(Mono.empty())
     given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
       .willReturn(
@@ -142,7 +142,7 @@ class TransactionRefundRetryQueueConsumerTest {
       TransactionEventCode.TRANSACTION_REFUNDED_EVENT,
       transactionRefundEventStoreCaptor.value.eventCode,
       "Unexpected event code")
-    verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any())
+    verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
   }
 
   @Test
@@ -194,7 +194,7 @@ class TransactionRefundRetryQueueConsumerTest {
       }
       given(paymentGatewayClient.requestVPosRefund(any()))
         .willReturn(Mono.just(gatewayClientResponse))
-      given(refundRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture()))
+      given(refundRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture(), any()))
         .willReturn(Mono.empty())
       given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
         .willReturn(
@@ -213,7 +213,7 @@ class TransactionRefundRetryQueueConsumerTest {
       verify(paymentGatewayClient, times(1)).requestVPosRefund(any())
       verify(transactionsRefundedEventStoreRepository, times(1)).save(any())
       verify(transactionsViewRepository, times(1)).save(any())
-      verify(refundRetryService, times(1)).enqueueRetryEvent(any(), any())
+      verify(refundRetryService, times(1)).enqueueRetryEvent(any(), any(), any())
       assertEquals(retryCount, retryCountCaptor.value)
       assertEquals(TransactionStatusDto.REFUND_ERROR, transactionViewRepositoryCaptor.value.status)
       assertEquals(
@@ -266,7 +266,7 @@ class TransactionRefundRetryQueueConsumerTest {
     }
     given(paymentGatewayClient.requestVPosRefund(any()))
       .willReturn(Mono.just(gatewayClientResponse))
-    given(refundRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture()))
+    given(refundRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture(), any()))
       .willReturn(Mono.empty())
     given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
       .willReturn(
@@ -290,7 +290,7 @@ class TransactionRefundRetryQueueConsumerTest {
       TransactionEventCode.TRANSACTION_REFUNDED_EVENT,
       transactionRefundEventStoreCaptor.value.eventCode,
       "Unexpected event code")
-    verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any())
+    verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
   }
 
   @Test
@@ -342,7 +342,7 @@ class TransactionRefundRetryQueueConsumerTest {
       }
       given(paymentGatewayClient.requestVPosRefund(any()))
         .willReturn(Mono.just(gatewayClientResponse))
-      given(refundRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture()))
+      given(refundRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture(), isNull()))
         .willReturn(Mono.empty())
       given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
         .willReturn(
@@ -360,7 +360,7 @@ class TransactionRefundRetryQueueConsumerTest {
       verify(paymentGatewayClient, times(1)).requestVPosRefund(any())
       verify(transactionsRefundedEventStoreRepository, times(1)).save(any())
       verify(transactionsViewRepository, times(1)).save(any())
-      verify(refundRetryService, times(1)).enqueueRetryEvent(any(), any())
+      verify(refundRetryService, times(1)).enqueueRetryEvent(any(), any(), isNull())
       assertEquals(retryCount, retryCountCaptor.value)
       assertEquals(TransactionStatusDto.REFUND_ERROR, transactionViewRepositoryCaptor.value.status)
       assertEquals(
@@ -417,7 +417,7 @@ class TransactionRefundRetryQueueConsumerTest {
       }
       given(paymentGatewayClient.requestVPosRefund(any()))
         .willReturn(Mono.just(gatewayClientResponse))
-      given(refundRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture()))
+      given(refundRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture(), any()))
         .willReturn(Mono.empty())
       /* test */
       StepVerifier.create(
@@ -431,7 +431,7 @@ class TransactionRefundRetryQueueConsumerTest {
       verify(paymentGatewayClient, times(1)).requestVPosRefund(any())
       verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
       verify(transactionsViewRepository, times(0)).save(any())
-      verify(refundRetryService, times(1)).enqueueRetryEvent(any(), any())
+      verify(refundRetryService, times(1)).enqueueRetryEvent(any(), any(), any())
       assertEquals(retryCount, retryCountCaptor.value)
     }
 
@@ -466,7 +466,7 @@ class TransactionRefundRetryQueueConsumerTest {
       }
       given(paymentGatewayClient.requestVPosRefund(any()))
         .willReturn(Mono.just(gatewayClientResponse))
-      given(refundRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture()))
+      given(refundRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture(), any()))
         .willReturn(Mono.empty())
       given(
           deadLetterQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull()))
@@ -484,7 +484,7 @@ class TransactionRefundRetryQueueConsumerTest {
       verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
       verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
       verify(transactionsViewRepository, times(0)).save(any())
-      verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any())
+      verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
       verify(deadLetterQueueAsyncClient, times(1))
         .sendMessageWithResponse(
           argThat<BinaryData> {
