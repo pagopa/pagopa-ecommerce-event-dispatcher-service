@@ -51,7 +51,7 @@ microservice-chart:
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.elastic-system.svc:4317"
       OTEL_TRACES_EXPORTER: otlp
       OTEL_METRICS_EXPORTER: otlp
-      OTEL_LOGS_EXPORTER: none
+      OTEL_LOGS_EXPORTER: otlp
       OTEL_TRACES_SAMPLER: "always_on"
       SEND_PAYMENT_RESULT_TIMEOUT_SECONDS: "3900"
       SEND_PAYMENT_RESULT_EXPIRATION_OFFSET_SECONDS: "5"
@@ -166,7 +166,7 @@ microservice-chart:
     OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.elastic-system.svc:4317"
     OTEL_TRACES_EXPORTER: otlp
     OTEL_METRICS_EXPORTER: otlp
-    OTEL_LOGS_EXPORTER: none
+    OTEL_LOGS_EXPORTER: otlp
     OTEL_TRACES_SAMPLER: "always_on"
     SEND_PAYMENT_RESULT_TIMEOUT_SECONDS: "3900"
     SEND_PAYMENT_RESULT_EXPIRATION_OFFSET_SECONDS: "5"
