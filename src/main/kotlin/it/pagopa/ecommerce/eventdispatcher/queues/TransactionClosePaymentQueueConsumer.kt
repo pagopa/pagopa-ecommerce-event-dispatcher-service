@@ -10,7 +10,6 @@ import it.pagopa.ecommerce.commons.documents.v1.TransactionClosureData
 import it.pagopa.ecommerce.commons.documents.v1.TransactionClosureErrorEvent
 import it.pagopa.ecommerce.commons.documents.v1.TransactionUserCanceledEvent
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
-import it.pagopa.ecommerce.commons.domain.v1.PaymentNotice
 import it.pagopa.ecommerce.commons.domain.v1.TransactionWithCancellationRequested
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithCancellationRequested
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
@@ -28,7 +27,6 @@ import it.pagopa.ecommerce.eventdispatcher.services.NodeService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.ClosureRetryService
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
-import java.util.function.Consumer
 import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -174,11 +172,10 @@ class TransactionClosePaymentQueueConsumer(
               }
             }
             .doFinally {
-              tx.paymentNotices.forEach(
-                Consumer { el: PaymentNotice ->
-                  logger.info("Invalidate cache for RptId : {}", el.rptId().value())
-                  paymentRequestInfoRedisTemplateWrapper.deleteById(el.rptId().value())
-                })
+              tx.paymentNotices.forEach { el ->
+                logger.info("Invalidate cache for RptId : {}", el.rptId().value())
+                paymentRequestInfoRedisTemplateWrapper.deleteById(el.rptId().value())
+              }
             }
         }
         .then()
