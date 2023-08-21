@@ -50,11 +50,11 @@ class TransactionClosePaymentQueueConsumer(
   @Autowired private val nodeService: NodeService,
   @Autowired private val closureRetryService: ClosureRetryService,
   @Autowired private val deadLetterQueueAsyncClient: QueueAsyncClient,
-  @Autowired
-  private val paymentRequestInfoRedisTemplateWrapper: PaymentRequestInfoRedisTemplateWrapper,
   @Value("\${azurestorage.queues.deadLetterQueue.ttlSeconds}")
   private val deadLetterTTLSeconds: Int,
-  @Autowired private val tracingUtils: TracingUtils
+  @Autowired private val tracingUtils: TracingUtils,
+  @Autowired
+  private val paymentRequestInfoRedisTemplateWrapper: PaymentRequestInfoRedisTemplateWrapper,
 ) {
   var logger: Logger = LoggerFactory.getLogger(TransactionClosePaymentQueueConsumer::class.java)
 

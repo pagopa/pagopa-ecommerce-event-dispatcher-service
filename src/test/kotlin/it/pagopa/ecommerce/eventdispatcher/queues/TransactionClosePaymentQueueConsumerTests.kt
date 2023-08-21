@@ -86,10 +86,11 @@ class TransactionClosePaymentQueueConsumerTests {
       transactionsViewRepository = transactionsViewRepository,
       nodeService = nodeService,
       closureRetryService = closureRetryService,
-      paymentRequestInfoRedisTemplateWrapper = paymentRequestInfoRedisTemplateWrapper,
       deadLetterQueueAsyncClient = deadLetterQueueAsyncClient,
       deadLetterTTLSeconds = DEAD_LETTER_QUEUE_TTL_SECONDS,
-      tracingUtils = tracingUtils)
+      tracingUtils = tracingUtils,
+      paymentRequestInfoRedisTemplateWrapper = paymentRequestInfoRedisTemplateWrapper,
+    )
 
   @Test
   fun `consumer processes bare close message correctly with OK closure outcome`() = runTest {
