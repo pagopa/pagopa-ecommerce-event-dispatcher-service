@@ -35,6 +35,9 @@ microservice-chart:
       MONGO_USERNAME: pagopa-p-weu-ecommerce-cosmos-account
       MONGO_PORT: "10255"
       MONGO_SSL_ENABLED: "true"
+      REDIS_HOST: pagopa-p-weu-ecommerce-redis.redis.cache.windows.net
+      REDIS_PORT: "6380"
+      REDIS_SSL_ENABLED: "true"
       ECOMMERCE_STORAGE_TRANSIENT_QUEUE_ACCOUNT_NAME: pagopapweuecommercetrsa
       ECOMMERCE_STORAGE_TRANSIENT_QUEUE_ENDPOINT: https://pagopapweuecommercetrsa.queue.core.windows.net/pagopauweuecommercetrsa
       REFUND_RETRY_EVENT_BASE_INTERVAL_SECONDS: "600"
@@ -61,6 +64,7 @@ microservice-chart:
     envSecret:
       ECOMMERCE_STORAGE_TRANSIENT_QUEUE_KEY: ecommerce-storage-transient-account-key
       MONGO_PASSWORD: mongo-ecommerce-password
+      REDIS_PASSWORD: redis-ecommerce-password
       NODO_CONNECTION_STRING: nodo-connection-string
       QUEUE_TRANSIENT_CONNECTION_STRING: ecommerce-storage-transient-connection-string
       QUEUE_DEADLETTER_CONNECTION_STRING: ecommerce-storage-deadletter-connection-string
@@ -144,6 +148,9 @@ microservice-chart:
     MONGO_USERNAME: pagopa-p-weu-ecommerce-cosmos-account
     MONGO_PORT: "10255"
     MONGO_SSL_ENABLED: "true"
+    REDIS_HOST: pagopa-p-weu-ecommerce-redis.redis.cache.windows.net
+    REDIS_PORT: "6380"
+    REDIS_SSL_ENABLED: "true"
     ECOMMERCE_STORAGE_TRANSIENT_QUEUE_ACCOUNT_NAME: pagopapweuecommercetrsa
     ECOMMERCE_STORAGE_TRANSIENT_QUEUE_ENDPOINT: https://pagopapweuecommercetrsa.queue.core.windows.net/pagopapweuecommercetrsa
     REFUND_RETRY_EVENT_BASE_INTERVAL_SECONDS: "600"
@@ -170,6 +177,7 @@ microservice-chart:
   envSecret:
     ECOMMERCE_STORAGE_TRANSIENT_QUEUE_KEY: ecommerce-storage-transient-account-key
     MONGO_PASSWORD: mongo-ecommerce-password
+    REDIS_PASSWORD: redis-ecommerce-password
     NODO_CONNECTION_STRING: nodo-connection-string
     QUEUE_TRANSIENT_CONNECTION_STRING: ecommerce-storage-transient-connection-string
     QUEUE_DEADLETTER_CONNECTION_STRING: ecommerce-storage-deadletter-connection-string
