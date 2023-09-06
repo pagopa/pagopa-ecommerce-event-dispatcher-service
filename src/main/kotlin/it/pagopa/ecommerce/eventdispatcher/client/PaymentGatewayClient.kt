@@ -1,5 +1,7 @@
 package it.pagopa.ecommerce.eventdispatcher.client
 
+import it.pagopa.ecommerce.commons.client.NpgClient
+import it.pagopa.ecommerce.commons.generated.npg.v1.dto.StateResponseDto
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadGatewayException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.GatewayTimeoutException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.RefundNotAllowedException
@@ -19,6 +21,8 @@ import reactor.core.publisher.Mono
 
 @Component
 class PaymentGatewayClient {
+  @Autowired @Qualifier("NpgApiWebClient") private lateinit var npgApi: NpgClient
+
   @Autowired @Qualifier("VposApiWebClient") private lateinit var vposApi: VposInternalApi
 
   @Autowired @Qualifier("XpayApiWebClient") private lateinit var xpayApi: XPayInternalApi
@@ -51,5 +55,20 @@ class PaymentGatewayClient {
         else -> exception
       }
     }
+  }
+
+  fun requestNpgRefund(sessionId: UUID): Mono<StateResponseDto> {
+    logger.info("Performing NPG refund for authorization id: [$sessionId]")
+    return npgApi
+      .refundPayment(UUID.randomUUID(), sessionId.toString(), "defaultApiKey")
+      .onErrorMap(WebClientResponseException::class.java) { exception: WebClientResponseException ->
+        when (exception.statusCode) {
+          HttpStatus.NOT_FOUND -> TransactionNotFound(sessionId)
+          HttpStatus.GATEWAY_TIMEOUT -> GatewayTimeoutException()
+          HttpStatus.INTERNAL_SERVER_ERROR -> BadGatewayException("")
+          HttpStatus.CONFLICT -> RefundNotAllowedException(sessionId)
+          else -> exception
+        }
+      }
   }
 }

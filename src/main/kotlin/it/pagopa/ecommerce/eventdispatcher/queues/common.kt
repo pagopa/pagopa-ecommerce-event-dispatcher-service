@@ -4,11 +4,15 @@ import com.azure.core.util.BinaryData
 import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
+import com.codahale.metrics.MetricRegistryListener.Base
+import it.pagopa.ecommerce.commons.client.NpgClient
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
 import it.pagopa.ecommerce.commons.domain.v1.TransactionWithClosureError
 import it.pagopa.ecommerce.commons.domain.v1.pojos.*
+import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
+import it.pagopa.ecommerce.commons.generated.npg.v1.dto.StateResponseDto
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
@@ -171,9 +175,17 @@ fun refundTransaction(
             Pair(refundResponse, transaction)
           }
         else ->
-          Mono.error(
-            RuntimeException(
-              "Refund error for transaction ${transaction.transactionId} - unhandled payment-gateway"))
+          when (transaction.transactionAuthorizationRequestData.paymentMethodName) {
+            NpgClient.PaymentMethod.CARDS.serviceName ->
+              paymentGatewayClient.requestNpgRefund(UUID.fromString(authorizationRequestId)).map {
+                refundResponse ->
+                Pair(refundResponse, transaction)
+              }
+            else ->
+              Mono.error(
+                RuntimeException(
+                  "Refund error for transaction ${transaction.transactionId} - unhandled payment-gateway"))
+          }
       }
     }
     .flatMap {
@@ -188,6 +200,12 @@ fun refundTransaction(
             transactionsViewRepository)
         is XPayRefundResponse200Dto ->
           handleXpayRefundResponse(
+            transaction,
+            refundResponse,
+            transactionsEventStoreRepository,
+            transactionsViewRepository)
+        is StateResponseDto ->
+          handleNpgRefundResponse(
             transaction,
             refundResponse,
             transactionsEventStoreRepository,
@@ -218,6 +236,37 @@ fun refundTransaction(
         }
         .thenReturn(tx)
     }
+}
+
+fun handleNpgRefundResponse(
+  transaction: BaseTransactionWithRequestedAuthorization,
+  refundResponse: StateResponseDto,
+  transactionsEventStoreRepository: TransactionsEventStoreRepository<TransactionRefundedData>,
+  transactionsViewRepository: TransactionsViewRepository
+): Mono<BaseTransaction> {
+  logger.info(
+    "Transaction requestRefund for transaction ${transaction.transactionId} NPG refund status [${refundResponse.state!!.value}]")
+
+  return when (refundResponse.operation?.operationResult) { //TODO Check this response value, which are possible?
+    OperationResultDto.REFUNDED -> {
+      logger.info(
+        "Refund for transaction with id: [${transaction.transactionId.value()}] processed successfully")
+      updateTransactionToRefunded(
+        transaction, transactionsEventStoreRepository, transactionsViewRepository)
+    }
+    OperationResultDto.FAILED -> {
+      logger.info(
+        "Refund for transaction with id: [${transaction.transactionId.value()}] denied! No more attempts will be performed"
+      )
+      updateTransactionToRefundError(
+        transaction, transactionsEventStoreRepository, transactionsViewRepository
+      )
+    }
+    else ->
+      Mono.error(
+        RuntimeException(
+          "Refund error for transaction ${transaction.transactionId} unhandled NPG response status [${refundResponse.state}]"))
+  }
 }
 
 fun handleVposRefundResponse(
