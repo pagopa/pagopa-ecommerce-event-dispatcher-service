@@ -284,9 +284,10 @@ fun handleVposRefundResponse(
       updateTransactionToRefunded(
         transaction, transactionsEventStoreRepository, transactionsViewRepository)
     }
-    StatusEnum.DENIED -> {
+    StatusEnum.DENIED,
+    StatusEnum.CREATED -> {
       logger.info(
-        "Refund for transaction with id: [${transaction.transactionId.value()}] denied! No more attempts will be performed")
+        "Refund for transaction with id: [${transaction.transactionId.value()}] denied with pgs response status: [${refundResponse.status}]! No more attempts will be performed")
       updateTransactionToRefundError(
         transaction, transactionsEventStoreRepository, transactionsViewRepository)
     }
@@ -313,9 +314,10 @@ fun handleXpayRefundResponse(
       updateTransactionToRefunded(
         transaction, transactionsEventStoreRepository, transactionsViewRepository)
     }
-    XPayRefundResponse200Dto.StatusEnum.DENIED -> {
+    XPayRefundResponse200Dto.StatusEnum.DENIED,
+    XPayRefundResponse200Dto.StatusEnum.CREATED -> {
       logger.info(
-        "Refund for transaction with id: [${transaction.transactionId.value()}] denied! No more attempts will be performed")
+        "Refund for transaction with id: [${transaction.transactionId.value()}] denied with pgs response status: [${refundResponse.status}]!! No more attempts will be performed")
       updateTransactionToRefundError(
         transaction, transactionsEventStoreRepository, transactionsViewRepository)
     }
