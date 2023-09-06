@@ -418,7 +418,7 @@ class TransactionExpirationQueueConsumerTests {
       EmptyTransaction().applyEvent(activatedEvent).applyEvent(authorizationRequestedEvent)
 
       val gatewayClientResponse = VposDeleteResponseDto()
-      gatewayClientResponse.status(VposDeleteResponseDto.StatusEnum.CREATED)
+      gatewayClientResponse.status(VposDeleteResponseDto.StatusEnum.AUTHORIZED)
 
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())

@@ -146,7 +146,7 @@ class TransactionRefundRetryQueueConsumerTest {
   }
 
   @Test
-  fun `messageReceiver consume event correctly with KO outcome from gateway writing refund error event`() =
+  fun `messageReceiver consume event correctly with KO outcome AUTHORIZED from gateway writing refund error event`() =
     runTest {
       val retryCount = 0
       val activatedEvent = TransactionTestUtils.transactionActivateEvent()
@@ -168,7 +168,7 @@ class TransactionRefundRetryQueueConsumerTest {
       val refundRetriedEvent = TransactionTestUtils.transactionRefundRetriedEvent(retryCount)
 
       val gatewayClientResponse =
-        VposDeleteResponseDto().apply { status = VposDeleteResponseDto.StatusEnum.CREATED }
+        VposDeleteResponseDto().apply { status = VposDeleteResponseDto.StatusEnum.AUTHORIZED }
 
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
@@ -294,7 +294,7 @@ class TransactionRefundRetryQueueConsumerTest {
   }
 
   @Test
-  fun `messageReceiver consume legacy event correctly with KO outcome from gateway writing refund error event`() =
+  fun `messageReceiver consume legacy event correctly with KO outcome AUTHORIZED from gateway writing refund error event`() =
     runTest {
       val retryCount = 0
       val activatedEvent = TransactionTestUtils.transactionActivateEvent()
@@ -316,7 +316,7 @@ class TransactionRefundRetryQueueConsumerTest {
       val refundRetriedEvent = TransactionTestUtils.transactionRefundRetriedEvent(retryCount)
 
       val gatewayClientResponse =
-        VposDeleteResponseDto().apply { status = VposDeleteResponseDto.StatusEnum.CREATED }
+        VposDeleteResponseDto().apply { status = VposDeleteResponseDto.StatusEnum.AUTHORIZED }
 
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
@@ -369,7 +369,7 @@ class TransactionRefundRetryQueueConsumerTest {
     }
 
   @Test
-  fun `messageReceiver consume event correctly with KO outcome from gateway not writing refund error event for retried event`() =
+  fun `messageReceiver consume event correctly with KO outcome AUTHORIZED from gateway not writing refund error event for retried event`() =
     runTest {
       val retryCount = 1
       val activatedEvent = TransactionTestUtils.transactionActivateEvent()
@@ -391,7 +391,7 @@ class TransactionRefundRetryQueueConsumerTest {
       val refundRetriedEvent = TransactionTestUtils.transactionRefundRetriedEvent(retryCount)
 
       val gatewayClientResponse =
-        VposDeleteResponseDto().apply { status = VposDeleteResponseDto.StatusEnum.CREATED }
+        VposDeleteResponseDto().apply { status = VposDeleteResponseDto.StatusEnum.AUTHORIZED }
 
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())

@@ -6,20 +6,20 @@ microservice-chart:
     create: true
   image:
     repository: pagopadcommonacr.azurecr.io/pagopaecommerceeventdispatcherservice
-    tag: "0.8.8"
+    tag: "0.8.12"
     pullPolicy: Always
   livenessProbe:
     httpGet:
       path: /actuator/health/liveness
       port: 9000
-    initialDelaySeconds: 80
+    initialDelaySeconds: 180
     failureThreshold: 6
     periodSeconds: 10
   readinessProbe:
     httpGet:
       path: /actuator/health/readiness
       port: 9000
-    initialDelaySeconds: 80
+    initialDelaySeconds: 180
     failureThreshold: 6
     periodSeconds: 10
   service:
@@ -89,6 +89,9 @@ microservice-chart:
     MONGO_USERNAME: pagopa-d-weu-ecommerce-cosmos-account
     MONGO_PORT: "10255"
     MONGO_SSL_ENABLED: "true"
+    REDIS_HOST: pagopa-d-weu-ecommerce-redis.redis.cache.windows.net
+    REDIS_PORT: "6380"
+    REDIS_SSL_ENABLED: "true"
     ECOMMERCE_STORAGE_TRANSIENT_QUEUE_ACCOUNT_NAME: pagopadweuecommercetrsa
     ECOMMERCE_STORAGE_TRANSIENT_QUEUE_ENDPOINT: https://pagopadweuecommercetrsa.queue.core.windows.net/pagopadweuecommercetrsa
     REFUND_RETRY_EVENT_BASE_INTERVAL_SECONDS: "600"
@@ -111,6 +114,7 @@ microservice-chart:
   envSecret:
     ECOMMERCE_STORAGE_TRANSIENT_QUEUE_KEY: ecommerce-storage-transient-account-key
     MONGO_PASSWORD: mongo-ecommerce-password
+    REDIS_PASSWORD: redis-ecommerce-password
     NODO_CONNECTION_STRING: nodo-connection-string
     QUEUE_TRANSIENT_CONNECTION_STRING: ecommerce-storage-transient-connection-string
     QUEUE_DEADLETTER_CONNECTION_STRING: ecommerce-storage-deadletter-connection-string

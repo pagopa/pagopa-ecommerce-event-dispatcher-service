@@ -35,6 +35,9 @@ microservice-chart:
       MONGO_USERNAME: pagopa-p-weu-ecommerce-cosmos-account
       MONGO_PORT: "10255"
       MONGO_SSL_ENABLED: "true"
+      REDIS_HOST: pagopa-p-weu-ecommerce-redis.redis.cache.windows.net
+      REDIS_PORT: "6380"
+      REDIS_SSL_ENABLED: "true"
       ECOMMERCE_STORAGE_TRANSIENT_QUEUE_ACCOUNT_NAME: pagopapweuecommercetrsa
       ECOMMERCE_STORAGE_TRANSIENT_QUEUE_ENDPOINT: https://pagopapweuecommercetrsa.queue.core.windows.net/pagopauweuecommercetrsa
       REFUND_RETRY_EVENT_BASE_INTERVAL_SECONDS: "600"
@@ -51,7 +54,7 @@ microservice-chart:
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.elastic-system.svc:4317"
       OTEL_TRACES_EXPORTER: otlp
       OTEL_METRICS_EXPORTER: otlp
-      OTEL_LOGS_EXPORTER: none
+      OTEL_LOGS_EXPORTER: otlp
       OTEL_TRACES_SAMPLER: "always_on"
       SEND_PAYMENT_RESULT_TIMEOUT_SECONDS: "3900"
       SEND_PAYMENT_RESULT_EXPIRATION_OFFSET_SECONDS: "5"
@@ -61,6 +64,7 @@ microservice-chart:
     envSecret:
       ECOMMERCE_STORAGE_TRANSIENT_QUEUE_KEY: ecommerce-storage-transient-account-key
       MONGO_PASSWORD: mongo-ecommerce-password
+      REDIS_PASSWORD: redis-ecommerce-password
       NODO_CONNECTION_STRING: nodo-connection-string
       QUEUE_TRANSIENT_CONNECTION_STRING: ecommerce-storage-transient-connection-string
       QUEUE_DEADLETTER_CONNECTION_STRING: ecommerce-storage-deadletter-connection-string
@@ -70,7 +74,7 @@ microservice-chart:
       PAYMENT_TRANSACTIONS_GATEWAY_API_KEY: payment-transactions-gateway-api-key
   image:
     repository: pagopapcommonacr.azurecr.io/pagopaecommerceeventdispatcherservice
-    tag: "0.8.8"
+    tag: "0.8.12"
     pullPolicy: Always
   livenessProbe:
     httpGet:
@@ -114,23 +118,17 @@ microservice-chart:
       memory: "512Mi"
       cpu: "500m"
   autoscaling:
+    enabled: true
     minReplica: 2
     maxReplica: 10
     pollingInterval: 30 # seconds
     cooldownPeriod: 300 # seconds
     triggers:
-      - type: azure-monitor
+      - type: cpu
         metadata:
-          tenantId: 7788edaf-0346-4068-9d79-c868aed15b3d
-          subscriptionId: bbe47ad4-08b3-4925-94c5-1278e5819b86
-          resourceGroupName: pagopa-p-ecommerce-sec-rg
-          resourceURI: Microsoft.KeyVault/vaults/pagopa-p-ecommerce-kv
-          metricName: ServiceApiHit
-          # metricNamespace: Microsoft.KeyVault/vaults
-          # metricFilter: namespace eq 'default'
-          # metricAggregationInterval: "-1:1:0"
-          metricAggregationType: Count
-          targetValue: "30"
+          # Required
+          type: Utilization # Allowed types are 'Utilization' or 'AverageValue'
+          value: "70"
   envConfig:
     TRANSACTIONS_CLOSE_PAYMENT_QUEUE_NAME: pagopa-p-weu-ecommerce-transactions-close-payment-queue
     TRANSACTIONS_CLOSE_PAYMENT_RETRY_QUEUE_NAME: pagopa-p-weu-ecommerce-transactions-close-payment-retry-queue
@@ -150,6 +148,9 @@ microservice-chart:
     MONGO_USERNAME: pagopa-p-weu-ecommerce-cosmos-account
     MONGO_PORT: "10255"
     MONGO_SSL_ENABLED: "true"
+    REDIS_HOST: pagopa-p-weu-ecommerce-redis.redis.cache.windows.net
+    REDIS_PORT: "6380"
+    REDIS_SSL_ENABLED: "true"
     ECOMMERCE_STORAGE_TRANSIENT_QUEUE_ACCOUNT_NAME: pagopapweuecommercetrsa
     ECOMMERCE_STORAGE_TRANSIENT_QUEUE_ENDPOINT: https://pagopapweuecommercetrsa.queue.core.windows.net/pagopapweuecommercetrsa
     REFUND_RETRY_EVENT_BASE_INTERVAL_SECONDS: "600"
@@ -166,7 +167,7 @@ microservice-chart:
     OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.elastic-system.svc:4317"
     OTEL_TRACES_EXPORTER: otlp
     OTEL_METRICS_EXPORTER: otlp
-    OTEL_LOGS_EXPORTER: none
+    OTEL_LOGS_EXPORTER: otlp
     OTEL_TRACES_SAMPLER: "always_on"
     SEND_PAYMENT_RESULT_TIMEOUT_SECONDS: "3900"
     SEND_PAYMENT_RESULT_EXPIRATION_OFFSET_SECONDS: "5"
@@ -176,6 +177,7 @@ microservice-chart:
   envSecret:
     ECOMMERCE_STORAGE_TRANSIENT_QUEUE_KEY: ecommerce-storage-transient-account-key
     MONGO_PASSWORD: mongo-ecommerce-password
+    REDIS_PASSWORD: redis-ecommerce-password
     NODO_CONNECTION_STRING: nodo-connection-string
     QUEUE_TRANSIENT_CONNECTION_STRING: ecommerce-storage-transient-connection-string
     QUEUE_DEADLETTER_CONNECTION_STRING: ecommerce-storage-deadletter-connection-string
