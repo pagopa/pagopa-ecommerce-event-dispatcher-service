@@ -28,6 +28,9 @@ microservice-chart:
       PAYMENT_TRANSACTIONS_GATEWAY_URI: https://api.platform.pagopa.it/payment-transactions-gateway/internal/v1
       PAYMENT_TRANSACTIONS_GATEWAY_READ_TIMEOUT: "10000"
       PAYMENT_TRANSACTIONS_GATEWAY_CONNECTION_TIMEOUT: "10000"
+      NPG_URI: https://xpay.nexigroup.com/api/phoenix-0.0/psp/api/v1
+      NPG_READ_TIMEOUT: "10000"
+      NPG_CONNECTION_TIMEOUT: "10000"
       NODO_URI: https://api.platform.pagopa.it/nodo/nodo-per-pm/v2
       NODO_READ_TIMEOUT: "10000"
       NODO_CONNECTION_TIMEOUT: "10000"
@@ -72,6 +75,7 @@ microservice-chart:
       PERSONAL_DATA_VAULT_API_KEY: personal-data-vault-api-key
       OTEL_EXPORTER_OTLP_HEADERS: elastic-otel-token-header
       PAYMENT_TRANSACTIONS_GATEWAY_API_KEY: payment-transactions-gateway-api-key
+      NPG_API_KEY: npg-api-key
   image:
     repository: pagopapcommonacr.azurecr.io/pagopaecommerceeventdispatcherservice
     tag: "0.8.12"
@@ -141,6 +145,9 @@ microservice-chart:
     PAYMENT_TRANSACTIONS_GATEWAY_URI: https://api.platform.pagopa.it/payment-transactions-gateway/internal/v1
     PAYMENT_TRANSACTIONS_GATEWAY_READ_TIMEOUT: "10000"
     PAYMENT_TRANSACTIONS_GATEWAY_CONNECTION_TIMEOUT: "10000"
+    NPG_URI: https://xpay.nexigroup.com/api/phoenix-0.0/psp/api/v1
+    NPG_READ_TIMEOUT: "10000"
+    NPG_CONNECTION_TIMEOUT: "10000"
     NODO_URI: https://api.platform.pagopa.it/nodo/nodo-per-pm/v2
     NODO_READ_TIMEOUT: "10000"
     NODO_CONNECTION_TIMEOUT: "10000"
@@ -185,6 +192,7 @@ microservice-chart:
     PERSONAL_DATA_VAULT_API_KEY: personal-data-vault-api-key
     OTEL_EXPORTER_OTLP_HEADERS: elastic-otel-token-header
     PAYMENT_TRANSACTIONS_GATEWAY_API_KEY: payment-transactions-gateway-api-key
+    NPG_API_KEY: npg-api-key
   keyvault:
     name: "pagopa-p-ecommerce-kv"
     tenantId: "7788edaf-0346-4068-9d79-c868aed15b3d"
