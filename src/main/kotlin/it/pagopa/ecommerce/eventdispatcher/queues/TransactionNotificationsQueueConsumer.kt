@@ -5,7 +5,6 @@ import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
-import it.pagopa.ecommerce.commons.client.NpgClient
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v1.pojos.*
@@ -18,6 +17,7 @@ import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
+import it.pagopa.ecommerce.eventdispatcher.services.RefundService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.NotificationRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryService
 import it.pagopa.ecommerce.eventdispatcher.utils.UserReceiptMailBuilder
@@ -48,8 +48,7 @@ class TransactionNotificationsQueueConsumer(
   private val transactionsRefundedEventStoreRepository:
     TransactionsEventStoreRepository<TransactionRefundedData>,
   @Autowired private val paymentGatewayClient: PaymentGatewayClient,
-  @Autowired private val npgClient: NpgClient,
-  @Value("\${npg.client.apiKey}") private val npgApiKey: String,
+  @Autowired private val refundService: RefundService,
   @Autowired private val refundRetryService: RefundRetryService,
   @Autowired private val deadLetterQueueAsyncClient: QueueAsyncClient,
   @Value("\${azurestorage.queues.deadLetterQueue.ttlSeconds}")
@@ -121,8 +120,7 @@ class TransactionNotificationsQueueConsumer(
                 transactionsRefundedEventStoreRepository,
                 transactionsViewRepository,
                 paymentGatewayClient,
-                npgClient,
-                npgApiKey,
+                refundService,
                 refundRetryService,
                 eventData.second)
             }

@@ -3,7 +3,6 @@ package it.pagopa.ecommerce.eventdispatcher.queues
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
-import it.pagopa.ecommerce.commons.client.NpgClient
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithRequestedAuthorization
@@ -17,6 +16,7 @@ import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.RefundNotAllowedException
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
+import it.pagopa.ecommerce.eventdispatcher.services.RefundService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryService
 import it.pagopa.ecommerce.eventdispatcher.utils.DEAD_LETTER_QUEUE_TTL_SECONDS
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
@@ -51,7 +51,7 @@ class TransactionsRefundEventsConsumerTests {
 
   private val paymentGatewayClient: PaymentGatewayClient = mock()
 
-  private val npgClient: NpgClient = mock()
+  private val refundService: RefundService = mock()
 
   private val refundRetryService: RefundRetryService = mock()
 
@@ -72,8 +72,7 @@ class TransactionsRefundEventsConsumerTests {
   private val transactionRefundedEventsConsumer =
     TransactionsRefundQueueConsumer(
       paymentGatewayClient = paymentGatewayClient,
-      npgClient = npgClient,
-      npgApiKey = "npgMockedApiKey",
+      refundService = refundService,
       transactionsEventStoreRepository = transactionsEventStoreRepository,
       transactionsRefundedEventStoreRepository = transactionsRefundedEventStoreRepository,
       transactionsViewRepository = transactionsViewRepository,

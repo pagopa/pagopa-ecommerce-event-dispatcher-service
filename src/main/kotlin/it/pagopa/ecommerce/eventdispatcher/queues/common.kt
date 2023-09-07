@@ -22,6 +22,7 @@ import it.pagopa.ecommerce.eventdispatcher.exceptions.RefundNotAllowedException
 import it.pagopa.ecommerce.eventdispatcher.queues.QueueCommonsLogger.logger
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
+import it.pagopa.ecommerce.eventdispatcher.services.RefundService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryService
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto.StatusEnum
@@ -153,8 +154,7 @@ fun refundTransaction(
   transactionsEventStoreRepository: TransactionsEventStoreRepository<TransactionRefundedData>,
   transactionsViewRepository: TransactionsViewRepository,
   paymentGatewayClient: PaymentGatewayClient,
-  npgClient: NpgClient,
-  defaultApiKey: String,
+  refundService: RefundService,
   refundRetryService: RefundRetryService,
   tracingInfo: TracingInfo?,
   retryCount: Int = 0
@@ -179,15 +179,13 @@ fun refundTransaction(
         else ->
           when (transaction.transactionAuthorizationRequestData.paymentMethodName) {
             NpgClient.PaymentMethod.CARDS.serviceName ->
-              npgClient
-                .refundPayment(
-                  UUID.randomUUID(),
+              refundService
+                .requestNpgRefund(
                   "operationId",
                   transaction.transactionId.value(),
                   BigDecimal(
                     transaction.transactionAuthorizationRequestData.amount +
-                      transaction.transactionAuthorizationRequestData.fee),
-                  defaultApiKey)
+                      transaction.transactionAuthorizationRequestData.fee))
                 .map { refundResponse -> Pair(refundResponse, transaction) }
             else ->
               Mono.error(
@@ -478,8 +476,7 @@ fun notificationRefundTransactionPipeline(
     TransactionsEventStoreRepository<TransactionRefundedData>,
   transactionsViewRepository: TransactionsViewRepository,
   paymentGatewayClient: PaymentGatewayClient,
-  npgClient: NpgClient,
-  npgApiKey: String,
+  refundService: RefundService,
   refundRetryService: RefundRetryService,
   tracingInfo: TracingInfo?,
 ): Mono<BaseTransaction> {
@@ -499,8 +496,7 @@ fun notificationRefundTransactionPipeline(
         transactionsRefundedEventStoreRepository,
         transactionsViewRepository,
         paymentGatewayClient,
-        npgClient,
-        npgApiKey,
+        refundService,
         refundRetryService,
         tracingInfo)
     }

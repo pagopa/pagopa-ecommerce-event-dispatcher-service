@@ -4,7 +4,6 @@ import com.azure.core.util.BinaryData
 import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
-import it.pagopa.ecommerce.commons.client.NpgClient
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.Email
 import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
@@ -18,6 +17,7 @@ import it.pagopa.ecommerce.eventdispatcher.client.NotificationsServiceClient
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
+import it.pagopa.ecommerce.eventdispatcher.services.RefundService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.NotificationRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryService
 import it.pagopa.ecommerce.eventdispatcher.utils.*
@@ -65,7 +65,7 @@ class TransactionNotificationsQueueConsumerTest {
     TransactionsEventStoreRepository<TransactionRefundedData> =
     mock()
   private val paymentGatewayClient: PaymentGatewayClient = mock()
-  private val npgClient: NpgClient = mock()
+  private val refundService: RefundService = mock()
   private val refundRetryService: RefundRetryService = mock()
 
   private val tracingUtils = TracingUtilsTests.getMock()
@@ -94,8 +94,7 @@ class TransactionNotificationsQueueConsumerTest {
       notificationsServiceClient = notificationsServiceClient,
       transactionsRefundedEventStoreRepository = transactionRefundRepository,
       paymentGatewayClient = paymentGatewayClient,
-      npgClient = npgClient,
-      npgApiKey = "npgMockedApiKey",
+      refundService = refundService,
       refundRetryService = refundRetryService,
       deadLetterQueueAsyncClient = deadLetterQueueAsyncClient,
       deadLetterTTLSeconds = DEAD_LETTER_QUEUE_TTL_SECONDS,

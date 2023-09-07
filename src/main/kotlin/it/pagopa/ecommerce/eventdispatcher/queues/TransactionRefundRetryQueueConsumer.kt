@@ -5,7 +5,6 @@ import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
-import it.pagopa.ecommerce.commons.client.NpgClient
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v1.Transaction
@@ -18,6 +17,7 @@ import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
+import it.pagopa.ecommerce.eventdispatcher.services.RefundService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryService
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -36,8 +36,7 @@ import reactor.core.publisher.Mono
 @Service
 class TransactionRefundRetryQueueConsumer(
   @Autowired private val paymentGatewayClient: PaymentGatewayClient,
-  @Autowired private val npgClient: NpgClient,
-  @Value("\${npg.client.apiKey}") private val npgApiKey: String,
+  @Autowired private val refundService: RefundService,
   @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,
   @Autowired
   private val transactionsRefundedEventStoreRepository:
@@ -105,8 +104,7 @@ class TransactionRefundRetryQueueConsumer(
               transactionsRefundedEventStoreRepository,
               transactionsViewRepository,
               paymentGatewayClient,
-              npgClient,
-              npgApiKey,
+              refundService,
               refundRetryService,
               tracingInfo,
               e.data.retryCount)

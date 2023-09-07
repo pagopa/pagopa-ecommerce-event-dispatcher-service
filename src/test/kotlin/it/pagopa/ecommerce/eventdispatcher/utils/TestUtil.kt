@@ -5,6 +5,7 @@ import com.azure.core.http.rest.ResponseBase
 import com.azure.storage.queue.models.SendMessageResult
 import it.pagopa.ecommerce.commons.documents.v1.TransactionAuthorizationRequestData
 import it.pagopa.ecommerce.commons.domain.v1.TransactionId
+import it.pagopa.ecommerce.commons.generated.npg.v1.dto.RefundResponseDto
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
@@ -81,6 +82,10 @@ fun getMockedVPosRefundRequest(
       .status(VposDeleteResponseDto.StatusEnum.CREATED)
       .error("err")
   }
+}
+
+fun getMockedNpgRefundResponse(operationId: String?): RefundResponseDto {
+  return RefundResponseDto().operationId(operationId).operationTime("TestTime")
 }
 
 fun queueSuccessfulResponse(): Mono<Response<SendMessageResult>> {

@@ -4,7 +4,6 @@ import com.azure.core.util.BinaryData
 import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
-import it.pagopa.ecommerce.commons.client.NpgClient
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
@@ -15,6 +14,7 @@ import it.pagopa.ecommerce.commons.v1.TransactionTestUtils
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
+import it.pagopa.ecommerce.eventdispatcher.services.RefundService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryService
 import it.pagopa.ecommerce.eventdispatcher.utils.DEAD_LETTER_QUEUE_TTL_SECONDS
 import it.pagopa.ecommerce.eventdispatcher.utils.queueSuccessfulResponse
@@ -39,7 +39,7 @@ import reactor.test.StepVerifier
 class TransactionRefundRetryQueueConsumerTest {
 
   private val paymentGatewayClient: PaymentGatewayClient = mock()
-  private val npgClient: NpgClient = mock()
+  private val refundService: RefundService = mock()
 
   private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any> = mock()
   private val transactionsRefundedEventStoreRepository:
@@ -66,8 +66,7 @@ class TransactionRefundRetryQueueConsumerTest {
   private val transactionRefundRetryQueueConsumer =
     TransactionRefundRetryQueueConsumer(
       paymentGatewayClient = paymentGatewayClient,
-      npgClient = npgClient,
-      npgApiKey = "npgMockedApiKey",
+      refundService = refundService,
       transactionsEventStoreRepository = transactionsEventStoreRepository,
       transactionsRefundedEventStoreRepository = transactionsRefundedEventStoreRepository,
       transactionsViewRepository = transactionsViewRepository,
