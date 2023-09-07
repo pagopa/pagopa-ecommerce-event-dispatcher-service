@@ -6,6 +6,7 @@ import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
 import io.vavr.control.Either
+import it.pagopa.ecommerce.commons.client.NpgClient
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.TransactionWithClosureError
 import it.pagopa.ecommerce.commons.queues.QueueEvent
@@ -37,6 +38,8 @@ import reactor.core.publisher.Mono
 @Service
 class TransactionExpirationQueueConsumer(
   @Autowired private val paymentGatewayClient: PaymentGatewayClient,
+  @Autowired private val npgClient: NpgClient,
+  @Value("\${npg.client.apiKey}") private val npgApiKey: String,
   @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,
   @Autowired
   private val transactionsExpiredEventStoreRepository:
@@ -184,6 +187,8 @@ class TransactionExpirationQueueConsumer(
             transactionsRefundedEventStoreRepository,
             transactionsViewRepository,
             paymentGatewayClient,
+            npgClient,
+            npgApiKey,
             refundRetryService,
             tracingInfo)
         }

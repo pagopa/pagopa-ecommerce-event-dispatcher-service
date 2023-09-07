@@ -6,6 +6,7 @@ import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
 import io.vavr.control.Either
+import it.pagopa.ecommerce.commons.client.NpgClient
 import it.pagopa.ecommerce.commons.documents.v1.TransactionRefundRequestedEvent
 import it.pagopa.ecommerce.commons.documents.v1.TransactionRefundRetriedEvent
 import it.pagopa.ecommerce.commons.documents.v1.TransactionRefundedData
@@ -39,6 +40,8 @@ import reactor.kotlin.core.publisher.switchIfEmpty
 @Service
 class TransactionsRefundQueueConsumer(
   @Autowired private val paymentGatewayClient: PaymentGatewayClient,
+  @Autowired private val npgClient: NpgClient,
+  @Value("\${npg.client.apiKey}") private val npgApiKey: String,
   @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,
   @Autowired
   private val transactionsRefundedEventStoreRepository:
@@ -133,6 +136,8 @@ class TransactionsRefundQueueConsumer(
             transactionsRefundedEventStoreRepository,
             transactionsViewRepository,
             paymentGatewayClient,
+            npgClient,
+            npgApiKey,
             refundRetryService,
             tracingInfo)
         }

@@ -6,6 +6,7 @@ import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
 import io.vavr.control.Either
+import it.pagopa.ecommerce.commons.client.NpgClient
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v1.TransactionWithUserReceiptError
@@ -48,6 +49,8 @@ class TransactionNotificationsRetryQueueConsumer(
   private val transactionsRefundedEventStoreRepository:
     TransactionsEventStoreRepository<TransactionRefundedData>,
   @Autowired private val paymentGatewayClient: PaymentGatewayClient,
+  @Autowired private val npgClient: NpgClient,
+  @Value("\${npg.client.apiKey}") private val npgApiKey: String,
   @Autowired private val refundRetryService: RefundRetryService,
   @Autowired private val userReceiptMailBuilder: UserReceiptMailBuilder,
   @Autowired private val notificationsServiceClient: NotificationsServiceClient,
@@ -156,6 +159,8 @@ class TransactionNotificationsRetryQueueConsumer(
                     transactionsRefundedEventStoreRepository,
                     transactionsViewRepository,
                     paymentGatewayClient,
+                    npgClient,
+                    npgApiKey,
                     refundRetryService,
                     tracingInfo)
                 }
@@ -183,6 +188,8 @@ class TransactionNotificationsRetryQueueConsumer(
                         transactionsRefundedEventStoreRepository,
                         transactionsViewRepository,
                         paymentGatewayClient,
+                        npgClient,
+                        npgApiKey,
                         refundRetryService,
                         it.second)
                       .then()

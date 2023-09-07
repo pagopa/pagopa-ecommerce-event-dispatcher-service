@@ -5,6 +5,7 @@ import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
+import it.pagopa.ecommerce.commons.client.NpgClient
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v1.Transaction
@@ -35,6 +36,8 @@ import reactor.core.publisher.Mono
 @Service
 class TransactionRefundRetryQueueConsumer(
   @Autowired private val paymentGatewayClient: PaymentGatewayClient,
+  @Autowired private val npgClient: NpgClient,
+  @Value("\${npg.client.apiKey}") private val npgApiKey: String,
   @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,
   @Autowired
   private val transactionsRefundedEventStoreRepository:
@@ -102,6 +105,8 @@ class TransactionRefundRetryQueueConsumer(
               transactionsRefundedEventStoreRepository,
               transactionsViewRepository,
               paymentGatewayClient,
+              npgClient,
+              npgApiKey,
               refundRetryService,
               tracingInfo,
               e.data.retryCount)

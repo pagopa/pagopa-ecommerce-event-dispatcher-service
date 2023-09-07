@@ -4,6 +4,7 @@ import com.azure.core.util.BinaryData
 import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
+import it.pagopa.ecommerce.commons.client.NpgClient
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
@@ -38,6 +39,7 @@ import reactor.test.StepVerifier
 class TransactionRefundRetryQueueConsumerTest {
 
   private val paymentGatewayClient: PaymentGatewayClient = mock()
+  private val npgClient: NpgClient = mock()
 
   private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any> = mock()
   private val transactionsRefundedEventStoreRepository:
@@ -64,6 +66,8 @@ class TransactionRefundRetryQueueConsumerTest {
   private val transactionRefundRetryQueueConsumer =
     TransactionRefundRetryQueueConsumer(
       paymentGatewayClient = paymentGatewayClient,
+      npgClient = npgClient,
+      npgApiKey = "npgMockedApiKey",
       transactionsEventStoreRepository = transactionsEventStoreRepository,
       transactionsRefundedEventStoreRepository = transactionsRefundedEventStoreRepository,
       transactionsViewRepository = transactionsViewRepository,

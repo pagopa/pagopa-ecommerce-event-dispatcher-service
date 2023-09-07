@@ -26,6 +26,7 @@ import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryServic
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto.StatusEnum
 import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
+import java.math.BigDecimal
 import java.nio.charset.StandardCharsets
 import java.time.Duration
 import java.time.ZonedDateTime
@@ -152,6 +153,8 @@ fun refundTransaction(
   transactionsEventStoreRepository: TransactionsEventStoreRepository<TransactionRefundedData>,
   transactionsViewRepository: TransactionsViewRepository,
   paymentGatewayClient: PaymentGatewayClient,
+  npgClient: NpgClient,
+  defaultApiKey: String,
   refundRetryService: RefundRetryService,
   tracingInfo: TracingInfo?,
   retryCount: Int = 0
@@ -176,10 +179,16 @@ fun refundTransaction(
         else ->
           when (transaction.transactionAuthorizationRequestData.paymentMethodName) {
             NpgClient.PaymentMethod.CARDS.serviceName ->
-              paymentGatewayClient.requestNpgRefund(UUID.fromString(authorizationRequestId)).map {
-                refundResponse ->
-                Pair(refundResponse, transaction)
-              }
+              npgClient
+                .refundPayment(
+                  UUID.randomUUID(),
+                  "operationId",
+                  transaction.transactionId.value(),
+                  BigDecimal(
+                    transaction.transactionAuthorizationRequestData.amount +
+                      transaction.transactionAuthorizationRequestData.fee),
+                  defaultApiKey)
+                .map { refundResponse -> Pair(refundResponse, transaction) }
             else ->
               Mono.error(
                 RuntimeException(
@@ -246,7 +255,8 @@ fun handleNpgRefundResponse(
   logger.info(
     "Transaction requestRefund for transaction ${transaction.transactionId} NPG refund status [${refundResponse.state!!.value}]")
 
-  return when (refundResponse.operation?.operationResult) { //TODO Check this response value, which are possible?
+  return when (refundResponse.operation
+    ?.operationResult) { // TODO Check this response value, which are possible?
     OperationResultDto.REFUNDED -> {
       logger.info(
         "Refund for transaction with id: [${transaction.transactionId.value()}] processed successfully")
@@ -255,11 +265,9 @@ fun handleNpgRefundResponse(
     }
     OperationResultDto.FAILED -> {
       logger.info(
-        "Refund for transaction with id: [${transaction.transactionId.value()}] denied! No more attempts will be performed"
-      )
+        "Refund for transaction with id: [${transaction.transactionId.value()}] denied! No more attempts will be performed")
       updateTransactionToRefundError(
-        transaction, transactionsEventStoreRepository, transactionsViewRepository
-      )
+        transaction, transactionsEventStoreRepository, transactionsViewRepository)
     }
     else ->
       Mono.error(
@@ -470,6 +478,8 @@ fun notificationRefundTransactionPipeline(
     TransactionsEventStoreRepository<TransactionRefundedData>,
   transactionsViewRepository: TransactionsViewRepository,
   paymentGatewayClient: PaymentGatewayClient,
+  npgClient: NpgClient,
+  npgApiKey: String,
   refundRetryService: RefundRetryService,
   tracingInfo: TracingInfo?,
 ): Mono<BaseTransaction> {
@@ -489,6 +499,8 @@ fun notificationRefundTransactionPipeline(
         transactionsRefundedEventStoreRepository,
         transactionsViewRepository,
         paymentGatewayClient,
+        npgClient,
+        npgApiKey,
         refundRetryService,
         tracingInfo)
     }

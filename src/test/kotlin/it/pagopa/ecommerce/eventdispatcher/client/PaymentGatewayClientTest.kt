@@ -1,5 +1,6 @@
 package it.pagopa.ecommerce.eventdispatcher.client
 
+import it.pagopa.ecommerce.commons.client.NpgClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadGatewayException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.RefundNotAllowedException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.TransactionNotFound
@@ -26,6 +27,7 @@ class PaymentGatewayClientTest {
 
   @Mock private lateinit var vposApi: VposInternalApi
   @Mock private lateinit var xpayApi: XPayInternalApi
+  @Mock private lateinit var npgClient: NpgClient
 
   @InjectMocks private lateinit var paymentGatewayClient: PaymentGatewayClient
 

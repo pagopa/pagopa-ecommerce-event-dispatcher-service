@@ -6,6 +6,7 @@ import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
 import io.vavr.control.Either
+import it.pagopa.ecommerce.commons.client.NpgClient
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v1.TransactionWithClosureError
@@ -53,6 +54,8 @@ class TransactionClosePaymentRetryQueueConsumer(
   private val transactionsRefundedEventStoreRepository:
     TransactionsEventStoreRepository<TransactionRefundedData>,
   @Autowired private val paymentGatewayClient: PaymentGatewayClient,
+  @Autowired private val npgClient: NpgClient,
+  @Value("\${npg.client.apiKey}") private val npgApiKey: String,
   @Autowired private val refundRetryService: RefundRetryService,
   @Autowired private val deadLetterQueueAsyncClient: QueueAsyncClient,
   @Value("\${azurestorage.queues.deadLetterQueue.ttlSeconds}")
@@ -277,6 +280,8 @@ class TransactionClosePaymentRetryQueueConsumer(
           transactionsRefundedEventStoreRepository,
           transactionsViewRepository,
           paymentGatewayClient,
+          npgClient,
+          npgApiKey,
           refundRetryService,
           tracingInfo)
       }

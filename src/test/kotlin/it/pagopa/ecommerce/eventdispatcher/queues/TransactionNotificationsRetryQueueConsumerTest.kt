@@ -4,6 +4,7 @@ import com.azure.core.util.BinaryData
 import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
+import it.pagopa.ecommerce.commons.client.NpgClient
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
 import it.pagopa.ecommerce.commons.domain.v1.TransactionId
@@ -47,6 +48,8 @@ import reactor.test.StepVerifier
 @ExtendWith(MockitoExtension::class)
 class TransactionNotificationsRetryQueueConsumerTest {
   private val paymentGatewayClient: PaymentGatewayClient = mock()
+
+  private val npgClient: NpgClient = mock()
 
   private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any> = mock()
 
@@ -94,6 +97,8 @@ class TransactionNotificationsRetryQueueConsumerTest {
       notificationRetryService = notificationRetryService,
       transactionsRefundedEventStoreRepository = transactionRefundRepository,
       paymentGatewayClient = paymentGatewayClient,
+      npgClient = npgClient,
+      npgApiKey = "npgApiKey",
       refundRetryService = refundRetryService,
       userReceiptMailBuilder = userReceiptMailBuilder,
       notificationsServiceClient = notificationsServiceClient,
