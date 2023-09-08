@@ -11,9 +11,11 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito
 import org.mockito.kotlin.*
+import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.test.context.TestPropertySource
 import reactor.core.publisher.Mono
 
+@SpringBootTest
 @TestPropertySource(locations = ["classpath:application.test.properties"])
 class RefundServiceTest {
   private val paymentGatewayClient: PaymentGatewayClient = mock()
