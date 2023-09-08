@@ -2,16 +2,12 @@ package it.pagopa.ecommerce.eventdispatcher.services
 
 import it.pagopa.ecommerce.commons.client.NpgClient
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
-import it.pagopa.ecommerce.eventdispatcher.utils.getMockedNpgRefundResponse
 import it.pagopa.ecommerce.eventdispatcher.utils.getMockedVPosRefundRequest
 import it.pagopa.ecommerce.eventdispatcher.utils.getMockedXPayRefundRequest
-import java.math.BigDecimal
 import java.util.UUID
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito
-import org.mockito.Mockito.mockStatic
-import org.mockito.kotlin.given
 import org.mockito.kotlin.mock
 import org.springframework.test.context.TestPropertySource
 import reactor.core.publisher.Mono
@@ -22,30 +18,30 @@ class RefundServiceTest {
   private val npgClient: NpgClient = mock()
   private val apiKey = "mocked-api-key"
   private val refundService: RefundService = RefundService(paymentGatewayClient, npgClient, apiKey)
-/*
-  @Test
-  fun requestRefund_200_npg() {
-    val testUUID: UUID = UUID.randomUUID()
+  /*
+    @Test
+    fun requestRefund_200_npg() {
+      val testUUID: UUID = UUID.randomUUID()
 
-    mockStatic(UUID::class.java)
-    given(UUID.randomUUID()).willReturn(testUUID)
+      mockStatic(UUID::class.java)
+      given(UUID.randomUUID()).willReturn(testUUID)
 
-    val operationId = "operationID"
-    val idempotenceKey = "idempotenceKey"
-    val amount = BigDecimal.valueOf(1000)
+      val operationId = "operationID"
+      val idempotenceKey = "idempotenceKey"
+      val amount = BigDecimal.valueOf(1000)
 
-    // Precondition
-    Mockito.`when`(npgClient.refundPayment(testUUID, operationId, idempotenceKey, amount, apiKey))
-      .thenReturn(Mono.just(getMockedNpgRefundResponse(operationId)))
+      // Precondition
+      Mockito.`when`(npgClient.refundPayment(testUUID, operationId, idempotenceKey, amount, apiKey))
+        .thenReturn(Mono.just(getMockedNpgRefundResponse(operationId)))
 
-    // Test
-    val response = refundService.requestNpgRefund(operationId, idempotenceKey, amount).block()
+      // Test
+      val response = refundService.requestNpgRefund(operationId, idempotenceKey, amount).block()
 
-    // Assertions
-    assertEquals(operationId, response?.operationId)
-    given(UUID.randomUUID()).willCallRealMethod()
-  }
-*/
+      // Assertions
+      assertEquals(operationId, response?.operationId)
+      given(UUID.randomUUID()).willCallRealMethod()
+    }
+  */
   @Test
   fun requestRefund_200_vpos() {
     val testUUID: UUID = UUID.randomUUID()
