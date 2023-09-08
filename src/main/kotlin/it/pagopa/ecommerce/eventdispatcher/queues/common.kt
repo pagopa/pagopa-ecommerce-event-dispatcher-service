@@ -10,8 +10,7 @@ import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
 import it.pagopa.ecommerce.commons.domain.v1.TransactionWithClosureError
 import it.pagopa.ecommerce.commons.domain.v1.pojos.*
-import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
-import it.pagopa.ecommerce.commons.generated.npg.v1.dto.StateResponseDto
+import it.pagopa.ecommerce.commons.generated.npg.v1.dto.RefundResponseDto
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
@@ -210,7 +209,7 @@ fun refundTransaction(
             refundResponse,
             transactionsEventStoreRepository,
             transactionsViewRepository)
-        is StateResponseDto ->
+        is RefundResponseDto ->
           handleNpgRefundResponse(
             transaction,
             refundResponse,
@@ -246,22 +245,22 @@ fun refundTransaction(
 
 fun handleNpgRefundResponse(
   transaction: BaseTransactionWithRequestedAuthorization,
-  refundResponse: StateResponseDto,
+  refundResponse: RefundResponseDto,
   transactionsEventStoreRepository: TransactionsEventStoreRepository<TransactionRefundedData>,
   transactionsViewRepository: TransactionsViewRepository
 ): Mono<BaseTransaction> {
   logger.info(
-    "Transaction requestRefund for transaction ${transaction.transactionId} NPG refund status [${refundResponse.state!!.value}]")
+    "Transaction requestRefund for transaction ${transaction.transactionId} NPG refund status [${refundResponse.operationId!!}]")
 
-  return when (refundResponse.operation
-    ?.operationResult) { // TODO Check this response value, which are possible?
-    OperationResultDto.REFUNDED -> {
+  return when (refundResponse.operationId) { // TODO Check this response value, which are possible?
+    "operationId" -> { // TODO this value need to be retrieved from transaction event data
       logger.info(
         "Refund for transaction with id: [${transaction.transactionId.value()}] processed successfully")
       updateTransactionToRefunded(
         transaction, transactionsEventStoreRepository, transactionsViewRepository)
     }
-    OperationResultDto.FAILED -> {
+    "!operationId" -> { // TODO how do we make distinction between a refund denied (no retry needed)
+      // and a refund failed (schedule retry requested)
       logger.info(
         "Refund for transaction with id: [${transaction.transactionId.value()}] denied! No more attempts will be performed")
       updateTransactionToRefundError(
@@ -269,8 +268,7 @@ fun handleNpgRefundResponse(
     }
     else ->
       Mono.error(
-        RuntimeException(
-          "Refund error for transaction ${transaction.transactionId} unhandled NPG response status [${refundResponse.state}]"))
+        RuntimeException("Refund error for transaction ${transaction.transactionId} unhandled NPG"))
   }
 }
 
