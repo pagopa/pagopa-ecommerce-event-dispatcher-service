@@ -5,6 +5,7 @@ import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.utils.getMockedNpgRefundResponse
 import it.pagopa.ecommerce.eventdispatcher.utils.getMockedVPosRefundRequest
 import it.pagopa.ecommerce.eventdispatcher.utils.getMockedXPayRefundRequest
+import java.math.BigDecimal
 import java.util.UUID
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -13,7 +14,6 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
 import org.springframework.test.context.TestPropertySource
 import reactor.core.publisher.Mono
-import java.math.BigDecimal
 
 @TestPropertySource(locations = ["classpath:application.test.properties"])
 class RefundServiceTest {
@@ -22,22 +22,22 @@ class RefundServiceTest {
   private val apiKey = "mocked-api-key"
   private val refundService: RefundService = RefundService(paymentGatewayClient, npgClient, apiKey)
 
-    @Test
-    fun requestRefund_200_npg() {
-      val operationId = "operationID"
-      val idempotenceKey = "idempotenceKey"
-      val amount = BigDecimal.valueOf(1000)
+  @Test
+  fun requestRefund_200_npg() {
+    val operationId = "operationID"
+    val idempotenceKey = "idempotenceKey"
+    val amount = BigDecimal.valueOf(1000)
 
-      // Precondition
-      Mockito.`when`(npgClient.refundPayment(any(), any(), any(), any(), any()))
-        .thenReturn(Mono.just(getMockedNpgRefundResponse(operationId)))
+    // Precondition
+    Mockito.`when`(npgClient.refundPayment(any(), any(), any(), any(), any()))
+      .thenReturn(Mono.just(getMockedNpgRefundResponse(operationId)))
 
-      // Test
-      val response = refundService.requestNpgRefund(operationId, idempotenceKey, amount).block()
+    // Test
+    val response = refundService.requestNpgRefund(operationId, idempotenceKey, amount).block()
 
-      // Assertions
-      assertEquals(operationId, response?.operationId)
-    }
+    // Assertions
+    assertEquals(operationId, response?.operationId)
+  }
 
   @Test
   fun requestRefund_200_vpos() {
