@@ -6,7 +6,6 @@ import it.pagopa.ecommerce.eventdispatcher.utils.getMockedNpgRefundResponse
 import it.pagopa.ecommerce.eventdispatcher.utils.getMockedVPosRefundRequest
 import it.pagopa.ecommerce.eventdispatcher.utils.getMockedXPayRefundRequest
 import java.math.BigDecimal
-import java.util.*
 import java.util.UUID
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -44,6 +43,7 @@ class RefundServiceTest {
 
     // Assertions
     assertEquals(operationId, response?.operationId)
+    given(UUID.randomUUID()).willCallRealMethod()
   }
 
   @Test
