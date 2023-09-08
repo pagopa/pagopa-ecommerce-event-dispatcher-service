@@ -37,6 +37,8 @@ class RefundServiceTest {
 
     // Assertions
     assertEquals(operationId, response?.operationId)
+
+    Mockito.`when`(npgClient.refundPayment(any(), any(), any(), any(), any())).thenCallRealMethod()
   }
 
   @Test
