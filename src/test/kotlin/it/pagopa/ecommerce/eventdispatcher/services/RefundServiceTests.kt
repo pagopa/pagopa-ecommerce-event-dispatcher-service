@@ -10,8 +10,7 @@ import java.util.UUID
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito
-import org.mockito.kotlin.any
-import org.mockito.kotlin.mock
+import org.mockito.kotlin.*
 import org.springframework.test.context.TestPropertySource
 import reactor.core.publisher.Mono
 
@@ -37,6 +36,8 @@ class RefundServiceTest {
 
     // Assertions
     assertEquals(operationId, response?.operationId)
+    verify(npgClient, times(1))
+      .refundPayment(any(), eq(operationId), eq(idempotenceKey), eq(amount), eq(apiKey))
 
     Mockito.`when`(npgClient.refundPayment(any(), any(), any(), any(), any())).thenCallRealMethod()
   }
