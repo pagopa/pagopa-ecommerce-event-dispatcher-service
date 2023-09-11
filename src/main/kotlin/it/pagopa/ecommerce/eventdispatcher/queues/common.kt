@@ -259,13 +259,6 @@ fun handleNpgRefundResponse(
       updateTransactionToRefunded(
         transaction, transactionsEventStoreRepository, transactionsViewRepository)
     }
-    "!operationId" -> { // TODO how do we make distinction between a refund denied (no retry needed)
-      // and a refund failed (schedule retry requested)
-      logger.info(
-        "Refund for transaction with id: [${transaction.transactionId.value()}] denied! No more attempts will be performed")
-      updateTransactionToRefundError(
-        transaction, transactionsEventStoreRepository, transactionsViewRepository)
-    }
     else ->
       Mono.error(
         RuntimeException("Refund error for transaction ${transaction.transactionId} unhandled NPG"))

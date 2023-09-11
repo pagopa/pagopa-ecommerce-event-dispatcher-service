@@ -833,8 +833,6 @@ class TransactionsRefundEventsConsumerTests {
           TRANSACTION_ID, TransactionRefundedData(TransactionStatusDto.REFUND_REQUESTED))
           as TransactionEvent<Any>
 
-      val refundResponseDto = RefundResponseDto().apply { operationId = "!operationId" }
-
       val events =
         listOf(
           activationEvent,
@@ -856,7 +854,7 @@ class TransactionsRefundEventsConsumerTests {
       given(transactionsRefundedEventStoreRepository.save(refundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(refundService.requestNpgRefund(any(), any(), any()))
-        .willReturn(Mono.just(refundResponseDto))
+        .willThrow(RefundNotAllowedException(transaction.transactionId.uuid))
       given(refundRetryService.enqueueRetryEvent(any(), any(), any())).willReturn(Mono.empty())
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(
