@@ -277,7 +277,6 @@ class TransactionsRefundEventsConsumerTests {
       assertEquals(TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT, storedEvent.eventCode)
       assertEquals(TransactionStatusDto.REFUND_REQUESTED, storedEvent.data.statusBeforeRefunded)
     }
-
   @Test
   fun `consumer processes refund request event correctly with npg refund`() = runTest {
     val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
