@@ -1,9 +1,6 @@
 package it.pagopa.ecommerce.eventdispatcher.services
 
-import com.azure.core.util.BinaryData
 import it.pagopa.ecommerce.commons.client.NpgClient
-import it.pagopa.ecommerce.commons.queues.QueueEvent
-import it.pagopa.ecommerce.commons.queues.TracingInfoTest
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadGatewayException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.GatewayTimeoutException
@@ -12,8 +9,8 @@ import it.pagopa.ecommerce.eventdispatcher.exceptions.TransactionNotFound
 import it.pagopa.ecommerce.eventdispatcher.utils.getMockedNpgRefundResponse
 import it.pagopa.ecommerce.eventdispatcher.utils.getMockedVPosRefundRequest
 import it.pagopa.ecommerce.eventdispatcher.utils.getMockedXPayRefundRequest
-import org.junit.jupiter.api.Assertions
 import java.math.BigDecimal
+import java.nio.charset.Charset
 import java.util.UUID
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -25,7 +22,6 @@ import org.springframework.test.context.TestPropertySource
 import org.springframework.web.reactive.function.client.WebClientResponseException
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
-import java.nio.charset.Charset
 
 @SpringBootTest
 @TestPropertySource(locations = ["classpath:application.test.properties"])
@@ -63,13 +59,16 @@ class RefundServiceTest {
     val amount = BigDecimal.valueOf(1000)
 
     // Precondition
-   given { npgClient.refundPayment(any(), any(), any(), any(), any()) }
-      .willReturn(Mono.error(WebClientResponseException.BadRequest.create(400, "bad request", HttpHeaders.EMPTY, ByteArray(0), Charset.defaultCharset())))
+    given { npgClient.refundPayment(any(), any(), any(), any(), any()) }
+      .willReturn(
+        Mono.error(
+          WebClientResponseException.BadRequest.create(
+            400, "bad request", HttpHeaders.EMPTY, ByteArray(0), Charset.defaultCharset())))
 
     // Test
 
     StepVerifier.create(
-      refundService.requestNpgRefund(operationId, idempotenceKey.toString(), amount))
+        refundService.requestNpgRefund(operationId, idempotenceKey.toString(), amount))
       .expectError(RefundNotAllowedException::class.java)
       .verify()
 
@@ -87,12 +86,15 @@ class RefundServiceTest {
 
     // Precondition
     given { npgClient.refundPayment(any(), any(), any(), any(), any()) }
-      .willReturn(Mono.error(WebClientResponseException.BadRequest.create(404, "not found", HttpHeaders.EMPTY, ByteArray(0), Charset.defaultCharset())))
+      .willReturn(
+        Mono.error(
+          WebClientResponseException.BadRequest.create(
+            404, "not found", HttpHeaders.EMPTY, ByteArray(0), Charset.defaultCharset())))
 
     // Test
 
     StepVerifier.create(
-      refundService.requestNpgRefund(operationId, idempotenceKey.toString(), amount))
+        refundService.requestNpgRefund(operationId, idempotenceKey.toString(), amount))
       .expectError(TransactionNotFound::class.java)
       .verify()
 
@@ -110,12 +112,15 @@ class RefundServiceTest {
 
     // Precondition
     given { npgClient.refundPayment(any(), any(), any(), any(), any()) }
-      .willReturn(Mono.error(WebClientResponseException.BadRequest.create(401, "unauthorized", HttpHeaders.EMPTY, ByteArray(0), Charset.defaultCharset())))
+      .willReturn(
+        Mono.error(
+          WebClientResponseException.BadRequest.create(
+            401, "unauthorized", HttpHeaders.EMPTY, ByteArray(0), Charset.defaultCharset())))
 
     // Test
 
     StepVerifier.create(
-      refundService.requestNpgRefund(operationId, idempotenceKey.toString(), amount))
+        refundService.requestNpgRefund(operationId, idempotenceKey.toString(), amount))
       .expectError(WebClientResponseException::class.java)
       .verify()
 
@@ -133,12 +138,19 @@ class RefundServiceTest {
 
     // Precondition
     given { npgClient.refundPayment(any(), any(), any(), any(), any()) }
-      .willReturn(Mono.error(WebClientResponseException.BadRequest.create(500, "internal server errror", HttpHeaders.EMPTY, ByteArray(0), Charset.defaultCharset())))
+      .willReturn(
+        Mono.error(
+          WebClientResponseException.BadRequest.create(
+            500,
+            "internal server errror",
+            HttpHeaders.EMPTY,
+            ByteArray(0),
+            Charset.defaultCharset())))
 
     // Test
 
     StepVerifier.create(
-      refundService.requestNpgRefund(operationId, idempotenceKey.toString(), amount))
+        refundService.requestNpgRefund(operationId, idempotenceKey.toString(), amount))
       .expectError(BadGatewayException::class.java)
       .verify()
 
@@ -156,12 +168,15 @@ class RefundServiceTest {
 
     // Precondition
     given { npgClient.refundPayment(any(), any(), any(), any(), any()) }
-      .willReturn(Mono.error(WebClientResponseException.BadRequest.create(504, "timeout", HttpHeaders.EMPTY, ByteArray(0), Charset.defaultCharset())))
+      .willReturn(
+        Mono.error(
+          WebClientResponseException.BadRequest.create(
+            504, "timeout", HttpHeaders.EMPTY, ByteArray(0), Charset.defaultCharset())))
 
     // Test
 
     StepVerifier.create(
-      refundService.requestNpgRefund(operationId, idempotenceKey.toString(), amount))
+        refundService.requestNpgRefund(operationId, idempotenceKey.toString(), amount))
       .expectError(GatewayTimeoutException::class.java)
       .verify()
 

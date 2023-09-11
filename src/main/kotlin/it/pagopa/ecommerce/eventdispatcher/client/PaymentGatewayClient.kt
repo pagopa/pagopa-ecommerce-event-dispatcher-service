@@ -53,18 +53,4 @@ class PaymentGatewayClient {
       }
     }
   }
-
-  /*fun requestNpgRefund(sessionId: UUID): Mono<StateResponseDto> {
-    logger.info("Performing NPG refund for authorization id: [$sessionId]")
-    return npgClient.refundPayment(UUID.randomUUID(), sessionId.toString(), npgApiKey).onErrorMap(
-      WebClientResponseException::class.java) { exception: WebClientResponseException ->
-      when (exception.statusCode) {
-        HttpStatus.NOT_FOUND -> TransactionNotFound(sessionId)
-        HttpStatus.GATEWAY_TIMEOUT -> GatewayTimeoutException()
-        HttpStatus.INTERNAL_SERVER_ERROR -> BadGatewayException("")
-        HttpStatus.CONFLICT -> RefundNotAllowedException(sessionId)
-        else -> exception
-      }
-    }
-  }*/
 }
