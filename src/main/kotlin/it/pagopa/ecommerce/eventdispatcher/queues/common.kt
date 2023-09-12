@@ -250,19 +250,9 @@ fun handleNpgRefundResponse(
   transactionsViewRepository: TransactionsViewRepository
 ): Mono<BaseTransaction> {
   logger.info(
-    "Transaction requestRefund for transaction ${transaction.transactionId} NPG refund status [${refundResponse.operationId!!}]")
-
-  return when (refundResponse.operationId) { // TODO Check this response value, which are possible?
-    "operationId" -> { // TODO this value need to be retrieved from transaction event data
-      logger.info(
-        "Refund for transaction with id: [${transaction.transactionId.value()}] processed successfully")
-      updateTransactionToRefunded(
-        transaction, transactionsEventStoreRepository, transactionsViewRepository)
-    }
-    else ->
-      Mono.error(
-        RuntimeException("Refund error for transaction ${transaction.transactionId} unhandled NPG"))
-  }
+    "Refund for transaction with id: [${transaction.transactionId.value()}] and NPG operationId [${refundResponse.operationId!!}] processed successfully")
+  return updateTransactionToRefunded(
+    transaction, transactionsEventStoreRepository, transactionsViewRepository)
 }
 
 fun handleVposRefundResponse(

@@ -38,8 +38,8 @@ class RefundServiceTest {
     val amount = BigDecimal.valueOf(1000)
 
     // Precondition
-    Mockito.`when`(npgClient.refundPayment(any(), any(), any(), any(), any()))
-      .thenReturn(Mono.just(getMockedNpgRefundResponse(operationId)))
+    given(npgClient.refundPayment(any(), any(), any(), any(), any()))
+      .willReturn(Mono.just(getMockedNpgRefundResponse(operationId)))
 
     // Test
     val response = refundService.requestNpgRefund(operationId, idempotenceKey, amount).block()
