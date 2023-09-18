@@ -4,7 +4,6 @@ import com.azure.core.util.BinaryData
 import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
-import it.pagopa.ecommerce.commons.client.NpgClient
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
@@ -175,22 +174,19 @@ fun refundTransaction(
             refundResponse ->
             Pair(refundResponse, transaction)
           }
+        TransactionAuthorizationRequestData.PaymentGateway.NPG ->
+          refundService
+            .requestNpgRefund(
+              "operationId",
+              transaction.transactionId.value(),
+              BigDecimal(
+                transaction.transactionAuthorizationRequestData.amount +
+                  transaction.transactionAuthorizationRequestData.fee))
+            .map { refundResponse -> Pair(refundResponse, transaction) }
         else ->
-          when (transaction.transactionAuthorizationRequestData.paymentMethodName) {
-            NpgClient.PaymentMethod.CARDS.serviceName ->
-              refundService
-                .requestNpgRefund(
-                  "operationId",
-                  transaction.transactionId.value(),
-                  BigDecimal(
-                    transaction.transactionAuthorizationRequestData.amount +
-                      transaction.transactionAuthorizationRequestData.fee))
-                .map { refundResponse -> Pair(refundResponse, transaction) }
-            else ->
-              Mono.error(
-                RuntimeException(
-                  "Refund error for transaction ${transaction.transactionId} - unhandled payment-gateway"))
-          }
+          Mono.error(
+            RuntimeException(
+              "Refund error for transaction ${transaction.transactionId} - unhandled payment-gateway"))
       }
     }
     .flatMap {

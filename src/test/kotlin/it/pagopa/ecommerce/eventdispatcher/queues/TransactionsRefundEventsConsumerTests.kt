@@ -282,9 +282,8 @@ class TransactionsRefundEventsConsumerTests {
     val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
     val authorizationRequestEvent =
       transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
-    (authorizationRequestEvent.data as TransactionAuthorizationRequestData).paymentMethodName =
-      NpgClient.PaymentMethod.CARDS.serviceName
-    (authorizationRequestEvent.data as TransactionAuthorizationRequestData).paymentGateway = null
+    (authorizationRequestEvent.data as TransactionAuthorizationRequestData).paymentGateway =
+      TransactionAuthorizationRequestData.PaymentGateway.NPG
 
     val authorizationCompleteEvent =
       transactionAuthorizationCompletedEvent() as TransactionEvent<Any>
@@ -806,7 +805,8 @@ class TransactionsRefundEventsConsumerTests {
         transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
       val authorizationCompleteEvent =
         transactionAuthorizationCompletedEvent() as TransactionEvent<Any>
-      (authorizationRequestEvent.data as TransactionAuthorizationRequestData).paymentGateway = null
+      (authorizationRequestEvent.data as TransactionAuthorizationRequestData).paymentGateway =
+        TransactionAuthorizationRequestData.PaymentGateway.NPG
       (authorizationRequestEvent.data as TransactionAuthorizationRequestData).paymentMethodName =
         NpgClient.PaymentMethod.CARDS.serviceName
       val closedEvent =
