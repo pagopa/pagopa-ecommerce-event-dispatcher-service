@@ -12,7 +12,7 @@ import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.TracingInfoTest.MOCK_TRACING_INFO
 import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.commons.queues.TracingUtilsTests
-import it.pagopa.ecommerce.commons.redis.templatewrappers.PaymentRequestInfoRedisTemplateWrapper
+import it.pagopa.ecommerce.commons.redis.templatewrappers.v1.PaymentRequestInfoRedisTemplateWrapper
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils.*
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadClosePaymentRequest
 import it.pagopa.ecommerce.eventdispatcher.exceptions.TransactionNotFound
