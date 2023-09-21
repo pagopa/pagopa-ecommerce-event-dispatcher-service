@@ -177,11 +177,10 @@ fun refundTransaction(
         TransactionAuthorizationRequestData.PaymentGateway.NPG ->
           refundService
             .requestNpgRefund(
-              "operationId",
               transaction.transactionId.value(),
-              BigDecimal(
-                transaction.transactionAuthorizationRequestData.amount +
-                  transaction.transactionAuthorizationRequestData.fee))
+              transaction.transactionId.value(),
+              BigDecimal(transaction.transactionAuthorizationRequestData.amount)
+                .add(BigDecimal(transaction.transactionAuthorizationRequestData.fee)))
             .map { refundResponse -> Pair(refundResponse, transaction) }
         else ->
           Mono.error(
