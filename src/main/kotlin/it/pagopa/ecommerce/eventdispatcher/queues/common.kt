@@ -178,7 +178,7 @@ fun refundTransaction(
           refundService
             .requestNpgRefund(
               transaction.transactionId.value(),
-              transaction.transactionId.value(),
+              transaction.transactionId.uuid.toString(),
               BigDecimal(transaction.transactionAuthorizationRequestData.amount)
                 .add(BigDecimal(transaction.transactionAuthorizationRequestData.fee)))
             .map { refundResponse -> Pair(refundResponse, transaction) }
