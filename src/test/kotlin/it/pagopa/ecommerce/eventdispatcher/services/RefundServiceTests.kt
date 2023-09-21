@@ -38,7 +38,7 @@ class RefundServiceTest {
     val amount = BigDecimal.valueOf(1000)
 
     // Precondition
-    given(npgClient.refundPayment(any(), any(), any(), any(), any()))
+    given(npgClient.refundPayment(any(), any(), any(), any(), any(), anyOrNull()))
       .willReturn(Mono.just(getMockedNpgRefundResponse(operationId)))
 
     // Test
@@ -47,9 +47,11 @@ class RefundServiceTest {
     // Assertions
     assertEquals(operationId, response?.operationId)
     verify(npgClient, times(1))
-      .refundPayment(any(), eq(operationId), eq(idempotenceKey), eq(amount), eq(apiKey))
+      .refundPayment(
+        any(), eq(operationId), eq(idempotenceKey), eq(amount), eq(apiKey), anyOrNull())
 
-    Mockito.`when`(npgClient.refundPayment(any(), any(), any(), any(), any())).thenCallRealMethod()
+    Mockito.`when`(npgClient.refundPayment(any(), any(), any(), any(), any(), anyOrNull()))
+      .thenCallRealMethod()
   }
 
   @Test
@@ -59,7 +61,7 @@ class RefundServiceTest {
     val amount = BigDecimal.valueOf(1000)
 
     // Precondition
-    given { npgClient.refundPayment(any(), any(), any(), any(), any()) }
+    given { npgClient.refundPayment(any(), any(), any(), any(), any(), anyOrNull()) }
       .willReturn(
         Mono.error(
           WebClientResponseException.BadRequest.create(
@@ -73,9 +75,11 @@ class RefundServiceTest {
       .verify()
 
     verify(npgClient, times(1))
-      .refundPayment(any(), eq(operationId), eq(idempotenceKey.toString()), eq(amount), eq(apiKey))
+      .refundPayment(
+        any(), eq(operationId), eq(idempotenceKey.toString()), eq(amount), eq(apiKey), anyOrNull())
 
-    Mockito.`when`(npgClient.refundPayment(any(), any(), any(), any(), any())).thenCallRealMethod()
+    Mockito.`when`(npgClient.refundPayment(any(), any(), any(), any(), any(), anyOrNull()))
+      .thenCallRealMethod()
   }
 
   @Test
@@ -85,7 +89,7 @@ class RefundServiceTest {
     val amount = BigDecimal.valueOf(1000)
 
     // Precondition
-    given { npgClient.refundPayment(any(), any(), any(), any(), any()) }
+    given { npgClient.refundPayment(any(), any(), any(), any(), any(), anyOrNull()) }
       .willReturn(
         Mono.error(
           WebClientResponseException.BadRequest.create(
@@ -99,9 +103,11 @@ class RefundServiceTest {
       .verify()
 
     verify(npgClient, times(1))
-      .refundPayment(any(), eq(operationId), eq(idempotenceKey.toString()), eq(amount), eq(apiKey))
+      .refundPayment(
+        any(), eq(operationId), eq(idempotenceKey.toString()), eq(amount), eq(apiKey), anyOrNull())
 
-    Mockito.`when`(npgClient.refundPayment(any(), any(), any(), any(), any())).thenCallRealMethod()
+    Mockito.`when`(npgClient.refundPayment(any(), any(), any(), any(), any(), anyOrNull()))
+      .thenCallRealMethod()
   }
 
   @Test
@@ -111,7 +117,7 @@ class RefundServiceTest {
     val amount = BigDecimal.valueOf(1000)
 
     // Precondition
-    given { npgClient.refundPayment(any(), any(), any(), any(), any()) }
+    given { npgClient.refundPayment(any(), any(), any(), any(), any(), anyOrNull()) }
       .willReturn(
         Mono.error(
           WebClientResponseException.BadRequest.create(
@@ -125,9 +131,11 @@ class RefundServiceTest {
       .verify()
 
     verify(npgClient, times(1))
-      .refundPayment(any(), eq(operationId), eq(idempotenceKey.toString()), eq(amount), eq(apiKey))
+      .refundPayment(
+        any(), eq(operationId), eq(idempotenceKey.toString()), eq(amount), eq(apiKey), anyOrNull())
 
-    Mockito.`when`(npgClient.refundPayment(any(), any(), any(), any(), any())).thenCallRealMethod()
+    Mockito.`when`(npgClient.refundPayment(any(), any(), any(), any(), any(), anyOrNull()))
+      .thenCallRealMethod()
   }
 
   @Test
@@ -137,7 +145,7 @@ class RefundServiceTest {
     val amount = BigDecimal.valueOf(1000)
 
     // Precondition
-    given { npgClient.refundPayment(any(), any(), any(), any(), any()) }
+    given { npgClient.refundPayment(any(), any(), any(), any(), any(), anyOrNull()) }
       .willReturn(
         Mono.error(
           WebClientResponseException.BadRequest.create(
@@ -155,9 +163,11 @@ class RefundServiceTest {
       .verify()
 
     verify(npgClient, times(1))
-      .refundPayment(any(), eq(operationId), eq(idempotenceKey.toString()), eq(amount), eq(apiKey))
+      .refundPayment(
+        any(), eq(operationId), eq(idempotenceKey.toString()), eq(amount), eq(apiKey), anyOrNull())
 
-    Mockito.`when`(npgClient.refundPayment(any(), any(), any(), any(), any())).thenCallRealMethod()
+    Mockito.`when`(npgClient.refundPayment(any(), any(), any(), any(), any(), anyOrNull()))
+      .thenCallRealMethod()
   }
 
   @Test
@@ -167,7 +177,7 @@ class RefundServiceTest {
     val amount = BigDecimal.valueOf(1000)
 
     // Precondition
-    given { npgClient.refundPayment(any(), any(), any(), any(), any()) }
+    given { npgClient.refundPayment(any(), any(), any(), any(), any(), anyOrNull()) }
       .willReturn(
         Mono.error(
           WebClientResponseException.BadRequest.create(
@@ -181,9 +191,11 @@ class RefundServiceTest {
       .verify()
 
     verify(npgClient, times(1))
-      .refundPayment(any(), eq(operationId), eq(idempotenceKey.toString()), eq(amount), eq(apiKey))
+      .refundPayment(
+        any(), eq(operationId), eq(idempotenceKey.toString()), eq(amount), eq(apiKey), anyOrNull())
 
-    Mockito.`when`(npgClient.refundPayment(any(), any(), any(), any(), any())).thenCallRealMethod()
+    Mockito.`when`(npgClient.refundPayment(any(), any(), any(), any(), any(), anyOrNull()))
+      .thenCallRealMethod()
   }
 
   @Test
