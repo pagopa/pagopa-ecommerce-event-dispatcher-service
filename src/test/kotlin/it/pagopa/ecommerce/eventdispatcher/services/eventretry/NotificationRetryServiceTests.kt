@@ -113,7 +113,7 @@ class NotificationRetryServiceTests {
     val savedView = viewRepositoryCaptor.value
     val eventSentOnQueue = queueCaptor.value
     assertEquals(
-      TransactionEventCode.TRANSACTION_ADD_USER_RECEIPT_RETRY_EVENT, savedEvent.eventCode)
+      TransactionEventCode.TRANSACTION_ADD_USER_RECEIPT_RETRY_EVENT, TransactionEventCode.valueOf(savedEvent.eventCode))
     assertEquals(TransactionStatusDto.NOTIFICATION_ERROR, savedView.status)
     assertEquals(
       maxAttempts,
@@ -170,7 +170,7 @@ class NotificationRetryServiceTests {
     val savedView = viewRepositoryCaptor.value
     val eventSentOnQueue = queueCaptor.value
     assertEquals(
-      TransactionEventCode.TRANSACTION_ADD_USER_RECEIPT_RETRY_EVENT, savedEvent.eventCode)
+      TransactionEventCode.TRANSACTION_ADD_USER_RECEIPT_RETRY_EVENT, TransactionEventCode.valueOf(savedEvent.eventCode))
     assertEquals(TransactionStatusDto.NOTIFICATION_ERROR, savedView.status)
     assertEquals(
       1,

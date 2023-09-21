@@ -1,4 +1,4 @@
-package it.pagopa.ecommerce.eventdispatcher.queues
+package it.pagopa.ecommerce.eventdispatcher.queues.v1
 
 import com.azure.core.util.BinaryData
 import com.azure.core.util.serializer.TypeReference
@@ -350,9 +350,9 @@ class TransactionExpirationQueueConsumerTests {
     verify(deadLetterQueueAsyncClient, times(1))
       .sendMessageWithResponse(
         argThat<BinaryData> {
-          this.toObject(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {})
+          TransactionEventCode.valueOf(this.toObject(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {})
             .event
-            .eventCode == TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
+            .eventCode) == TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
         },
         eq(Duration.ZERO),
         eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
@@ -403,9 +403,9 @@ class TransactionExpirationQueueConsumerTests {
     verify(deadLetterQueueAsyncClient, times(1))
       .sendMessageWithResponse(
         argThat<BinaryData> {
-          this.toObject(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {})
+          TransactionEventCode.valueOf(this.toObject(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {})
             .event
-            .eventCode == TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
+            .eventCode) == TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
         },
         eq(Duration.ZERO),
         eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
@@ -495,11 +495,11 @@ class TransactionExpirationQueueConsumerTests {
       }
       assertEquals(
         TransactionEventCode.TRANSACTION_EXPIRED_EVENT,
-        transactionExpiredEventStoreCaptor.value.eventCode)
+        TransactionEventCode.valueOf(transactionExpiredEventStoreCaptor.value.eventCode))
       expectedRefundEventStatuses.forEachIndexed { idx, expectedStatus ->
         assertEquals(
           expectedStatus,
-          transactionRefundEventStoreCaptor.allValues[idx].eventCode,
+          TransactionEventCode.valueOf(transactionRefundEventStoreCaptor.allValues[idx].eventCode),
           "Unexpected event code on idx: $idx")
       }
     }
@@ -584,11 +584,11 @@ class TransactionExpirationQueueConsumerTests {
       }
       assertEquals(
         TransactionEventCode.TRANSACTION_EXPIRED_EVENT,
-        transactionExpiredEventStoreCaptor.value.eventCode)
+        TransactionEventCode.valueOf(transactionExpiredEventStoreCaptor.value.eventCode))
       expectedRefundEventStatuses.forEachIndexed { idx, expectedStatus ->
         assertEquals(
           expectedStatus,
-          transactionRefundEventStoreCaptor.allValues[idx].eventCode,
+          TransactionEventCode.valueOf(transactionRefundEventStoreCaptor.allValues[idx].eventCode),
           "Unexpected event code on idx: $idx")
       }
     }
@@ -646,7 +646,7 @@ class TransactionExpirationQueueConsumerTests {
       verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
       assertEquals(
         TransactionEventCode.TRANSACTION_EXPIRED_EVENT,
-        transactionExpiredEventStoreCaptor.value.eventCode)
+        TransactionEventCode.valueOf(transactionExpiredEventStoreCaptor.value.eventCode))
       assertEquals(
         TransactionStatusDto.EXPIRED_NOT_AUTHORIZED,
         transactionViewRepositoryCaptor.value.status,
@@ -788,7 +788,7 @@ class TransactionExpirationQueueConsumerTests {
       expectedRefundEventStatuses.forEachIndexed { idx, expectedStatus ->
         assertEquals(
           expectedStatus,
-          transactionRefundEventStoreCaptor.allValues[idx].eventCode,
+          TransactionEventCode.valueOf(transactionRefundEventStoreCaptor.allValues[idx].eventCode),
           "Unexpected event code on idx: $idx")
       }
     }
@@ -888,7 +888,7 @@ class TransactionExpirationQueueConsumerTests {
     expectedRefundEventStatuses.forEachIndexed { idx, expectedStatus ->
       assertEquals(
         expectedStatus,
-        transactionRefundEventStoreCaptor.allValues[idx].eventCode,
+        TransactionEventCode.valueOf(transactionRefundEventStoreCaptor.allValues[idx].eventCode),
         "Unexpected event code on idx: $idx")
     }
   }
@@ -994,11 +994,11 @@ class TransactionExpirationQueueConsumerTests {
       expectedRefundEventStatuses.forEachIndexed { idx, expectedStatus ->
         assertEquals(
           expectedStatus,
-          transactionRefundEventStoreCaptor.allValues[idx].eventCode,
+          TransactionEventCode.valueOf(transactionRefundEventStoreCaptor.allValues[idx].eventCode),
           "Unexpected event code on idx: $idx")
       }
       val expiredEvent = transactionExpiredEventStoreCaptor.value
-      assertEquals(TransactionEventCode.TRANSACTION_EXPIRED_EVENT, expiredEvent.eventCode)
+      assertEquals(TransactionEventCode.TRANSACTION_EXPIRED_EVENT, TransactionEventCode.valueOf(expiredEvent.eventCode))
       assertEquals(
         TransactionStatusDto.NOTIFICATION_ERROR, expiredEvent.data.statusBeforeExpiration)
     }
@@ -1080,7 +1080,7 @@ class TransactionExpirationQueueConsumerTests {
 
       assertEquals(TransactionStatusDto.EXPIRED, transactionViewRepositoryCaptor.value.status)
       val expiredEvent = transactionExpiredEventStoreCaptor.value
-      assertEquals(TransactionEventCode.TRANSACTION_EXPIRED_EVENT, expiredEvent.eventCode)
+      assertEquals(TransactionEventCode.TRANSACTION_EXPIRED_EVENT, TransactionEventCode.valueOf(expiredEvent.eventCode))
       assertEquals(
         TransactionStatusDto.NOTIFICATION_ERROR, expiredEvent.data.statusBeforeExpiration)
     }
@@ -1192,7 +1192,7 @@ class TransactionExpirationQueueConsumerTests {
       expectedRefundEventStatuses.forEachIndexed { idx, expectedStatus ->
         assertEquals(
           expectedStatus,
-          transactionRefundEventStoreCaptor.allValues[idx].eventCode,
+          TransactionEventCode.valueOf(transactionRefundEventStoreCaptor.allValues[idx].eventCode),
           "Unexpected event code on idx: $idx")
       }
     }
@@ -1481,7 +1481,7 @@ class TransactionExpirationQueueConsumerTests {
       verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
       assertEquals(
         TransactionEventCode.TRANSACTION_EXPIRED_EVENT,
-        transactionExpiredEventStoreCaptor.value.eventCode)
+        TransactionEventCode.valueOf(transactionExpiredEventStoreCaptor.value.eventCode))
       assertEquals(
         TransactionStatusDto.CANCELLATION_EXPIRED,
         transactionViewRepositoryCaptor.value.status,
@@ -1542,7 +1542,7 @@ class TransactionExpirationQueueConsumerTests {
       verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
       assertEquals(
         TransactionEventCode.TRANSACTION_EXPIRED_EVENT,
-        transactionExpiredEventStoreCaptor.value.eventCode)
+        TransactionEventCode.valueOf(transactionExpiredEventStoreCaptor.value.eventCode))
       assertEquals(
         TransactionStatusDto.CANCELLATION_EXPIRED,
         transactionViewRepositoryCaptor.value.status,
@@ -1689,11 +1689,11 @@ class TransactionExpirationQueueConsumerTests {
       expectedRefundEventStatuses.forEachIndexed { idx, expectedStatus ->
         assertEquals(
           expectedStatus,
-          transactionRefundEventStoreCaptor.allValues[idx].eventCode,
+          TransactionEventCode.valueOf(transactionRefundEventStoreCaptor.allValues[idx].eventCode),
           "Unexpected event code on idx: $idx")
       }
       val expiredEvent = transactionExpiredEventStoreCaptor.value
-      assertEquals(TransactionEventCode.TRANSACTION_EXPIRED_EVENT, expiredEvent.eventCode)
+      assertEquals(TransactionEventCode.TRANSACTION_EXPIRED_EVENT, TransactionEventCode.valueOf(expiredEvent.eventCode))
       assertEquals(TransactionStatusDto.CLOSURE_ERROR, expiredEvent.data.statusBeforeExpiration)
     }
 
@@ -1788,7 +1788,7 @@ class TransactionExpirationQueueConsumerTests {
       expectedRefundEventStatuses.forEachIndexed { idx, expectedStatus ->
         assertEquals(
           expectedStatus,
-          transactionRefundEventStoreCaptor.allValues[idx].eventCode,
+          TransactionEventCode.valueOf(transactionRefundEventStoreCaptor.allValues[idx].eventCode),
           "Unexpected event code on idx: $idx")
       }
     }
@@ -1862,7 +1862,7 @@ class TransactionExpirationQueueConsumerTests {
           "Unexpected view status on idx: $idx")
       }
       val expiredEvent = transactionExpiredEventStoreCaptor.value
-      assertEquals(TransactionEventCode.TRANSACTION_EXPIRED_EVENT, expiredEvent.eventCode)
+      assertEquals(TransactionEventCode.TRANSACTION_EXPIRED_EVENT, TransactionEventCode.valueOf(expiredEvent.eventCode))
       assertEquals(TransactionStatusDto.CLOSURE_ERROR, expiredEvent.data.statusBeforeExpiration)
     }
 
@@ -1940,7 +1940,7 @@ class TransactionExpirationQueueConsumerTests {
       }
 
       val expiredEvent = transactionExpiredEventStoreCaptor.value
-      assertEquals(TransactionEventCode.TRANSACTION_EXPIRED_EVENT, expiredEvent.eventCode)
+      assertEquals(TransactionEventCode.TRANSACTION_EXPIRED_EVENT, TransactionEventCode.valueOf(expiredEvent.eventCode))
       assertEquals(TransactionStatusDto.CLOSURE_ERROR, expiredEvent.data.statusBeforeExpiration)
     }
 
@@ -2082,7 +2082,7 @@ class TransactionExpirationQueueConsumerTests {
           "Unexpected view status on idx: $idx")
       }
       val expiredEvent = transactionExpiredEventStoreCaptor.value
-      assertEquals(TransactionEventCode.TRANSACTION_EXPIRED_EVENT, expiredEvent.eventCode)
+      assertEquals(TransactionEventCode.TRANSACTION_EXPIRED_EVENT, TransactionEventCode.valueOf(expiredEvent.eventCode))
       assertEquals(
         TransactionStatusDto.AUTHORIZATION_COMPLETED, expiredEvent.data.statusBeforeExpiration)
     }
@@ -2182,9 +2182,9 @@ class TransactionExpirationQueueConsumerTests {
       verify(deadLetterQueueAsyncClient, times(1))
         .sendMessageWithResponse(
           argThat<BinaryData> {
-            this.toObject(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {})
+            TransactionEventCode.valueOf(this.toObject(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {})
               .event
-              .eventCode == TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
+              .eventCode) == TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
           },
           eq(Duration.ZERO),
           eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
@@ -2222,9 +2222,9 @@ class TransactionExpirationQueueConsumerTests {
       verify(deadLetterQueueAsyncClient, times(1))
         .sendMessageWithResponse(
           argThat<BinaryData> {
-            this.toObject(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {})
+            TransactionEventCode.valueOf(this.toObject(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {})
               .event
-              .eventCode == TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
+              .eventCode) == TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
           },
           eq(Duration.ZERO),
           eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
@@ -2315,11 +2315,11 @@ class TransactionExpirationQueueConsumerTests {
       expectedRefundEventStatuses.forEachIndexed { idx, expectedStatus ->
         assertEquals(
           expectedStatus,
-          transactionRefundEventStoreCaptor.allValues[idx].eventCode,
+          TransactionEventCode.valueOf(transactionRefundEventStoreCaptor.allValues[idx].eventCode),
           "Unexpected event code on idx: $idx")
       }
       val expiredEvent = transactionExpiredEventStoreCaptor.value
-      assertEquals(TransactionEventCode.TRANSACTION_EXPIRED_EVENT, expiredEvent.eventCode)
+      assertEquals(TransactionEventCode.TRANSACTION_EXPIRED_EVENT, TransactionEventCode.valueOf(expiredEvent.eventCode))
       assertEquals(
         TransactionStatusDto.AUTHORIZATION_COMPLETED, expiredEvent.data.statusBeforeExpiration)
     }
@@ -2409,7 +2409,7 @@ class TransactionExpirationQueueConsumerTests {
       expectedRefundEventStatuses.forEachIndexed { idx, expectedStatus ->
         assertEquals(
           expectedStatus,
-          transactionRefundEventStoreCaptor.allValues[idx].eventCode,
+          TransactionEventCode.valueOf(transactionRefundEventStoreCaptor.allValues[idx].eventCode),
           "Unexpected event code on idx: $idx")
       }
     }
@@ -2498,11 +2498,11 @@ class TransactionExpirationQueueConsumerTests {
       expectedRefundEventStatuses.forEachIndexed { idx, expectedStatus ->
         assertEquals(
           expectedStatus,
-          transactionRefundEventStoreCaptor.allValues[idx].eventCode,
+          TransactionEventCode.valueOf(transactionRefundEventStoreCaptor.allValues[idx].eventCode),
           "Unexpected event code on idx: $idx")
       }
       val expiredEvent = transactionExpiredEventStoreCaptor.value
-      assertEquals(TransactionEventCode.TRANSACTION_EXPIRED_EVENT, expiredEvent.eventCode)
+      assertEquals(TransactionEventCode.TRANSACTION_EXPIRED_EVENT, TransactionEventCode.valueOf(expiredEvent.eventCode))
       assertEquals(TransactionStatusDto.CLOSED, expiredEvent.data.statusBeforeExpiration)
     }
 
@@ -2591,7 +2591,7 @@ class TransactionExpirationQueueConsumerTests {
       expectedRefundEventStatuses.forEachIndexed { idx, expectedStatus ->
         assertEquals(
           expectedStatus,
-          transactionRefundEventStoreCaptor.allValues[idx].eventCode,
+          TransactionEventCode.valueOf(transactionRefundEventStoreCaptor.allValues[idx].eventCode),
           "Unexpected event code on idx: $idx")
       }
     }
@@ -2657,9 +2657,9 @@ class TransactionExpirationQueueConsumerTests {
       verify(deadLetterQueueAsyncClient, times(1))
         .sendMessageWithResponse(
           argThat<BinaryData> {
-            this.toObject(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {})
+            TransactionEventCode.valueOf(this.toObject(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {})
               .event
-              .eventCode == TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
+              .eventCode) == TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
           },
           eq(Duration.ZERO),
           eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
@@ -2676,7 +2676,7 @@ class TransactionExpirationQueueConsumerTests {
       }
 
       val expiredEvent = transactionExpiredEventStoreCaptor.value
-      assertEquals(TransactionEventCode.TRANSACTION_EXPIRED_EVENT, expiredEvent.eventCode)
+      assertEquals(TransactionEventCode.TRANSACTION_EXPIRED_EVENT, TransactionEventCode.valueOf(expiredEvent.eventCode))
       assertEquals(TransactionStatusDto.CLOSED, expiredEvent.data.statusBeforeExpiration)
     }
 
@@ -2790,9 +2790,9 @@ class TransactionExpirationQueueConsumerTests {
       verify(expirationQueueAsyncClient, times(1))
         .sendMessageWithResponse(
           argThat<BinaryData> {
-            this.toObject(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {})
+            TransactionEventCode.valueOf(this.toObject(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {})
               .event
-              .eventCode == TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
+              .eventCode) == TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
           },
           argThat<Duration> {
             expectedRetryEventVisibilityTimeout.toSeconds() - this.toSeconds() <= 1
@@ -2866,9 +2866,9 @@ class TransactionExpirationQueueConsumerTests {
       verify(deadLetterQueueAsyncClient, times(1))
         .sendMessageWithResponse(
           argThat<BinaryData> {
-            this.toObject(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {})
+            TransactionEventCode.valueOf(this.toObject(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {})
               .event
-              .eventCode == TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
+              .eventCode) == TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
           },
           eq(Duration.ZERO),
           eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
@@ -2885,7 +2885,7 @@ class TransactionExpirationQueueConsumerTests {
       }
 
       val expiredEvent = transactionExpiredEventStoreCaptor.value
-      assertEquals(TransactionEventCode.TRANSACTION_EXPIRED_EVENT, expiredEvent.eventCode)
+      assertEquals(TransactionEventCode.TRANSACTION_EXPIRED_EVENT, TransactionEventCode.valueOf(expiredEvent.eventCode))
       assertEquals(TransactionStatusDto.CLOSED, expiredEvent.data.statusBeforeExpiration)
     }
 

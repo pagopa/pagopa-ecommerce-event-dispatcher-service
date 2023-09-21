@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import it.pagopa.ecommerce.commons.documents.v1.TransactionClosureData
 import it.pagopa.ecommerce.commons.documents.v1.TransactionEvent
 import it.pagopa.ecommerce.commons.documents.v1.TransactionUserReceiptData
-import it.pagopa.ecommerce.commons.domain.v1.Email
+import it.pagopa.ecommerce.commons.domain.Email
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithRequestedUserReceipt
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils

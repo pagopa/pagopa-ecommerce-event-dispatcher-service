@@ -1,4 +1,4 @@
-package it.pagopa.ecommerce.eventdispatcher.queues
+package it.pagopa.ecommerce.eventdispatcher.queues.v1
 
 import com.azure.core.util.BinaryData
 import com.azure.core.util.serializer.TypeReference
@@ -142,7 +142,7 @@ class TransactionRefundRetryQueueConsumerTest {
       "Unexpected view status")
     assertEquals(
       TransactionEventCode.TRANSACTION_REFUNDED_EVENT,
-      transactionRefundEventStoreCaptor.value.eventCode,
+      TransactionEventCode.valueOf(transactionRefundEventStoreCaptor.value.eventCode),
       "Unexpected event code")
     verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
   }
@@ -220,7 +220,7 @@ class TransactionRefundRetryQueueConsumerTest {
       assertEquals(TransactionStatusDto.REFUND_ERROR, transactionViewRepositoryCaptor.value.status)
       assertEquals(
         TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT,
-        transactionRefundEventStoreCaptor.value.eventCode)
+        TransactionEventCode.valueOf(transactionRefundEventStoreCaptor.value.eventCode))
     }
 
   @Test
@@ -290,7 +290,7 @@ class TransactionRefundRetryQueueConsumerTest {
       "Unexpected view status")
     assertEquals(
       TransactionEventCode.TRANSACTION_REFUNDED_EVENT,
-      transactionRefundEventStoreCaptor.value.eventCode,
+      TransactionEventCode.valueOf(transactionRefundEventStoreCaptor.value.eventCode),
       "Unexpected event code")
     verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
   }
@@ -367,7 +367,7 @@ class TransactionRefundRetryQueueConsumerTest {
       assertEquals(TransactionStatusDto.REFUND_ERROR, transactionViewRepositoryCaptor.value.status)
       assertEquals(
         TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT,
-        transactionRefundEventStoreCaptor.value.eventCode)
+        TransactionEventCode.valueOf(transactionRefundEventStoreCaptor.value.eventCode))
     }
 
   @Test
@@ -490,9 +490,9 @@ class TransactionRefundRetryQueueConsumerTest {
       verify(deadLetterQueueAsyncClient, times(1))
         .sendMessageWithResponse(
           argThat<BinaryData> {
-            this.toObject(object : TypeReference<QueueEvent<TransactionRefundRetriedEvent>>() {})
+            TransactionEventCode.valueOf(this.toObject(object : TypeReference<QueueEvent<TransactionRefundRetriedEvent>>() {})
               .event
-              .eventCode == TransactionEventCode.TRANSACTION_REFUND_RETRIED_EVENT
+              .eventCode) == TransactionEventCode.TRANSACTION_REFUND_RETRIED_EVENT
           },
           eq(Duration.ZERO),
           eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))

@@ -1,4 +1,4 @@
-package it.pagopa.ecommerce.eventdispatcher.queues
+package it.pagopa.ecommerce.eventdispatcher.queues.v1
 
 import com.azure.core.util.BinaryData
 import com.azure.core.util.serializer.TypeReference
@@ -6,13 +6,13 @@ import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
-import it.pagopa.ecommerce.commons.domain.v1.TransactionId
+import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.TracingInfoTest.MOCK_TRACING_INFO
 import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.commons.queues.TracingUtilsTests
-import it.pagopa.ecommerce.commons.redis.templatewrappers.v1.PaymentRequestInfoRedisTemplateWrapper
+import it.pagopa.ecommerce.commons.redis.templatewrappers.PaymentRequestInfoRedisTemplateWrapper
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils.*
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadClosePaymentRequest
 import it.pagopa.ecommerce.eventdispatcher.exceptions.TransactionNotFound
@@ -149,7 +149,7 @@ class TransactionClosePaymentQueueConsumerTests {
     assertEquals(TransactionStatusDto.CANCELED, viewArgumentCaptor.value.status)
     assertEquals(
       TransactionEventCode.TRANSACTION_CLOSED_EVENT,
-      closedEventStoreRepositoryCaptor.value.eventCode)
+      TransactionEventCode.valueOf(closedEventStoreRepositoryCaptor.value.eventCode))
     assertEquals(
       TransactionClosureData.Outcome.OK,
       closedEventStoreRepositoryCaptor.value.data.responseOutcome)
@@ -210,7 +210,7 @@ class TransactionClosePaymentQueueConsumerTests {
     assertEquals(TransactionStatusDto.CANCELED, viewArgumentCaptor.value.status)
     assertEquals(
       TransactionEventCode.TRANSACTION_CLOSED_EVENT,
-      closedEventStoreRepositoryCaptor.value.eventCode)
+      TransactionEventCode.valueOf(closedEventStoreRepositoryCaptor.value.eventCode))
     assertEquals(
       TransactionClosureData.Outcome.OK,
       closedEventStoreRepositoryCaptor.value.data.responseOutcome)
@@ -272,7 +272,7 @@ class TransactionClosePaymentQueueConsumerTests {
     assertEquals(TransactionStatusDto.CANCELED, viewArgumentCaptor.value.status)
     assertEquals(
       TransactionEventCode.TRANSACTION_CLOSED_EVENT,
-      closedEventStoreRepositoryCaptor.value.eventCode)
+      TransactionEventCode.valueOf(closedEventStoreRepositoryCaptor.value.eventCode))
     assertEquals(
       TransactionClosureData.Outcome.KO,
       closedEventStoreRepositoryCaptor.value.data.responseOutcome)
@@ -333,7 +333,7 @@ class TransactionClosePaymentQueueConsumerTests {
     assertEquals(TransactionStatusDto.CANCELED, viewArgumentCaptor.value.status)
     assertEquals(
       TransactionEventCode.TRANSACTION_CLOSED_EVENT,
-      closedEventStoreRepositoryCaptor.value.eventCode)
+      TransactionEventCode.valueOf(closedEventStoreRepositoryCaptor.value.eventCode))
     assertEquals(
       TransactionClosureData.Outcome.KO,
       closedEventStoreRepositoryCaptor.value.data.responseOutcome)
@@ -398,7 +398,7 @@ class TransactionClosePaymentQueueConsumerTests {
     assertEquals(TransactionStatusDto.CLOSURE_ERROR, viewArgumentCaptor.value.status)
     assertEquals(
       TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT,
-      closureErrorEventStoreRepositoryCaptor.value.eventCode)
+      TransactionEventCode.valueOf(closureErrorEventStoreRepositoryCaptor.value.eventCode))
   }
 
   @Test
@@ -439,9 +439,9 @@ class TransactionClosePaymentQueueConsumerTests {
     verify(deadLetterQueueAsyncClient, times(1))
       .sendMessageWithResponse(
         argThat<BinaryData> {
-          this.toObject(object : TypeReference<QueueEvent<TransactionUserCanceledEvent>>() {})
+          TransactionEventCode.valueOf(this.toObject(object : TypeReference<QueueEvent<TransactionUserCanceledEvent>>() {})
             .event
-            .eventCode == TransactionEventCode.TRANSACTION_USER_CANCELED_EVENT
+            .eventCode) == TransactionEventCode.TRANSACTION_USER_CANCELED_EVENT
         },
         eq(Duration.ZERO),
         eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))

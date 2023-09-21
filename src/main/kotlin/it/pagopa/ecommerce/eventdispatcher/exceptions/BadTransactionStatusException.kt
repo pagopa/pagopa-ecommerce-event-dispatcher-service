@@ -1,6 +1,6 @@
 package it.pagopa.ecommerce.eventdispatcher.exceptions
 
-import it.pagopa.ecommerce.commons.domain.v1.TransactionId
+import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 
 class BadTransactionStatusException(

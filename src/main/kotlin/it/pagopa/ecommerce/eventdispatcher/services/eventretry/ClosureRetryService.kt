@@ -3,7 +3,7 @@ package it.pagopa.ecommerce.eventdispatcher.services.eventretry
 import com.azure.storage.queue.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v1.TransactionClosureRetriedEvent
 import it.pagopa.ecommerce.commons.documents.v1.TransactionRetriedData
-import it.pagopa.ecommerce.commons.domain.v1.TransactionId
+import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithPaymentToken
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto

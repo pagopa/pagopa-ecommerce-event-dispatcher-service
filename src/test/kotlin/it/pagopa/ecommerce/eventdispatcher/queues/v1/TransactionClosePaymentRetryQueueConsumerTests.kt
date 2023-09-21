@@ -1,4 +1,4 @@
-package it.pagopa.ecommerce.eventdispatcher.queues
+package it.pagopa.ecommerce.eventdispatcher.queues.v1
 
 import com.azure.core.util.BinaryData
 import com.azure.core.util.serializer.TypeReference
@@ -7,7 +7,7 @@ import com.azure.storage.queue.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
-import it.pagopa.ecommerce.commons.domain.v1.TransactionId
+import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.v1.TransactionWithClosureError
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
@@ -163,7 +163,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       assertEquals(TransactionStatusDto.CLOSED, viewArgumentCaptor.value.status)
       assertEquals(
         TransactionEventCode.TRANSACTION_CLOSED_EVENT,
-        closedEventStoreRepositoryCaptor.value.eventCode)
+        TransactionEventCode.valueOf(closedEventStoreRepositoryCaptor.value.eventCode))
       assertEquals(
         TransactionClosureData.Outcome.OK,
         closedEventStoreRepositoryCaptor.value.data.responseOutcome)
@@ -236,7 +236,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       assertEquals(TransactionStatusDto.UNAUTHORIZED, viewArgumentCaptor.value.status)
       assertEquals(
         TransactionEventCode.TRANSACTION_CLOSURE_FAILED_EVENT,
-        closedEventStoreRepositoryCaptor.value.eventCode)
+        TransactionEventCode.valueOf(closedEventStoreRepositoryCaptor.value.eventCode))
       assertEquals(
         TransactionClosureData.Outcome.KO,
         closedEventStoreRepositoryCaptor.value.data.responseOutcome)
@@ -305,7 +305,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       assertEquals(TransactionStatusDto.CLOSED, viewArgumentCaptor.value.status)
       assertEquals(
         TransactionEventCode.TRANSACTION_CLOSED_EVENT,
-        closedEventStoreRepositoryCaptor.value.eventCode)
+        TransactionEventCode.valueOf(closedEventStoreRepositoryCaptor.value.eventCode))
       assertEquals(
         TransactionClosureData.Outcome.OK,
         closedEventStoreRepositoryCaptor.value.data.responseOutcome)
@@ -377,7 +377,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       assertEquals(TransactionStatusDto.UNAUTHORIZED, viewArgumentCaptor.value.status)
       assertEquals(
         TransactionEventCode.TRANSACTION_CLOSURE_FAILED_EVENT,
-        closedEventStoreRepositoryCaptor.value.eventCode)
+        TransactionEventCode.valueOf(closedEventStoreRepositoryCaptor.value.eventCode))
       assertEquals(
         TransactionClosureData.Outcome.KO,
         closedEventStoreRepositoryCaptor.value.data.responseOutcome)
@@ -450,7 +450,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       assertEquals(TransactionStatusDto.UNAUTHORIZED, viewArgumentCaptor.value.status)
       assertEquals(
         TransactionEventCode.TRANSACTION_CLOSURE_FAILED_EVENT,
-        closedEventStoreRepositoryCaptor.value.eventCode)
+        TransactionEventCode.valueOf(closedEventStoreRepositoryCaptor.value.eventCode))
       assertEquals(
         TransactionClosureData.Outcome.OK,
         closedEventStoreRepositoryCaptor.value.data.responseOutcome)
@@ -515,7 +515,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       assertEquals(TransactionStatusDto.CANCELED, viewArgumentCaptor.value.status)
       assertEquals(
         TransactionEventCode.TRANSACTION_CLOSED_EVENT,
-        closedEventStoreRepositoryCaptor.value.eventCode)
+        TransactionEventCode.valueOf(closedEventStoreRepositoryCaptor.value.eventCode))
       assertEquals(
         TransactionClosureData.Outcome.KO,
         closedEventStoreRepositoryCaptor.value.data.responseOutcome)
@@ -580,7 +580,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       assertEquals(TransactionStatusDto.CANCELED, viewArgumentCaptor.value.status)
       assertEquals(
         TransactionEventCode.TRANSACTION_CLOSED_EVENT,
-        closedEventStoreRepositoryCaptor.value.eventCode)
+        TransactionEventCode.valueOf(closedEventStoreRepositoryCaptor.value.eventCode))
       assertEquals(
         TransactionClosureData.Outcome.OK,
         closedEventStoreRepositoryCaptor.value.data.responseOutcome)
@@ -656,9 +656,9 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       verify(deadLetterQueueAsyncClient, times(1))
         .sendMessageWithResponse(
           argThat<BinaryData> {
-            this.toObject(object : TypeReference<QueueEvent<TransactionClosureErrorEvent>>() {})
+            TransactionEventCode.valueOf(this.toObject(object : TypeReference<QueueEvent<TransactionClosureErrorEvent>>() {})
               .event
-              .eventCode == TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT
+              .eventCode) == TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT
           },
           eq(Duration.ZERO),
           eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
@@ -709,9 +709,9 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       verify(deadLetterQueueAsyncClient, times(1))
         .sendMessageWithResponse(
           argThat<BinaryData> {
-            this.toObject(object : TypeReference<QueueEvent<TransactionClosureErrorEvent>>() {})
+            TransactionEventCode.valueOf(this.toObject(object : TypeReference<QueueEvent<TransactionClosureErrorEvent>>() {})
               .event
-              .eventCode == TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT
+              .eventCode) == TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT
           },
           eq(Duration.ZERO),
           eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
@@ -886,9 +886,9 @@ class TransactionClosePaymentRetryQueueConsumerTests {
     verify(deadLetterQueueAsyncClient, times(1))
       .sendMessageWithResponse(
         argThat<BinaryData> {
-          this.toObject(object : TypeReference<QueueEvent<TransactionClosureErrorEvent>>() {})
+          TransactionEventCode.valueOf(this.toObject(object : TypeReference<QueueEvent<TransactionClosureErrorEvent>>() {})
             .event
-            .eventCode == TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT
+            .eventCode) == TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT
         },
         eq(Duration.ZERO),
         eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
@@ -982,14 +982,14 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       }
       assertEquals(
         TransactionEventCode.TRANSACTION_CLOSED_EVENT,
-        closedEventStoreRepositoryCaptor.value.eventCode)
+        TransactionEventCode.valueOf(closedEventStoreRepositoryCaptor.value.eventCode))
       assertEquals(
         TransactionClosureData.Outcome.KO,
         closedEventStoreRepositoryCaptor.value.data.responseOutcome)
       expectedEventsCodes.forEachIndexed { idx, transactionEventCode ->
         assertEquals(
           transactionEventCode,
-          refundedEventStoreRepositoryCaptor.allValues[idx].eventCode,
+          TransactionEventCode.valueOf(refundedEventStoreRepositoryCaptor.allValues[idx].eventCode),
           "Unexpected event at idx: $idx")
       }
     }
@@ -1069,7 +1069,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
     }
     assertEquals(
       TransactionEventCode.TRANSACTION_CLOSED_EVENT,
-      closedEventStoreRepositoryCaptor.value.eventCode)
+      TransactionEventCode.valueOf(closedEventStoreRepositoryCaptor.value.eventCode))
     assertEquals(
       TransactionClosureData.Outcome.KO,
       closedEventStoreRepositoryCaptor.value.data.responseOutcome)
@@ -1157,7 +1157,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
     }
     assertEquals(
       TransactionEventCode.TRANSACTION_CLOSED_EVENT,
-      closedEventStoreRepositoryCaptor.value.eventCode)
+      TransactionEventCode.valueOf(closedEventStoreRepositoryCaptor.value.eventCode))
     assertEquals(
       TransactionClosureData.Outcome.KO,
       closedEventStoreRepositoryCaptor.value.data.responseOutcome)
@@ -1213,7 +1213,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       .willReturn(
         Mono.error(
           NoRetryAttemptsLeftException(
-            eventCode = TransactionEventCode.TRANSACTION_CLOSURE_RETRIED_EVENT,
+            eventCode = TransactionEventCode.TRANSACTION_CLOSURE_RETRIED_EVENT.toString(),
             transactionId = TransactionId(UUID.randomUUID()))))
     /* test */
 
@@ -1250,7 +1250,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
     expectedEventsCodes.forEachIndexed { idx, transactionEventCode ->
       assertEquals(
         transactionEventCode,
-        refundedEventStoreRepositoryCaptor.allValues[idx].eventCode,
+        TransactionEventCode.valueOf(refundedEventStoreRepositoryCaptor.allValues[idx].eventCode),
         "Unexpected event at idx: $idx")
     }
   }
@@ -1325,9 +1325,9 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       verify(deadLetterQueueAsyncClient, times(1))
         .sendMessageWithResponse(
           argThat<BinaryData> {
-            this.toObject(object : TypeReference<QueueEvent<TransactionClosureErrorEvent>>() {})
+            TransactionEventCode.valueOf(this.toObject(object : TypeReference<QueueEvent<TransactionClosureErrorEvent>>() {})
               .event
-              .eventCode == TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT
+              .eventCode) == TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT
           },
           eq(Duration.ZERO),
           eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))

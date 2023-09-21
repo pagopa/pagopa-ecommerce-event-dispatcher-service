@@ -111,7 +111,7 @@ class RefundRetryServiceTests {
     val savedEvent = eventStoreCaptor.value
     val savedView = viewRepositoryCaptor.value
     val eventSentOnQueue = queueCaptor.value
-    assertEquals(TransactionEventCode.TRANSACTION_REFUND_RETRIED_EVENT, savedEvent.eventCode)
+    assertEquals(TransactionEventCode.TRANSACTION_REFUND_RETRIED_EVENT, TransactionEventCode.valueOf(savedEvent.eventCode))
     assertEquals(TransactionStatusDto.REFUND_ERROR, savedView.status)
     assertEquals(
       maxAttempts,
@@ -166,7 +166,7 @@ class RefundRetryServiceTests {
     val savedEvent = eventStoreCaptor.value
     val savedView = viewRepositoryCaptor.value
     val eventSentOnQueue = queueCaptor.value
-    assertEquals(TransactionEventCode.TRANSACTION_REFUND_RETRIED_EVENT, savedEvent.eventCode)
+    assertEquals(TransactionEventCode.TRANSACTION_REFUND_RETRIED_EVENT, TransactionEventCode.valueOf(savedEvent.eventCode))
     assertEquals(TransactionStatusDto.REFUND_ERROR, savedView.status)
     assertEquals(
       1,

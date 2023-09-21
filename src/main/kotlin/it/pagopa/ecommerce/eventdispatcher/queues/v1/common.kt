@@ -1,4 +1,4 @@
-package it.pagopa.ecommerce.eventdispatcher.queues
+package it.pagopa.ecommerce.eventdispatcher.queues.v1
 
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
@@ -15,7 +15,7 @@ import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.RefundNotAllowedException
-import it.pagopa.ecommerce.eventdispatcher.queues.QueueCommonsLogger.logger
+import it.pagopa.ecommerce.eventdispatcher.queues.v1.QueueCommonsLogger.logger
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryService
@@ -541,7 +541,7 @@ fun <T> timeLeftForSendPaymentResult(
   return if (transactionStatus == TransactionStatusDto.CLOSED) {
     events
       .filter {
-        it.eventCode == TransactionEventCode.TRANSACTION_CLOSED_EVENT &&
+        TransactionEventCode.valueOf(it.eventCode) == TransactionEventCode.TRANSACTION_CLOSED_EVENT &&
           (it as TransactionClosedEvent).data.responseOutcome == TransactionClosureData.Outcome.OK
       }
       .next()

@@ -1,7 +1,7 @@
 package it.pagopa.ecommerce.eventdispatcher.config;
 
-import it.pagopa.ecommerce.commons.redis.templatewrappers.v1.PaymentRequestInfoRedisTemplateWrapper;
-import it.pagopa.ecommerce.commons.redis.templatewrappers.v1.RedisTemplateWrapperBuilder;
+import it.pagopa.ecommerce.commons.redis.templatewrappers.PaymentRequestInfoRedisTemplateWrapper;
+import it.pagopa.ecommerce.commons.redis.templatewrappers.RedisTemplateWrapperBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;

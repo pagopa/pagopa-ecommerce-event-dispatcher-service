@@ -109,7 +109,7 @@ class ClosureRetryServiceTests {
     val savedEvent = eventStoreCaptor.value
     val savedView = viewRepositoryCaptor.value
     val eventSentOnQueue = queueCaptor.value
-    assertEquals(TransactionEventCode.TRANSACTION_CLOSURE_RETRIED_EVENT, savedEvent.eventCode)
+    assertEquals(TransactionEventCode.TRANSACTION_CLOSURE_RETRIED_EVENT, TransactionEventCode.valueOf(savedEvent.eventCode))
     assertEquals(TransactionStatusDto.CLOSURE_ERROR, savedView.status)
     assertEquals(
       maxAttempts,
@@ -161,7 +161,7 @@ class ClosureRetryServiceTests {
     val savedEvent = eventStoreCaptor.value
     val savedView = viewRepositoryCaptor.value
     val eventSentOnQueue = queueCaptor.value
-    assertEquals(TransactionEventCode.TRANSACTION_CLOSURE_RETRIED_EVENT, savedEvent.eventCode)
+    assertEquals(TransactionEventCode.TRANSACTION_CLOSURE_RETRIED_EVENT, TransactionEventCode.valueOf(savedEvent.eventCode))
     assertEquals(TransactionStatusDto.CLOSURE_ERROR, savedView.status)
     assertEquals(
       1,

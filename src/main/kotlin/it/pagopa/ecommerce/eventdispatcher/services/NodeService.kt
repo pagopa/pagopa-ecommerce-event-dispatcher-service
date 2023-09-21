@@ -1,7 +1,7 @@
 package it.pagopa.ecommerce.eventdispatcher.services
 
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
-import it.pagopa.ecommerce.commons.domain.v1.TransactionId
+import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.v1.TransactionWithClosureError
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithCancellationRequested
@@ -13,6 +13,8 @@ import it.pagopa.ecommerce.commons.utils.EuroUtils
 import it.pagopa.ecommerce.eventdispatcher.client.NodeClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
 import it.pagopa.ecommerce.eventdispatcher.queues.*
+import it.pagopa.ecommerce.eventdispatcher.queues.v1.getAuthorizationOutcome
+import it.pagopa.ecommerce.eventdispatcher.queues.v1.reduceEvents
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.generated.ecommerce.nodo.v2.dto.*
 import java.time.OffsetDateTime
