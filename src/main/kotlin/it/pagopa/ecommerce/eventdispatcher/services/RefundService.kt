@@ -31,7 +31,7 @@ class RefundService(
     amount: BigDecimal
   ): Mono<RefundResponseDto> {
     return npgClient
-      .refundPayment(UUID.randomUUID(), operationId, idempotenceKey, amount, npgApiKey, null)
+      .refundPayment(UUID.randomUUID(), operationId, idempotenceKey, amount, npgApiKey)
       .onErrorMap(WebClientResponseException::class.java) { exception: WebClientResponseException ->
         when (exception.statusCode) {
           HttpStatus.NOT_FOUND -> TransactionNotFound(UUID.fromString(idempotenceKey))

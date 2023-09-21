@@ -507,8 +507,8 @@
 				<configuration>
 					<skipCheckoutIfExists>false</skipCheckoutIfExists>
 					<connectionUrl>scm:git:https://github.com/pagopa/pagopa-ecommerce-commons.git</connectionUrl>
-					<scmVersionType>branch</scmVersionType>
-					<scmVersion>log-refund-request-v0230</scmVersion>
+					<scmVersionType>tag</scmVersionType>
+					<scmVersion>${pagopa-ecommerce-commons.version}</scmVersion>
 					<goals>install -DskipTests</goals>
 				</configuration>
 				<executions>

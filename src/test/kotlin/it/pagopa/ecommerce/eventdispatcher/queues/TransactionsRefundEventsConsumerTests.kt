@@ -338,7 +338,7 @@ class TransactionsRefundEventsConsumerTests {
     verify(refundService, Mockito.times(1))
       .requestNpgRefund(
         transaction.transactionId.value(),
-        transaction.transactionId.value(),
+        transaction.transactionId.uuid.toString(),
         BigDecimal(
           transaction.transactionAuthorizationRequestData.amount +
             transaction.transactionAuthorizationRequestData.fee))
@@ -798,7 +798,7 @@ class TransactionsRefundEventsConsumerTests {
   }
 
   @Test
-  fun `consumer does not enqueue refund retry event for !operationId value response from NPG`() =
+  fun `consumer does not enqueue refund retry event for RefundNotAllowedException response from NPG`() =
     runTest {
       val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
       val authorizationRequestEvent =
@@ -858,7 +858,7 @@ class TransactionsRefundEventsConsumerTests {
       verify(refundService, Mockito.times(1))
         .requestNpgRefund(
           transaction.transactionId.value(),
-          transaction.transactionId.value(),
+          transaction.transactionId.uuid.toString(),
           BigDecimal(
             transaction.transactionAuthorizationRequestData.amount +
               transaction.transactionAuthorizationRequestData.fee))
