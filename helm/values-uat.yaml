@@ -28,7 +28,7 @@ microservice-chart:
       PAYMENT_TRANSACTIONS_GATEWAY_URI: https://api.uat.platform.pagopa.it/payment-transactions-gateway/internal/v1
       PAYMENT_TRANSACTIONS_GATEWAY_READ_TIMEOUT: "10000"
       PAYMENT_TRANSACTIONS_GATEWAY_CONNECTION_TIMEOUT: "10000"
-      NPG_URI: https://stg-ta.nexigroup.com/api/phoenix-0.0/psp/api/v1
+      NPG_URI: https://stg-ta.nexigroup.com/api/phoenix-0.0
       NPG_READ_TIMEOUT: "10000"
       NPG_CONNECTION_TIMEOUT: "10000"
       NODO_URI: https://api.uat.platform.pagopa.it/nodo/nodo-per-pm/v2
@@ -150,7 +150,7 @@ microservice-chart:
     PAYMENT_TRANSACTIONS_GATEWAY_URI: https://api.uat.platform.pagopa.it/payment-transactions-gateway/internal/v1
     PAYMENT_TRANSACTIONS_GATEWAY_READ_TIMEOUT: "10000"
     PAYMENT_TRANSACTIONS_GATEWAY_CONNECTION_TIMEOUT: "10000"
-    NPG_URI: https://stg-ta.nexigroup.com/api/phoenix-0.0/psp/api/v1
+    NPG_URI: https://stg-ta.nexigroup.com/api/phoenix-0.0
     NPG_READ_TIMEOUT: "10000"
     NPG_CONNECTION_TIMEOUT: "10000"
     NODO_URI: https://api.uat.platform.pagopa.it/nodo/nodo-per-pm/v2
