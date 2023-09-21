@@ -22,6 +22,7 @@ import it.pagopa.ecommerce.eventdispatcher.utils.DEAD_LETTER_QUEUE_TTL_SECONDS
 import it.pagopa.ecommerce.eventdispatcher.utils.TRANSIENT_QUEUE_TTL_SECONDS
 import it.pagopa.ecommerce.eventdispatcher.utils.queueSuccessfulResponse
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
+import java.nio.charset.StandardCharsets
 import java.time.Duration
 import java.time.ZonedDateTime
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -2887,4 +2888,29 @@ class TransactionExpirationQueueConsumerTests {
       assertEquals(TransactionEventCode.TRANSACTION_EXPIRED_EVENT, expiredEvent.eventCode)
       assertEquals(TransactionStatusDto.CLOSED, expiredEvent.data.statusBeforeExpiration)
     }
+
+  @Test
+  fun `consumer write event to dead letter queue for un-parsable event`() = runTest {
+    val invalidEvent = "test"
+    val payload = BinaryData.fromBytes(invalidEvent.toByteArray(StandardCharsets.UTF_8))
+    /* preconditions */
+    given(checkpointer.success()).willReturn(Mono.empty())
+    given(deadLetterQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull()))
+      .willReturn(queueSuccessfulResponse())
+
+    /* test */
+
+    StepVerifier.create(
+        transactionExpirationQueueConsumer.messageReceiver(
+          payload.toBytes(), checkpointer, MessageHeaders(mapOf())))
+      .verifyComplete()
+
+    /* Asserts */
+    verify(checkpointer, Mockito.times(1)).success()
+    verify(deadLetterQueueAsyncClient, times(1))
+      .sendMessageWithResponse(
+        argThat<BinaryData> { invalidEvent == (String(this.toBytes(), StandardCharsets.UTF_8)) },
+        eq(Duration.ZERO),
+        eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
+  }
 }

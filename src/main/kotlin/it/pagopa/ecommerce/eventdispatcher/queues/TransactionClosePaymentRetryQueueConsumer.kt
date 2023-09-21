@@ -20,6 +20,7 @@ import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
+import it.pagopa.ecommerce.eventdispatcher.exceptions.InvalidEventException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
@@ -28,7 +29,6 @@ import it.pagopa.ecommerce.eventdispatcher.services.eventretry.ClosureRetryServi
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryService
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
-import java.util.*
 import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -39,349 +39,379 @@ import org.springframework.messaging.handler.annotation.Header
 import org.springframework.messaging.handler.annotation.Payload
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
+import java.util.*
 
 @Service
 class TransactionClosePaymentRetryQueueConsumer(
-  @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,
-  @Autowired
-  private val transactionClosureSentEventRepository:
+    @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,
+    @Autowired
+    private val transactionClosureSentEventRepository:
     TransactionsEventStoreRepository<TransactionClosureData>,
-  @Autowired private val transactionsViewRepository: TransactionsViewRepository,
-  @Autowired private val nodeService: NodeService,
-  @Autowired private val closureRetryService: ClosureRetryService,
-  @Autowired
-  private val transactionsRefundedEventStoreRepository:
+    @Autowired private val transactionsViewRepository: TransactionsViewRepository,
+    @Autowired private val nodeService: NodeService,
+    @Autowired private val closureRetryService: ClosureRetryService,
+    @Autowired
+    private val transactionsRefundedEventStoreRepository:
     TransactionsEventStoreRepository<TransactionRefundedData>,
-  @Autowired private val paymentGatewayClient: PaymentGatewayClient,
-  @Autowired private val refundRetryService: RefundRetryService,
-  @Autowired private val deadLetterQueueAsyncClient: QueueAsyncClient,
-  @Value("\${azurestorage.queues.deadLetterQueue.ttlSeconds}")
-  private val deadLetterTTLSeconds: Int,
-  @Autowired private val tracingUtils: TracingUtils
+    @Autowired private val paymentGatewayClient: PaymentGatewayClient,
+    @Autowired private val refundRetryService: RefundRetryService,
+    @Autowired private val deadLetterQueueAsyncClient: QueueAsyncClient,
+    @Value("\${azurestorage.queues.deadLetterQueue.ttlSeconds}")
+    private val deadLetterTTLSeconds: Int,
+    @Autowired private val tracingUtils: TracingUtils
 ) {
-  var logger: Logger =
-    LoggerFactory.getLogger(TransactionClosePaymentRetryQueueConsumer::class.java)
+    var logger: Logger =
+        LoggerFactory.getLogger(TransactionClosePaymentRetryQueueConsumer::class.java)
 
-  private fun getTransactionId(
-    event: Either<TransactionClosureErrorEvent, TransactionClosureRetriedEvent>
-  ): String {
-    return event.fold({ it.transactionId }, { it.transactionId })
-  }
+    private fun getTransactionId(
+        event: Either<TransactionClosureErrorEvent, TransactionClosureRetriedEvent>
+    ): String {
+        return event.fold({ it.transactionId }, { it.transactionId })
+    }
 
-  private fun getRetryCount(
-    event: Either<TransactionClosureErrorEvent, TransactionClosureRetriedEvent>
-  ): Int {
-    return event.fold({ 0 }, { it.data.retryCount })
-  }
+    private fun getRetryCount(
+        event: Either<TransactionClosureErrorEvent, TransactionClosureRetriedEvent>
+    ): Int {
+        return event.fold({ 0 }, { it.data.retryCount })
+    }
 
-  private fun parseEvent(
-    data: BinaryData
-  ): Mono<
-    Pair<Either<TransactionClosureErrorEvent, TransactionClosureRetriedEvent>, TracingInfo?>> {
-    val closureRetriedEvent =
-      data
-        .toObjectAsync(object : TypeReference<QueueEvent<TransactionClosureRetriedEvent>>() {})
-        .map {
-          Either.right<TransactionClosureErrorEvent, TransactionClosureRetriedEvent>(it.event) to
-            it.tracingInfo
-        }
-    val closureErrorEvent =
-      data
-        .toObjectAsync(object : TypeReference<QueueEvent<TransactionClosureErrorEvent>>() {})
-        .map {
-          Either.left<TransactionClosureErrorEvent, TransactionClosureRetriedEvent>(it.event) to
-            it.tracingInfo
-        }
+    private fun parseEvent(
+        data: BinaryData
+    ): Mono<
+            Pair<Either<TransactionClosureErrorEvent, TransactionClosureRetriedEvent>, TracingInfo?>> {
+        val closureRetriedEvent =
+            data
+                .toObjectAsync(object : TypeReference<QueueEvent<TransactionClosureRetriedEvent>>() {})
+                .map {
+                    Either.right<TransactionClosureErrorEvent, TransactionClosureRetriedEvent>(it.event) to
+                            it.tracingInfo
+                }
+        val closureErrorEvent =
+            data
+                .toObjectAsync(object : TypeReference<QueueEvent<TransactionClosureErrorEvent>>() {})
+                .map {
+                    Either.left<TransactionClosureErrorEvent, TransactionClosureRetriedEvent>(it.event) to
+                            it.tracingInfo
+                }
 
-    val untracedClosureRetriedEvent =
-      data.toObjectAsync(object : TypeReference<TransactionClosureRetriedEvent>() {}).map {
-        Either.right<TransactionClosureErrorEvent, TransactionClosureRetriedEvent>(it) to null
-      }
-    val untracedClosureErrorEvent =
-      data.toObjectAsync(object : TypeReference<TransactionClosureErrorEvent>() {}).map {
-        Either.left<TransactionClosureErrorEvent, TransactionClosureRetriedEvent>(it) to null
-      }
+        val untracedClosureRetriedEvent =
+            data.toObjectAsync(object : TypeReference<TransactionClosureRetriedEvent>() {}).map {
+                Either.right<TransactionClosureErrorEvent, TransactionClosureRetriedEvent>(it) to null
+            }
+        val untracedClosureErrorEvent =
+            data.toObjectAsync(object : TypeReference<TransactionClosureErrorEvent>() {}).map {
+                Either.left<TransactionClosureErrorEvent, TransactionClosureRetriedEvent>(it) to null
+            }
 
-    return Mono.firstWithValue(
-      closureRetriedEvent,
-      closureErrorEvent,
-      untracedClosureRetriedEvent,
-      untracedClosureErrorEvent)
-  }
+        return Mono.firstWithValue(
+            closureRetriedEvent,
+            closureErrorEvent,
+            untracedClosureRetriedEvent,
+            untracedClosureErrorEvent
+        )
+    }
 
-  @ServiceActivator(inputChannel = "transactionretryclosureschannel", outputChannel = "nullChannel")
-  fun messageReceiver(
-    @Payload payload: ByteArray,
-    @Header(AzureHeaders.CHECKPOINTER) checkPointer: Checkpointer
-  ) = messageReceiver(payload, checkPointer, EmptyTransaction())
+    @ServiceActivator(inputChannel = "transactionretryclosureschannel", outputChannel = "nullChannel")
+    fun messageReceiver(
+        @Payload payload: ByteArray,
+        @Header(AzureHeaders.CHECKPOINTER) checkPointer: Checkpointer
+    ) = messageReceiver(payload, checkPointer, EmptyTransaction())
 
-  fun messageReceiver(
-    payload: ByteArray,
-    checkPointer: Checkpointer,
-    emptyTransaction: EmptyTransaction
-  ): Mono<Void> {
-    val binaryData = BinaryData.fromBytes(payload)
-    val eventData = parseEvent(binaryData)
-    val transactionId = eventData.map { getTransactionId(it.first) }
-    val retryCount = eventData.map { getRetryCount(it.first) }
-    val baseTransaction =
-      reduceEvents(transactionId, transactionsEventStoreRepository, emptyTransaction)
-    val closurePipeline =
-      baseTransaction
-        .flatMap {
-          logger.info("Status for transaction ${it.transactionId.value()}: ${it.status}")
+    fun messageReceiver(
+        payload: ByteArray,
+        checkPointer: Checkpointer,
+        emptyTransaction: EmptyTransaction
+    ): Mono<Void> {
+        val binaryData = BinaryData.fromBytes(payload)
+        val eventData = parseEvent(binaryData)
+        val transactionId = eventData.map { getTransactionId(it.first) }
+        val retryCount = eventData.map { getRetryCount(it.first) }
+        val baseTransaction =
+            reduceEvents(transactionId, transactionsEventStoreRepository, emptyTransaction)
+        val closurePipeline =
+            baseTransaction
+                .flatMap {
+                    logger.info("Status for transaction ${it.transactionId.value()}: ${it.status}")
 
-          if (it.status != TransactionStatusDto.CLOSURE_ERROR) {
-            Mono.error(
-              BadTransactionStatusException(
-                transactionId = it.transactionId,
-                expected = listOf(TransactionStatusDto.CLOSURE_ERROR),
-                actual = it.status))
-          } else {
-            Mono.just(it)
-          }
-        }
-        .cast(TransactionWithClosureError::class.java)
-        .flatMap { tx ->
-          val transactionAtPreviousState = tx.transactionAtPreviousState()
-          val canceledByUser = wasTransactionCanceledByUser(transactionAtPreviousState)
-          val wasAuthorized = wasTransactionAuthorized(transactionAtPreviousState)
-          val closureOutcome =
-            tx
-              .transactionAtPreviousState()
-              .map {
-                it.fold(
-                  {
-                    /*
-                     * retrying a closure for a transaction canceled by the user (not authorized) so here
-                     * we have to perform a closePayment KO request to Nodo
-                     */
-                    ClosePaymentRequestV2Dto.OutcomeEnum.KO
-                  },
-                  {
-                    /*
-                     * retrying a close payment for an authorized transaction.
-                     * Will be performed a close payment OK/KO based on the authorization outcome
-                     */
-                    trxWithAuthorizationCompleted ->
-                    when (trxWithAuthorizationCompleted.transactionAuthorizationCompletedData
-                      .authorizationResultDto) {
-                      AuthorizationResultDto.OK -> ClosePaymentRequestV2Dto.OutcomeEnum.OK
-                      AuthorizationResultDto.KO -> ClosePaymentRequestV2Dto.OutcomeEnum.KO
-                      else ->
-                        throw RuntimeException(
-                          "authorizationResult in status update event is null!")
+                    if (it.status != TransactionStatusDto.CLOSURE_ERROR) {
+                        Mono.error(
+                            BadTransactionStatusException(
+                                transactionId = it.transactionId,
+                                expected = listOf(TransactionStatusDto.CLOSURE_ERROR),
+                                actual = it.status
+                            )
+                        )
+                    } else {
+                        Mono.just(it)
                     }
-                  })
-              }
-              .orElseThrow {
-                RuntimeException(
-                  "Unexpected transactionAtPreviousStep: ${tx.transactionAtPreviousState}")
-              }
+                }
+                .cast(TransactionWithClosureError::class.java)
+                .flatMap { tx ->
+                    val transactionAtPreviousState = tx.transactionAtPreviousState()
+                    val canceledByUser = wasTransactionCanceledByUser(transactionAtPreviousState)
+                    val wasAuthorized = wasTransactionAuthorized(transactionAtPreviousState)
+                    val closureOutcome =
+                        tx
+                            .transactionAtPreviousState()
+                            .map {
+                                it.fold(
+                                    {
+                                        /*
+                                         * retrying a closure for a transaction canceled by the user (not authorized) so here
+                                         * we have to perform a closePayment KO request to Nodo
+                                         */
+                                        ClosePaymentRequestV2Dto.OutcomeEnum.KO
+                                    },
+                                    {
+                                        /*
+                                         * retrying a close payment for an authorized transaction.
+                                         * Will be performed a close payment OK/KO based on the authorization outcome
+                                         */
+                                            trxWithAuthorizationCompleted ->
+                                        when (trxWithAuthorizationCompleted.transactionAuthorizationCompletedData
+                                            .authorizationResultDto) {
+                                            AuthorizationResultDto.OK -> ClosePaymentRequestV2Dto.OutcomeEnum.OK
+                                            AuthorizationResultDto.KO -> ClosePaymentRequestV2Dto.OutcomeEnum.KO
+                                            else ->
+                                                throw RuntimeException(
+                                                    "authorizationResult in status update event is null!"
+                                                )
+                                        }
+                                    })
+                            }
+                            .orElseThrow {
+                                RuntimeException(
+                                    "Unexpected transactionAtPreviousStep: ${tx.transactionAtPreviousState}"
+                                )
+                            }
 
-          mono { nodeService.closePayment(tx.transactionId, closureOutcome) }
-            .flatMap { closePaymentResponse ->
-              updateTransactionStatus(
-                transaction = tx,
-                closureOutcome = closureOutcome,
-                closePaymentResponseDto = closePaymentResponse,
-                canceledByUser = canceledByUser,
-                wasAuthorized = wasAuthorized)
+                    mono { nodeService.closePayment(tx.transactionId, closureOutcome) }
+                        .flatMap { closePaymentResponse ->
+                            updateTransactionStatus(
+                                transaction = tx,
+                                closureOutcome = closureOutcome,
+                                closePaymentResponseDto = closePaymentResponse,
+                                canceledByUser = canceledByUser,
+                                wasAuthorized = wasAuthorized
+                            )
+                        }
+                        .zipWith(eventData, ::Pair)
+                        /*
+                         * The refund process is started only iff the previous transaction was authorized
+                         * and the Nodo returned closePaymentV2 response outcome KO
+                         */
+                        .flatMap { (closePaymentOutcomeEvent, eventData) ->
+                            val tracingInfo = eventData.second
+                            closePaymentOutcomeEvent.fold(
+                                { Mono.empty() },
+                                { transactionClosedEvent ->
+                                    refundTransactionPipeline(
+                                        tx, transactionClosedEvent.data.responseOutcome, tracingInfo
+                                    )
+                                })
+                        }
+                        .then()
+                        .onErrorResume { exception ->
+                            baseTransaction.flatMap { baseTransaction ->
+                                logger.error(
+                                    "Got exception while retrying closePaymentV2 for transaction with id ${baseTransaction.transactionId}!",
+                                    exception
+                                )
+                                /*
+                                 * The refund process is started only iff the previous transaction was authorized
+                                 * and the Nodo returned closePaymentV2 response outcome KO
+                                 */
+                                retryCount
+                                    .zipWith(eventData, ::Pair)
+                                    .flatMap { (retryCount, queueEvent) ->
+                                        val tracingInfo = queueEvent.second
+                                        closureRetryService.enqueueRetryEvent(baseTransaction, retryCount, tracingInfo)
+                                    }
+                                    .onErrorResume(NoRetryAttemptsLeftException::class.java) { exception ->
+                                        logger.error(
+                                            "No more attempts left for closure retry, refunding transaction", exception
+                                        )
+                                        eventData.flatMap { refundTransactionPipeline(tx, null, it.second) }.then()
+                                    }
+                                    .then()
+                            }
+                        }
+                }
+
+        return eventData
+            .onErrorMap { InvalidEventException(payload) }
+            .flatMap { (event, tracingInfo) ->
+                val e = event.fold({ it }, { it })
+                if (tracingInfo != null) {
+                    runTracedPipelineWithDeadLetterQueue(
+                        checkPointer,
+                        closurePipeline,
+                        QueueEvent(e, tracingInfo),
+                        deadLetterQueueAsyncClient,
+                        deadLetterTTLSeconds,
+                        tracingUtils,
+                        this::class.simpleName!!
+                    )
+                } else {
+                    runPipelineWithDeadLetterQueue(
+                        checkPointer,
+                        closurePipeline,
+                        BinaryData.fromObject(e).toBytes(),
+                        deadLetterQueueAsyncClient,
+                        deadLetterTTLSeconds
+                    )
+                }
+            }.onErrorResume(InvalidEventException::class.java) {
+                logger.error("Invalid input event", it)
+                runPipelineWithDeadLetterQueue(
+                    checkPointer,
+                    closurePipeline,
+                    payload,
+                    deadLetterQueueAsyncClient,
+                    deadLetterTTLSeconds
+                )
             }
-            .zipWith(eventData, ::Pair)
-            /*
-             * The refund process is started only iff the previous transaction was authorized
-             * and the Nodo returned closePaymentV2 response outcome KO
-             */
-            .flatMap { (closePaymentOutcomeEvent, eventData) ->
-              val tracingInfo = eventData.second
-              closePaymentOutcomeEvent.fold(
-                { Mono.empty() },
-                { transactionClosedEvent ->
-                  refundTransactionPipeline(
-                    tx, transactionClosedEvent.data.responseOutcome, tracingInfo)
+    }
+
+    private fun refundTransactionPipeline(
+        transaction: TransactionWithClosureError,
+        closureOutcome: TransactionClosureData.Outcome?,
+        tracingInfo: TracingInfo?
+    ): Mono<BaseTransaction> {
+        val transactionAtPreviousState = transaction.transactionAtPreviousState()
+        val wasAuthorized = wasTransactionAuthorized(transactionAtPreviousState)
+        val nodoOutcome = closureOutcome ?: TransactionClosureData.Outcome.KO
+        val toBeRefunded = wasAuthorized && nodoOutcome == TransactionClosureData.Outcome.KO
+        logger.info(
+            "Transaction Nodo ClosePaymentV2 response outcome: ${nodoOutcome}, was authorized: $wasAuthorized --> to be refunded: $toBeRefunded"
+        )
+        val transactionWithCompletedAuthorization =
+            getBaseTransactionWithCompletedAuthorization(transactionAtPreviousState)
+
+        return Mono.just(transactionWithCompletedAuthorization)
+            .filter { it.isPresent && toBeRefunded }
+            .flatMap { tx ->
+                updateTransactionToRefundRequested(
+                    tx.get(), transactionsRefundedEventStoreRepository, transactionsViewRepository
+                )
+            }
+            .flatMap {
+                refundTransaction(
+                    transactionWithCompletedAuthorization.get(),
+                    transactionsRefundedEventStoreRepository,
+                    transactionsViewRepository,
+                    paymentGatewayClient,
+                    refundRetryService,
+                    tracingInfo
+                )
+            }
+    }
+
+    private fun wasTransactionCanceledByUser(
+        transactionAtPreviousState:
+        Optional<
+                Either<BaseTransactionWithCancellationRequested, BaseTransactionWithCompletedAuthorization>>
+    ): Boolean = transactionAtPreviousState.map { it.isLeft }.orElse(false)
+
+    private fun wasTransactionAuthorized(
+        transactionAtPreviousState:
+        Optional<
+                Either<BaseTransactionWithCancellationRequested, BaseTransactionWithCompletedAuthorization>>
+    ): Boolean =
+        transactionAtPreviousState
+            .map {
+                it.fold(
+                    { false },
+                    { tx ->
+                        tx.transactionAuthorizationCompletedData.authorizationResultDto ==
+                                AuthorizationResultDto.OK
+                    })
+            }
+            .orElseGet { false }
+
+    private fun getBaseTransactionWithCompletedAuthorization(
+        transactionAtPreviousState:
+        Optional<
+                Either<BaseTransactionWithCancellationRequested, BaseTransactionWithCompletedAuthorization>>
+    ): Optional<BaseTransactionWithCompletedAuthorization> =
+        transactionAtPreviousState.flatMap { either ->
+            either.fold({ Optional.empty() }, { Optional.of(it) })
+        }
+
+    private fun updateTransactionStatus(
+        transaction: BaseTransactionWithClosureError,
+        closureOutcome: ClosePaymentRequestV2Dto.OutcomeEnum,
+        closePaymentResponseDto: ClosePaymentResponseDto,
+        canceledByUser: Boolean,
+        wasAuthorized: Boolean
+    ): Mono<Either<TransactionClosureFailedEvent, TransactionClosedEvent>> {
+        val outcome =
+            when (closePaymentResponseDto.outcome) {
+                ClosePaymentResponseDto.OutcomeEnum.OK -> TransactionClosureData.Outcome.OK
+                ClosePaymentResponseDto.OutcomeEnum.KO -> TransactionClosureData.Outcome.KO
+            }
+
+        val event: Either<TransactionClosureFailedEvent, TransactionClosedEvent> =
+            if (!wasAuthorized && !canceledByUser) {
+                Either.left(
+                    TransactionClosureFailedEvent(
+                        transaction.transactionId.value(), TransactionClosureData(outcome)
+                    )
+                )
+            } else {
+
+                Either.right(
+                    TransactionClosedEvent(
+                        transaction.transactionId.value(), TransactionClosureData(outcome)
+                    )
+                )
+            }
+
+        /*
+         * if the transaction was canceled by the user the transaction
+         * will go to CANCELED status regardless the Nodo ClosePayment outcome
+         */
+        val newStatus =
+            if (canceledByUser) {
+                TransactionStatusDto.CANCELED
+            } else {
+                when (closureOutcome) {
+                    ClosePaymentRequestV2Dto.OutcomeEnum.OK -> TransactionStatusDto.CLOSED
+                    ClosePaymentRequestV2Dto.OutcomeEnum.KO -> TransactionStatusDto.UNAUTHORIZED
+                }
+            }
+        logger.info(
+            "Updating transaction {} status to {}", transaction.transactionId.value(), newStatus
+        )
+
+        val transactionUpdate =
+            transactionsViewRepository.findByTransactionId(transaction.transactionId.value())
+
+        val saveEvent =
+            event.bimap(
+                {
+                    transactionClosureSentEventRepository.save(it).flatMap { closedEvent ->
+                        transactionUpdate
+                            .flatMap { tx ->
+                                tx.status = newStatus
+                                transactionsViewRepository.save(tx)
+                            }
+                            .thenReturn(closedEvent)
+                    }
+                },
+                {
+                    transactionClosureSentEventRepository.save(it).flatMap { closedEvent ->
+                        transactionUpdate
+                            .flatMap { tx ->
+                                tx.status = newStatus
+                                transactionsViewRepository.save(tx)
+                            }
+                            .thenReturn(closedEvent)
+                    }
                 })
-            }
-            .then()
-            .onErrorResume { exception ->
-              baseTransaction.flatMap { baseTransaction ->
-                logger.error(
-                  "Got exception while retrying closePaymentV2 for transaction with id ${baseTransaction.transactionId}!",
-                  exception)
-                /*
-                 * The refund process is started only iff the previous transaction was authorized
-                 * and the Nodo returned closePaymentV2 response outcome KO
-                 */
-                retryCount
-                  .zipWith(eventData, ::Pair)
-                  .flatMap { (retryCount, queueEvent) ->
-                    val tracingInfo = queueEvent.second
-                    closureRetryService.enqueueRetryEvent(baseTransaction, retryCount, tracingInfo)
-                  }
-                  .onErrorResume(NoRetryAttemptsLeftException::class.java) { exception ->
-                    logger.error(
-                      "No more attempts left for closure retry, refunding transaction", exception)
-                    eventData.flatMap { refundTransactionPipeline(tx, null, it.second) }.then()
-                  }
-                  .then()
-              }
-            }
-        }
 
-    return eventData.flatMap { (event, tracingInfo) ->
-      val e = event.fold({ it }, { it })
-
-      if (tracingInfo != null) {
-        runTracedPipelineWithDeadLetterQueue(
-          checkPointer,
-          closurePipeline,
-          QueueEvent(e, tracingInfo),
-          deadLetterQueueAsyncClient,
-          deadLetterTTLSeconds,
-          tracingUtils,
-          this::class.simpleName!!)
-      } else {
-        runPipelineWithDeadLetterQueue(
-          checkPointer,
-          closurePipeline,
-          BinaryData.fromObject(e).toBytes(),
-          deadLetterQueueAsyncClient,
-          deadLetterTTLSeconds)
-      }
+        return saveEvent.fold(
+            { it.map { closureFailed -> Either.left(closureFailed) } },
+            { it.map { closed -> Either.right(closed) } })
     }
-  }
-
-  private fun refundTransactionPipeline(
-    transaction: TransactionWithClosureError,
-    closureOutcome: TransactionClosureData.Outcome?,
-    tracingInfo: TracingInfo?
-  ): Mono<BaseTransaction> {
-    val transactionAtPreviousState = transaction.transactionAtPreviousState()
-    val wasAuthorized = wasTransactionAuthorized(transactionAtPreviousState)
-    val nodoOutcome = closureOutcome ?: TransactionClosureData.Outcome.KO
-    val toBeRefunded = wasAuthorized && nodoOutcome == TransactionClosureData.Outcome.KO
-    logger.info(
-      "Transaction Nodo ClosePaymentV2 response outcome: ${nodoOutcome}, was authorized: $wasAuthorized --> to be refunded: $toBeRefunded")
-    val transactionWithCompletedAuthorization =
-      getBaseTransactionWithCompletedAuthorization(transactionAtPreviousState)
-
-    return Mono.just(transactionWithCompletedAuthorization)
-      .filter { it.isPresent && toBeRefunded }
-      .flatMap { tx ->
-        updateTransactionToRefundRequested(
-          tx.get(), transactionsRefundedEventStoreRepository, transactionsViewRepository)
-      }
-      .flatMap {
-        refundTransaction(
-          transactionWithCompletedAuthorization.get(),
-          transactionsRefundedEventStoreRepository,
-          transactionsViewRepository,
-          paymentGatewayClient,
-          refundRetryService,
-          tracingInfo)
-      }
-  }
-
-  private fun wasTransactionCanceledByUser(
-    transactionAtPreviousState:
-      Optional<
-        Either<BaseTransactionWithCancellationRequested, BaseTransactionWithCompletedAuthorization>>
-  ): Boolean = transactionAtPreviousState.map { it.isLeft }.orElse(false)
-
-  private fun wasTransactionAuthorized(
-    transactionAtPreviousState:
-      Optional<
-        Either<BaseTransactionWithCancellationRequested, BaseTransactionWithCompletedAuthorization>>
-  ): Boolean =
-    transactionAtPreviousState
-      .map {
-        it.fold(
-          { false },
-          { tx ->
-            tx.transactionAuthorizationCompletedData.authorizationResultDto ==
-              AuthorizationResultDto.OK
-          })
-      }
-      .orElseGet { false }
-
-  private fun getBaseTransactionWithCompletedAuthorization(
-    transactionAtPreviousState:
-      Optional<
-        Either<BaseTransactionWithCancellationRequested, BaseTransactionWithCompletedAuthorization>>
-  ): Optional<BaseTransactionWithCompletedAuthorization> =
-    transactionAtPreviousState.flatMap { either ->
-      either.fold({ Optional.empty() }, { Optional.of(it) })
-    }
-
-  private fun updateTransactionStatus(
-    transaction: BaseTransactionWithClosureError,
-    closureOutcome: ClosePaymentRequestV2Dto.OutcomeEnum,
-    closePaymentResponseDto: ClosePaymentResponseDto,
-    canceledByUser: Boolean,
-    wasAuthorized: Boolean
-  ): Mono<Either<TransactionClosureFailedEvent, TransactionClosedEvent>> {
-    val outcome =
-      when (closePaymentResponseDto.outcome) {
-        ClosePaymentResponseDto.OutcomeEnum.OK -> TransactionClosureData.Outcome.OK
-        ClosePaymentResponseDto.OutcomeEnum.KO -> TransactionClosureData.Outcome.KO
-      }
-
-    val event: Either<TransactionClosureFailedEvent, TransactionClosedEvent> =
-      if (!wasAuthorized && !canceledByUser) {
-        Either.left(
-          TransactionClosureFailedEvent(
-            transaction.transactionId.value(), TransactionClosureData(outcome)))
-      } else {
-
-        Either.right(
-          TransactionClosedEvent(
-            transaction.transactionId.value(), TransactionClosureData(outcome)))
-      }
-
-    /*
-     * if the transaction was canceled by the user the transaction
-     * will go to CANCELED status regardless the Nodo ClosePayment outcome
-     */
-    val newStatus =
-      if (canceledByUser) {
-        TransactionStatusDto.CANCELED
-      } else {
-        when (closureOutcome) {
-          ClosePaymentRequestV2Dto.OutcomeEnum.OK -> TransactionStatusDto.CLOSED
-          ClosePaymentRequestV2Dto.OutcomeEnum.KO -> TransactionStatusDto.UNAUTHORIZED
-        }
-      }
-    logger.info(
-      "Updating transaction {} status to {}", transaction.transactionId.value(), newStatus)
-
-    val transactionUpdate =
-      transactionsViewRepository.findByTransactionId(transaction.transactionId.value())
-
-    val saveEvent =
-      event.bimap(
-        {
-          transactionClosureSentEventRepository.save(it).flatMap { closedEvent ->
-            transactionUpdate
-              .flatMap { tx ->
-                tx.status = newStatus
-                transactionsViewRepository.save(tx)
-              }
-              .thenReturn(closedEvent)
-          }
-        },
-        {
-          transactionClosureSentEventRepository.save(it).flatMap { closedEvent ->
-            transactionUpdate
-              .flatMap { tx ->
-                tx.status = newStatus
-                transactionsViewRepository.save(tx)
-              }
-              .thenReturn(closedEvent)
-          }
-        })
-
-    return saveEvent.fold(
-      { it.map { closureFailed -> Either.left(closureFailed) } },
-      { it.map { closed -> Either.right(closed) } })
-  }
 }
