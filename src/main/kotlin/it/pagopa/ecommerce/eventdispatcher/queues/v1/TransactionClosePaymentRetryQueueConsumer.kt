@@ -26,8 +26,8 @@ import it.pagopa.ecommerce.eventdispatcher.queues.*
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.NodeService
-import it.pagopa.ecommerce.eventdispatcher.services.eventretry.ClosureRetryService
-import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryService
+import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v1.ClosureRetryService
+import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v1.RefundRetryService
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
 import java.util.*

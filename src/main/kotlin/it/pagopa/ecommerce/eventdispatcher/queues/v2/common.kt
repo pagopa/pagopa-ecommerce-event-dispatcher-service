@@ -1,13 +1,18 @@
-package it.pagopa.ecommerce.eventdispatcher.queues.v1
+package it.pagopa.ecommerce.eventdispatcher.queues.v2
 
 import com.azure.core.util.BinaryData
+import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
-import it.pagopa.ecommerce.commons.documents.v1.*
-import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
-import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
-import it.pagopa.ecommerce.commons.domain.v1.TransactionWithClosureError
-import it.pagopa.ecommerce.commons.domain.v1.pojos.*
+import it.pagopa.ecommerce.commons.documents.v2.*
+import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationData
+import it.pagopa.ecommerce.commons.documents.v2.authorization.PgsTransactionGatewayAuthorizationData
+import it.pagopa.ecommerce.commons.documents.v2.authorization.TransactionGatewayAuthorizationData
+import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
+import it.pagopa.ecommerce.commons.domain.v2.TransactionEventCode
+import it.pagopa.ecommerce.commons.domain.v2.TransactionWithClosureError
+import it.pagopa.ecommerce.commons.domain.v2.pojos.*
+import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
@@ -15,10 +20,10 @@ import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.RefundNotAllowedException
-import it.pagopa.ecommerce.eventdispatcher.queues.v1.QueueCommonsLogger.logger
+import it.pagopa.ecommerce.eventdispatcher.queues.v2.QueueCommonsLogger.logger
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
-import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v1.RefundRetryService
+import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto.StatusEnum
 import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
@@ -328,10 +333,26 @@ fun wasAuthorizationRequested(tx: BaseTransaction): Boolean =
     else -> false
   }
 
+fun getGatewayAuthorizationOutcome(
+  gatewayAuthorizationData: TransactionGatewayAuthorizationData
+): AuthorizationResultDto {
+  return when (gatewayAuthorizationData) {
+    is NpgTransactionGatewayAuthorizationData -> {
+      if (gatewayAuthorizationData.operationResult == OperationResultDto.EXECUTED) {
+        AuthorizationResultDto.OK
+      } else {
+        AuthorizationResultDto.KO
+      }
+    }
+    is PgsTransactionGatewayAuthorizationData -> gatewayAuthorizationData.authorizationResultDto
+  }
+}
+
 fun getAuthorizationOutcome(tx: BaseTransaction): AuthorizationResultDto? =
   when (tx) {
     is BaseTransactionWithCompletedAuthorization ->
-      tx.transactionAuthorizationCompletedData.authorizationResultDto
+      getGatewayAuthorizationOutcome(
+        tx.transactionAuthorizationCompletedData.transactionGatewayAuthorizationData)
     is TransactionWithClosureError -> getAuthorizationOutcome(tx.transactionAtPreviousState)
     is BaseTransactionExpired -> getAuthorizationOutcome(tx.transactionAtPreviousState)
     else -> null
@@ -348,13 +369,14 @@ fun isTransactionExpired(tx: BaseTransaction): Boolean =
 fun reduceEvents(
   transactionId: Mono<String>,
   transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>
-) = reduceEvents(transactionId, transactionsEventStoreRepository, EmptyTransaction())
+): Mono<BaseTransaction> =
+  reduceEvents(transactionId, transactionsEventStoreRepository, EmptyTransaction())
 
 fun reduceEvents(
   transactionId: Mono<String>,
   transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,
   emptyTransaction: EmptyTransaction
-) =
+): Mono<BaseTransaction> =
   reduceEvents(
     transactionId.flatMapMany {
       transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(it).map {
@@ -363,11 +385,15 @@ fun reduceEvents(
     },
     emptyTransaction)
 
-fun <T> reduceEvents(events: Flux<TransactionEvent<T>>) = reduceEvents(events, EmptyTransaction())
+fun <T> reduceEvents(events: Flux<TransactionEvent<T>>): Mono<BaseTransaction> =
+  reduceEvents(events, EmptyTransaction())
 
-fun <T> reduceEvents(events: Flux<TransactionEvent<T>>, emptyTransaction: EmptyTransaction) =
+fun <T> reduceEvents(
+  events: Flux<TransactionEvent<T>>,
+  emptyTransaction: EmptyTransaction
+): Mono<BaseTransaction> =
   events
-    .reduce(emptyTransaction, it.pagopa.ecommerce.commons.domain.v1.Transaction::applyEvent)
+    .reduce(emptyTransaction, it.pagopa.ecommerce.commons.domain.v2.Transaction::applyEvent)
     .cast(BaseTransaction::class.java)
 
 fun updateNotifiedTransactionStatus(
@@ -455,7 +481,8 @@ fun <T> runPipelineWithDeadLetterQueue(
   deadLetterQueueTTLSeconds: Int
 ): Mono<Void> {
   val binaryData = BinaryData.fromBytes(eventPayload)
-  val eventLogString = "event payload: ${eventPayload.toString(StandardCharsets.UTF_8)}"
+  val event = binaryData.toObject(object : TypeReference<Map<String, Any>>() {})
+  val eventLogString = "${event["eventCode"]}, transactionId: ${event["transactionId"]}"
   return checkPointer
     .success()
     .doOnSuccess { logger.info("Checkpoint performed successfully for event $eventLogString") }
@@ -495,30 +522,24 @@ fun <T> runTracedPipelineWithDeadLetterQueue(
   val eventLogString = "${queueEvent.event.id}, transactionId: ${queueEvent.event.transactionId}"
 
   val deadLetterPipeline =
-    checkPointer
-      .success()
-      .doOnSuccess { logger.info("Checkpoint performed successfully for event $eventLogString") }
-      .doOnError { logger.error("Error performing checkpoint for event $eventLogString", it) }
-      .then(pipeline)
-      .then()
-      .onErrorResume { pipelineException ->
-        logger.error("Exception processing event $eventLogString", pipelineException)
-        deadLetterQueueAsyncClient
-          .sendMessageWithResponse(
-            BinaryData.fromObject(queueEvent),
-            Duration.ZERO,
-            Duration.ofSeconds(deadLetterQueueTTLSeconds.toLong()), // timeToLive
-          )
-          .doOnNext {
-            logger.info(
-              "Event: [${queueEvent.event}] successfully sent with visibility timeout: [${it.value.timeNextVisible}] ms to queue: [${deadLetterQueueAsyncClient.queueName}]")
-          }
-          .doOnError { queueException ->
-            logger.error(
-              "Error sending event: [${queueEvent.event}] to dead letter queue.", queueException)
-          }
-          .then()
-      }
+    pipeline.then().onErrorResume { pipelineException ->
+      logger.error("Exception processing event $eventLogString", pipelineException)
+      deadLetterQueueAsyncClient
+        .sendMessageWithResponse(
+          BinaryData.fromObject(queueEvent),
+          Duration.ZERO,
+          Duration.ofSeconds(deadLetterQueueTTLSeconds.toLong()), // timeToLive
+        )
+        .doOnNext {
+          logger.info(
+            "Event: [${queueEvent.event}] successfully sent with visibility timeout: [${it.value.timeNextVisible}] ms to queue: [${deadLetterQueueAsyncClient.queueName}]")
+        }
+        .doOnError { queueException ->
+          logger.error(
+            "Error sending event: [${queueEvent.event}] to dead letter queue.", queueException)
+        }
+        .then()
+    }
 
   return tracingUtils.traceMonoWithRemoteSpan(queueEvent.tracingInfo, spanName, deadLetterPipeline)
 }

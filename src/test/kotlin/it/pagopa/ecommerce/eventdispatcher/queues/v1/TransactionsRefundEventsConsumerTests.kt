@@ -16,7 +16,7 @@ import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.RefundNotAllowedException
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
-import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryService
+import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v1.RefundRetryService
 import it.pagopa.ecommerce.eventdispatcher.utils.DEAD_LETTER_QUEUE_TTL_SECONDS
 import it.pagopa.ecommerce.eventdispatcher.utils.queueSuccessfulResponse
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
@@ -149,7 +149,9 @@ class TransactionsRefundEventsConsumerTests {
     verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
     verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
     val storedEvent = refundEventStoreCaptor.value
-    assertEquals(TransactionEventCode.TRANSACTION_REFUNDED_EVENT, TransactionEventCode.valueOf(storedEvent.eventCode))
+    assertEquals(
+      TransactionEventCode.TRANSACTION_REFUNDED_EVENT,
+      TransactionEventCode.valueOf(storedEvent.eventCode))
     assertEquals(TransactionStatusDto.REFUND_REQUESTED, storedEvent.data.statusBeforeRefunded)
   }
 
@@ -212,7 +214,9 @@ class TransactionsRefundEventsConsumerTests {
       verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
       verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
       val storedEvent = refundEventStoreCaptor.value
-      assertEquals(TransactionEventCode.TRANSACTION_REFUNDED_EVENT, TransactionEventCode.valueOf(storedEvent.eventCode))
+      assertEquals(
+        TransactionEventCode.TRANSACTION_REFUNDED_EVENT,
+        TransactionEventCode.valueOf(storedEvent.eventCode))
       assertEquals(TransactionStatusDto.REFUND_REQUESTED, storedEvent.data.statusBeforeRefunded)
     }
 
@@ -276,7 +280,9 @@ class TransactionsRefundEventsConsumerTests {
     verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
     verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
     val storedEvent = refundEventStoreCaptor.value
-    assertEquals(TransactionEventCode.TRANSACTION_REFUNDED_EVENT, TransactionEventCode.valueOf(storedEvent.eventCode))
+    assertEquals(
+      TransactionEventCode.TRANSACTION_REFUNDED_EVENT,
+      TransactionEventCode.valueOf(storedEvent.eventCode))
     assertEquals(TransactionStatusDto.REFUND_REQUESTED, storedEvent.data.statusBeforeRefunded)
   }
 
@@ -389,7 +395,9 @@ class TransactionsRefundEventsConsumerTests {
     verify(refundRetryService, times(1)).enqueueRetryEvent(any(), any(), any())
 
     val storedEvent = refundEventStoreCaptor.value
-    assertEquals(TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT, TransactionEventCode.valueOf(storedEvent.eventCode))
+    assertEquals(
+      TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT,
+      TransactionEventCode.valueOf(storedEvent.eventCode))
     assertEquals(TransactionStatusDto.REFUND_REQUESTED, storedEvent.data.statusBeforeRefunded)
   }
 
@@ -456,7 +464,9 @@ class TransactionsRefundEventsConsumerTests {
       verify(refundRetryService, times(1)).enqueueRetryEvent(any(), any(), isNull())
 
       val storedEvent = refundEventStoreCaptor.value
-      assertEquals(TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT, TransactionEventCode.valueOf(storedEvent.eventCode))
+      assertEquals(
+        TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT,
+        TransactionEventCode.valueOf(storedEvent.eventCode))
       assertEquals(TransactionStatusDto.REFUND_REQUESTED, storedEvent.data.statusBeforeRefunded)
     }
 
@@ -523,7 +533,9 @@ class TransactionsRefundEventsConsumerTests {
     verify(refundRetryService, times(1)).enqueueRetryEvent(any(), any(), any())
 
     val storedEvent = refundEventStoreCaptor.value
-    assertEquals(TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT, TransactionEventCode.valueOf(storedEvent.eventCode))
+    assertEquals(
+      TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT,
+      TransactionEventCode.valueOf(storedEvent.eventCode))
     assertEquals(TransactionStatusDto.REFUND_REQUESTED, storedEvent.data.statusBeforeRefunded)
   }
 
@@ -591,7 +603,9 @@ class TransactionsRefundEventsConsumerTests {
     verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
 
     val storedEvent = refundEventStoreCaptor.value
-    assertEquals(TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT, TransactionEventCode.valueOf(storedEvent.eventCode))
+    assertEquals(
+      TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT,
+      TransactionEventCode.valueOf(storedEvent.eventCode))
     assertEquals(TransactionStatusDto.REFUND_REQUESTED, storedEvent.data.statusBeforeRefunded)
   }
 
@@ -660,7 +674,9 @@ class TransactionsRefundEventsConsumerTests {
     verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
 
     val storedEvent = refundEventStoreCaptor.value
-    assertEquals(TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT, TransactionEventCode.valueOf(storedEvent.eventCode))
+    assertEquals(
+      TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT,
+      TransactionEventCode.valueOf(storedEvent.eventCode))
     assertEquals(TransactionStatusDto.REFUND_REQUESTED, storedEvent.data.statusBeforeRefunded)
   }
 
@@ -724,7 +740,9 @@ class TransactionsRefundEventsConsumerTests {
     verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
 
     val storedEvent = refundEventStoreCaptor.value
-    assertEquals(TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT, TransactionEventCode.valueOf(storedEvent.eventCode))
+    assertEquals(
+      TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT,
+      TransactionEventCode.valueOf(storedEvent.eventCode))
     assertEquals(TransactionStatusDto.REFUND_REQUESTED, storedEvent.data.statusBeforeRefunded)
   }
 
@@ -789,7 +807,9 @@ class TransactionsRefundEventsConsumerTests {
       verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
 
       val storedEvent = refundEventStoreCaptor.value
-      assertEquals(TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT, TransactionEventCode.valueOf(storedEvent.eventCode))
+      assertEquals(
+        TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT,
+        TransactionEventCode.valueOf(storedEvent.eventCode))
       assertEquals(TransactionStatusDto.REFUND_REQUESTED, storedEvent.data.statusBeforeRefunded)
     }
 

@@ -18,6 +18,7 @@ import it.pagopa.ecommerce.commons.v1.TransactionTestUtils
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
+import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v1.RefundRetryService
 import it.pagopa.ecommerce.eventdispatcher.utils.TRANSIENT_QUEUE_TTL_SECONDS
 import java.time.Duration
 import java.time.OffsetDateTime
@@ -111,7 +112,9 @@ class RefundRetryServiceTests {
     val savedEvent = eventStoreCaptor.value
     val savedView = viewRepositoryCaptor.value
     val eventSentOnQueue = queueCaptor.value
-    assertEquals(TransactionEventCode.TRANSACTION_REFUND_RETRIED_EVENT, TransactionEventCode.valueOf(savedEvent.eventCode))
+    assertEquals(
+      TransactionEventCode.TRANSACTION_REFUND_RETRIED_EVENT,
+      TransactionEventCode.valueOf(savedEvent.eventCode))
     assertEquals(TransactionStatusDto.REFUND_ERROR, savedView.status)
     assertEquals(
       maxAttempts,
@@ -166,7 +169,9 @@ class RefundRetryServiceTests {
     val savedEvent = eventStoreCaptor.value
     val savedView = viewRepositoryCaptor.value
     val eventSentOnQueue = queueCaptor.value
-    assertEquals(TransactionEventCode.TRANSACTION_REFUND_RETRIED_EVENT, TransactionEventCode.valueOf(savedEvent.eventCode))
+    assertEquals(
+      TransactionEventCode.TRANSACTION_REFUND_RETRIED_EVENT,
+      TransactionEventCode.valueOf(savedEvent.eventCode))
     assertEquals(TransactionStatusDto.REFUND_ERROR, savedView.status)
     assertEquals(
       1,

@@ -14,7 +14,7 @@ import it.pagopa.ecommerce.commons.v1.TransactionTestUtils
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
-import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryService
+import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v1.RefundRetryService
 import it.pagopa.ecommerce.eventdispatcher.utils.DEAD_LETTER_QUEUE_TTL_SECONDS
 import it.pagopa.ecommerce.eventdispatcher.utils.queueSuccessfulResponse
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
@@ -490,9 +490,10 @@ class TransactionRefundRetryQueueConsumerTest {
       verify(deadLetterQueueAsyncClient, times(1))
         .sendMessageWithResponse(
           argThat<BinaryData> {
-            TransactionEventCode.valueOf(this.toObject(object : TypeReference<QueueEvent<TransactionRefundRetriedEvent>>() {})
-              .event
-              .eventCode) == TransactionEventCode.TRANSACTION_REFUND_RETRIED_EVENT
+            TransactionEventCode.valueOf(
+              this.toObject(object : TypeReference<QueueEvent<TransactionRefundRetriedEvent>>() {})
+                .event
+                .eventCode) == TransactionEventCode.TRANSACTION_REFUND_RETRIED_EVENT
           },
           eq(Duration.ZERO),
           eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))

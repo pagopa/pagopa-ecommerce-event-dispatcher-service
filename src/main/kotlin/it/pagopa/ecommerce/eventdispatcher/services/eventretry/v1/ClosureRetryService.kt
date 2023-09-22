@@ -1,4 +1,4 @@
-package it.pagopa.ecommerce.eventdispatcher.services.eventretry
+package it.pagopa.ecommerce.eventdispatcher.services.eventretry.v1
 
 import com.azure.storage.queue.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v1.TransactionClosureRetriedEvent
@@ -15,7 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 
-@Service
+@Service(ClosureRetryService.QUALIFIER)
 class ClosureRetryService(
   @Autowired private val closureRetryQueueAsyncClient: QueueAsyncClient,
   @Value("\${closePaymentRetry.eventOffsetSeconds}") private val closePaymentRetryOffset: Int,
@@ -35,6 +35,10 @@ class ClosureRetryService(
     viewRepository = viewRepository,
     retryEventStoreRepository = eventStoreRepository,
     transientQueuesTTLSeconds = transientQueuesTTLSeconds) {
+
+  companion object {
+    const val QUALIFIER = "ClosureRetryServiceV1"
+  }
 
   override fun buildRetryEvent(
     transactionId: TransactionId,

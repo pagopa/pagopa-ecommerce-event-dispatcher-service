@@ -22,8 +22,8 @@ import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftExcepti
 import it.pagopa.ecommerce.eventdispatcher.queues.*
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
-import it.pagopa.ecommerce.eventdispatcher.services.eventretry.NotificationRetryService
-import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryService
+import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v1.NotificationRetryService
+import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v1.RefundRetryService
 import it.pagopa.ecommerce.eventdispatcher.utils.UserReceiptMailBuilder
 import it.pagopa.generated.notifications.templates.success.*
 import java.util.*

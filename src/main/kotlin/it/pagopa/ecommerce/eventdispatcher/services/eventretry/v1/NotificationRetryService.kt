@@ -1,4 +1,4 @@
-package it.pagopa.ecommerce.eventdispatcher.services.eventretry
+package it.pagopa.ecommerce.eventdispatcher.services.eventretry.v1
 
 import com.azure.storage.queue.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v1.TransactionRetriedData
@@ -13,7 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 
-@Service
+@Service(NotificationRetryService.QUALIFIER)
 class NotificationRetryService(
   @Autowired private val notificationRetryQueueAsyncClient: QueueAsyncClient,
   @Value("\${notificationRetry.eventOffsetSeconds}") private val notificationRetryOffset: Int,
@@ -31,6 +31,10 @@ class NotificationRetryService(
     viewRepository = viewRepository,
     retryEventStoreRepository = eventStoreRepository,
     transientQueuesTTLSeconds = transientQueuesTTLSeconds) {
+
+  companion object {
+    const val QUALIFIER = "NotificationRetryServiceV1"
+  }
 
   override fun buildRetryEvent(
     transactionId: TransactionId,

@@ -1,7 +1,7 @@
 package it.pagopa.ecommerce.eventdispatcher.services
 
-import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.TransactionId
+import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v1.TransactionWithClosureError
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithCancellationRequested

@@ -1,4 +1,4 @@
-package it.pagopa.ecommerce.eventdispatcher.queues.v1
+package it.pagopa.ecommerce.eventdispatcher.queues.v2
 
 import com.azure.core.util.BinaryData
 import com.azure.core.util.serializer.TypeReference
@@ -6,16 +6,15 @@ import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
 import io.vavr.control.Either
-import it.pagopa.ecommerce.commons.documents.v1.*
-import it.pagopa.ecommerce.commons.domain.v1.TransactionWithClosureError
+import it.pagopa.ecommerce.commons.documents.v2.*
+import it.pagopa.ecommerce.commons.domain.v2.TransactionWithClosureError
 import it.pagopa.ecommerce.commons.queues.QueueEvent
-import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.commons.queues.TracingUtils
-import it.pagopa.ecommerce.commons.utils.v1.TransactionUtils
+import it.pagopa.ecommerce.commons.utils.v2.TransactionUtils
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
-import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v1.RefundRetryService
+import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
 import java.time.Duration
 import java.util.*
 import org.slf4j.Logger
@@ -34,7 +33,7 @@ import reactor.core.publisher.Mono
  * to handle expiration of transactions and subsequent refund for transaction stuck in a
  * pending/transient state.
  */
-@Service("TransactionExpirationQueueConsumerV1")
+@Service("TransactionExpirationQueueConsumerV2")
 class TransactionExpirationQueueConsumer(
   @Autowired private val paymentGatewayClient: PaymentGatewayClient,
   @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,
@@ -63,42 +62,28 @@ class TransactionExpirationQueueConsumer(
 
   private fun parseEvent(
     data: BinaryData
-  ): Mono<Pair<Either<TransactionActivatedEvent, TransactionExpiredEvent>, TracingInfo?>> {
+  ): Mono<Either<QueueEvent<TransactionActivatedEvent>, QueueEvent<TransactionExpiredEvent>>> {
     val transactionActivatedEvent =
       data.toObjectAsync(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {}).map {
-        Either.left<TransactionActivatedEvent, TransactionExpiredEvent>(it.event) to it.tracingInfo
+        Either.left<QueueEvent<TransactionActivatedEvent>, QueueEvent<TransactionExpiredEvent>>(it)
       }
 
     val transactionExpiredEvent =
       data.toObjectAsync(object : TypeReference<QueueEvent<TransactionExpiredEvent>>() {}).map {
-        Either.right<TransactionActivatedEvent, TransactionExpiredEvent>(it.event) to it.tracingInfo
+        Either.right<QueueEvent<TransactionActivatedEvent>, QueueEvent<TransactionExpiredEvent>>(it)
       }
 
-    val untracedTransactionActivatedEvent =
-      data.toObjectAsync(object : TypeReference<TransactionActivatedEvent>() {}).map {
-        Either.left<TransactionActivatedEvent, TransactionExpiredEvent>(it) to null
-      }
-
-    val untracedTransactionExpiredEvent =
-      data.toObjectAsync(object : TypeReference<TransactionExpiredEvent>() {}).map {
-        Either.right<TransactionActivatedEvent, TransactionExpiredEvent>(it) to null
-      }
-
-    return Mono.firstWithValue(
-      transactionActivatedEvent,
-      transactionExpiredEvent,
-      untracedTransactionActivatedEvent,
-      untracedTransactionExpiredEvent)
+    return Mono.firstWithValue(transactionActivatedEvent, transactionExpiredEvent)
   }
 
   fun messageReceiver(
     @Payload
-    queueEvent: Pair<Either<TransactionActivatedEvent, TransactionExpiredEvent>, TracingInfo?>,
+    queueEvent: Either<QueueEvent<TransactionActivatedEvent>, QueueEvent<TransactionExpiredEvent>>,
     @Header(AzureHeaders.CHECKPOINTER) checkPointer: Checkpointer,
     @Headers headers: MessageHeaders
   ): Mono<Void> {
-    val event = queueEvent.first.fold({ it }, { it })
-    val transactionId = queueEvent.first.fold({ it.transactionId }, { it.transactionId })
+    val event = queueEvent.fold({ it }, { it })
+    val transactionId = queueEvent.fold({ it.event.transactionId }, { it.event.transactionId })
     val events =
       transactionsEventStoreRepository
         .findByTransactionIdOrderByCreationDateAsc(transactionId)
@@ -117,13 +102,7 @@ class TransactionExpirationQueueConsumer(
             timeLeftForSendPaymentResult(it, sendPaymentResultTimeoutSeconds, events)
           sendPaymentResultTimeLeft
             .flatMap { timeLeft ->
-              val tracingInfo = queueEvent.second
-              val binaryData =
-                if (tracingInfo == null) {
-                  BinaryData.fromObject(event)
-                } else {
-                  BinaryData.fromObject(QueueEvent(event, tracingInfo))
-                }
+              val binaryData = BinaryData.fromObject(event)
               val sendPaymentResultOffset =
                 Duration.ofSeconds(sendPaymentResultTimeoutOffsetSeconds.toLong())
               val expired = timeLeft < sendPaymentResultOffset
@@ -175,7 +154,7 @@ class TransactionExpirationQueueConsumer(
             it, transactionsRefundedEventStoreRepository, transactionsViewRepository)
         }
         .flatMap { tx ->
-          val tracingInfo = queueEvent.second
+          val tracingInfo = queueEvent.fold({ it.tracingInfo }, { it.tracingInfo })
           val transaction =
             if (tx is TransactionWithClosureError) {
               tx.transactionAtPreviousState
@@ -191,24 +170,11 @@ class TransactionExpirationQueueConsumer(
             tracingInfo)
         }
 
-    val tracingInfo = queueEvent.second
-
-    return if (tracingInfo != null) {
-      runTracedPipelineWithDeadLetterQueue(
-        checkPointer,
-        refundPipeline,
-        QueueEvent(event, tracingInfo),
-        deadLetterQueueAsyncClient,
-        deadLetterTTLSeconds,
-        tracingUtils,
-        this::class.simpleName!!)
-    } else {
-      runPipelineWithDeadLetterQueue(
-        checkPointer,
-        refundPipeline,
-        BinaryData.fromObject(event).toBytes(),
-        deadLetterQueueAsyncClient,
-        deadLetterTTLSeconds)
-    }
+    return runPipelineWithDeadLetterQueue(
+      checkPointer,
+      refundPipeline,
+      BinaryData.fromObject(event).toBytes(),
+      deadLetterQueueAsyncClient,
+      deadLetterTTLSeconds)
   }
 }

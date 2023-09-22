@@ -17,8 +17,8 @@ import it.pagopa.ecommerce.eventdispatcher.client.NotificationsServiceClient
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
-import it.pagopa.ecommerce.eventdispatcher.services.eventretry.NotificationRetryService
-import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryService
+import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v1.NotificationRetryService
+import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v1.RefundRetryService
 import it.pagopa.ecommerce.eventdispatcher.utils.*
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.notifications.templates.success.SuccessTemplate
@@ -153,7 +153,9 @@ class TransactionNotificationsQueueConsumerTest {
     verify(userReceiptMailBuilder, times(1)).buildNotificationEmailRequestDto(baseTransaction)
     assertEquals(TransactionStatusDto.NOTIFIED_OK, transactionViewRepositoryCaptor.value.status)
     val savedEvent = transactionUserReceiptCaptor.value
-    assertEquals(TransactionEventCode.TRANSACTION_USER_RECEIPT_ADDED_EVENT, TransactionEventCode.valueOf(savedEvent.eventCode))
+    assertEquals(
+      TransactionEventCode.TRANSACTION_USER_RECEIPT_ADDED_EVENT,
+      TransactionEventCode.valueOf(savedEvent.eventCode))
     assertEquals(transactionUserReceiptData, savedEvent.data)
   }
 
@@ -237,7 +239,8 @@ class TransactionNotificationsQueueConsumerTest {
         TransactionEventCode.valueOf(transactionUserReceiptCaptor.value.eventCode))
       assertEquals(transactionUserReceiptData, transactionUserReceiptCaptor.value.data)
       expectedEventCodes.forEachIndexed { index, eventCode ->
-        assertEquals(eventCode.toString(), transactionRefundEventStoreCaptor.allValues[index].eventCode)
+        assertEquals(
+          eventCode.toString(), transactionRefundEventStoreCaptor.allValues[index].eventCode)
         assertEquals(
           TransactionStatusDto.NOTIFICATION_REQUESTED,
           transactionRefundEventStoreCaptor.allValues[index].data.statusBeforeRefunded)
@@ -301,7 +304,9 @@ class TransactionNotificationsQueueConsumerTest {
       verify(userReceiptMailBuilder, times(1)).buildNotificationEmailRequestDto(baseTransaction)
       assertEquals(TransactionStatusDto.NOTIFIED_OK, transactionViewRepositoryCaptor.value.status)
       val savedEvent = transactionUserReceiptCaptor.value
-      assertEquals(TransactionEventCode.TRANSACTION_USER_RECEIPT_ADDED_EVENT, TransactionEventCode.valueOf(savedEvent.eventCode))
+      assertEquals(
+        TransactionEventCode.TRANSACTION_USER_RECEIPT_ADDED_EVENT,
+        TransactionEventCode.valueOf(savedEvent.eventCode))
       assertEquals(transactionUserReceiptData, savedEvent.data)
     }
 
@@ -384,7 +389,8 @@ class TransactionNotificationsQueueConsumerTest {
         TransactionEventCode.valueOf(transactionUserReceiptCaptor.value.eventCode))
       assertEquals(transactionUserReceiptData, transactionUserReceiptCaptor.value.data)
       expectedEventCodes.forEachIndexed { index, eventCode ->
-        assertEquals(eventCode.toString(), transactionRefundEventStoreCaptor.allValues[index].eventCode)
+        assertEquals(
+          eventCode.toString(), transactionRefundEventStoreCaptor.allValues[index].eventCode)
         assertEquals(
           TransactionStatusDto.NOTIFICATION_REQUESTED,
           transactionRefundEventStoreCaptor.allValues[index].data.statusBeforeRefunded)
@@ -474,7 +480,8 @@ class TransactionNotificationsQueueConsumerTest {
         TransactionEventCode.valueOf(transactionUserReceiptCaptor.value.eventCode))
       assertEquals(transactionUserReceiptData, transactionUserReceiptCaptor.value.data)
       expectedEventCodes.forEachIndexed { index, eventCode ->
-        assertEquals(eventCode.toString(), transactionRefundEventStoreCaptor.allValues[index].eventCode)
+        assertEquals(
+          eventCode.toString(), transactionRefundEventStoreCaptor.allValues[index].eventCode)
         assertEquals(
           TransactionStatusDto.NOTIFICATION_REQUESTED,
           transactionRefundEventStoreCaptor.allValues[index].data.statusBeforeRefunded)
@@ -693,10 +700,11 @@ class TransactionNotificationsQueueConsumerTest {
       verify(deadLetterQueueAsyncClient, times(1))
         .sendMessageWithResponse(
           argThat<BinaryData> {
-            TransactionEventCode.valueOf(this.toObject(
-                object : TypeReference<QueueEvent<TransactionUserReceiptRequestedEvent>>() {})
-              .event
-              .eventCode) == TransactionEventCode.TRANSACTION_USER_RECEIPT_REQUESTED_EVENT
+            TransactionEventCode.valueOf(
+              this.toObject(
+                  object : TypeReference<QueueEvent<TransactionUserReceiptRequestedEvent>>() {})
+                .event
+                .eventCode) == TransactionEventCode.TRANSACTION_USER_RECEIPT_REQUESTED_EVENT
           },
           eq(Duration.ZERO),
           eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
@@ -735,10 +743,11 @@ class TransactionNotificationsQueueConsumerTest {
     verify(deadLetterQueueAsyncClient, times(1))
       .sendMessageWithResponse(
         argThat<BinaryData> {
-          TransactionEventCode.valueOf(this.toObject(
-              object : TypeReference<QueueEvent<TransactionUserReceiptRequestedEvent>>() {})
-            .event
-            .eventCode) == TransactionEventCode.TRANSACTION_USER_RECEIPT_REQUESTED_EVENT
+          TransactionEventCode.valueOf(
+            this.toObject(
+                object : TypeReference<QueueEvent<TransactionUserReceiptRequestedEvent>>() {})
+              .event
+              .eventCode) == TransactionEventCode.TRANSACTION_USER_RECEIPT_REQUESTED_EVENT
         },
         eq(Duration.ZERO),
         eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))

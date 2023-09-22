@@ -20,6 +20,7 @@ import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftExcepti
 import it.pagopa.ecommerce.eventdispatcher.exceptions.TooLateRetryAttemptException
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
+import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v1.ClosureRetryService
 import it.pagopa.ecommerce.eventdispatcher.utils.TRANSIENT_QUEUE_TTL_SECONDS
 import java.time.Duration
 import java.time.OffsetDateTime
@@ -109,7 +110,9 @@ class ClosureRetryServiceTests {
     val savedEvent = eventStoreCaptor.value
     val savedView = viewRepositoryCaptor.value
     val eventSentOnQueue = queueCaptor.value
-    assertEquals(TransactionEventCode.TRANSACTION_CLOSURE_RETRIED_EVENT, TransactionEventCode.valueOf(savedEvent.eventCode))
+    assertEquals(
+      TransactionEventCode.TRANSACTION_CLOSURE_RETRIED_EVENT,
+      TransactionEventCode.valueOf(savedEvent.eventCode))
     assertEquals(TransactionStatusDto.CLOSURE_ERROR, savedView.status)
     assertEquals(
       maxAttempts,
@@ -161,7 +164,9 @@ class ClosureRetryServiceTests {
     val savedEvent = eventStoreCaptor.value
     val savedView = viewRepositoryCaptor.value
     val eventSentOnQueue = queueCaptor.value
-    assertEquals(TransactionEventCode.TRANSACTION_CLOSURE_RETRIED_EVENT, TransactionEventCode.valueOf(savedEvent.eventCode))
+    assertEquals(
+      TransactionEventCode.TRANSACTION_CLOSURE_RETRIED_EVENT,
+      TransactionEventCode.valueOf(savedEvent.eventCode))
     assertEquals(TransactionStatusDto.CLOSURE_ERROR, savedView.status)
     assertEquals(
       1,
