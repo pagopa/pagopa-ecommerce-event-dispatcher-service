@@ -1,12 +1,12 @@
-package it.pagopa.ecommerce.eventdispatcher.queues.v1
+package it.pagopa.ecommerce.eventdispatcher.queues.v2
 
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
-import it.pagopa.ecommerce.commons.documents.v1.*
-import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
-import it.pagopa.ecommerce.commons.domain.v1.TransactionWithCancellationRequested
-import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithCancellationRequested
+import it.pagopa.ecommerce.commons.documents.v2.*
+import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
+import it.pagopa.ecommerce.commons.domain.v2.TransactionWithCancellationRequested
+import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithCancellationRequested
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.TracingInfo
@@ -16,7 +16,7 @@ import it.pagopa.ecommerce.eventdispatcher.exceptions.*
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.NodeService
-import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v1.ClosureRetryService
+import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.ClosureRetryService
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
 import java.util.*
@@ -28,7 +28,7 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
 
-@Service("TransactionClosePaymentQueueConsumerV1")
+@Service("TransactionClosePaymentQueueConsumerV2")
 class TransactionClosePaymentQueueConsumer(
   @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,
   @Autowired
@@ -135,7 +135,7 @@ class TransactionClosePaymentQueueConsumer(
                       }
                       .flatMap { transactionUpdated ->
                         closureRetryService
-                          .enqueueRetryEvent(transactionUpdated, 0, tracingInfo)
+                          .enqueueRetryEvent(transactionUpdated, 0, queueEvent.second)
                           .doOnError(NoRetryAttemptsLeftException::class.java) { exception ->
                             logger.error("No more attempts left for closure retry", exception)
                           }
@@ -152,7 +152,6 @@ class TransactionClosePaymentQueueConsumer(
             }
         }
         .then()
-
     return if (tracingInfo != null) {
       runTracedPipelineWithDeadLetterQueue(
         checkPointer,

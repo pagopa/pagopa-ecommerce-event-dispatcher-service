@@ -1,7 +1,6 @@
 package it.pagopa.ecommerce.eventdispatcher.queues.v2
 
 import com.azure.core.util.BinaryData
-import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
@@ -9,7 +8,6 @@ import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.domain.v2.TransactionWithClosureError
 import it.pagopa.ecommerce.commons.queues.QueueEvent
-import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.commons.utils.v2.TransactionUtils
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
@@ -53,28 +51,10 @@ class TransactionExpirationQueueConsumer(
   private val sendPaymentResultTimeoutOffsetSeconds: Int,
   @Value("\${azurestorage.queues.transientQueues.ttlSeconds}")
   private val transientQueueTTLSeconds: Int,
-  @Value("\${azurestorage.queues.deadLetterQueue.ttlSeconds}")
-  private val deadLetterTTLSeconds: Int,
-  @Autowired private val tracingUtils: TracingUtils
+  @Value("\${azurestorage.queues.deadLetterQueue.ttlSeconds}") private val deadLetterTTLSeconds: Int
 ) {
 
   val logger: Logger = LoggerFactory.getLogger(TransactionExpirationQueueConsumer::class.java)
-
-  private fun parseEvent(
-    data: BinaryData
-  ): Mono<Either<QueueEvent<TransactionActivatedEvent>, QueueEvent<TransactionExpiredEvent>>> {
-    val transactionActivatedEvent =
-      data.toObjectAsync(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {}).map {
-        Either.left<QueueEvent<TransactionActivatedEvent>, QueueEvent<TransactionExpiredEvent>>(it)
-      }
-
-    val transactionExpiredEvent =
-      data.toObjectAsync(object : TypeReference<QueueEvent<TransactionExpiredEvent>>() {}).map {
-        Either.right<QueueEvent<TransactionActivatedEvent>, QueueEvent<TransactionExpiredEvent>>(it)
-      }
-
-    return Mono.firstWithValue(transactionActivatedEvent, transactionExpiredEvent)
-  }
 
   fun messageReceiver(
     @Payload

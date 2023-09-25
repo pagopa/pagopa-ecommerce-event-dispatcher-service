@@ -24,7 +24,6 @@ import it.pagopa.ecommerce.eventdispatcher.utils.DEAD_LETTER_QUEUE_TTL_SECONDS
 import it.pagopa.ecommerce.eventdispatcher.utils.queueSuccessfulResponse
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
-import java.nio.charset.StandardCharsets
 import java.time.Duration
 import java.time.ZonedDateTime
 import java.util.*
@@ -38,6 +37,7 @@ import org.mockito.Captor
 import org.mockito.Mockito
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.*
+import reactor.core.publisher.Hooks
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toFlux
 import reactor.test.StepVerifier
@@ -131,8 +131,7 @@ class TransactionClosePaymentQueueConsumerTests {
 
     StepVerifier.create(
         transactionClosureEventsConsumer.messageReceiver(
-          BinaryData.fromObject(QueueEvent(cancelRequestEvent, MOCK_TRACING_INFO)).toBytes(),
-          checkpointer))
+          cancelRequestEvent as TransactionUserCanceledEvent to MOCK_TRACING_INFO, checkpointer))
       .expectNext()
       .verifyComplete()
 
@@ -193,7 +192,7 @@ class TransactionClosePaymentQueueConsumerTests {
 
     StepVerifier.create(
         transactionClosureEventsConsumer.messageReceiver(
-          BinaryData.fromObject(cancelRequestEvent).toBytes(), checkpointer))
+          cancelRequestEvent as TransactionUserCanceledEvent to null, checkpointer))
       .expectNext()
       .verifyComplete()
 
@@ -254,8 +253,7 @@ class TransactionClosePaymentQueueConsumerTests {
 
     StepVerifier.create(
         transactionClosureEventsConsumer.messageReceiver(
-          BinaryData.fromObject(QueueEvent(cancelRequestEvent, MOCK_TRACING_INFO)).toBytes(),
-          checkpointer))
+          cancelRequestEvent as TransactionUserCanceledEvent to MOCK_TRACING_INFO, checkpointer))
       .expectNext()
       .verifyComplete()
 
@@ -316,7 +314,7 @@ class TransactionClosePaymentQueueConsumerTests {
 
     StepVerifier.create(
         transactionClosureEventsConsumer.messageReceiver(
-          BinaryData.fromObject(cancelRequestEvent).toBytes(), checkpointer))
+          cancelRequestEvent as TransactionUserCanceledEvent to null, checkpointer))
       .expectNext()
       .verifyComplete()
 
@@ -381,8 +379,7 @@ class TransactionClosePaymentQueueConsumerTests {
 
     StepVerifier.create(
         transactionClosureEventsConsumer.messageReceiver(
-          BinaryData.fromObject(QueueEvent(cancelRequestEvent, MOCK_TRACING_INFO)).toBytes(),
-          checkpointer))
+          cancelRequestEvent as TransactionUserCanceledEvent to MOCK_TRACING_INFO, checkpointer))
       .expectNext()
       .verifyComplete()
 
@@ -424,9 +421,10 @@ class TransactionClosePaymentQueueConsumerTests {
       .willReturn(queueSuccessfulResponse())
 
     /* test */
-
+    Hooks.onOperatorDebug()
     StepVerifier.create(
-        transactionClosureEventsConsumer.messageReceiver(payload.toBytes(), checkpointer))
+        transactionClosureEventsConsumer.messageReceiver(
+          cancelRequestEvent as TransactionUserCanceledEvent to null, checkpointer))
       .verifyComplete()
 
     /* Asserts */
@@ -440,9 +438,8 @@ class TransactionClosePaymentQueueConsumerTests {
       .sendMessageWithResponse(
         argThat<BinaryData> {
           TransactionEventCode.valueOf(
-            this.toObject(object : TypeReference<QueueEvent<TransactionUserCanceledEvent>>() {})
-              .event
-              .eventCode) == TransactionEventCode.TRANSACTION_USER_CANCELED_EVENT
+            this.toObject(object : TypeReference<TransactionUserCanceledEvent>() {}).eventCode) ==
+            TransactionEventCode.TRANSACTION_USER_CANCELED_EVENT
         },
         eq(Duration.ZERO),
         eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
@@ -492,8 +489,7 @@ class TransactionClosePaymentQueueConsumerTests {
 
       StepVerifier.create(
           transactionClosureEventsConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(cancelRequestEvent, MOCK_TRACING_INFO)).toBytes(),
-            checkpointer))
+            cancelRequestEvent as TransactionUserCanceledEvent to MOCK_TRACING_INFO, checkpointer))
         .expectNext()
         .verifyComplete()
 
@@ -553,8 +549,7 @@ class TransactionClosePaymentQueueConsumerTests {
 
       StepVerifier.create(
           transactionClosureEventsConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(cancelRequestEvent, MOCK_TRACING_INFO)).toBytes(),
-            checkpointer))
+            cancelRequestEvent as TransactionUserCanceledEvent to MOCK_TRACING_INFO, checkpointer))
         .expectNext()
         .verifyComplete()
 
@@ -569,28 +564,4 @@ class TransactionClosePaymentQueueConsumerTests {
       verify(transactionsViewRepository, Mockito.times(0)).save(expectedUpdatedTransactionCanceled)
       verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), eq(MOCK_TRACING_INFO))
     }
-
-  @Test
-  fun `consumer write event to dead letter queue for un-parsable event`() = runTest {
-    val invalidEvent = "test"
-    val payload = BinaryData.fromBytes(invalidEvent.toByteArray(StandardCharsets.UTF_8))
-    /* preconditions */
-    given(checkpointer.success()).willReturn(Mono.empty())
-    given(deadLetterQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull()))
-      .willReturn(queueSuccessfulResponse())
-
-    /* test */
-
-    StepVerifier.create(
-        transactionClosureEventsConsumer.messageReceiver(payload.toBytes(), checkpointer))
-      .verifyComplete()
-
-    /* Asserts */
-    verify(checkpointer, Mockito.times(1)).success()
-    verify(deadLetterQueueAsyncClient, times(1))
-      .sendMessageWithResponse(
-        argThat<BinaryData> { invalidEvent == (String(this.toBytes(), StandardCharsets.UTF_8)) },
-        eq(Duration.ZERO),
-        eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
-  }
 }

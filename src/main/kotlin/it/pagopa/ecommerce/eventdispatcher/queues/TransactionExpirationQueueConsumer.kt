@@ -14,11 +14,9 @@ import it.pagopa.ecommerce.commons.documents.v2.TransactionExpiredEvent as Trans
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingInfo
-import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.InvalidEventException
 import it.pagopa.ecommerce.eventdispatcher.queues.v1.TransactionExpirationQueueConsumer as TransactionExpirationQueueConsumerV1
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.TransactionExpirationQueueConsumer as TransactionExpirationQueueConsumerV2
-import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -39,8 +37,6 @@ import reactor.core.publisher.Mono
  */
 @Service
 class TransactionExpirationQueueConsumer(
-  @Autowired private val paymentGatewayClient: PaymentGatewayClient,
-  @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,
   @Autowired
   @Qualifier("TransactionExpirationQueueConsumerV1")
   private val queueConsumerV1: TransactionExpirationQueueConsumerV1,
@@ -64,22 +60,26 @@ class TransactionExpirationQueueConsumer(
         .toObjectAsync(
           object : TypeReference<QueueEvent<TransactionActivatedEventV1>>() {}, jsonSerializerV1)
         .map { it.event to it.tracingInfo }
+        .doOnNext { logger.info("{} event dispatched to V1 handler", it) }
 
     val transactionExpiredEventV1 =
       data
         .toObjectAsync(
           object : TypeReference<QueueEvent<TransactionExpiredEventV1>>() {}, jsonSerializerV1)
         .map { it.event to it.tracingInfo }
+        .doOnNext { logger.info("{} event dispatched to V1 handler", it) }
 
     val untracedTransactionActivatedEventV1 =
       data
         .toObjectAsync(object : TypeReference<TransactionActivatedEventV1>() {}, jsonSerializerV1)
         .map { it to null }
+        .doOnNext { logger.info("{} event dispatched to V1 handler", it) }
 
     val untracedTransactionExpiredEventV1 =
       data
         .toObjectAsync(object : TypeReference<TransactionExpiredEventV1>() {}, jsonSerializerV1)
         .map { it to null }
+        .doOnNext { logger.info("{} event dispatched to V1 handler", it) }
 
     val transactionActivatedEventV2 =
       data
@@ -115,22 +115,30 @@ class TransactionExpirationQueueConsumer(
       .flatMap { (e, tracingInfo) ->
         when (e) {
           is TransactionActivatedEventV1 -> {
+            logger.info("Event {} with tracing info {} dispatched to V1 handler", e, tracingInfo)
             queueConsumerV1.messageReceiver(
               Pair(Either.left(e), tracingInfo), checkPointer, headers)
           }
           is TransactionExpiredEventV1 -> {
+            logger.info("Event {} with tracing info {} dispatched to V1 handler", e, tracingInfo)
             queueConsumerV1.messageReceiver(
               Pair(Either.right(e), tracingInfo), checkPointer, headers)
           }
           is TransactionActivatedEventV2 -> {
+            logger.info("Event {} with tracing info {} dispatched to V2 handler", e, tracingInfo)
             queueConsumerV2.messageReceiver(
               Either.left(QueueEvent(e, tracingInfo)), checkPointer, headers)
           }
           is TransactionExpiredEventV2 -> {
+            logger.info("Event {} with tracing info {} dispatched to V2 handler", e, tracingInfo)
             queueConsumerV2.messageReceiver(
               Either.right(QueueEvent(e, tracingInfo)), checkPointer, headers)
           }
           else -> {
+            logger.error(
+              "Event {} with tracing info {} cannot be dispatched to any know handler",
+              e,
+              tracingInfo)
             Mono.error(InvalidEventException(payload, null)) // FIXME
           }
         }
