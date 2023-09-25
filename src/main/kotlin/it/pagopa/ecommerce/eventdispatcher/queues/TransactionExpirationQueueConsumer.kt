@@ -6,22 +6,23 @@ import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
 import io.vavr.control.Either
-import it.pagopa.ecommerce.commons.documents.v1.*
-import it.pagopa.ecommerce.commons.domain.v1.TransactionWithClosureError
+import it.pagopa.ecommerce.commons.documents.BaseTransactionEvent
+import it.pagopa.ecommerce.commons.documents.v1.TransactionActivatedEvent as TransactionActivatedEventV1
+import it.pagopa.ecommerce.commons.documents.v1.TransactionExpiredEvent as TransactionExpiredEventV1
+import it.pagopa.ecommerce.commons.documents.v2.TransactionActivatedEvent as TransactionActivatedEventV2
+import it.pagopa.ecommerce.commons.documents.v2.TransactionExpiredEvent as TransactionExpiredEventV2
 import it.pagopa.ecommerce.commons.queues.QueueEvent
+import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingInfo
-import it.pagopa.ecommerce.commons.queues.TracingUtils
-import it.pagopa.ecommerce.commons.utils.v1.TransactionUtils
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.InvalidEventException
+import it.pagopa.ecommerce.eventdispatcher.queues.v1.TransactionExpirationQueueConsumer as TransactionExpirationQueueConsumerV1
+import it.pagopa.ecommerce.eventdispatcher.queues.v2.TransactionExpirationQueueConsumer as TransactionExpirationQueueConsumerV2
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
-import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
-import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryService
-import java.time.Duration
-import java.util.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.integration.annotation.ServiceActivator
 import org.springframework.messaging.MessageHeaders
@@ -41,56 +42,65 @@ class TransactionExpirationQueueConsumer(
   @Autowired private val paymentGatewayClient: PaymentGatewayClient,
   @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,
   @Autowired
-  private val transactionsExpiredEventStoreRepository:
-    TransactionsEventStoreRepository<TransactionExpiredData>,
+  @Qualifier("TransactionExpirationQueueConsumerV1")
+  private val queueConsumerV1: TransactionExpirationQueueConsumerV1,
   @Autowired
-  private val transactionsRefundedEventStoreRepository:
-    TransactionsEventStoreRepository<TransactionRefundedData>,
-  @Autowired private val transactionsViewRepository: TransactionsViewRepository,
-  @Autowired private val transactionUtils: TransactionUtils,
-  @Autowired private val refundRetryService: RefundRetryService,
+  @Qualifier("TransactionExpirationQueueConsumerV2")
+  private val queueConsumerV2: TransactionExpirationQueueConsumerV2,
   @Autowired private val deadLetterQueueAsyncClient: QueueAsyncClient,
-  @Autowired private val expirationQueueAsyncClient: QueueAsyncClient,
-  @Value("\${sendPaymentResult.timeoutSeconds}") private val sendPaymentResultTimeoutSeconds: Int,
-  @Value("\${sendPaymentResult.expirationOffset}")
-  private val sendPaymentResultTimeoutOffsetSeconds: Int,
-  @Value("\${azurestorage.queues.transientQueues.ttlSeconds}")
-  private val transientQueueTTLSeconds: Int,
   @Value("\${azurestorage.queues.deadLetterQueue.ttlSeconds}")
   private val deadLetterTTLSeconds: Int,
-  @Autowired private val tracingUtils: TracingUtils
+  @Autowired private val strictSerializerProviderV1: StrictJsonSerializerProvider,
+  @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider
 ) {
 
   val logger: Logger = LoggerFactory.getLogger(TransactionExpirationQueueConsumer::class.java)
 
-  private fun parseEvent(
-    data: BinaryData
-  ): Mono<Pair<Either<TransactionActivatedEvent, TransactionExpiredEvent>, TracingInfo?>> {
-    val transactionActivatedEvent =
-      data.toObjectAsync(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {}).map {
-        Either.left<TransactionActivatedEvent, TransactionExpiredEvent>(it.event) to it.tracingInfo
-      }
+  fun parseEvent(data: BinaryData): Mono<Pair<BaseTransactionEvent<*>, TracingInfo?>> {
+    val jsonSerializerV1 = strictSerializerProviderV1.createInstance()
+    val jsonSerializerV2 = strictSerializerProviderV2.createInstance()
+    val transactionActivatedEventV1 =
+      data
+        .toObjectAsync(
+          object : TypeReference<QueueEvent<TransactionActivatedEventV1>>() {}, jsonSerializerV1)
+        .map { it.event to it.tracingInfo }
 
-    val transactionExpiredEvent =
-      data.toObjectAsync(object : TypeReference<QueueEvent<TransactionExpiredEvent>>() {}).map {
-        Either.right<TransactionActivatedEvent, TransactionExpiredEvent>(it.event) to it.tracingInfo
-      }
+    val transactionExpiredEventV1 =
+      data
+        .toObjectAsync(
+          object : TypeReference<QueueEvent<TransactionExpiredEventV1>>() {}, jsonSerializerV1)
+        .map { it.event to it.tracingInfo }
 
-    val untracedTransactionActivatedEvent =
-      data.toObjectAsync(object : TypeReference<TransactionActivatedEvent>() {}).map {
-        Either.left<TransactionActivatedEvent, TransactionExpiredEvent>(it) to null
-      }
+    val untracedTransactionActivatedEventV1 =
+      data
+        .toObjectAsync(object : TypeReference<TransactionActivatedEventV1>() {}, jsonSerializerV1)
+        .map { it to null }
 
-    val untracedTransactionExpiredEvent =
-      data.toObjectAsync(object : TypeReference<TransactionExpiredEvent>() {}).map {
-        Either.right<TransactionActivatedEvent, TransactionExpiredEvent>(it) to null
-      }
+    val untracedTransactionExpiredEventV1 =
+      data
+        .toObjectAsync(object : TypeReference<TransactionExpiredEventV1>() {}, jsonSerializerV1)
+        .map { it to null }
+
+    val transactionActivatedEventV2 =
+      data
+        .toObjectAsync(
+          object : TypeReference<QueueEvent<TransactionActivatedEventV2>>() {}, jsonSerializerV2)
+        .map { it.event to it.tracingInfo }
+
+    val transactionExpiredEventV2 =
+      data
+        .toObjectAsync(
+          object : TypeReference<QueueEvent<TransactionExpiredEventV2>>() {}, jsonSerializerV2)
+        .map { it.event to it.tracingInfo }
 
     return Mono.firstWithValue(
-      transactionActivatedEvent,
-      transactionExpiredEvent,
-      untracedTransactionActivatedEvent,
-      untracedTransactionExpiredEvent)
+        transactionActivatedEventV1,
+        transactionExpiredEventV1,
+        untracedTransactionActivatedEventV1,
+        untracedTransactionExpiredEventV1,
+        transactionActivatedEventV2,
+        transactionExpiredEventV2)
+      .onErrorMap { InvalidEventException(data.toBytes(), it) }
   }
 
   @ServiceActivator(inputChannel = "transactionexpiredchannel", outputChannel = "nullChannel")
@@ -99,126 +109,36 @@ class TransactionExpirationQueueConsumer(
     @Header(AzureHeaders.CHECKPOINTER) checkPointer: Checkpointer,
     @Headers headers: MessageHeaders
   ): Mono<Void> {
-    val binaryData = BinaryData.fromBytes(payload)
-    val queueEvent = parseEvent(binaryData)
-    val transactionId =
-      queueEvent.map { e -> e.first.fold({ it.transactionId }, { it.transactionId }) }
-    val events =
-      transactionId.flatMapMany {
-        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(it)
-      }
-    val baseTransaction = reduceEvents(events)
-    val refundPipeline =
-      baseTransaction
-        .filter {
-          val isTransient = transactionUtils.isTransientStatus(it.status)
-          logger.info(
-            "Transaction ${it.transactionId.value()} in status ${it.status}, is transient: $isTransient")
-          isTransient
-        }
-        .filterWhen {
-          val sendPaymentResultTimeLeft =
-            timeLeftForSendPaymentResult(it, sendPaymentResultTimeoutSeconds, events)
-          sendPaymentResultTimeLeft
-            .zipWith(queueEvent, ::Pair)
-            .flatMap { (timeLeft) ->
-              val sendPaymentResultOffset =
-                Duration.ofSeconds(sendPaymentResultTimeoutOffsetSeconds.toLong())
-              val expired = timeLeft < sendPaymentResultOffset
-              logger.info(
-                "Transaction ${it.transactionId.value()} - Time left for send payment result: $timeLeft, timeout offset: $sendPaymentResultOffset  --> expired: $expired")
-              if (expired) {
-                logger.error(
-                  "Transaction ${it.transactionId.value()} - No send payment result received on time! Transaction will be expired.")
-                deadLetterQueueAsyncClient
-                  .sendMessageWithResponse(
-                    binaryData,
-                    Duration.ZERO,
-                    Duration.ofSeconds(deadLetterTTLSeconds.toLong()),
-                  )
-                  .thenReturn(true)
-              } else {
-                logger.info(
-                  "Transaction ${it.transactionId.value()} still waiting for sendPaymentResult outcome, expiration event sent with visibility timeout: $timeLeft")
+    val eventWithTracingInfo = parseEvent(BinaryData.fromBytes(payload))
 
-                expirationQueueAsyncClient
-                  .sendMessageWithResponse(
-                    binaryData,
-                    timeLeft,
-                    Duration.ofSeconds(transientQueueTTLSeconds.toLong()),
-                  )
-                  .thenReturn(false)
-              }
-            }
-            .switchIfEmpty(Mono.just(true))
-        }
-        .flatMap { tx ->
-          val isTransactionExpired = isTransactionExpired(tx)
-          logger.info("Transaction ${tx.transactionId.value()} is expired: $isTransactionExpired")
-          if (!isTransactionExpired) {
-            updateTransactionToExpired(
-              tx, transactionsExpiredEventStoreRepository, transactionsViewRepository)
-          } else {
-            Mono.just(tx)
+    return eventWithTracingInfo
+      .flatMap { (e, tracingInfo) ->
+        when (e) {
+          is TransactionActivatedEventV1 -> {
+            queueConsumerV1.messageReceiver(
+              Pair(Either.left(e), tracingInfo), checkPointer, headers)
           }
-        }
-        .filter {
-          val refundable = isTransactionRefundable(it)
-          logger.info(
-            "Transaction ${it.transactionId.value()} in status ${it.status}, refundable: $refundable")
-          refundable
-        }
-        .flatMap {
-          updateTransactionToRefundRequested(
-            it, transactionsRefundedEventStoreRepository, transactionsViewRepository)
-        }
-        .zipWith(queueEvent, ::Pair)
-        .flatMap { (tx, event) ->
-          val tracingInfo = event.second
-          val transaction =
-            if (tx is TransactionWithClosureError) {
-              tx.transactionAtPreviousState
-            } else {
-              tx
-            }
-          refundTransaction(
-            transaction,
-            transactionsRefundedEventStoreRepository,
-            transactionsViewRepository,
-            paymentGatewayClient,
-            refundRetryService,
-            tracingInfo)
-        }
-
-    return queueEvent
-      .onErrorMap { InvalidEventException(payload) }
-      .flatMap { e ->
-        val tracingInfo = e.second
-
-        val event = e.first.fold({ it }, { it })
-
-        if (tracingInfo != null) {
-          runTracedPipelineWithDeadLetterQueue(
-            checkPointer,
-            refundPipeline,
-            QueueEvent(event, tracingInfo),
-            deadLetterQueueAsyncClient,
-            deadLetterTTLSeconds,
-            tracingUtils,
-            this::class.simpleName!!)
-        } else {
-          runPipelineWithDeadLetterQueue(
-            checkPointer,
-            refundPipeline,
-            BinaryData.fromObject(event).toBytes(),
-            deadLetterQueueAsyncClient,
-            deadLetterTTLSeconds)
+          is TransactionExpiredEventV1 -> {
+            queueConsumerV1.messageReceiver(
+              Pair(Either.right(e), tracingInfo), checkPointer, headers)
+          }
+          is TransactionActivatedEventV2 -> {
+            queueConsumerV2.messageReceiver(
+              Either.left(QueueEvent(e, tracingInfo)), checkPointer, headers)
+          }
+          is TransactionExpiredEventV2 -> {
+            queueConsumerV2.messageReceiver(
+              Either.right(QueueEvent(e, tracingInfo)), checkPointer, headers)
+          }
+          else -> {
+            Mono.error(InvalidEventException(payload, null)) // FIXME
+          }
         }
       }
       .onErrorResume(InvalidEventException::class.java) {
         logger.error("Invalid input event", it)
-        runPipelineWithDeadLetterQueue(
-          checkPointer, refundPipeline, payload, deadLetterQueueAsyncClient, deadLetterTTLSeconds)
+        writeEventToDeadLetterQueue(
+          checkPointer, payload, it, deadLetterQueueAsyncClient, deadLetterTTLSeconds)
       }
   }
 }

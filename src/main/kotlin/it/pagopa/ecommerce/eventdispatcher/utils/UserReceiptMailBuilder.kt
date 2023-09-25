@@ -1,7 +1,7 @@
 package it.pagopa.ecommerce.eventdispatcher.utils
 
 import it.pagopa.ecommerce.commons.documents.v1.TransactionUserReceiptData
-import it.pagopa.ecommerce.commons.domain.v1.PaymentNotice
+import it.pagopa.ecommerce.commons.domain.PaymentNotice
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithRequestedUserReceipt
 import it.pagopa.ecommerce.eventdispatcher.client.NotificationsServiceClient
 import it.pagopa.generated.notifications.templates.ko.KoTemplate

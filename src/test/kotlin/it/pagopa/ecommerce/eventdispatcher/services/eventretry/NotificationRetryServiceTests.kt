@@ -18,6 +18,7 @@ import it.pagopa.ecommerce.commons.v1.TransactionTestUtils
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
+import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v1.NotificationRetryService
 import it.pagopa.ecommerce.eventdispatcher.utils.TRANSIENT_QUEUE_TTL_SECONDS
 import java.time.Duration
 import java.time.OffsetDateTime
@@ -113,7 +114,8 @@ class NotificationRetryServiceTests {
     val savedView = viewRepositoryCaptor.value
     val eventSentOnQueue = queueCaptor.value
     assertEquals(
-      TransactionEventCode.TRANSACTION_ADD_USER_RECEIPT_RETRY_EVENT, savedEvent.eventCode)
+      TransactionEventCode.TRANSACTION_ADD_USER_RECEIPT_RETRY_EVENT,
+      TransactionEventCode.valueOf(savedEvent.eventCode))
     assertEquals(TransactionStatusDto.NOTIFICATION_ERROR, savedView.status)
     assertEquals(
       maxAttempts,
@@ -170,7 +172,8 @@ class NotificationRetryServiceTests {
     val savedView = viewRepositoryCaptor.value
     val eventSentOnQueue = queueCaptor.value
     assertEquals(
-      TransactionEventCode.TRANSACTION_ADD_USER_RECEIPT_RETRY_EVENT, savedEvent.eventCode)
+      TransactionEventCode.TRANSACTION_ADD_USER_RECEIPT_RETRY_EVENT,
+      TransactionEventCode.valueOf(savedEvent.eventCode))
     assertEquals(TransactionStatusDto.NOTIFICATION_ERROR, savedView.status)
     assertEquals(
       1,
