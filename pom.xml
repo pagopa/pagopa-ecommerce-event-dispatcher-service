@@ -508,7 +508,7 @@
 					<skipCheckoutIfExists>false</skipCheckoutIfExists>
 					<connectionUrl>scm:git:https://github.com/pagopa/pagopa-ecommerce-commons.git</connectionUrl>
 					<scmVersionType>branch</scmVersionType>
-					<scmVersion>CHK-1921-add-mixing-for-queue-event</scmVersion>
+					<scmVersion>CHK-1921-domain-object-unversioning</scmVersion>
 					<goals>install -DskipTests</goals>
 				</configuration>
 				<executions>
