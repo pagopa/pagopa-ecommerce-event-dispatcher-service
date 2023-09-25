@@ -1,13 +1,13 @@
-package it.pagopa.ecommerce.eventdispatcher.queues.v1
+package it.pagopa.ecommerce.eventdispatcher.queues.v2
 
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
 import io.vavr.control.Either
-import it.pagopa.ecommerce.commons.documents.v1.*
-import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
-import it.pagopa.ecommerce.commons.domain.v1.TransactionWithUserReceiptError
-import it.pagopa.ecommerce.commons.domain.v1.pojos.*
+import it.pagopa.ecommerce.commons.documents.v2.*
+import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
+import it.pagopa.ecommerce.commons.domain.v2.TransactionWithUserReceiptError
+import it.pagopa.ecommerce.commons.domain.v2.pojos.*
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.TracingInfo
@@ -19,9 +19,9 @@ import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftExcepti
 import it.pagopa.ecommerce.eventdispatcher.queues.*
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
-import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v1.NotificationRetryService
-import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v1.RefundRetryService
-import it.pagopa.ecommerce.eventdispatcher.utils.v1.UserReceiptMailBuilder
+import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.NotificationRetryService
+import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
+import it.pagopa.ecommerce.eventdispatcher.utils.v2.UserReceiptMailBuilder
 import it.pagopa.generated.notifications.templates.success.*
 import java.util.*
 import kotlinx.coroutines.reactor.mono
@@ -32,7 +32,7 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
 
-@Service("TransactionNotificationsRetryQueueConsumerV1")
+@Service("TransactionNotificationsRetryQueueConsumerV2")
 class TransactionNotificationsRetryQueueConsumer(
   @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,
   @Autowired

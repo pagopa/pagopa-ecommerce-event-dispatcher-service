@@ -4,6 +4,7 @@ import com.azure.core.util.BinaryData
 import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
+import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
@@ -26,7 +27,6 @@ import it.pagopa.ecommerce.eventdispatcher.utils.v1.UserReceiptMailBuilder
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.notifications.v1.dto.NotificationEmailRequestDto
 import it.pagopa.generated.notifications.v1.dto.NotificationEmailResponseDto
-import java.nio.charset.StandardCharsets
 import java.time.Duration
 import java.time.ZonedDateTime
 import java.util.*
@@ -37,7 +37,6 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.ArgumentCaptor
 import org.mockito.Captor
-import org.mockito.Mockito
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.*
 import reactor.core.publisher.Flux
@@ -140,7 +139,8 @@ class TransactionNotificationsRetryQueueConsumerTest {
 
     StepVerifier.create(
         transactionNotificationsRetryQueueConsumer.messageReceiver(
-          BinaryData.fromObject(QueueEvent(notificationErrorEvent, MOCK_TRACING_INFO)).toBytes(),
+          Either.left<TransactionUserReceiptAddErrorEvent, TransactionUserReceiptAddRetriedEvent>(
+            notificationErrorEvent) to MOCK_TRACING_INFO,
           checkpointer))
       .expectNext()
       .verifyComplete()
@@ -214,7 +214,8 @@ class TransactionNotificationsRetryQueueConsumerTest {
             transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now()))))
     StepVerifier.create(
         transactionNotificationsRetryQueueConsumer.messageReceiver(
-          BinaryData.fromObject(QueueEvent(notificationErrorEvent, MOCK_TRACING_INFO)).toBytes(),
+          Either.left<TransactionUserReceiptAddErrorEvent, TransactionUserReceiptAddRetriedEvent>(
+            notificationErrorEvent) to MOCK_TRACING_INFO,
           checkpointer))
       .expectNext()
       .verifyComplete()
@@ -295,7 +296,9 @@ class TransactionNotificationsRetryQueueConsumerTest {
 
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
-            BinaryData.fromObject(notificationErrorEvent).toBytes(), checkpointer))
+            Either.left<TransactionUserReceiptAddErrorEvent, TransactionUserReceiptAddRetriedEvent>(
+              notificationErrorEvent) to null,
+            checkpointer))
         .expectNext()
         .verifyComplete()
       verify(checkpointer, times(1)).success()
@@ -369,7 +372,9 @@ class TransactionNotificationsRetryQueueConsumerTest {
               transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now()))))
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
-            BinaryData.fromObject(notificationErrorEvent).toBytes(), checkpointer))
+            Either.left<TransactionUserReceiptAddErrorEvent, TransactionUserReceiptAddRetriedEvent>(
+              notificationErrorEvent) to null,
+            checkpointer))
         .expectNext()
         .verifyComplete()
       verify(checkpointer, times(1)).success()
@@ -452,7 +457,8 @@ class TransactionNotificationsRetryQueueConsumerTest {
         .willReturn(Mono.empty())
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(notificationErrorEvent, MOCK_TRACING_INFO)).toBytes(),
+            Either.left<TransactionUserReceiptAddErrorEvent, TransactionUserReceiptAddRetriedEvent>(
+              notificationErrorEvent) to MOCK_TRACING_INFO,
             checkpointer))
         .expectNext()
         .verifyComplete()
@@ -512,7 +518,8 @@ class TransactionNotificationsRetryQueueConsumerTest {
         .willReturn(Mono.empty())
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(notificationErrorEvent, MOCK_TRACING_INFO)).toBytes(),
+            Either.left<TransactionUserReceiptAddErrorEvent, TransactionUserReceiptAddRetriedEvent>(
+              notificationErrorEvent) to MOCK_TRACING_INFO,
             checkpointer))
         .expectNext()
         .verifyComplete()
@@ -574,8 +581,9 @@ class TransactionNotificationsRetryQueueConsumerTest {
         .willReturn(Mono.empty())
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(notificationRetriedEvent, MOCK_TRACING_INFO))
-              .toBytes(),
+            Either.right<
+              TransactionUserReceiptAddErrorEvent, TransactionUserReceiptAddRetriedEvent>(
+              notificationRetriedEvent) to MOCK_TRACING_INFO,
             checkpointer))
         .expectNext()
         .verifyComplete()
@@ -637,7 +645,10 @@ class TransactionNotificationsRetryQueueConsumerTest {
         .willReturn(Mono.empty())
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
-            BinaryData.fromObject(notificationRetriedEvent).toBytes(), checkpointer))
+            Either.right<
+              TransactionUserReceiptAddErrorEvent, TransactionUserReceiptAddRetriedEvent>(
+              notificationRetriedEvent) to null,
+            checkpointer))
         .expectNext()
         .verifyComplete()
       verify(checkpointer, times(1)).success()
@@ -707,8 +718,9 @@ class TransactionNotificationsRetryQueueConsumerTest {
               transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now()))))
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(notificationRetriedEvent, MOCK_TRACING_INFO))
-              .toBytes(),
+            Either.right<
+              TransactionUserReceiptAddErrorEvent, TransactionUserReceiptAddRetriedEvent>(
+              notificationRetriedEvent) to MOCK_TRACING_INFO,
             checkpointer))
         .expectNext()
         .verifyComplete()
@@ -785,8 +797,9 @@ class TransactionNotificationsRetryQueueConsumerTest {
 
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(notificationRetriedEvent, MOCK_TRACING_INFO))
-              .toBytes(),
+            Either.right<
+              TransactionUserReceiptAddErrorEvent, TransactionUserReceiptAddRetriedEvent>(
+              notificationRetriedEvent) to MOCK_TRACING_INFO,
             checkpointer))
         .expectNext()
         .verifyComplete()
@@ -866,8 +879,9 @@ class TransactionNotificationsRetryQueueConsumerTest {
               transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now()))))
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(notificationRetriedEvent, MOCK_TRACING_INFO))
-              .toBytes(),
+            Either.right<
+              TransactionUserReceiptAddErrorEvent, TransactionUserReceiptAddRetriedEvent>(
+              notificationRetriedEvent) to MOCK_TRACING_INFO,
             checkpointer))
         .expectNext()
         .verifyComplete()
@@ -919,7 +933,8 @@ class TransactionNotificationsRetryQueueConsumerTest {
 
     StepVerifier.create(
         transactionNotificationsRetryQueueConsumer.messageReceiver(
-          BinaryData.fromObject(QueueEvent(notificationErrorEvent, MOCK_TRACING_INFO)).toBytes(),
+          Either.left<TransactionUserReceiptAddErrorEvent, TransactionUserReceiptAddRetriedEvent>(
+            notificationErrorEvent) to MOCK_TRACING_INFO,
           checkpointer))
       .verifyComplete()
     verify(checkpointer, times(1)).success()
@@ -942,30 +957,6 @@ class TransactionNotificationsRetryQueueConsumerTest {
               .event
               .eventCode) == TransactionEventCode.TRANSACTION_ADD_USER_RECEIPT_ERROR_EVENT
         },
-        eq(Duration.ZERO),
-        eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
-  }
-
-  @Test
-  fun `consumer write event to dead letter queue for un-parsable event`() = runTest {
-    val invalidEvent = "test"
-    val payload = BinaryData.fromBytes(invalidEvent.toByteArray(StandardCharsets.UTF_8))
-    /* preconditions */
-    given(checkpointer.success()).willReturn(Mono.empty())
-    given(deadLetterQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull()))
-      .willReturn(queueSuccessfulResponse())
-
-    /* test */
-
-    StepVerifier.create(
-        transactionNotificationsRetryQueueConsumer.messageReceiver(payload.toBytes(), checkpointer))
-      .verifyComplete()
-
-    /* Asserts */
-    verify(checkpointer, Mockito.times(1)).success()
-    verify(deadLetterQueueAsyncClient, times(1))
-      .sendMessageWithResponse(
-        argThat<BinaryData> { invalidEvent == (String(this.toBytes(), StandardCharsets.UTF_8)) },
         eq(Duration.ZERO),
         eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
   }

@@ -300,22 +300,6 @@ class UserReceiptMailBuilderTest {
       val baseTransaction =
         TransactionTestUtils.reduceEvents(*events.toTypedArray())
           as BaseTransactionWithRequestedUserReceipt
-      val amountString =
-        userReceiptMailBuilder.amountToHumanReadableString(
-          baseTransaction.paymentNotices
-            .map { it.transactionAmount.value }
-            .reduce { a, b -> a + b })
-      val dateString =
-        userReceiptMailBuilder.dateTimeToHumanReadableString(
-          baseTransaction.creationDate, Locale.forLanguageTag(TransactionTestUtils.LANGUAGE))
-      val koTemplateRequest =
-        NotificationsServiceClient.KoTemplateRequest(
-          TransactionTestUtils.EMAIL_STRING,
-          "Il pagamento non è riuscito",
-          TransactionTestUtils.LANGUAGE,
-          KoTemplate(
-            it.pagopa.generated.notifications.templates.ko.TransactionTemplate(
-              baseTransaction.transactionId.value(), dateString, amountString)))
       /*
        * Test
        */
