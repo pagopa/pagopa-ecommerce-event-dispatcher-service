@@ -315,13 +315,6 @@ class UserReceiptMailBuilderTest {
           KoTemplate(
             it.pagopa.generated.notifications.templates.ko.TransactionTemplate(
               baseTransaction.transactionId.value(), dateString, amountString)))
-      val expected =
-        NotificationEmailRequestDto()
-          .language(koTemplateRequest.language)
-          .subject(koTemplateRequest.subject)
-          .to(koTemplateRequest.to)
-          .templateId(NotificationsServiceClient.KoTemplateRequest.TEMPLATE_ID)
-          .parameters(koTemplateRequest.templateParameters)
       /*
        * Test
        */

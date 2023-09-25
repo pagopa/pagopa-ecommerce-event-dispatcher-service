@@ -9,6 +9,7 @@ import it.pagopa.ecommerce.commons.documents.BaseTransactionEvent
 import it.pagopa.ecommerce.commons.documents.v1.TransactionUserCanceledEvent as TransactionUserCanceledEventV1
 import it.pagopa.ecommerce.commons.documents.v2.TransactionUserCanceledEvent as TransactionUserCanceledEventV2
 import it.pagopa.ecommerce.commons.queues.QueueEvent
+import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.eventdispatcher.exceptions.*
 import java.util.*
@@ -33,24 +34,31 @@ class TransactionClosePaymentQueueConsumer(
   @Autowired private val deadLetterQueueAsyncClient: QueueAsyncClient,
   @Value("\${azurestorage.queues.deadLetterQueue.ttlSeconds}")
   private val deadLetterTTLSeconds: Int,
+  @Autowired private val strictSerializerProviderV1: StrictJsonSerializerProvider,
+  @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider
 ) {
   var logger: Logger = LoggerFactory.getLogger(TransactionClosePaymentQueueConsumer::class.java)
 
   private fun parseEvent(
     binaryData: BinaryData
   ): Mono<Pair<BaseTransactionEvent<Void>, TracingInfo?>> {
+    val jsonSerializerV1 = strictSerializerProviderV1.createInstance()
+    val jsonSerializerV2 = strictSerializerProviderV2.createInstance()
     val queueEventV1 =
       binaryData
-        .toObjectAsync(object : TypeReference<QueueEvent<TransactionUserCanceledEventV1>>() {})
+        .toObjectAsync(
+          object : TypeReference<QueueEvent<TransactionUserCanceledEventV1>>() {}, jsonSerializerV1)
         .map { Pair(it.event, it.tracingInfo) }
 
     val untracedEventV1 =
-      binaryData.toObjectAsync(object : TypeReference<TransactionUserCanceledEventV1>() {}).map {
-        Pair(it, null)
-      }
+      binaryData
+        .toObjectAsync(
+          object : TypeReference<TransactionUserCanceledEventV1>() {}, jsonSerializerV1)
+        .map { Pair(it, null) }
     val queueEventV2 =
       binaryData
-        .toObjectAsync(object : TypeReference<QueueEvent<TransactionUserCanceledEventV2>>() {})
+        .toObjectAsync(
+          object : TypeReference<QueueEvent<TransactionUserCanceledEventV2>>() {}, jsonSerializerV2)
         .map { Pair(it.event, it.tracingInfo) }
 
     return Mono.firstWithValue(queueEventV1, untracedEventV1, queueEventV2).onErrorMap {

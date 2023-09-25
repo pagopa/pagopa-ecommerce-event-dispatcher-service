@@ -1,17 +1,20 @@
-package it.pagopa.ecommerce.eventdispatcher.queues.v1
+package it.pagopa.ecommerce.eventdispatcher.queues.v2
 
 import com.azure.core.util.BinaryData
 import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
 import io.vavr.control.Either
-import it.pagopa.ecommerce.commons.documents.v1.*
-import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
-import it.pagopa.ecommerce.commons.domain.v1.TransactionWithClosureError
-import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransaction
-import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithCancellationRequested
-import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithClosureError
-import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithCompletedAuthorization
+import it.pagopa.ecommerce.commons.documents.v2.*
+import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationData
+import it.pagopa.ecommerce.commons.documents.v2.authorization.PgsTransactionGatewayAuthorizationData
+import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
+import it.pagopa.ecommerce.commons.domain.v2.TransactionWithClosureError
+import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransaction
+import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithCancellationRequested
+import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithClosureError
+import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithCompletedAuthorization
+import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
@@ -24,8 +27,8 @@ import it.pagopa.ecommerce.eventdispatcher.queues.*
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.NodeService
-import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v1.ClosureRetryService
-import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v1.RefundRetryService
+import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.ClosureRetryService
+import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
 import java.util.*
@@ -37,7 +40,7 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
 
-@Service("TransactionClosePaymentRetryQueueConsumerV1")
+@Service("TransactionClosePaymentRetryQueueConsumerV2")
 class TransactionClosePaymentRetryQueueConsumer(
   @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,
   @Autowired
@@ -161,13 +164,20 @@ class TransactionClosePaymentRetryQueueConsumer(
                      * Will be performed a close payment OK/KO based on the authorization outcome
                      */
                     trxWithAuthorizationCompleted ->
-                    when (trxWithAuthorizationCompleted.transactionAuthorizationCompletedData
-                      .authorizationResultDto) {
-                      AuthorizationResultDto.OK -> ClosePaymentRequestV2Dto.OutcomeEnum.OK
-                      AuthorizationResultDto.KO -> ClosePaymentRequestV2Dto.OutcomeEnum.KO
-                      else ->
-                        throw RuntimeException(
-                          "authorizationResult in status update event is null!")
+                    val transactionAuthGatewayData =
+                      trxWithAuthorizationCompleted.transactionAuthorizationCompletedData
+                        .transactionGatewayAuthorizationData
+                    when (transactionAuthGatewayData) {
+                      is PgsTransactionGatewayAuthorizationData ->
+                        when (transactionAuthGatewayData.authorizationResultDto) {
+                          AuthorizationResultDto.OK -> ClosePaymentRequestV2Dto.OutcomeEnum.OK
+                          else -> ClosePaymentRequestV2Dto.OutcomeEnum.KO
+                        }
+                      is NpgTransactionGatewayAuthorizationData ->
+                        when (transactionAuthGatewayData.operationResult) {
+                          OperationResultDto.EXECUTED -> ClosePaymentRequestV2Dto.OutcomeEnum.OK
+                          else -> ClosePaymentRequestV2Dto.OutcomeEnum.KO
+                        }
                     }
                   })
               }
@@ -285,8 +295,14 @@ class TransactionClosePaymentRetryQueueConsumer(
         it.fold(
           { false },
           { tx ->
-            tx.transactionAuthorizationCompletedData.authorizationResultDto ==
-              AuthorizationResultDto.OK
+            val transactionGatewayData =
+              tx.transactionAuthorizationCompletedData.transactionGatewayAuthorizationData
+            when (transactionGatewayData) {
+              is PgsTransactionGatewayAuthorizationData ->
+                transactionGatewayData.authorizationResultDto == AuthorizationResultDto.OK
+              is NpgTransactionGatewayAuthorizationData ->
+                transactionGatewayData.operationResult == OperationResultDto.EXECUTED
+            }
           })
       }
       .orElseGet { false }
