@@ -1,7 +1,6 @@
 package it.pagopa.ecommerce.eventdispatcher.queues.v1
 
 import com.azure.core.util.BinaryData
-import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
@@ -60,36 +59,6 @@ class TransactionExpirationQueueConsumer(
 ) {
 
   val logger: Logger = LoggerFactory.getLogger(TransactionExpirationQueueConsumer::class.java)
-
-  private fun parseEvent(
-    data: BinaryData
-  ): Mono<Pair<Either<TransactionActivatedEvent, TransactionExpiredEvent>, TracingInfo?>> {
-    val transactionActivatedEvent =
-      data.toObjectAsync(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {}).map {
-        Either.left<TransactionActivatedEvent, TransactionExpiredEvent>(it.event) to it.tracingInfo
-      }
-
-    val transactionExpiredEvent =
-      data.toObjectAsync(object : TypeReference<QueueEvent<TransactionExpiredEvent>>() {}).map {
-        Either.right<TransactionActivatedEvent, TransactionExpiredEvent>(it.event) to it.tracingInfo
-      }
-
-    val untracedTransactionActivatedEvent =
-      data.toObjectAsync(object : TypeReference<TransactionActivatedEvent>() {}).map {
-        Either.left<TransactionActivatedEvent, TransactionExpiredEvent>(it) to null
-      }
-
-    val untracedTransactionExpiredEvent =
-      data.toObjectAsync(object : TypeReference<TransactionExpiredEvent>() {}).map {
-        Either.right<TransactionActivatedEvent, TransactionExpiredEvent>(it) to null
-      }
-
-    return Mono.firstWithValue(
-      transactionActivatedEvent,
-      transactionExpiredEvent,
-      untracedTransactionActivatedEvent,
-      untracedTransactionExpiredEvent)
-  }
 
   fun messageReceiver(
     @Payload
