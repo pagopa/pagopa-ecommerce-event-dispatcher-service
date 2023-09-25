@@ -1,9 +1,10 @@
-package it.pagopa.ecommerce.eventdispatcher.utils
+package it.pagopa.ecommerce.eventdispatcher.utils.v2
 
-import it.pagopa.ecommerce.commons.documents.v1.TransactionUserReceiptData
+import it.pagopa.ecommerce.commons.documents.v2.TransactionUserReceiptData
 import it.pagopa.ecommerce.commons.domain.PaymentNotice
-import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithRequestedUserReceipt
+import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithRequestedUserReceipt
 import it.pagopa.ecommerce.eventdispatcher.client.NotificationsServiceClient
+import it.pagopa.ecommerce.eventdispatcher.utils.ConfidentialMailUtils
 import it.pagopa.generated.notifications.templates.ko.KoTemplate
 import it.pagopa.generated.notifications.templates.success.*
 import it.pagopa.generated.notifications.templates.success.RefNumberTemplate.Type
@@ -14,7 +15,7 @@ import java.util.*
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 
-@Service
+@Service("UserReceiptMailBuilderV2")
 class UserReceiptMailBuilder(@Autowired private val confidentialMailUtils: ConfidentialMailUtils) {
 
   suspend fun buildNotificationEmailRequestDto(
