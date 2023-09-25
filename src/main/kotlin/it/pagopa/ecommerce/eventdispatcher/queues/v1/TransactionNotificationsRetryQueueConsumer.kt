@@ -195,7 +195,7 @@ class TransactionNotificationsRetryQueueConsumer(
         }
 
     return eventData
-      .onErrorMap { InvalidEventException(payload) }
+      .onErrorMap { InvalidEventException(payload, it) }
       .flatMap { (e, tracingInfo) ->
         if (tracingInfo != null) {
           val event = e.fold({ QueueEvent(it, tracingInfo) }, { QueueEvent(it, tracingInfo) })

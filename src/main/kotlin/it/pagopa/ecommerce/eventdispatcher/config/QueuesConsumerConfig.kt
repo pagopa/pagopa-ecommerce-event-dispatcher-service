@@ -2,6 +2,11 @@ package it.pagopa.ecommerce.eventdispatcher.config
 
 import com.azure.spring.integration.storage.queue.inbound.StorageQueueMessageSource
 import com.azure.spring.messaging.storage.queue.core.StorageQueueTemplate
+import it.pagopa.ecommerce.commons.queues.QueueEvent
+import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
+import it.pagopa.ecommerce.commons.queues.mixin.deserialization.TransactionEventMixIn
+import it.pagopa.ecommerce.commons.queues.mixin.serialization.QueueEventMixInClassFieldDiscriminator
+import it.pagopa.ecommerce.commons.queues.mixin.serialization.QueueEventMixInEventCodeFieldDiscriminator
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -89,4 +94,17 @@ class QueuesConsumerConfig {
   ): StorageQueueMessageSource {
     return StorageQueueMessageSource(queueNameClosureEvents, storageQueueTemplate)
   }
+
+  @Bean
+  fun strictSerializerProviderV1(): StrictJsonSerializerProvider =
+    StrictJsonSerializerProvider()
+      .addMixIn(QueueEvent::class.java, QueueEventMixInEventCodeFieldDiscriminator::class.java)
+
+  @Bean
+  fun strictSerializerProviderV2(): StrictJsonSerializerProvider =
+    StrictJsonSerializerProvider()
+      .addMixIn(QueueEvent::class.java, QueueEventMixInClassFieldDiscriminator::class.java)
+      .addMixIn(
+        it.pagopa.ecommerce.commons.documents.v2.TransactionEvent::class.java,
+        TransactionEventMixIn::class.java)
 }
