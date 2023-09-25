@@ -15,6 +15,7 @@ import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.client.NotificationsServiceClient
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
+import it.pagopa.ecommerce.eventdispatcher.exceptions.InvalidEventException
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.NotificationRetryService
@@ -139,25 +140,36 @@ class TransactionNotificationsQueueConsumer(
             }
         }
 
-    return eventData.flatMap { (e, tracingInfo) ->
-      if (tracingInfo != null) {
-        runTracedPipelineWithDeadLetterQueue(
-          checkPointer,
-          notificationResendPipeline,
-          QueueEvent(e, tracingInfo),
-          deadLetterQueueAsyncClient,
-          deadLetterTTLSeconds,
-          tracingUtils,
-          this::class.simpleName!!)
-      } else {
+    return eventData
+      .onErrorMap { InvalidEventException(payload) }
+      .flatMap { (e, tracingInfo) ->
+        if (tracingInfo != null) {
+          runTracedPipelineWithDeadLetterQueue(
+            checkPointer,
+            notificationResendPipeline,
+            QueueEvent(e, tracingInfo),
+            deadLetterQueueAsyncClient,
+            deadLetterTTLSeconds,
+            tracingUtils,
+            this::class.simpleName!!)
+        } else {
+          runPipelineWithDeadLetterQueue(
+            checkPointer,
+            notificationResendPipeline,
+            BinaryData.fromObject(e).toBytes(),
+            deadLetterQueueAsyncClient,
+            deadLetterTTLSeconds,
+          )
+        }
+      }
+      .onErrorResume(InvalidEventException::class.java) {
+        logger.error("Invalid input event", it)
         runPipelineWithDeadLetterQueue(
           checkPointer,
           notificationResendPipeline,
-          BinaryData.fromObject(e).toBytes(),
+          payload,
           deadLetterQueueAsyncClient,
-          deadLetterTTLSeconds,
-        )
+          deadLetterTTLSeconds)
       }
-    }
   }
 }

@@ -1,7 +1,6 @@
 package it.pagopa.ecommerce.eventdispatcher.queues
 
 import com.azure.core.util.BinaryData
-import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v1.*
@@ -454,8 +453,7 @@ fun <T> runPipelineWithDeadLetterQueue(
   deadLetterQueueTTLSeconds: Int
 ): Mono<Void> {
   val binaryData = BinaryData.fromBytes(eventPayload)
-  val event = binaryData.toObject(object : TypeReference<Map<String, Any>>() {})
-  val eventLogString = "${event["eventCode"]}, transactionId: ${event["transactionId"]}"
+  val eventLogString = "event payload: ${eventPayload.toString(StandardCharsets.UTF_8)}"
   return checkPointer
     .success()
     .doOnSuccess { logger.info("Checkpoint performed successfully for event $eventLogString") }

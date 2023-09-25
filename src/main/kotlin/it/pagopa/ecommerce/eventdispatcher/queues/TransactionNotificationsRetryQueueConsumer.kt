@@ -17,6 +17,7 @@ import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.client.NotificationsServiceClient
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
+import it.pagopa.ecommerce.eventdispatcher.exceptions.InvalidEventException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
@@ -192,29 +193,40 @@ class TransactionNotificationsRetryQueueConsumer(
             }
         }
 
-    return eventData.flatMap { (e, tracingInfo) ->
-      if (tracingInfo != null) {
-        val event = e.fold({ QueueEvent(it, tracingInfo) }, { QueueEvent(it, tracingInfo) })
+    return eventData
+      .onErrorMap { InvalidEventException(payload) }
+      .flatMap { (e, tracingInfo) ->
+        if (tracingInfo != null) {
+          val event = e.fold({ QueueEvent(it, tracingInfo) }, { QueueEvent(it, tracingInfo) })
 
-        runTracedPipelineWithDeadLetterQueue(
-          checkPointer,
-          notificationResendPipeline,
-          event,
-          deadLetterQueueAsyncClient,
-          deadLetterTTLSeconds,
-          tracingUtils,
-          this::class.simpleName!!)
-      } else {
-        val eventBytes =
-          e.fold({ BinaryData.fromObject(it).toBytes() }, { BinaryData.fromObject(it).toBytes() })
+          runTracedPipelineWithDeadLetterQueue(
+            checkPointer,
+            notificationResendPipeline,
+            event,
+            deadLetterQueueAsyncClient,
+            deadLetterTTLSeconds,
+            tracingUtils,
+            this::class.simpleName!!)
+        } else {
+          val eventBytes =
+            e.fold({ BinaryData.fromObject(it).toBytes() }, { BinaryData.fromObject(it).toBytes() })
 
+          runPipelineWithDeadLetterQueue(
+            checkPointer,
+            notificationResendPipeline,
+            eventBytes,
+            deadLetterQueueAsyncClient,
+            deadLetterTTLSeconds)
+        }
+      }
+      .onErrorResume(InvalidEventException::class.java) {
+        logger.error("Invalid input event", it)
         runPipelineWithDeadLetterQueue(
           checkPointer,
           notificationResendPipeline,
-          eventBytes,
+          payload,
           deadLetterQueueAsyncClient,
           deadLetterTTLSeconds)
       }
-    }
   }
 }

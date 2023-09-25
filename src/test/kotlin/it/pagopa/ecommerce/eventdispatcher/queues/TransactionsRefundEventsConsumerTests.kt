@@ -18,8 +18,11 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRe
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryService
 import it.pagopa.ecommerce.eventdispatcher.utils.DEAD_LETTER_QUEUE_TTL_SECONDS
+import it.pagopa.ecommerce.eventdispatcher.utils.queueSuccessfulResponse
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
+import java.nio.charset.StandardCharsets
+import java.time.Duration
 import java.time.ZonedDateTime
 import java.util.*
 import java.util.stream.Stream
@@ -87,6 +90,7 @@ class TransactionsRefundEventsConsumerTests {
       Stream.of(
         XPayRefundResponse200Dto.StatusEnum.DENIED, XPayRefundResponse200Dto.StatusEnum.CREATED)
   }
+
   @Test
   fun `consumer processes refund request event correctly with pgs refund`() = runTest {
     val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
@@ -788,4 +792,28 @@ class TransactionsRefundEventsConsumerTests {
       assertEquals(TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT, storedEvent.eventCode)
       assertEquals(TransactionStatusDto.REFUND_REQUESTED, storedEvent.data.statusBeforeRefunded)
     }
+
+  @Test
+  fun `consumer write event to dead letter queue for un-parsable event`() = runTest {
+    val invalidEvent = "test"
+    val payload = BinaryData.fromBytes(invalidEvent.toByteArray(StandardCharsets.UTF_8))
+    /* preconditions */
+    given(checkpointer.success()).willReturn(Mono.empty())
+    given(deadLetterQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull()))
+      .willReturn(queueSuccessfulResponse())
+
+    /* test */
+
+    StepVerifier.create(
+        transactionRefundedEventsConsumer.messageReceiver(payload.toBytes(), checkpointer))
+      .verifyComplete()
+
+    /* Asserts */
+    verify(checkpointer, Mockito.times(1)).success()
+    verify(deadLetterQueueAsyncClient, times(1))
+      .sendMessageWithResponse(
+        argThat<BinaryData> { invalidEvent == (String(this.toBytes(), StandardCharsets.UTF_8)) },
+        eq(Duration.ZERO),
+        eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
+  }
 }

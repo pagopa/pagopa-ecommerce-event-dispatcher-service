@@ -5,10 +5,7 @@ import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
-import it.pagopa.ecommerce.commons.documents.v1.TransactionClosedEvent
-import it.pagopa.ecommerce.commons.documents.v1.TransactionClosureData
-import it.pagopa.ecommerce.commons.documents.v1.TransactionClosureErrorEvent
-import it.pagopa.ecommerce.commons.documents.v1.TransactionUserCanceledEvent
+import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v1.TransactionWithCancellationRequested
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithCancellationRequested
@@ -17,16 +14,14 @@ import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.commons.redis.templatewrappers.v1.PaymentRequestInfoRedisTemplateWrapper
-import it.pagopa.ecommerce.eventdispatcher.exceptions.BadClosePaymentRequest
-import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
-import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
-import it.pagopa.ecommerce.eventdispatcher.exceptions.TransactionNotFound
+import it.pagopa.ecommerce.eventdispatcher.exceptions.*
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.NodeService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.ClosureRetryService
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
+import java.util.*
 import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -180,28 +175,33 @@ class TransactionClosePaymentQueueConsumer(
         }
         .then()
 
-    return queueEvent.flatMap {
-      val (event, tracingInfo) = it
-
-      if (tracingInfo != null) {
-        runTracedPipelineWithDeadLetterQueue(
-          checkPointer,
-          closurePipeline,
-          QueueEvent(event, tracingInfo),
-          deadLetterQueueAsyncClient,
-          deadLetterTTLSeconds,
-          tracingUtils,
-          this::class.simpleName!!)
-      } else {
-        runPipelineWithDeadLetterQueue(
-          checkPointer,
-          closurePipeline,
-          BinaryData.fromObject(event).toBytes(),
-          deadLetterQueueAsyncClient,
-          deadLetterTTLSeconds,
-        )
+    return queueEvent
+      .onErrorMap { InvalidEventException(payload) }
+      .flatMap { (event, tracingInfo) ->
+        if (tracingInfo != null) {
+          runTracedPipelineWithDeadLetterQueue(
+            checkPointer,
+            closurePipeline,
+            QueueEvent(event, tracingInfo),
+            deadLetterQueueAsyncClient,
+            deadLetterTTLSeconds,
+            tracingUtils,
+            this::class.simpleName!!)
+        } else {
+          runPipelineWithDeadLetterQueue(
+            checkPointer,
+            closurePipeline,
+            BinaryData.fromObject(event).toBytes(),
+            deadLetterQueueAsyncClient,
+            deadLetterTTLSeconds,
+          )
+        }
       }
-    }
+      .onErrorResume(InvalidEventException::class.java) {
+        logger.error("Invalid input event", it)
+        runPipelineWithDeadLetterQueue(
+          checkPointer, closurePipeline, payload, deadLetterQueueAsyncClient, deadLetterTTLSeconds)
+      }
   }
 
   private fun updateTransactionStatus(

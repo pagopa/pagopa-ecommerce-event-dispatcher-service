@@ -18,9 +18,11 @@ import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
+import it.pagopa.ecommerce.eventdispatcher.exceptions.InvalidEventException
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryService
+import java.util.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -137,25 +139,32 @@ class TransactionsRefundQueueConsumer(
             tracingInfo)
         }
 
-    return eventData.flatMap { (e, tracingInfo) ->
-      if (tracingInfo != null) {
-        val event = e.fold({ QueueEvent(it, tracingInfo) }, { QueueEvent(it, tracingInfo) })
+    return eventData
+      .onErrorMap { InvalidEventException(payload) }
+      .flatMap { (e, tracingInfo) ->
+        if (tracingInfo != null) {
+          val event = e.fold({ QueueEvent(it, tracingInfo) }, { QueueEvent(it, tracingInfo) })
 
-        runTracedPipelineWithDeadLetterQueue(
-          checkPointer,
-          refundPipeline,
-          event,
-          deadLetterQueueAsyncClient,
-          deadLetterTTLSeconds,
-          tracingUtils,
-          this::class.simpleName!!)
-      } else {
-        val event =
-          e.fold({ BinaryData.fromObject(it).toBytes() }, { BinaryData.fromObject(it).toBytes() })
+          runTracedPipelineWithDeadLetterQueue(
+            checkPointer,
+            refundPipeline,
+            event,
+            deadLetterQueueAsyncClient,
+            deadLetterTTLSeconds,
+            tracingUtils,
+            this::class.simpleName!!)
+        } else {
+          val event =
+            e.fold({ BinaryData.fromObject(it).toBytes() }, { BinaryData.fromObject(it).toBytes() })
 
-        runPipelineWithDeadLetterQueue(
-          checkPointer, refundPipeline, event, deadLetterQueueAsyncClient, deadLetterTTLSeconds)
+          runPipelineWithDeadLetterQueue(
+            checkPointer, refundPipeline, event, deadLetterQueueAsyncClient, deadLetterTTLSeconds)
+        }
       }
-    }
+      .onErrorResume(InvalidEventException::class.java) {
+        logger.error("Invalid input event", it)
+        runPipelineWithDeadLetterQueue(
+          checkPointer, refundPipeline, payload, deadLetterQueueAsyncClient, deadLetterTTLSeconds)
+      }
   }
 }
