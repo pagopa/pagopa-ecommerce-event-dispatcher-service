@@ -176,7 +176,7 @@ class TransactionClosePaymentQueueConsumer(
         .then()
 
     return queueEvent
-      .onErrorMap { InvalidEventException(payload) }
+      .onErrorMap { InvalidEventException(payload, it) }
       .flatMap { (event, tracingInfo) ->
         if (tracingInfo != null) {
           runTracedPipelineWithDeadLetterQueue(

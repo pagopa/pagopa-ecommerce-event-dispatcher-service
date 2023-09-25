@@ -141,7 +141,7 @@ class TransactionNotificationsQueueConsumer(
         }
 
     return eventData
-      .onErrorMap { InvalidEventException(payload) }
+      .onErrorMap { InvalidEventException(payload, it) }
       .flatMap { (e, tracingInfo) ->
         if (tracingInfo != null) {
           runTracedPipelineWithDeadLetterQueue(

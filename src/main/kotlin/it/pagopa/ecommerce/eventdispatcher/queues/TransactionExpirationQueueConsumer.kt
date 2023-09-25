@@ -12,6 +12,7 @@ import it.pagopa.ecommerce.commons.documents.v1.TransactionExpiredEvent as Trans
 import it.pagopa.ecommerce.commons.documents.v2.TransactionActivatedEvent as TransactionActivatedEventV2
 import it.pagopa.ecommerce.commons.documents.v2.TransactionExpiredEvent as TransactionExpiredEventV2
 import it.pagopa.ecommerce.commons.queues.QueueEvent
+import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.eventdispatcher.exceptions.InvalidEventException
 import it.pagopa.ecommerce.eventdispatcher.queues.v1.TransactionExpirationQueueConsumer as TransactionExpirationQueueConsumerV1
@@ -40,38 +41,48 @@ class TransactionExpirationQueueConsumer(
   @Autowired private val deadLetterQueueAsyncClient: QueueAsyncClient,
   @Value("\${azurestorage.queues.deadLetterQueue.ttlSeconds}")
   private val deadLetterTTLSeconds: Int,
+  @Autowired private val strictSerializerProviderV1: StrictJsonSerializerProvider,
+  @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider
 ) {
 
   val logger: Logger = LoggerFactory.getLogger(TransactionExpirationQueueConsumer::class.java)
 
   fun parseEvent(data: BinaryData): Mono<Pair<BaseTransactionEvent<*>, TracingInfo?>> {
+    val jsonSerializerV1 = strictSerializerProviderV1.createInstance()
+    val jsonSerializerV2 = strictSerializerProviderV2.createInstance()
     val transactionActivatedEventV1 =
-      data.toObjectAsync(object : TypeReference<QueueEvent<TransactionActivatedEventV1>>() {}).map {
-        it.event to it.tracingInfo
-      }
+      data
+        .toObjectAsync(
+          object : TypeReference<QueueEvent<TransactionActivatedEventV1>>() {}, jsonSerializerV1)
+        .map { it.event to it.tracingInfo }
 
     val transactionExpiredEventV1 =
-      data.toObjectAsync(object : TypeReference<QueueEvent<TransactionExpiredEventV1>>() {}).map {
-        it.event to it.tracingInfo
-      }
+      data
+        .toObjectAsync(
+          object : TypeReference<QueueEvent<TransactionExpiredEventV1>>() {}, jsonSerializerV1)
+        .map { it.event to it.tracingInfo }
 
     val untracedTransactionActivatedEventV1 =
-      data.toObjectAsync(object : TypeReference<TransactionActivatedEventV1>() {}).map {
-        it to null
-      }
+      data
+        .toObjectAsync(object : TypeReference<TransactionActivatedEventV1>() {}, jsonSerializerV1)
+        .map { it to null }
 
     val untracedTransactionExpiredEventV1 =
-      data.toObjectAsync(object : TypeReference<TransactionExpiredEventV1>() {}).map { it to null }
+      data
+        .toObjectAsync(object : TypeReference<TransactionExpiredEventV1>() {}, jsonSerializerV1)
+        .map { it to null }
 
     val transactionActivatedEventV2 =
-      data.toObjectAsync(object : TypeReference<QueueEvent<TransactionActivatedEventV2>>() {}).map {
-        it.event to it.tracingInfo
-      }
+      data
+        .toObjectAsync(
+          object : TypeReference<QueueEvent<TransactionActivatedEventV2>>() {}, jsonSerializerV2)
+        .map { it.event to it.tracingInfo }
 
     val transactionExpiredEventV2 =
-      data.toObjectAsync(object : TypeReference<QueueEvent<TransactionExpiredEventV2>>() {}).map {
-        it.event to it.tracingInfo
-      }
+      data
+        .toObjectAsync(
+          object : TypeReference<QueueEvent<TransactionExpiredEventV2>>() {}, jsonSerializerV2)
+        .map { it.event to it.tracingInfo }
 
     return Mono.firstWithValue(
         transactionActivatedEventV1,
@@ -80,7 +91,7 @@ class TransactionExpirationQueueConsumer(
         untracedTransactionExpiredEventV1,
         transactionActivatedEventV2,
         transactionExpiredEventV2)
-      .onErrorMap { InvalidEventException(data.toBytes()) }
+      .onErrorMap { InvalidEventException(data.toBytes(), it) }
   }
 
   @ServiceActivator(inputChannel = "transactionexpiredchannel", outputChannel = "nullChannel")
@@ -111,7 +122,7 @@ class TransactionExpirationQueueConsumer(
               Either.right(QueueEvent(e, tracingInfo)), checkPointer, headers)
           }
           else -> {
-            Mono.error(InvalidEventException(payload)) // FIXME
+            Mono.error(InvalidEventException(payload, null)) // FIXME
           }
         }
       }

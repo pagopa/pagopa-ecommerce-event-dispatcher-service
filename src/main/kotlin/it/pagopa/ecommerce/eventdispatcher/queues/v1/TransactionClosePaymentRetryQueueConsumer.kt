@@ -231,7 +231,7 @@ class TransactionClosePaymentRetryQueueConsumer(
         }
 
     return eventData
-      .onErrorMap { InvalidEventException(payload) }
+      .onErrorMap { InvalidEventException(payload, it) }
       .flatMap { (event, tracingInfo) ->
         val e = event.fold({ it }, { it })
         if (tracingInfo != null) {
