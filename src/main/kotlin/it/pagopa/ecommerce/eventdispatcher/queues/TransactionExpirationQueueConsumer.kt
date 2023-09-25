@@ -30,8 +30,15 @@ import org.springframework.messaging.handler.annotation.Payload
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
 
+/**
+ * Event consumer for events related to transaction activation. This consumer's responsibilities are
+ * to handle expiration of transactions and subsequent refund for transaction stuck in a
+ * pending/transient state.
+ */
 @Service
 class TransactionExpirationQueueConsumer(
+  @Autowired private val paymentGatewayClient: PaymentGatewayClient,
+  @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,
   @Autowired
   @Qualifier("TransactionExpirationQueueConsumerV1")
   private val queueConsumerV1: TransactionExpirationQueueConsumerV1,
