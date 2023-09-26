@@ -1,7 +1,5 @@
 package it.pagopa.ecommerce.eventdispatcher.queues.v2
 
-import com.azure.core.util.BinaryData
-import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
 import io.vavr.control.Either
@@ -18,6 +16,7 @@ import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
+import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
@@ -57,7 +56,8 @@ class TransactionClosePaymentRetryQueueConsumer(
   @Autowired private val deadLetterQueueAsyncClient: QueueAsyncClient,
   @Value("\${azurestorage.queues.deadLetterQueue.ttlSeconds}")
   private val deadLetterTTLSeconds: Int,
-  @Autowired private val tracingUtils: TracingUtils
+  @Autowired private val tracingUtils: TracingUtils,
+  @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider,
 ) {
   var logger: Logger =
     LoggerFactory.getLogger(TransactionClosePaymentRetryQueueConsumer::class.java)
@@ -74,54 +74,20 @@ class TransactionClosePaymentRetryQueueConsumer(
     return event.fold({ 0 }, { it.data.retryCount })
   }
 
-  private fun parseEvent(
-    data: BinaryData
-  ): Mono<
-    Pair<Either<TransactionClosureErrorEvent, TransactionClosureRetriedEvent>, TracingInfo?>> {
-    val closureRetriedEvent =
-      data
-        .toObjectAsync(object : TypeReference<QueueEvent<TransactionClosureRetriedEvent>>() {})
-        .map {
-          Either.right<TransactionClosureErrorEvent, TransactionClosureRetriedEvent>(it.event) to
-            it.tracingInfo
-        }
-    val closureErrorEvent =
-      data
-        .toObjectAsync(object : TypeReference<QueueEvent<TransactionClosureErrorEvent>>() {})
-        .map {
-          Either.left<TransactionClosureErrorEvent, TransactionClosureRetriedEvent>(it.event) to
-            it.tracingInfo
-        }
-
-    val untracedClosureRetriedEvent =
-      data.toObjectAsync(object : TypeReference<TransactionClosureRetriedEvent>() {}).map {
-        Either.right<TransactionClosureErrorEvent, TransactionClosureRetriedEvent>(it) to null
-      }
-    val untracedClosureErrorEvent =
-      data.toObjectAsync(object : TypeReference<TransactionClosureErrorEvent>() {}).map {
-        Either.left<TransactionClosureErrorEvent, TransactionClosureRetriedEvent>(it) to null
-      }
-
-    return Mono.firstWithValue(
-      closureRetriedEvent,
-      closureErrorEvent,
-      untracedClosureRetriedEvent,
-      untracedClosureErrorEvent)
-  }
-
   fun messageReceiver(
     parsedEvent:
-      Pair<Either<TransactionClosureErrorEvent, TransactionClosureRetriedEvent>, TracingInfo?>,
+      Either<QueueEvent<TransactionClosureErrorEvent>, QueueEvent<TransactionClosureRetriedEvent>>,
     checkPointer: Checkpointer
   ) = messageReceiver(parsedEvent, checkPointer, EmptyTransaction())
 
   fun messageReceiver(
     parsedEvent:
-      Pair<Either<TransactionClosureErrorEvent, TransactionClosureRetriedEvent>, TracingInfo?>,
+      Either<QueueEvent<TransactionClosureErrorEvent>, QueueEvent<TransactionClosureRetriedEvent>>,
     checkPointer: Checkpointer,
     emptyTransaction: EmptyTransaction
   ): Mono<Void> {
-    val (event, tracingInfo) = parsedEvent
+    val event = parsedEvent.bimap({ it.event }, { it.event })
+    val tracingInfo = parsedEvent.fold({ it.tracingInfo }, { it.tracingInfo })
     val transactionId = getTransactionId(event)
     val retryCount = getRetryCount(event)
     val baseTransaction =
@@ -229,23 +195,15 @@ class TransactionClosePaymentRetryQueueConsumer(
             }
         }
     val e = event.fold({ it }, { it })
-    return if (tracingInfo != null) {
-      runTracedPipelineWithDeadLetterQueue(
-        checkPointer,
-        closurePipeline,
-        QueueEvent(e, tracingInfo),
-        deadLetterQueueAsyncClient,
-        deadLetterTTLSeconds,
-        tracingUtils,
-        this::class.simpleName!!)
-    } else {
-      runPipelineWithDeadLetterQueue(
-        checkPointer,
-        closurePipeline,
-        BinaryData.fromObject(e).toBytes(),
-        deadLetterQueueAsyncClient,
-        deadLetterTTLSeconds)
-    }
+    return runTracedPipelineWithDeadLetterQueue(
+      checkPointer,
+      closurePipeline,
+      QueueEvent(e, tracingInfo),
+      deadLetterQueueAsyncClient,
+      deadLetterTTLSeconds,
+      tracingUtils,
+      this::class.simpleName!!,
+      strictSerializerProviderV2)
   }
 
   private fun refundTransactionPipeline(
@@ -358,7 +316,9 @@ class TransactionClosePaymentRetryQueueConsumer(
       "Updating transaction {} status to {}", transaction.transactionId.value(), newStatus)
 
     val transactionUpdate =
-      transactionsViewRepository.findByTransactionId(transaction.transactionId.value())
+      transactionsViewRepository
+        .findByTransactionId(transaction.transactionId.value())
+        .cast(Transaction::class.java)
 
     val saveEvent =
       event.bimap(

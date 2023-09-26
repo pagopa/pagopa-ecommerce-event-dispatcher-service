@@ -2,6 +2,7 @@ package it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2
 
 import com.azure.core.util.BinaryData
 import com.azure.storage.queue.QueueAsyncClient
+import it.pagopa.ecommerce.commons.documents.v2.Transaction
 import it.pagopa.ecommerce.commons.documents.v2.TransactionEvent
 import it.pagopa.ecommerce.commons.documents.v2.TransactionRetriedData
 import it.pagopa.ecommerce.commons.domain.TransactionId
@@ -76,6 +77,7 @@ abstract class RetryEventService<E>(
     Mono.just(event)
       .flatMap { retryEventStoreRepository.save(it) }
       .flatMap { viewRepository.findByTransactionId(it.transactionId) }
+      .cast(Transaction::class.java)
       .flatMap {
         it.status = newStatus
         viewRepository.save(it).flatMap { Mono.just(event) }

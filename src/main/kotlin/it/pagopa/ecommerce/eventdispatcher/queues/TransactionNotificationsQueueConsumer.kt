@@ -86,7 +86,7 @@ class TransactionNotificationsQueueConsumer(
           }
           is TransactionUserReceiptRequestedEventV2 -> {
             logger.info("Event {} with tracing info {} dispatched to V2 handler", e, tracingInfo)
-            queueConsumerV2.messageReceiver(e to tracingInfo, checkPointer)
+            queueConsumerV2.messageReceiver(QueueEvent(e, tracingInfo), checkPointer)
           }
           else -> {
             logger.error(

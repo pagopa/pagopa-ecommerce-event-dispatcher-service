@@ -1,7 +1,6 @@
 package it.pagopa.ecommerce.eventdispatcher.queues.v2
 
 import com.azure.core.util.BinaryData
-import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v2.*
@@ -16,6 +15,7 @@ import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
+import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
@@ -27,7 +27,6 @@ import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetrySer
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto.StatusEnum
 import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
-import java.nio.charset.StandardCharsets
 import java.time.Duration
 import java.time.ZonedDateTime
 import java.util.*
@@ -51,11 +50,13 @@ fun updateTransactionToExpired(
       TransactionExpiredEvent(
         transaction.transactionId.value(), TransactionExpiredData(transaction.status)))
     .then(
-      transactionsViewRepository.findByTransactionId(transaction.transactionId.value()).flatMap { tx
-        ->
-        tx.status = getExpiredTransactionStatus(transaction)
-        transactionsViewRepository.save(tx)
-      })
+      transactionsViewRepository
+        .findByTransactionId(transaction.transactionId.value())
+        .cast(Transaction::class.java)
+        .flatMap { tx ->
+          tx.status = getExpiredTransactionStatus(transaction)
+          transactionsViewRepository.save(tx)
+        })
     .doOnSuccess {
       logger.info("Transaction expired for transaction ${transaction.transactionId.value()}")
     }
@@ -136,11 +137,13 @@ fun updateTransactionWithRefundEvent(
   return transactionsRefundedEventStoreRepository
     .save(event)
     .then(
-      transactionsViewRepository.findByTransactionId(transaction.transactionId.value()).flatMap { tx
-        ->
-        tx.status = status
-        transactionsViewRepository.save(tx)
-      })
+      transactionsViewRepository
+        .findByTransactionId(transaction.transactionId.value())
+        .cast(Transaction::class.java)
+        .flatMap { tx ->
+          tx.status = status
+          transactionsViewRepository.save(tx)
+        })
     .doOnSuccess {
       logger.info(
         "Updated event for transaction with id ${transaction.transactionId.value()} to status $status")
@@ -416,6 +419,7 @@ fun updateNotifiedTransactionStatus(
 
   return transactionsViewRepository
     .findByTransactionId(transaction.transactionId.value())
+    .cast(Transaction::class.java)
     .flatMap { tx ->
       tx.status = newStatus
       transactionsViewRepository.save(tx)
@@ -436,6 +440,7 @@ fun updateNotificationErrorTransactionStatus(
 
   return transactionsViewRepository
     .findByTransactionId(transaction.transactionId.value())
+    .cast(Transaction::class.java)
     .flatMap { tx ->
       tx.status = newStatus
       transactionsViewRepository.save(tx)
@@ -473,43 +478,6 @@ fun notificationRefundTransactionPipeline(
     }
 }
 
-fun <T> runPipelineWithDeadLetterQueue(
-  checkPointer: Checkpointer,
-  pipeline: Mono<T>,
-  eventPayload: ByteArray,
-  deadLetterQueueAsyncClient: QueueAsyncClient,
-  deadLetterQueueTTLSeconds: Int
-): Mono<Void> {
-  val binaryData = BinaryData.fromBytes(eventPayload)
-  val event = binaryData.toObject(object : TypeReference<Map<String, Any>>() {})
-  val eventLogString = "${event["eventCode"]}, transactionId: ${event["transactionId"]}"
-  return checkPointer
-    .success()
-    .doOnSuccess { logger.info("Checkpoint performed successfully for event $eventLogString") }
-    .doOnError { logger.error("Error performing checkpoint for event $eventLogString", it) }
-    .then(pipeline)
-    .then()
-    .onErrorResume { pipelineException ->
-      logger.error("Exception processing event $eventLogString", pipelineException)
-      deadLetterQueueAsyncClient
-        .sendMessageWithResponse(
-          binaryData,
-          Duration.ZERO,
-          Duration.ofSeconds(deadLetterQueueTTLSeconds.toLong()), // timeToLive
-        )
-        .doOnNext {
-          logger.info(
-            "Event: [${eventPayload.toString(StandardCharsets.UTF_8)}] successfully sent with visibility timeout: [${it.value.timeNextVisible}] ms to queue: [${deadLetterQueueAsyncClient.queueName}]")
-        }
-        .doOnError { queueException ->
-          logger.error(
-            "Error sending event: [${eventPayload.toString(StandardCharsets.UTF_8)}] to dead letter queue.",
-            queueException)
-        }
-        .then()
-    }
-}
-
 fun <T> runTracedPipelineWithDeadLetterQueue(
   checkPointer: Checkpointer,
   pipeline: Mono<T>,
@@ -517,29 +485,36 @@ fun <T> runTracedPipelineWithDeadLetterQueue(
   deadLetterQueueAsyncClient: QueueAsyncClient,
   deadLetterQueueTTLSeconds: Int,
   tracingUtils: TracingUtils,
-  spanName: String
+  spanName: String,
+  jsonSerializerProviderV2: StrictJsonSerializerProvider
 ): Mono<Void> {
   val eventLogString = "${queueEvent.event.id}, transactionId: ${queueEvent.event.transactionId}"
 
   val deadLetterPipeline =
-    pipeline.then().onErrorResume { pipelineException ->
-      logger.error("Exception processing event $eventLogString", pipelineException)
-      deadLetterQueueAsyncClient
-        .sendMessageWithResponse(
-          BinaryData.fromObject(queueEvent),
-          Duration.ZERO,
-          Duration.ofSeconds(deadLetterQueueTTLSeconds.toLong()), // timeToLive
-        )
-        .doOnNext {
-          logger.info(
-            "Event: [${queueEvent.event}] successfully sent with visibility timeout: [${it.value.timeNextVisible}] ms to queue: [${deadLetterQueueAsyncClient.queueName}]")
-        }
-        .doOnError { queueException ->
-          logger.error(
-            "Error sending event: [${queueEvent.event}] to dead letter queue.", queueException)
-        }
-        .then()
-    }
+    checkPointer
+      .success()
+      .doOnSuccess { logger.info("Checkpoint performed successfully for event $eventLogString") }
+      .doOnError { logger.error("Error performing checkpoint for event $eventLogString", it) }
+      .then(pipeline)
+      .then()
+      .onErrorResume { pipelineException ->
+        logger.error("Exception processing event $eventLogString", pipelineException)
+        deadLetterQueueAsyncClient
+          .sendMessageWithResponse(
+            BinaryData.fromObject(queueEvent, jsonSerializerProviderV2.createInstance()),
+            Duration.ZERO,
+            Duration.ofSeconds(deadLetterQueueTTLSeconds.toLong()), // timeToLive
+          )
+          .doOnNext {
+            logger.info(
+              "Event: [${queueEvent.event}] successfully sent with visibility timeout: [${it.value.timeNextVisible}] ms to queue: [${deadLetterQueueAsyncClient.queueName}]")
+          }
+          .doOnError { queueException ->
+            logger.error(
+              "Error sending event: [${queueEvent.event}] to dead letter queue.", queueException)
+          }
+          .then()
+      }
 
   return tracingUtils.traceMonoWithRemoteSpan(queueEvent.tracingInfo, spanName, deadLetterPipeline)
 }

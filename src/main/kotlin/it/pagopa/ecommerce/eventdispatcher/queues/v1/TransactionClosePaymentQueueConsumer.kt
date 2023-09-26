@@ -123,6 +123,7 @@ class TransactionClosePaymentQueueConsumer(
                         transactionsViewRepository.findByTransactionId(
                           baseTransaction.transactionId.value())
                       }
+                      .cast(Transaction::class.java)
                       .flatMap { tx ->
                         tx.status = TransactionStatusDto.CLOSURE_ERROR
                         transactionsViewRepository.save(tx)
@@ -196,7 +197,9 @@ class TransactionClosePaymentQueueConsumer(
       "Updating transaction {} status to {}", transaction.transactionId.value(), newStatus)
 
     val transactionUpdate =
-      transactionsViewRepository.findByTransactionId(transaction.transactionId.value())
+      transactionsViewRepository
+        .findByTransactionId(transaction.transactionId.value())
+        .cast(Transaction::class.java)
 
     return transactionClosureSentEventRepository.save(event).flatMap { closedEvent ->
       transactionUpdate

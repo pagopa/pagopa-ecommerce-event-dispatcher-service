@@ -1,6 +1,5 @@
 package it.pagopa.ecommerce.eventdispatcher.queues.v2
 
-import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v2.*
@@ -8,7 +7,7 @@ import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v2.pojos.*
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
-import it.pagopa.ecommerce.commons.queues.TracingInfo
+import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.client.NotificationsServiceClient
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
@@ -46,24 +45,23 @@ class TransactionNotificationsQueueConsumer(
   @Autowired private val deadLetterQueueAsyncClient: QueueAsyncClient,
   @Value("\${azurestorage.queues.deadLetterQueue.ttlSeconds}")
   private val deadLetterTTLSeconds: Int,
-  @Autowired private val tracingUtils: TracingUtils
+  @Autowired private val tracingUtils: TracingUtils,
+  @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider,
 ) {
   var logger: Logger = LoggerFactory.getLogger(TransactionNotificationsQueueConsumer::class.java)
 
   fun messageReceiver(
-    parsedEvent:
-      Pair<
-        it.pagopa.ecommerce.commons.documents.v2.TransactionUserReceiptRequestedEvent,
-        TracingInfo?>,
+    parsedEvent: QueueEvent<TransactionUserReceiptRequestedEvent>,
     checkPointer: Checkpointer
   ) = messageReceiver(parsedEvent, checkPointer, EmptyTransaction())
 
   fun messageReceiver(
-    parsedEvent: Pair<TransactionUserReceiptRequestedEvent, TracingInfo?>,
+    parsedEvent: QueueEvent<TransactionUserReceiptRequestedEvent>,
     checkPointer: Checkpointer,
     emptyTransaction: EmptyTransaction
   ): Mono<Void> {
-    val (event, tracingInfo) = parsedEvent
+    val event = parsedEvent.event
+    val tracingInfo = parsedEvent.tracingInfo
     val transactionId = event.transactionId
     val baseTransaction =
       reduceEvents(mono { transactionId }, transactionsEventStoreRepository, emptyTransaction)
@@ -116,23 +114,14 @@ class TransactionNotificationsQueueConsumer(
             }
         }
 
-    return if (tracingInfo != null) {
-      runTracedPipelineWithDeadLetterQueue(
-        checkPointer,
-        notificationResendPipeline,
-        QueueEvent(event, tracingInfo),
-        deadLetterQueueAsyncClient,
-        deadLetterTTLSeconds,
-        tracingUtils,
-        this::class.simpleName!!)
-    } else {
-      runPipelineWithDeadLetterQueue(
-        checkPointer,
-        notificationResendPipeline,
-        BinaryData.fromObject(event).toBytes(),
-        deadLetterQueueAsyncClient,
-        deadLetterTTLSeconds,
-      )
-    }
+    return runTracedPipelineWithDeadLetterQueue(
+      checkPointer,
+      notificationResendPipeline,
+      QueueEvent(event, tracingInfo),
+      deadLetterQueueAsyncClient,
+      deadLetterTTLSeconds,
+      tracingUtils,
+      this::class.simpleName!!,
+      strictSerializerProviderV2)
   }
 }

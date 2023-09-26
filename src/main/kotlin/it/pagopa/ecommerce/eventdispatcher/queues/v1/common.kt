@@ -46,11 +46,13 @@ fun updateTransactionToExpired(
       TransactionExpiredEvent(
         transaction.transactionId.value(), TransactionExpiredData(transaction.status)))
     .then(
-      transactionsViewRepository.findByTransactionId(transaction.transactionId.value()).flatMap { tx
-        ->
-        tx.status = getExpiredTransactionStatus(transaction)
-        transactionsViewRepository.save(tx)
-      })
+      transactionsViewRepository
+        .findByTransactionId(transaction.transactionId.value())
+        .cast(Transaction::class.java)
+        .flatMap { tx ->
+          tx.status = getExpiredTransactionStatus(transaction)
+          transactionsViewRepository.save(tx)
+        })
     .doOnSuccess {
       logger.info("Transaction expired for transaction ${transaction.transactionId.value()}")
     }
@@ -131,11 +133,13 @@ fun updateTransactionWithRefundEvent(
   return transactionsRefundedEventStoreRepository
     .save(event)
     .then(
-      transactionsViewRepository.findByTransactionId(transaction.transactionId.value()).flatMap { tx
-        ->
-        tx.status = status
-        transactionsViewRepository.save(tx)
-      })
+      transactionsViewRepository
+        .findByTransactionId(transaction.transactionId.value())
+        .cast(Transaction::class.java)
+        .flatMap { tx ->
+          tx.status = status
+          transactionsViewRepository.save(tx)
+        })
     .doOnSuccess {
       logger.info(
         "Updated event for transaction with id ${transaction.transactionId.value()} to status $status")
@@ -390,6 +394,7 @@ fun updateNotifiedTransactionStatus(
 
   return transactionsViewRepository
     .findByTransactionId(transaction.transactionId.value())
+    .cast(Transaction::class.java)
     .flatMap { tx ->
       tx.status = newStatus
       transactionsViewRepository.save(tx)
@@ -410,6 +415,7 @@ fun updateNotificationErrorTransactionStatus(
 
   return transactionsViewRepository
     .findByTransactionId(transaction.transactionId.value())
+    .cast(Transaction::class.java)
     .flatMap { tx ->
       tx.status = newStatus
       transactionsViewRepository.save(tx)

@@ -1,6 +1,5 @@
 package it.pagopa.ecommerce.eventdispatcher.queues.v2
 
-import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
 import io.vavr.control.Either
@@ -10,7 +9,7 @@ import it.pagopa.ecommerce.commons.domain.v2.TransactionWithUserReceiptError
 import it.pagopa.ecommerce.commons.domain.v2.pojos.*
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
-import it.pagopa.ecommerce.commons.queues.TracingInfo
+import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.client.NotificationsServiceClient
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
@@ -50,7 +49,8 @@ class TransactionNotificationsRetryQueueConsumer(
   @Autowired private val deadLetterQueueAsyncClient: QueueAsyncClient,
   @Value("\${azurestorage.queues.deadLetterQueue.ttlSeconds}")
   private val deadLetterTTLSeconds: Int,
-  @Autowired private val tracingUtils: TracingUtils
+  @Autowired private val tracingUtils: TracingUtils,
+  @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider,
 ) {
   var logger: Logger =
     LoggerFactory.getLogger(TransactionNotificationsRetryQueueConsumer::class.java)
@@ -69,12 +69,13 @@ class TransactionNotificationsRetryQueueConsumer(
 
   fun messageReceiver(
     parsedEvent:
-      Pair<
-        Either<TransactionUserReceiptAddErrorEvent, TransactionUserReceiptAddRetriedEvent>,
-        TracingInfo?>,
+      Either<
+        QueueEvent<TransactionUserReceiptAddErrorEvent>,
+        QueueEvent<TransactionUserReceiptAddRetriedEvent>>,
     checkPointer: Checkpointer
   ): Mono<Void> {
-    val (event, tracingInfo) = parsedEvent
+    val event = parsedEvent.bimap({ it.event }, { it.event })
+    val tracingInfo = parsedEvent.fold({ it.tracingInfo }, { it.tracingInfo })
     val transactionId = getTransactionIdFromPayload(event)
     val retryCount = getRetryCountFromPayload(event)
     val baseTransaction =
@@ -133,26 +134,15 @@ class TransactionNotificationsRetryQueueConsumer(
                 .then()
             }
         }
-
-    return if (tracingInfo != null) {
-      val e = event.fold({ QueueEvent(it, tracingInfo) }, { QueueEvent(it, tracingInfo) })
-      runTracedPipelineWithDeadLetterQueue(
-        checkPointer,
-        notificationResendPipeline,
-        e,
-        deadLetterQueueAsyncClient,
-        deadLetterTTLSeconds,
-        tracingUtils,
-        this::class.simpleName!!)
-    } else {
-      val eventBytes =
-        event.fold({ BinaryData.fromObject(it).toBytes() }, { BinaryData.fromObject(it).toBytes() })
-      runPipelineWithDeadLetterQueue(
-        checkPointer,
-        notificationResendPipeline,
-        eventBytes,
-        deadLetterQueueAsyncClient,
-        deadLetterTTLSeconds)
-    }
+    val e = event.fold({ QueueEvent(it, tracingInfo) }, { QueueEvent(it, tracingInfo) })
+    return runTracedPipelineWithDeadLetterQueue(
+      checkPointer,
+      notificationResendPipeline,
+      e,
+      deadLetterQueueAsyncClient,
+      deadLetterTTLSeconds,
+      tracingUtils,
+      this::class.simpleName!!,
+      strictSerializerProviderV2)
   }
 }

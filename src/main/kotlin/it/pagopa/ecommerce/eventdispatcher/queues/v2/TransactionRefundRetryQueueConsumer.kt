@@ -1,6 +1,5 @@
 package it.pagopa.ecommerce.eventdispatcher.queues.v2
 
-import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v2.*
@@ -9,7 +8,7 @@ import it.pagopa.ecommerce.commons.domain.v2.Transaction
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
-import it.pagopa.ecommerce.commons.queues.TracingInfo
+import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
@@ -40,16 +39,18 @@ class TransactionRefundRetryQueueConsumer(
   @Autowired private val deadLetterQueueAsyncClient: QueueAsyncClient,
   @Value("\${azurestorage.queues.deadLetterQueue.ttlSeconds}")
   private val deadLetterTTLSeconds: Int,
-  @Autowired private val tracingUtils: TracingUtils
+  @Autowired private val tracingUtils: TracingUtils,
+  @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider,
 ) {
 
   var logger: Logger = LoggerFactory.getLogger(TransactionRefundRetryQueueConsumer::class.java)
 
   fun messageReceiver(
-    parsedEvent: Pair<TransactionRefundRetriedEvent, TracingInfo?>,
+    parsedEvent: QueueEvent<TransactionRefundRetriedEvent>,
     checkPointer: Checkpointer
   ): Mono<Void> {
-    val (event, tracingInfo) = parsedEvent
+    val event = parsedEvent.event
+    val tracingInfo = parsedEvent.tracingInfo
     val baseTransaction =
       transactionsEventStoreRepository
         .findByTransactionIdOrderByCreationDateAsc(event.transactionId)
@@ -80,23 +81,14 @@ class TransactionRefundRetryQueueConsumer(
             tracingInfo,
             event.data.retryCount)
         }
-    return if (tracingInfo != null) {
-      runTracedPipelineWithDeadLetterQueue(
-        checkPointer,
-        refundPipeline,
-        QueueEvent(event, tracingInfo),
-        deadLetterQueueAsyncClient,
-        deadLetterTTLSeconds,
-        tracingUtils,
-        this::class.simpleName!!)
-    } else {
-      runPipelineWithDeadLetterQueue(
-        checkPointer,
-        refundPipeline,
-        BinaryData.fromObject(event).toBytes(),
-        deadLetterQueueAsyncClient,
-        deadLetterTTLSeconds,
-      )
-    }
+    return runTracedPipelineWithDeadLetterQueue(
+      checkPointer,
+      refundPipeline,
+      QueueEvent(event, tracingInfo),
+      deadLetterQueueAsyncClient,
+      deadLetterTTLSeconds,
+      tracingUtils,
+      this::class.simpleName!!,
+      strictSerializerProviderV2)
   }
 }

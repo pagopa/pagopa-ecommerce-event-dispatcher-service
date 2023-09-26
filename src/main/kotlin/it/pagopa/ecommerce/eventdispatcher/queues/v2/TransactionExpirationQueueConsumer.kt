@@ -1,13 +1,14 @@
 package it.pagopa.ecommerce.eventdispatcher.queues.v2
 
 import com.azure.core.util.BinaryData
-import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
 import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.domain.v2.TransactionWithClosureError
 import it.pagopa.ecommerce.commons.queues.QueueEvent
+import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
+import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.commons.utils.v2.TransactionUtils
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
@@ -20,9 +21,6 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.messaging.MessageHeaders
-import org.springframework.messaging.handler.annotation.Header
-import org.springframework.messaging.handler.annotation.Headers
-import org.springframework.messaging.handler.annotation.Payload
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
 
@@ -51,16 +49,18 @@ class TransactionExpirationQueueConsumer(
   private val sendPaymentResultTimeoutOffsetSeconds: Int,
   @Value("\${azurestorage.queues.transientQueues.ttlSeconds}")
   private val transientQueueTTLSeconds: Int,
-  @Value("\${azurestorage.queues.deadLetterQueue.ttlSeconds}") private val deadLetterTTLSeconds: Int
+  @Value("\${azurestorage.queues.deadLetterQueue.ttlSeconds}")
+  private val deadLetterTTLSeconds: Int,
+  @Autowired private val tracingUtils: TracingUtils,
+  @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider,
 ) {
 
   val logger: Logger = LoggerFactory.getLogger(TransactionExpirationQueueConsumer::class.java)
 
   fun messageReceiver(
-    @Payload
     queueEvent: Either<QueueEvent<TransactionActivatedEvent>, QueueEvent<TransactionExpiredEvent>>,
-    @Header(AzureHeaders.CHECKPOINTER) checkPointer: Checkpointer,
-    @Headers headers: MessageHeaders
+    checkPointer: Checkpointer,
+    headers: MessageHeaders
   ): Mono<Void> {
     val event = queueEvent.fold({ it }, { it })
     val transactionId = queueEvent.fold({ it.event.transactionId }, { it.event.transactionId })
@@ -82,7 +82,8 @@ class TransactionExpirationQueueConsumer(
             timeLeftForSendPaymentResult(it, sendPaymentResultTimeoutSeconds, events)
           sendPaymentResultTimeLeft
             .flatMap { timeLeft ->
-              val binaryData = BinaryData.fromObject(event)
+              val binaryData =
+                BinaryData.fromObject(event, strictSerializerProviderV2.createInstance())
               val sendPaymentResultOffset =
                 Duration.ofSeconds(sendPaymentResultTimeoutOffsetSeconds.toLong())
               val expired = timeLeft < sendPaymentResultOffset
@@ -101,7 +102,6 @@ class TransactionExpirationQueueConsumer(
               } else {
                 logger.info(
                   "Transaction ${it.transactionId.value()} still waiting for sendPaymentResult outcome, expiration event sent with visibility timeout: $timeLeft")
-
                 expirationQueueAsyncClient
                   .sendMessageWithResponse(
                     binaryData,
@@ -150,11 +150,14 @@ class TransactionExpirationQueueConsumer(
             tracingInfo)
         }
 
-    return runPipelineWithDeadLetterQueue(
+    return runTracedPipelineWithDeadLetterQueue(
       checkPointer,
       refundPipeline,
-      BinaryData.fromObject(event).toBytes(),
+      QueueEvent(event.event, event.tracingInfo),
       deadLetterQueueAsyncClient,
-      deadLetterTTLSeconds)
+      deadLetterTTLSeconds,
+      tracingUtils,
+      this::class.simpleName!!,
+      strictSerializerProviderV2)
   }
 }

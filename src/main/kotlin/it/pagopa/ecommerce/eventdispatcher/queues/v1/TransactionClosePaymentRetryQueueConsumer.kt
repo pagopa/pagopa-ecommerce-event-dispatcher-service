@@ -342,7 +342,9 @@ class TransactionClosePaymentRetryQueueConsumer(
       "Updating transaction {} status to {}", transaction.transactionId.value(), newStatus)
 
     val transactionUpdate =
-      transactionsViewRepository.findByTransactionId(transaction.transactionId.value())
+      transactionsViewRepository
+        .findByTransactionId(transaction.transactionId.value())
+        .cast(Transaction::class.java)
 
     val saveEvent =
       event.bimap(

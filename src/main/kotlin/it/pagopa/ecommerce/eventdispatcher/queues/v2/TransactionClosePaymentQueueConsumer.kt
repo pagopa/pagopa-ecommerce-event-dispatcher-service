@@ -1,6 +1,5 @@
 package it.pagopa.ecommerce.eventdispatcher.queues.v2
 
-import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v2.*
@@ -9,7 +8,7 @@ import it.pagopa.ecommerce.commons.domain.v2.TransactionWithCancellationRequeste
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithCancellationRequested
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
-import it.pagopa.ecommerce.commons.queues.TracingInfo
+import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.commons.redis.templatewrappers.PaymentRequestInfoRedisTemplateWrapper
 import it.pagopa.ecommerce.eventdispatcher.exceptions.*
@@ -45,20 +44,22 @@ class TransactionClosePaymentQueueConsumer(
   @Autowired private val tracingUtils: TracingUtils,
   @Autowired
   private val paymentRequestInfoRedisTemplateWrapper: PaymentRequestInfoRedisTemplateWrapper,
+  @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider,
 ) {
   var logger: Logger = LoggerFactory.getLogger(TransactionClosePaymentQueueConsumer::class.java)
 
   fun messageReceiver(
-    queueEvent: Pair<TransactionUserCanceledEvent, TracingInfo?>,
+    queueEvent: QueueEvent<TransactionUserCanceledEvent>,
     checkPointer: Checkpointer
   ) = messageReceiver(queueEvent, checkPointer, EmptyTransaction())
 
   fun messageReceiver(
-    queueEvent: Pair<TransactionUserCanceledEvent, TracingInfo?>,
+    queueEvent: QueueEvent<TransactionUserCanceledEvent>,
     checkPointer: Checkpointer,
     emptyTransaction: EmptyTransaction
   ): Mono<Void> {
-    val (event, tracingInfo) = queueEvent
+    val event = queueEvent.event
+    val tracingInfo = queueEvent.tracingInfo
     val transactionId = event.transactionId
     val baseTransaction =
       reduceEvents(mono { transactionId }, transactionsEventStoreRepository, emptyTransaction)
@@ -123,6 +124,7 @@ class TransactionClosePaymentQueueConsumer(
                         transactionsViewRepository.findByTransactionId(
                           baseTransaction.transactionId.value())
                       }
+                      .cast(Transaction::class.java)
                       .flatMap { tx ->
                         tx.status = TransactionStatusDto.CLOSURE_ERROR
                         transactionsViewRepository.save(tx)
@@ -135,7 +137,7 @@ class TransactionClosePaymentQueueConsumer(
                       }
                       .flatMap { transactionUpdated ->
                         closureRetryService
-                          .enqueueRetryEvent(transactionUpdated, 0, queueEvent.second)
+                          .enqueueRetryEvent(transactionUpdated, 0, tracingInfo)
                           .doOnError(NoRetryAttemptsLeftException::class.java) { exception ->
                             logger.error("No more attempts left for closure retry", exception)
                           }
@@ -152,24 +154,15 @@ class TransactionClosePaymentQueueConsumer(
             }
         }
         .then()
-    return if (tracingInfo != null) {
-      runTracedPipelineWithDeadLetterQueue(
-        checkPointer,
-        closurePipeline,
-        QueueEvent(event, tracingInfo),
-        deadLetterQueueAsyncClient,
-        deadLetterTTLSeconds,
-        tracingUtils,
-        this::class.simpleName!!)
-    } else {
-      runPipelineWithDeadLetterQueue(
-        checkPointer,
-        closurePipeline,
-        BinaryData.fromObject(event).toBytes(),
-        deadLetterQueueAsyncClient,
-        deadLetterTTLSeconds,
-      )
-    }
+    return runTracedPipelineWithDeadLetterQueue(
+      checkPointer,
+      closurePipeline,
+      queueEvent,
+      deadLetterQueueAsyncClient,
+      deadLetterTTLSeconds,
+      tracingUtils,
+      this::class.simpleName!!,
+      strictSerializerProviderV2)
   }
 
   private fun updateTransactionStatus(
@@ -195,7 +188,9 @@ class TransactionClosePaymentQueueConsumer(
       "Updating transaction {} status to {}", transaction.transactionId.value(), newStatus)
 
     val transactionUpdate =
-      transactionsViewRepository.findByTransactionId(transaction.transactionId.value())
+      transactionsViewRepository
+        .findByTransactionId(transaction.transactionId.value())
+        .cast(Transaction::class.java)
 
     return transactionClosureSentEventRepository.save(event).flatMap { closedEvent ->
       transactionUpdate
