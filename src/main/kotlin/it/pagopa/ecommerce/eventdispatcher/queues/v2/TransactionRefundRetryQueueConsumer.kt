@@ -1,22 +1,21 @@
-package it.pagopa.ecommerce.eventdispatcher.queues.v1
+package it.pagopa.ecommerce.eventdispatcher.queues.v2
 
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
-import it.pagopa.ecommerce.commons.documents.v1.*
-import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
-import it.pagopa.ecommerce.commons.domain.v1.Transaction
-import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransaction
+import it.pagopa.ecommerce.commons.documents.v2.*
+import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
+import it.pagopa.ecommerce.commons.domain.v2.Transaction
+import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
-import it.pagopa.ecommerce.eventdispatcher.queues.v2.TransactionRefundRetryQueueConsumer
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
-import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v1.RefundRetryService
+import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
 import java.util.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -29,7 +28,7 @@ import reactor.core.publisher.Mono
  * Event consumer for events related to refund retry. This consumer's responsibilities are to handle
  * refund process retry for a given transaction
  */
-@Service("TransactionRefundRetryQueueConsumerV1")
+@Service("TransactionRefundRetryQueueConsumerV2")
 class TransactionRefundRetryQueueConsumer(
   @Autowired private val paymentGatewayClient: PaymentGatewayClient,
   @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,
