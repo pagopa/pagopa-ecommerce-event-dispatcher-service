@@ -1,13 +1,12 @@
 package it.pagopa.ecommerce.eventdispatcher.queues.v1
 
-import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
+import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithRequestedAuthorization
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
-import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.TracingInfoTest.MOCK_TRACING_INFO
 import it.pagopa.ecommerce.commons.queues.TracingUtilsTests
 import it.pagopa.ecommerce.commons.v1.*
@@ -18,11 +17,8 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRe
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v1.RefundRetryService
 import it.pagopa.ecommerce.eventdispatcher.utils.DEAD_LETTER_QUEUE_TTL_SECONDS
-import it.pagopa.ecommerce.eventdispatcher.utils.queueSuccessfulResponse
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
-import java.nio.charset.StandardCharsets
-import java.time.Duration
 import java.time.ZonedDateTime
 import java.util.*
 import java.util.stream.Stream
@@ -136,7 +132,8 @@ class TransactionsRefundEventsConsumerTests {
     /* test */
     StepVerifier.create(
         transactionRefundedEventsConsumer.messageReceiver(
-          BinaryData.fromObject(QueueEvent(refundRequestedEvent, MOCK_TRACING_INFO)).toBytes(),
+          Either.right<TransactionRefundRetriedEvent, TransactionRefundRequestedEvent>(
+            refundRequestedEvent as TransactionRefundRequestedEvent) to MOCK_TRACING_INFO,
           checkpointer))
       .expectNext()
       .verifyComplete()
@@ -202,7 +199,9 @@ class TransactionsRefundEventsConsumerTests {
       /* test */
       StepVerifier.create(
           transactionRefundedEventsConsumer.messageReceiver(
-            BinaryData.fromObject(refundRequestedEvent).toBytes(), checkpointer))
+            Either.right<TransactionRefundRetriedEvent, TransactionRefundRequestedEvent>(
+              refundRequestedEvent as TransactionRefundRequestedEvent) to null,
+            checkpointer))
         .expectNext()
         .verifyComplete()
 
@@ -267,7 +266,8 @@ class TransactionsRefundEventsConsumerTests {
     /* test */
     StepVerifier.create(
         transactionRefundedEventsConsumer.messageReceiver(
-          BinaryData.fromObject(QueueEvent(refundRequestedEvent, MOCK_TRACING_INFO)).toBytes(),
+          Either.right<TransactionRefundRetriedEvent, TransactionRefundRequestedEvent>(
+            refundRequestedEvent as TransactionRefundRequestedEvent) to MOCK_TRACING_INFO,
           checkpointer))
       .expectNext()
       .verifyComplete()
@@ -320,7 +320,8 @@ class TransactionsRefundEventsConsumerTests {
 
       StepVerifier.create(
           transactionRefundedEventsConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(refundRequestedEvent, MOCK_TRACING_INFO)).toBytes(),
+            Either.right<TransactionRefundRetriedEvent, TransactionRefundRequestedEvent>(
+              refundRequestedEvent as TransactionRefundRequestedEvent) to MOCK_TRACING_INFO,
             checkpointer))
         .expectNext()
         .verifyComplete()
@@ -381,7 +382,8 @@ class TransactionsRefundEventsConsumerTests {
 
     StepVerifier.create(
         transactionRefundedEventsConsumer.messageReceiver(
-          BinaryData.fromObject(QueueEvent(refundRequestedEvent, MOCK_TRACING_INFO)).toBytes(),
+          Either.right<TransactionRefundRetriedEvent, TransactionRefundRequestedEvent>(
+            refundRequestedEvent as TransactionRefundRequestedEvent) to MOCK_TRACING_INFO,
           checkpointer))
       .expectNext()
       .verifyComplete()
@@ -451,7 +453,9 @@ class TransactionsRefundEventsConsumerTests {
 
       StepVerifier.create(
           transactionRefundedEventsConsumer.messageReceiver(
-            BinaryData.fromObject(refundRequestedEvent).toBytes(), checkpointer))
+            Either.right<TransactionRefundRetriedEvent, TransactionRefundRequestedEvent>(
+              refundRequestedEvent as TransactionRefundRequestedEvent) to null,
+            checkpointer))
         .expectNext()
         .verifyComplete()
 
@@ -519,7 +523,8 @@ class TransactionsRefundEventsConsumerTests {
 
     StepVerifier.create(
         transactionRefundedEventsConsumer.messageReceiver(
-          BinaryData.fromObject(QueueEvent(refundRequestedEvent, MOCK_TRACING_INFO)).toBytes(),
+          Either.right<TransactionRefundRetriedEvent, TransactionRefundRequestedEvent>(
+            refundRequestedEvent as TransactionRefundRequestedEvent) to MOCK_TRACING_INFO,
           checkpointer))
       .expectNext()
       .verifyComplete()
@@ -589,7 +594,8 @@ class TransactionsRefundEventsConsumerTests {
 
     StepVerifier.create(
         transactionRefundedEventsConsumer.messageReceiver(
-          BinaryData.fromObject(QueueEvent(refundRequestedEvent, MOCK_TRACING_INFO)).toBytes(),
+          Either.right<TransactionRefundRetriedEvent, TransactionRefundRequestedEvent>(
+            refundRequestedEvent as TransactionRefundRequestedEvent) to MOCK_TRACING_INFO,
           checkpointer))
       .expectNext()
       .verifyComplete()
@@ -660,7 +666,8 @@ class TransactionsRefundEventsConsumerTests {
 
     StepVerifier.create(
         transactionRefundedEventsConsumer.messageReceiver(
-          BinaryData.fromObject(QueueEvent(refundRequestedEvent, MOCK_TRACING_INFO)).toBytes(),
+          Either.right<TransactionRefundRetriedEvent, TransactionRefundRequestedEvent>(
+            refundRequestedEvent as TransactionRefundRequestedEvent) to MOCK_TRACING_INFO,
           checkpointer))
       .expectNext()
       .verifyComplete()
@@ -726,7 +733,8 @@ class TransactionsRefundEventsConsumerTests {
 
     StepVerifier.create(
         transactionRefundedEventsConsumer.messageReceiver(
-          BinaryData.fromObject(QueueEvent(refundRequestedEvent, MOCK_TRACING_INFO)).toBytes(),
+          Either.right<TransactionRefundRetriedEvent, TransactionRefundRequestedEvent>(
+            refundRequestedEvent as TransactionRefundRequestedEvent) to MOCK_TRACING_INFO,
           checkpointer))
       .expectNext()
       .verifyComplete()
@@ -793,7 +801,8 @@ class TransactionsRefundEventsConsumerTests {
 
       StepVerifier.create(
           transactionRefundedEventsConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(refundRequestedEvent, MOCK_TRACING_INFO)).toBytes(),
+            Either.right<TransactionRefundRetriedEvent, TransactionRefundRequestedEvent>(
+              refundRequestedEvent as TransactionRefundRequestedEvent) to MOCK_TRACING_INFO,
             checkpointer))
         .expectNext()
         .verifyComplete()
@@ -812,28 +821,4 @@ class TransactionsRefundEventsConsumerTests {
         TransactionEventCode.valueOf(storedEvent.eventCode))
       assertEquals(TransactionStatusDto.REFUND_REQUESTED, storedEvent.data.statusBeforeRefunded)
     }
-
-  @Test
-  fun `consumer write event to dead letter queue for un-parsable event`() = runTest {
-    val invalidEvent = "test"
-    val payload = BinaryData.fromBytes(invalidEvent.toByteArray(StandardCharsets.UTF_8))
-    /* preconditions */
-    given(checkpointer.success()).willReturn(Mono.empty())
-    given(deadLetterQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull()))
-      .willReturn(queueSuccessfulResponse())
-
-    /* test */
-
-    StepVerifier.create(
-        transactionRefundedEventsConsumer.messageReceiver(payload.toBytes(), checkpointer))
-      .verifyComplete()
-
-    /* Asserts */
-    verify(checkpointer, Mockito.times(1)).success()
-    verify(deadLetterQueueAsyncClient, times(1))
-      .sendMessageWithResponse(
-        argThat<BinaryData> { invalidEvent == (String(this.toBytes(), StandardCharsets.UTF_8)) },
-        eq(Duration.ZERO),
-        eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
-  }
 }

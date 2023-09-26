@@ -1,16 +1,16 @@
-package it.pagopa.ecommerce.eventdispatcher.queues.v1
+package it.pagopa.ecommerce.eventdispatcher.queues.v2
 
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
 import io.vavr.control.Either
-import it.pagopa.ecommerce.commons.documents.v1.TransactionRefundRequestedEvent
-import it.pagopa.ecommerce.commons.documents.v1.TransactionRefundRetriedEvent
-import it.pagopa.ecommerce.commons.documents.v1.TransactionRefundedData
-import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
-import it.pagopa.ecommerce.commons.domain.v1.Transaction
-import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransaction
-import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithRefundRequested
+import it.pagopa.ecommerce.commons.documents.v2.TransactionRefundRequestedEvent
+import it.pagopa.ecommerce.commons.documents.v2.TransactionRefundRetriedEvent
+import it.pagopa.ecommerce.commons.documents.v2.TransactionRefundedData
+import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
+import it.pagopa.ecommerce.commons.domain.v2.Transaction
+import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransaction
+import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithRefundRequested
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.TracingInfo
@@ -18,7 +18,7 @@ import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
-import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v1.RefundRetryService
+import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
 import java.util.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -32,7 +32,7 @@ import reactor.kotlin.core.publisher.switchIfEmpty
  * Event consumer for transactions to refund. These events are input in the event queue only when a
  * transaction is stuck in an REFUND_REQUESTED state **and** needs to be reverted
  */
-@Service("TransactionsRefundQueueConsumerV1")
+@Service("TransactionsRefundQueueConsumerV2")
 class TransactionsRefundQueueConsumer(
   @Autowired private val paymentGatewayClient: PaymentGatewayClient,
   @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,
