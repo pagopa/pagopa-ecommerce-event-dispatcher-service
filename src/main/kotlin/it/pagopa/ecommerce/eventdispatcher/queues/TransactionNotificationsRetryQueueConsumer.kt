@@ -45,7 +45,8 @@ class TransactionNotificationsRetryQueueConsumer(
   var logger: Logger =
     LoggerFactory.getLogger(TransactionNotificationsRetryQueueConsumer::class.java)
 
-  private fun parseEvent(data: BinaryData): Mono<Pair<BaseTransactionEvent<*>, TracingInfo?>> {
+  fun parseEvent(payload: ByteArray): Mono<Pair<BaseTransactionEvent<*>, TracingInfo?>> {
+    val data = BinaryData.fromBytes(payload)
     val jsonSerializerV1 = strictSerializerProviderV1.createInstance()
     val jsonSerializerV2 = strictSerializerProviderV2.createInstance()
     val notificationErrorEventV1 =
@@ -103,7 +104,7 @@ class TransactionNotificationsRetryQueueConsumer(
     @Payload payload: ByteArray,
     @Header(AzureHeaders.CHECKPOINTER) checkPointer: Checkpointer
   ): Mono<Void> {
-    val eventWithTracingInfo = parseEvent(BinaryData.fromBytes(payload))
+    val eventWithTracingInfo = parseEvent(payload)
     return eventWithTracingInfo
       .flatMap { (e, tracingInfo) ->
         when (e) {

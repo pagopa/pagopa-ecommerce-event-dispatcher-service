@@ -39,9 +39,8 @@ class TransactionClosePaymentQueueConsumer(
 ) {
   var logger: Logger = LoggerFactory.getLogger(TransactionClosePaymentQueueConsumer::class.java)
 
-  private fun parseEvent(
-    binaryData: BinaryData
-  ): Mono<Pair<BaseTransactionEvent<Void>, TracingInfo?>> {
+  fun parseEvent(payload: ByteArray): Mono<Pair<BaseTransactionEvent<Void>, TracingInfo?>> {
+    val binaryData = BinaryData.fromBytes(payload)
     val jsonSerializerV1 = strictSerializerProviderV1.createInstance()
     val jsonSerializerV2 = strictSerializerProviderV2.createInstance()
     val queueEventV1 =
@@ -71,7 +70,7 @@ class TransactionClosePaymentQueueConsumer(
     @Payload payload: ByteArray,
     @Header(AzureHeaders.CHECKPOINTER) checkPointer: Checkpointer,
   ): Mono<Void> {
-    val parsedEvents = parseEvent(BinaryData.fromBytes(payload))
+    val parsedEvents = parseEvent(payload)
     return parsedEvents
       .flatMap { (e, tracingInfo) ->
         when (e) {

@@ -52,7 +52,8 @@ class TransactionExpirationQueueConsumer(
 
   val logger: Logger = LoggerFactory.getLogger(TransactionExpirationQueueConsumer::class.java)
 
-  fun parseEvent(data: BinaryData): Mono<Pair<BaseTransactionEvent<*>, TracingInfo?>> {
+  fun parseEvent(payload: ByteArray): Mono<Pair<BaseTransactionEvent<*>, TracingInfo?>> {
+    val data = BinaryData.fromBytes(payload)
     val jsonSerializerV1 = strictSerializerProviderV1.createInstance()
     val jsonSerializerV2 = strictSerializerProviderV2.createInstance()
     val transactionActivatedEventV1 =
@@ -60,26 +61,22 @@ class TransactionExpirationQueueConsumer(
         .toObjectAsync(
           object : TypeReference<QueueEvent<TransactionActivatedEventV1>>() {}, jsonSerializerV1)
         .map { it.event to it.tracingInfo }
-        .doOnNext { logger.info("{} event dispatched to V1 handler", it) }
 
     val transactionExpiredEventV1 =
       data
         .toObjectAsync(
           object : TypeReference<QueueEvent<TransactionExpiredEventV1>>() {}, jsonSerializerV1)
         .map { it.event to it.tracingInfo }
-        .doOnNext { logger.info("{} event dispatched to V1 handler", it) }
 
     val untracedTransactionActivatedEventV1 =
       data
         .toObjectAsync(object : TypeReference<TransactionActivatedEventV1>() {}, jsonSerializerV1)
         .map { it to null }
-        .doOnNext { logger.info("{} event dispatched to V1 handler", it) }
 
     val untracedTransactionExpiredEventV1 =
       data
         .toObjectAsync(object : TypeReference<TransactionExpiredEventV1>() {}, jsonSerializerV1)
         .map { it to null }
-        .doOnNext { logger.info("{} event dispatched to V1 handler", it) }
 
     val transactionActivatedEventV2 =
       data
@@ -109,7 +106,7 @@ class TransactionExpirationQueueConsumer(
     @Header(AzureHeaders.CHECKPOINTER) checkPointer: Checkpointer,
     @Headers headers: MessageHeaders
   ): Mono<Void> {
-    val eventWithTracingInfo = parseEvent(BinaryData.fromBytes(payload))
+    val eventWithTracingInfo = parseEvent(payload)
 
     return eventWithTracingInfo
       .flatMap { (e, tracingInfo) ->
