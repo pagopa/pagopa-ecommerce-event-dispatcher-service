@@ -112,19 +112,19 @@ class TransactionsRefundQueueConsumer(
       .flatMap { (e, tracingInfo) ->
         when (e) {
           is TransactionRefundRequestedEventV1 -> {
-            logger.info("Event {} with tracing info {} dispatched to V1 handler", e, tracingInfo)
+            logger.debug("Event {} with tracing info {} dispatched to V1 handler", e, tracingInfo)
             queueConsumerV1.messageReceiver(Pair(Either.right(e), tracingInfo), checkPointer)
           }
           is TransactionRefundRetriedEventV1 -> {
-            logger.info("Event {} with tracing info {} dispatched to V1 handler", e, tracingInfo)
+            logger.debug("Event {} with tracing info {} dispatched to V1 handler", e, tracingInfo)
             queueConsumerV1.messageReceiver(Pair(Either.left(e), tracingInfo), checkPointer)
           }
           is TransactionRefundRequestedEventV2 -> {
-            logger.info("Event {} with tracing info {} dispatched to V2 handler", e, tracingInfo)
+            logger.debug("Event {} with tracing info {} dispatched to V2 handler", e, tracingInfo)
             queueConsumerV2.messageReceiver(Either.right(QueueEvent(e, tracingInfo)), checkPointer)
           }
           is TransactionRefundRetriedEventV2 -> {
-            logger.info("Event {} with tracing info {} dispatched to V2 handler", e, tracingInfo)
+            logger.debug("Event {} with tracing info {} dispatched to V2 handler", e, tracingInfo)
             queueConsumerV2.messageReceiver(Either.left(QueueEvent(e, tracingInfo)), checkPointer)
           }
           else -> {

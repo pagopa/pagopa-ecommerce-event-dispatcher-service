@@ -81,11 +81,11 @@ class TransactionNotificationsQueueConsumer(
       .flatMap { (e, tracingInfo) ->
         when (e) {
           is TransactionUserReceiptRequestedEventV1 -> {
-            logger.info("Event {} with tracing info {} dispatched to V1 handler", e, tracingInfo)
+            logger.debug("Event {} with tracing info {} dispatched to V1 handler", e, tracingInfo)
             queueConsumerV1.messageReceiver(e to tracingInfo, checkPointer)
           }
           is TransactionUserReceiptRequestedEventV2 -> {
-            logger.info("Event {} with tracing info {} dispatched to V2 handler", e, tracingInfo)
+            logger.debug("Event {} with tracing info {} dispatched to V2 handler", e, tracingInfo)
             queueConsumerV2.messageReceiver(QueueEvent(e, tracingInfo), checkPointer)
           }
           else -> {

@@ -115,22 +115,22 @@ class TransactionExpirationQueueConsumer(
       .flatMap { (e, tracingInfo) ->
         when (e) {
           is TransactionActivatedEventV1 -> {
-            logger.info("Event {} with tracing info {} dispatched to V1 handler", e, tracingInfo)
+            logger.debug("Event {} with tracing info {} dispatched to V1 handler", e, tracingInfo)
             queueConsumerV1.messageReceiver(
               Pair(Either.left(e), tracingInfo), checkPointer, headers)
           }
           is TransactionExpiredEventV1 -> {
-            logger.info("Event {} with tracing info {} dispatched to V1 handler", e, tracingInfo)
+            logger.debug("Event {} with tracing info {} dispatched to V1 handler", e, tracingInfo)
             queueConsumerV1.messageReceiver(
               Pair(Either.right(e), tracingInfo), checkPointer, headers)
           }
           is TransactionActivatedEventV2 -> {
-            logger.info("Event {} with tracing info {} dispatched to V2 handler", e, tracingInfo)
+            logger.debug("Event {} with tracing info {} dispatched to V2 handler", e, tracingInfo)
             queueConsumerV2.messageReceiver(
               Either.left(QueueEvent(e, tracingInfo)), checkPointer, headers)
           }
           is TransactionExpiredEventV2 -> {
-            logger.info("Event {} with tracing info {} dispatched to V2 handler", e, tracingInfo)
+            logger.debug("Event {} with tracing info {} dispatched to V2 handler", e, tracingInfo)
             queueConsumerV2.messageReceiver(
               Either.right(QueueEvent(e, tracingInfo)), checkPointer, headers)
           }
