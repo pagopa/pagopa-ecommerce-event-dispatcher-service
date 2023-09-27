@@ -1,4 +1,4 @@
-package it.pagopa.ecommerce.eventdispatcher.services.eventretry
+package it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2
 
 import com.azure.core.http.rest.Response
 import com.azure.core.http.rest.ResponseBase
@@ -6,19 +6,21 @@ import com.azure.core.util.BinaryData
 import com.azure.core.util.serializer.TypeReference
 import com.azure.storage.queue.QueueAsyncClient
 import com.azure.storage.queue.models.SendMessageResult
-import it.pagopa.ecommerce.commons.documents.v1.Transaction
-import it.pagopa.ecommerce.commons.documents.v1.TransactionEvent
-import it.pagopa.ecommerce.commons.documents.v1.TransactionRefundRetriedEvent
-import it.pagopa.ecommerce.commons.documents.v1.TransactionRetriedData
-import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
+import it.pagopa.ecommerce.commons.documents.v2.Transaction
+import it.pagopa.ecommerce.commons.documents.v2.TransactionEvent
+import it.pagopa.ecommerce.commons.documents.v2.TransactionRefundRetriedEvent
+import it.pagopa.ecommerce.commons.documents.v2.TransactionRetriedData
+import it.pagopa.ecommerce.commons.documents.v2.authorization.PgsTransactionGatewayAuthorizationData
+import it.pagopa.ecommerce.commons.domain.v2.TransactionEventCode
+import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.TracingInfoTest.MOCK_TRACING_INFO
-import it.pagopa.ecommerce.commons.v1.TransactionTestUtils
+import it.pagopa.ecommerce.commons.v2.TransactionTestUtils
+import it.pagopa.ecommerce.eventdispatcher.config.QueuesConsumerConfig
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
-import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v1.RefundRetryService
 import it.pagopa.ecommerce.eventdispatcher.utils.TRANSIENT_QUEUE_TTL_SECONDS
 import java.time.Duration
 import java.time.OffsetDateTime
@@ -52,6 +54,8 @@ class RefundRetryServiceTests {
 
   @Captor private lateinit var durationCaptor: ArgumentCaptor<Duration>
 
+  private val jsonSerializerV2 = QueuesConsumerConfig().strictSerializerProviderV2()
+
   private val maxAttempts = 3
 
   private val refundRetryOffset = 10
@@ -63,7 +67,8 @@ class RefundRetryServiceTests {
       maxAttempts = maxAttempts,
       viewRepository = transactionsViewRepository,
       eventStoreRepository = eventStoreRepository,
-      transientQueuesTTLSeconds = TRANSIENT_QUEUE_TTL_SECONDS)
+      transientQueuesTTLSeconds = TRANSIENT_QUEUE_TTL_SECONDS,
+      strictSerializerProviderV2 = jsonSerializerV2)
 
   @Test
   fun `Should enqueue new refund retry event for left remaining attempts`() {
@@ -71,7 +76,9 @@ class RefundRetryServiceTests {
       mutableListOf(
         TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
         TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>,
-        TransactionTestUtils.transactionAuthorizationCompletedEvent() as TransactionEvent<Any>,
+        TransactionTestUtils.transactionAuthorizationCompletedEvent(
+          PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
+          as TransactionEvent<Any>,
       )
     events.add(
       TransactionTestUtils.transactionExpiredEvent(
@@ -119,7 +126,9 @@ class RefundRetryServiceTests {
     assertEquals(
       maxAttempts,
       eventSentOnQueue
-        .toObject(object : TypeReference<QueueEvent<TransactionRefundRetriedEvent>>() {})
+        .toObject(
+          object : TypeReference<QueueEvent<TransactionRefundRetriedEvent>>() {},
+          jsonSerializerV2.createInstance())
         .event
         .data
         .retryCount)
@@ -131,7 +140,9 @@ class RefundRetryServiceTests {
       mutableListOf(
         TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
         TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>,
-        TransactionTestUtils.transactionAuthorizationCompletedEvent() as TransactionEvent<Any>,
+        TransactionTestUtils.transactionAuthorizationCompletedEvent(
+          PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
+          as TransactionEvent<Any>,
       )
     events.add(
       TransactionTestUtils.transactionExpiredEvent(
@@ -176,7 +187,9 @@ class RefundRetryServiceTests {
     assertEquals(
       1,
       eventSentOnQueue
-        .toObject(object : TypeReference<QueueEvent<TransactionRefundRetriedEvent>>() {})
+        .toObject(
+          object : TypeReference<QueueEvent<TransactionRefundRetriedEvent>>() {},
+          jsonSerializerV2.createInstance())
         .event
         .data
         .retryCount)
@@ -189,7 +202,9 @@ class RefundRetryServiceTests {
       mutableListOf(
         TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
         TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>,
-        TransactionTestUtils.transactionAuthorizationCompletedEvent() as TransactionEvent<Any>,
+        TransactionTestUtils.transactionAuthorizationCompletedEvent(
+          PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
+          as TransactionEvent<Any>,
       )
     events.add(
       TransactionTestUtils.transactionExpiredEvent(
@@ -233,7 +248,9 @@ class RefundRetryServiceTests {
       mutableListOf(
         TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
         TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>,
-        TransactionTestUtils.transactionAuthorizationCompletedEvent() as TransactionEvent<Any>,
+        TransactionTestUtils.transactionAuthorizationCompletedEvent(
+          PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
+          as TransactionEvent<Any>,
       )
     events.add(
       TransactionTestUtils.transactionExpiredEvent(
@@ -277,7 +294,9 @@ class RefundRetryServiceTests {
       mutableListOf(
         TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
         TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>,
-        TransactionTestUtils.transactionAuthorizationCompletedEvent() as TransactionEvent<Any>,
+        TransactionTestUtils.transactionAuthorizationCompletedEvent(
+          PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
+          as TransactionEvent<Any>,
       )
     events.add(
       TransactionTestUtils.transactionExpiredEvent(
@@ -319,7 +338,9 @@ class RefundRetryServiceTests {
       mutableListOf(
         TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
         TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>,
-        TransactionTestUtils.transactionAuthorizationCompletedEvent() as TransactionEvent<Any>,
+        TransactionTestUtils.transactionAuthorizationCompletedEvent(
+          PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
+          as TransactionEvent<Any>,
       )
     events.add(
       TransactionTestUtils.transactionExpiredEvent(

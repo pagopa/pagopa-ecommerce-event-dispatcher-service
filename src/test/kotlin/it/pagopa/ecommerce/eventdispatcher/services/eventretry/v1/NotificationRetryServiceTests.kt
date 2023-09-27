@@ -1,4 +1,4 @@
-package it.pagopa.ecommerce.eventdispatcher.services.eventretry
+package it.pagopa.ecommerce.eventdispatcher.services.eventretry.v1
 
 import com.azure.core.http.rest.Response
 import com.azure.core.http.rest.ResponseBase
@@ -18,7 +18,6 @@ import it.pagopa.ecommerce.commons.v1.TransactionTestUtils
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
-import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v1.NotificationRetryService
 import it.pagopa.ecommerce.eventdispatcher.utils.TRANSIENT_QUEUE_TTL_SECONDS
 import java.time.Duration
 import java.time.OffsetDateTime

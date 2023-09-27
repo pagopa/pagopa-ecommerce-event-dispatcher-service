@@ -7,6 +7,7 @@ import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithPaymentToken
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
+import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import java.time.Duration
@@ -26,7 +27,8 @@ class ClosureRetryService(
   @Value("\${closePaymentRetry.paymentTokenValidityTimeOffset}")
   private val paymentTokenValidityTimeOffset: Int,
   @Value("\${azurestorage.queues.transientQueues.ttlSeconds}")
-  private val transientQueuesTTLSeconds: Int
+  private val transientQueuesTTLSeconds: Int,
+  @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider
 ) :
   RetryEventService<TransactionClosureRetriedEvent>(
     queueAsyncClient = closureRetryQueueAsyncClient,
@@ -34,7 +36,8 @@ class ClosureRetryService(
     maxAttempts = maxAttempts,
     viewRepository = viewRepository,
     retryEventStoreRepository = eventStoreRepository,
-    transientQueuesTTLSeconds = transientQueuesTTLSeconds) {
+    transientQueuesTTLSeconds = transientQueuesTTLSeconds,
+    strictSerializerProviderV2 = strictSerializerProviderV2) {
 
   companion object {
     const val QUALIFIER = "ClosureRetryServiceV2"

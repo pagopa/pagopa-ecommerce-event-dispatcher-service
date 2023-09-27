@@ -1,6 +1,7 @@
 package it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2
 
 import com.azure.core.util.BinaryData
+import com.azure.core.util.serializer.JsonSerializerProvider
 import com.azure.storage.queue.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v2.Transaction
 import it.pagopa.ecommerce.commons.documents.v2.TransactionEvent
@@ -28,7 +29,8 @@ abstract class RetryEventService<E>(
   private val viewRepository: TransactionsViewRepository,
   private val retryEventStoreRepository: TransactionsEventStoreRepository<TransactionRetriedData>,
   protected val logger: Logger = LoggerFactory.getLogger(RetryEventService::class.java),
-  private val transientQueuesTTLSeconds: Int
+  private val transientQueuesTTLSeconds: Int,
+  private val strictSerializerProviderV2: JsonSerializerProvider
 ) where E : TransactionEvent<TransactionRetriedData> {
 
   fun enqueueRetryEvent(
@@ -103,9 +105,10 @@ abstract class RetryEventService<E>(
 
   private fun queuePayload(event: E, tracingInfo: TracingInfo?): BinaryData {
     return if (tracingInfo != null) {
-      BinaryData.fromObject(QueueEvent(event, tracingInfo))
+      BinaryData.fromObject(
+        QueueEvent(event, tracingInfo), strictSerializerProviderV2.createInstance())
     } else {
-      BinaryData.fromObject(event)
+      BinaryData.fromObject(event, strictSerializerProviderV2.createInstance())
     }
   }
 }

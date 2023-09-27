@@ -6,6 +6,7 @@ import it.pagopa.ecommerce.commons.documents.v2.TransactionRetriedData
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
+import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import java.time.Duration
@@ -22,7 +23,8 @@ class RefundRetryService(
   @Autowired
   private val eventStoreRepository: TransactionsEventStoreRepository<TransactionRetriedData>,
   @Value("\${azurestorage.queues.transientQueues.ttlSeconds}")
-  private val transientQueuesTTLSeconds: Int
+  private val transientQueuesTTLSeconds: Int,
+  @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider
 ) :
   RetryEventService<TransactionRefundRetriedEvent>(
     queueAsyncClient = refundRetryQueueAsyncClient,
@@ -30,7 +32,8 @@ class RefundRetryService(
     maxAttempts = maxAttempts,
     viewRepository = viewRepository,
     retryEventStoreRepository = eventStoreRepository,
-    transientQueuesTTLSeconds = transientQueuesTTLSeconds) {
+    transientQueuesTTLSeconds = transientQueuesTTLSeconds,
+    strictSerializerProviderV2 = strictSerializerProviderV2) {
 
   companion object {
     const val QUALFIER = "RefundRetryServiceV2"

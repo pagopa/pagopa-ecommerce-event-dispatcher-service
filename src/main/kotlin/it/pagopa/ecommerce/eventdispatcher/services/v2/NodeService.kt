@@ -259,31 +259,31 @@ class NodeService(
           user = UserDto().apply { type = UserDto.TypeEnum.GUEST }
         }
     }
+
+  private fun getOutcomePaymentGateway(
+    transactionGatewayAuthData: TransactionGatewayAuthorizationData
+  ): AdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum =
+    when (transactionGatewayAuthData) {
+      is PgsTransactionGatewayAuthorizationData ->
+        if (transactionGatewayAuthData.authorizationResultDto == AuthorizationResultDto.OK) {
+          AdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.OK
+        } else {
+          AdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.KO
+        }
+      is NpgTransactionGatewayAuthorizationData ->
+        if (transactionGatewayAuthData.operationResult == OperationResultDto.EXECUTED) {
+          AdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.OK
+        } else {
+          AdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.KO
+        }
+    }
+
+  private fun getAuthorizationErrorCode(
+    transactionGatewayAuthData: TransactionGatewayAuthorizationData
+  ): String? =
+    when (transactionGatewayAuthData) {
+      is PgsTransactionGatewayAuthorizationData -> transactionGatewayAuthData.errorCode
+      // TODO handle error code into Close Payment for NPG flow
+      is NpgTransactionGatewayAuthorizationData -> null
+    }
 }
-
-private fun getOutcomePaymentGateway(
-  transactionGatewayAuthData: TransactionGatewayAuthorizationData
-): AdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum =
-  when (transactionGatewayAuthData) {
-    is PgsTransactionGatewayAuthorizationData ->
-      if (transactionGatewayAuthData.authorizationResultDto == AuthorizationResultDto.OK) {
-        AdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.OK
-      } else {
-        AdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.KO
-      }
-    is NpgTransactionGatewayAuthorizationData ->
-      if (transactionGatewayAuthData.operationResult == OperationResultDto.EXECUTED) {
-        AdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.OK
-      } else {
-        AdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.KO
-      }
-  }
-
-private fun getAuthorizationErrorCode(
-  transactionGatewayAuthData: TransactionGatewayAuthorizationData
-): String? =
-  when (transactionGatewayAuthData) {
-    is PgsTransactionGatewayAuthorizationData -> transactionGatewayAuthData.errorCode
-    // TODO handle error code into Close Payment for NPG flow
-    is NpgTransactionGatewayAuthorizationData -> null
-  }
