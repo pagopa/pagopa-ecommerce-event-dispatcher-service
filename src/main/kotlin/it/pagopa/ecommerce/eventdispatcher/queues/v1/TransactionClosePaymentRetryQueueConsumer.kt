@@ -1,7 +1,6 @@
 package it.pagopa.ecommerce.eventdispatcher.queues.v1
 
 import com.azure.core.util.BinaryData
-import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
 import io.vavr.control.Either
@@ -69,41 +68,6 @@ class TransactionClosePaymentRetryQueueConsumer(
     event: Either<TransactionClosureErrorEvent, TransactionClosureRetriedEvent>
   ): Int {
     return event.fold({ 0 }, { it.data.retryCount })
-  }
-
-  private fun parseEvent(
-    data: BinaryData
-  ): Mono<
-    Pair<Either<TransactionClosureErrorEvent, TransactionClosureRetriedEvent>, TracingInfo?>> {
-    val closureRetriedEvent =
-      data
-        .toObjectAsync(object : TypeReference<QueueEvent<TransactionClosureRetriedEvent>>() {})
-        .map {
-          Either.right<TransactionClosureErrorEvent, TransactionClosureRetriedEvent>(it.event) to
-            it.tracingInfo
-        }
-    val closureErrorEvent =
-      data
-        .toObjectAsync(object : TypeReference<QueueEvent<TransactionClosureErrorEvent>>() {})
-        .map {
-          Either.left<TransactionClosureErrorEvent, TransactionClosureRetriedEvent>(it.event) to
-            it.tracingInfo
-        }
-
-    val untracedClosureRetriedEvent =
-      data.toObjectAsync(object : TypeReference<TransactionClosureRetriedEvent>() {}).map {
-        Either.right<TransactionClosureErrorEvent, TransactionClosureRetriedEvent>(it) to null
-      }
-    val untracedClosureErrorEvent =
-      data.toObjectAsync(object : TypeReference<TransactionClosureErrorEvent>() {}).map {
-        Either.left<TransactionClosureErrorEvent, TransactionClosureRetriedEvent>(it) to null
-      }
-
-    return Mono.firstWithValue(
-      closureRetriedEvent,
-      closureErrorEvent,
-      untracedClosureRetriedEvent,
-      untracedClosureErrorEvent)
   }
 
   fun messageReceiver(
