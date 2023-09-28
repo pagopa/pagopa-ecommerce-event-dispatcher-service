@@ -5,6 +5,7 @@ import com.azure.core.http.rest.ResponseBase
 import com.azure.storage.queue.models.SendMessageResult
 import it.pagopa.ecommerce.commons.documents.v1.TransactionAuthorizationRequestData
 import it.pagopa.ecommerce.commons.domain.TransactionId
+import it.pagopa.ecommerce.commons.generated.npg.v1.dto.RefundResponseDto
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
@@ -88,6 +89,10 @@ fun queueSuccessfulResponse(): Mono<Response<SendMessageResult>> {
   sendMessageResult.messageId = "msgId"
   sendMessageResult.timeNextVisible = OffsetDateTime.now()
   return Mono.just(ResponseBase(null, 200, null, sendMessageResult, null))
+}
+
+fun getMockedNpgRefundResponse(operationId: String?): RefundResponseDto {
+  return RefundResponseDto().operationId(operationId).operationTime("TestTime")
 }
 
 const val TRANSIENT_QUEUE_TTL_SECONDS = 30

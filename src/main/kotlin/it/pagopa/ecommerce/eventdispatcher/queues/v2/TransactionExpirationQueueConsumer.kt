@@ -13,6 +13,7 @@ import it.pagopa.ecommerce.commons.utils.v2.TransactionUtils
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
+import it.pagopa.ecommerce.eventdispatcher.services.RefundService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
 import java.time.Duration
 import java.util.*
@@ -41,6 +42,7 @@ class TransactionExpirationQueueConsumer(
     TransactionsEventStoreRepository<TransactionRefundedData>,
   @Autowired private val transactionsViewRepository: TransactionsViewRepository,
   @Autowired private val transactionUtils: TransactionUtils,
+  @Autowired private val refundService: RefundService,
   @Autowired private val refundRetryService: RefundRetryService,
   @Autowired private val deadLetterQueueAsyncClient: QueueAsyncClient,
   @Autowired private val expirationQueueAsyncClient: QueueAsyncClient,
@@ -146,6 +148,7 @@ class TransactionExpirationQueueConsumer(
             transactionsRefundedEventStoreRepository,
             transactionsViewRepository,
             paymentGatewayClient,
+            refundService,
             refundRetryService,
             tracingInfo)
         }

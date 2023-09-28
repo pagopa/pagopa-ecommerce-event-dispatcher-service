@@ -17,6 +17,7 @@ import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
+import it.pagopa.ecommerce.eventdispatcher.services.RefundService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
 import java.util.*
 import org.slf4j.Logger
@@ -39,6 +40,7 @@ class TransactionsRefundQueueConsumer(
   private val transactionsRefundedEventStoreRepository:
     TransactionsEventStoreRepository<TransactionRefundedData>,
   @Autowired private val transactionsViewRepository: TransactionsViewRepository,
+  @Autowired private val refundService: RefundService,
   @Autowired private val refundRetryService: RefundRetryService,
   @Autowired private val deadLetterQueueAsyncClient: QueueAsyncClient,
   @Value("\${azurestorage.queues.deadLetterQueue.ttlSeconds}")
@@ -84,6 +86,7 @@ class TransactionsRefundQueueConsumer(
             transactionsRefundedEventStoreRepository,
             transactionsViewRepository,
             paymentGatewayClient,
+            refundService,
             refundRetryService,
             tracingInfo)
         }

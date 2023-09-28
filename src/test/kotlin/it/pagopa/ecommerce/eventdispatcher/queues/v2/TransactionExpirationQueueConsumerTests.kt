@@ -20,6 +20,7 @@ import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.config.QueuesConsumerConfig
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
+import it.pagopa.ecommerce.eventdispatcher.services.RefundService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
 import it.pagopa.ecommerce.eventdispatcher.utils.DEAD_LETTER_QUEUE_TTL_SECONDS
 import it.pagopa.ecommerce.eventdispatcher.utils.TRANSIENT_QUEUE_TTL_SECONDS
@@ -63,6 +64,8 @@ class TransactionExpirationQueueConsumerTests {
     mock()
 
   private val transactionsViewRepository: TransactionsViewRepository = mock()
+
+  private val refundService: RefundService = mock()
 
   private val refundRetryService: RefundRetryService = mock()
 
@@ -108,6 +111,7 @@ class TransactionExpirationQueueConsumerTests {
       transactionsRefundedEventStoreRepository = transactionsRefundedEventStoreRepository,
       transactionsViewRepository = transactionsViewRepository,
       transactionUtils = transactionUtils,
+      refundService = refundService,
       refundRetryService = refundRetryService,
       deadLetterQueueAsyncClient = deadLetterQueueAsyncClient,
       expirationQueueAsyncClient = expirationQueueAsyncClient,
