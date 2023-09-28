@@ -138,7 +138,7 @@ class TransactionClosePaymentQueueConsumerTests {
         transactionClosureEventsConsumer.messageReceiver(
           QueueEvent(cancelRequestEvent as TransactionUserCanceledEvent, MOCK_TRACING_INFO),
           checkpointer))
-      .expectNext()
+      .expectNext(Unit)
       .verifyComplete()
 
     /* Asserts */
@@ -200,7 +200,7 @@ class TransactionClosePaymentQueueConsumerTests {
         transactionClosureEventsConsumer.messageReceiver(
           QueueEvent(cancelRequestEvent as TransactionUserCanceledEvent, MOCK_TRACING_INFO),
           checkpointer))
-      .expectNext()
+      .expectNext(Unit)
       .verifyComplete()
 
     /* Asserts */
@@ -262,7 +262,7 @@ class TransactionClosePaymentQueueConsumerTests {
         transactionClosureEventsConsumer.messageReceiver(
           QueueEvent(cancelRequestEvent as TransactionUserCanceledEvent, MOCK_TRACING_INFO),
           checkpointer))
-      .expectNext()
+      .expectNext(Unit)
       .verifyComplete()
 
     /* Asserts */
@@ -323,7 +323,7 @@ class TransactionClosePaymentQueueConsumerTests {
     StepVerifier.create(
         transactionClosureEventsConsumer.messageReceiver(
           QueueEvent(cancelRequestEvent as TransactionUserCanceledEvent, null), checkpointer))
-      .expectNext()
+      .expectNext(Unit)
       .verifyComplete()
 
     /* Asserts */
@@ -389,7 +389,7 @@ class TransactionClosePaymentQueueConsumerTests {
         transactionClosureEventsConsumer.messageReceiver(
           QueueEvent(cancelRequestEvent as TransactionUserCanceledEvent, MOCK_TRACING_INFO),
           checkpointer))
-      .expectNext()
+      .expectNext(Unit)
       .verifyComplete()
 
     /* Asserts */
@@ -435,6 +435,7 @@ class TransactionClosePaymentQueueConsumerTests {
         transactionClosureEventsConsumer.messageReceiver(
           QueueEvent(cancelRequestEvent as TransactionUserCanceledEvent, MOCK_TRACING_INFO),
           checkpointer))
+      .expectNext(Unit)
       .verifyComplete()
 
     /* Asserts */
@@ -504,7 +505,7 @@ class TransactionClosePaymentQueueConsumerTests {
           transactionClosureEventsConsumer.messageReceiver(
             QueueEvent(cancelRequestEvent as TransactionUserCanceledEvent, MOCK_TRACING_INFO),
             checkpointer))
-        .expectNext()
+        .expectNext(Unit)
         .verifyComplete()
 
       /* Asserts */
@@ -565,7 +566,7 @@ class TransactionClosePaymentQueueConsumerTests {
           transactionClosureEventsConsumer.messageReceiver(
             QueueEvent(cancelRequestEvent as TransactionUserCanceledEvent, MOCK_TRACING_INFO),
             checkpointer))
-        .expectNext()
+        .expectNext(Unit)
         .verifyComplete()
 
       /* Asserts */

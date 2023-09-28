@@ -103,7 +103,7 @@ class TransactionNotificationsRetryQueueConsumer(
   fun messageReceiver(
     @Payload payload: ByteArray,
     @Header(AzureHeaders.CHECKPOINTER) checkPointer: Checkpointer
-  ): Mono<Void> {
+  ): Mono<Unit> {
     val eventWithTracingInfo = parseEvent(payload)
     return eventWithTracingInfo
       .flatMap { (e, tracingInfo) ->

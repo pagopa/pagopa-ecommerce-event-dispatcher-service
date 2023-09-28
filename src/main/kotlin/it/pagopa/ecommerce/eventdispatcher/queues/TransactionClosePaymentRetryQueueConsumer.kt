@@ -103,7 +103,7 @@ class TransactionClosePaymentRetryQueueConsumer(
     payload: ByteArray,
     checkPointer: Checkpointer,
     emptyTransaction: EmptyTransaction
-  ): Mono<Void> {
+  ): Mono<Unit> {
     val eventWithTracingInfo = parseEvent(payload)
     return eventWithTracingInfo
       .flatMap { (e, tracingInfo) ->

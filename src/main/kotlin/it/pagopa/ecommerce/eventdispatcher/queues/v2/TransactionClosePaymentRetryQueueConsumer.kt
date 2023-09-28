@@ -85,7 +85,7 @@ class TransactionClosePaymentRetryQueueConsumer(
       Either<QueueEvent<TransactionClosureErrorEvent>, QueueEvent<TransactionClosureRetriedEvent>>,
     checkPointer: Checkpointer,
     emptyTransaction: EmptyTransaction
-  ): Mono<Void> {
+  ): Mono<Unit> {
     val event = parsedEvent.bimap({ it.event }, { it.event })
     val tracingInfo = parsedEvent.fold({ it.tracingInfo }, { it.tracingInfo })
     val transactionId = getTransactionId(event)

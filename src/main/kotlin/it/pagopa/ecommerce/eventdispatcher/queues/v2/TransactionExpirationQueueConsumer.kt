@@ -61,7 +61,7 @@ class TransactionExpirationQueueConsumer(
     queueEvent: Either<QueueEvent<TransactionActivatedEvent>, QueueEvent<TransactionExpiredEvent>>,
     checkPointer: Checkpointer,
     headers: MessageHeaders
-  ): Mono<Void> {
+  ): Mono<Unit> {
     val event = queueEvent.fold({ it }, { it })
     val transactionId = queueEvent.fold({ it.event.transactionId }, { it.event.transactionId })
     val events =

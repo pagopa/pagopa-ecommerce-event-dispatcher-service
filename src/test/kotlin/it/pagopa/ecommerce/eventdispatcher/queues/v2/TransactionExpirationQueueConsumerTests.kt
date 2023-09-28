@@ -146,7 +146,7 @@ class TransactionExpirationQueueConsumerTests {
           Either.left(QueueEvent(activatedEvent, MOCK_TRACING_INFO)),
           checkpointer,
           MessageHeaders(mapOf())))
-      .expectNext()
+      .expectNext(Unit)
       .expectComplete()
       .verify()
 
@@ -180,7 +180,7 @@ class TransactionExpirationQueueConsumerTests {
     StepVerifier.create(
         transactionExpirationQueueConsumer.messageReceiver(
           Either.left(QueueEvent(activatedEvent, null)), checkpointer, MessageHeaders(mapOf())))
-      .expectNext()
+      .expectNext(Unit)
       .expectComplete()
       .verify()
 
@@ -219,7 +219,7 @@ class TransactionExpirationQueueConsumerTests {
     StepVerifier.create(
         transactionExpirationQueueConsumer.messageReceiver(
           Either.right(QueueEvent(expiredEvent, null)), checkpointer, MessageHeaders(mapOf())))
-      .expectNext()
+      .expectNext(Unit)
       .expectComplete()
       .verify()
 
@@ -268,7 +268,7 @@ class TransactionExpirationQueueConsumerTests {
           Either.left(QueueEvent(activatedEvent, MOCK_TRACING_INFO)),
           checkpointer,
           MessageHeaders(mapOf())))
-      .expectNext()
+      .expectNext(Unit)
       .expectComplete()
       .verify()
 
@@ -303,7 +303,7 @@ class TransactionExpirationQueueConsumerTests {
           Either.left(QueueEvent(activatedEvent, MOCK_TRACING_INFO)),
           checkpointer,
           MessageHeaders(mapOf())))
-      .expectNext()
+      .expectNext(Unit)
       .expectComplete()
       .verify()
 
@@ -350,6 +350,7 @@ class TransactionExpirationQueueConsumerTests {
           Either.left(QueueEvent(activatedEvent, MOCK_TRACING_INFO)),
           checkpointer,
           MessageHeaders(mapOf())))
+      .expectNext(Unit)
       .verifyComplete()
 
     /* Asserts */
@@ -406,6 +407,7 @@ class TransactionExpirationQueueConsumerTests {
           Either.left(QueueEvent(activatedEvent, MOCK_TRACING_INFO)),
           checkpointer,
           MessageHeaders(mapOf())))
+      .expectNext(Unit)
       .verifyComplete()
 
     /* Asserts */
@@ -477,7 +479,7 @@ class TransactionExpirationQueueConsumerTests {
             Either.left(QueueEvent(activatedEvent, MOCK_TRACING_INFO)),
             checkpointer,
             MessageHeaders(mapOf())))
-        .expectNext()
+        .expectNext(Unit)
         .expectComplete()
         .verify()
 
@@ -567,7 +569,7 @@ class TransactionExpirationQueueConsumerTests {
             Either.left(QueueEvent(activatedEvent, MOCK_TRACING_INFO)),
             checkpointer,
             MessageHeaders(mapOf())))
-        .expectNext()
+        .expectNext(Unit)
         .expectComplete()
         .verify()
 
@@ -646,7 +648,7 @@ class TransactionExpirationQueueConsumerTests {
             Either.left(QueueEvent(activatedEvent, MOCK_TRACING_INFO)),
             checkpointer,
             MessageHeaders(mapOf())))
-        .expectNext()
+        .expectNext(Unit)
         .expectComplete()
         .verify()
 
@@ -710,7 +712,7 @@ class TransactionExpirationQueueConsumerTests {
             Either.left(QueueEvent(activatedEvent, MOCK_TRACING_INFO)),
             checkpointer,
             MessageHeaders(mapOf())))
-        .expectNext()
+        .expectNext(Unit)
         .expectComplete()
         .verify()
 
@@ -772,7 +774,7 @@ class TransactionExpirationQueueConsumerTests {
             Either.left(QueueEvent(activatedEvent, MOCK_TRACING_INFO)),
             checkpointer,
             MessageHeaders(mapOf())))
-        .expectNext()
+        .expectNext(Unit)
         .expectComplete()
         .verify()
 
@@ -873,7 +875,7 @@ class TransactionExpirationQueueConsumerTests {
           Either.left(QueueEvent(activatedEvent, MOCK_TRACING_INFO)),
           checkpointer,
           MessageHeaders(mapOf())))
-      .expectNext()
+      .expectNext(Unit)
       .expectComplete()
       .verify()
 
@@ -977,7 +979,7 @@ class TransactionExpirationQueueConsumerTests {
             Either.left(QueueEvent(activatedEvent, MOCK_TRACING_INFO)),
             checkpointer,
             MessageHeaders(mapOf())))
-        .expectNext()
+        .expectNext(Unit)
         .expectComplete()
         .verify()
 
@@ -1082,7 +1084,7 @@ class TransactionExpirationQueueConsumerTests {
             Either.left(QueueEvent(activatedEvent, MOCK_TRACING_INFO)),
             checkpointer,
             MessageHeaders(mapOf())))
-        .expectNext()
+        .expectNext(Unit)
         .expectComplete()
         .verify()
 
@@ -1184,7 +1186,7 @@ class TransactionExpirationQueueConsumerTests {
             Either.left(QueueEvent(activatedEvent, MOCK_TRACING_INFO)),
             checkpointer,
             MessageHeaders(mapOf())))
-        .expectNext()
+        .expectNext(Unit)
         .expectComplete()
         .verify()
 
@@ -1290,7 +1292,7 @@ class TransactionExpirationQueueConsumerTests {
             Either.left(QueueEvent(activatedEvent, MOCK_TRACING_INFO)),
             checkpointer,
             MessageHeaders(mapOf())))
-        .expectNext()
+        .expectNext(Unit)
         .expectComplete()
         .verify()
 
@@ -1360,7 +1362,7 @@ class TransactionExpirationQueueConsumerTests {
           Either.left(QueueEvent(activatedEvent, MOCK_TRACING_INFO)),
           checkpointer,
           MessageHeaders(mapOf())))
-      .expectNext()
+      .expectNext(Unit)
       .expectComplete()
       .verify()
 
@@ -1441,7 +1443,7 @@ class TransactionExpirationQueueConsumerTests {
           Either.left(QueueEvent(activatedEvent, MOCK_TRACING_INFO)),
           checkpointer,
           MessageHeaders(mapOf())))
-      .expectNext()
+      .expectNext(Unit)
       .expectComplete()
       .verify()
 
@@ -1492,7 +1494,7 @@ class TransactionExpirationQueueConsumerTests {
             Either.left(QueueEvent(activatedEvent, MOCK_TRACING_INFO)),
             checkpointer,
             MessageHeaders(mapOf())))
-        .expectNext()
+        .expectNext(Unit)
         .expectComplete()
         .verify()
 
@@ -1553,7 +1555,7 @@ class TransactionExpirationQueueConsumerTests {
             Either.left(QueueEvent(activatedEvent, MOCK_TRACING_INFO)),
             checkpointer,
             MessageHeaders(mapOf())))
-        .expectNext()
+        .expectNext(Unit)
         .expectComplete()
         .verify()
 
@@ -1614,7 +1616,7 @@ class TransactionExpirationQueueConsumerTests {
             Either.left(QueueEvent(activatedEvent, MOCK_TRACING_INFO)),
             checkpointer,
             MessageHeaders(mapOf())))
-        .expectNext()
+        .expectNext(Unit)
         .expectComplete()
         .verify()
 
@@ -1682,7 +1684,7 @@ class TransactionExpirationQueueConsumerTests {
             Either.left(QueueEvent(activatedEvent, MOCK_TRACING_INFO)),
             checkpointer,
             MessageHeaders(mapOf())))
-        .expectNext()
+        .expectNext(Unit)
         .expectComplete()
         .verify()
 
@@ -1787,7 +1789,7 @@ class TransactionExpirationQueueConsumerTests {
             Either.left(QueueEvent(activatedEvent, MOCK_TRACING_INFO)),
             checkpointer,
             MessageHeaders(mapOf())))
-        .expectNext()
+        .expectNext(Unit)
         .expectComplete()
         .verify()
 
@@ -1869,7 +1871,7 @@ class TransactionExpirationQueueConsumerTests {
             Either.left(QueueEvent(activatedEvent, MOCK_TRACING_INFO)),
             checkpointer,
             MessageHeaders(mapOf())))
-        .expectNext()
+        .expectNext(Unit)
         .expectComplete()
         .verify()
 
@@ -1948,7 +1950,7 @@ class TransactionExpirationQueueConsumerTests {
             Either.left(QueueEvent(activatedEvent, MOCK_TRACING_INFO)),
             checkpointer,
             MessageHeaders(mapOf())))
-        .expectNext()
+        .expectNext(Unit)
         .expectComplete()
         .verify()
 
@@ -2037,7 +2039,7 @@ class TransactionExpirationQueueConsumerTests {
             Either.left(QueueEvent(activatedEvent, MOCK_TRACING_INFO)),
             checkpointer,
             MessageHeaders(mapOf())))
-        .expectNext()
+        .expectNext(Unit)
         .expectComplete()
         .verify()
 
@@ -2095,7 +2097,7 @@ class TransactionExpirationQueueConsumerTests {
             Either.left(QueueEvent(activatedEvent, MOCK_TRACING_INFO)),
             checkpointer,
             MessageHeaders(mapOf())))
-        .expectNext()
+        .expectNext(Unit)
         .expectComplete()
         .verify()
 
@@ -2177,7 +2179,7 @@ class TransactionExpirationQueueConsumerTests {
             Either.left(QueueEvent(activatedEvent, MOCK_TRACING_INFO)),
             checkpointer,
             MessageHeaders(mapOf())))
-        .expectNext()
+        .expectNext(Unit)
         .expectComplete()
         .verify()
 
@@ -2213,6 +2215,7 @@ class TransactionExpirationQueueConsumerTests {
             Either.left(QueueEvent(activatedEvent, MOCK_TRACING_INFO)),
             checkpointer,
             MessageHeaders(mapOf())))
+        .expectNext(Unit)
         .verifyComplete()
 
       /* Asserts */
@@ -2328,7 +2331,7 @@ class TransactionExpirationQueueConsumerTests {
             Either.left(QueueEvent(activatedEvent, MOCK_TRACING_INFO)),
             checkpointer,
             MessageHeaders(mapOf())))
-        .expectNext()
+        .expectNext(Unit)
         .expectComplete()
         .verify()
 
@@ -2428,7 +2431,7 @@ class TransactionExpirationQueueConsumerTests {
             Either.left(QueueEvent(activatedEvent, MOCK_TRACING_INFO)),
             checkpointer,
             MessageHeaders(mapOf())))
-        .expectNext()
+        .expectNext(Unit)
         .expectComplete()
         .verify()
 
@@ -2515,7 +2518,7 @@ class TransactionExpirationQueueConsumerTests {
             Either.left(QueueEvent(activatedEvent, MOCK_TRACING_INFO)),
             checkpointer,
             MessageHeaders(mapOf())))
-        .expectNext()
+        .expectNext(Unit)
         .expectComplete()
         .verify()
 
@@ -2614,7 +2617,7 @@ class TransactionExpirationQueueConsumerTests {
             Either.left(QueueEvent(activatedEvent, MOCK_TRACING_INFO)),
             checkpointer,
             MessageHeaders(mapOf())))
-        .expectNext()
+        .expectNext(Unit)
         .expectComplete()
         .verify()
 
@@ -2698,7 +2701,7 @@ class TransactionExpirationQueueConsumerTests {
             Either.left(QueueEvent(activatedEvent, MOCK_TRACING_INFO)),
             checkpointer,
             MessageHeaders(mapOf())))
-        .expectNext()
+        .expectNext(Unit)
         .expectComplete()
         .verify()
 
@@ -2788,7 +2791,7 @@ class TransactionExpirationQueueConsumerTests {
             Either.left(QueueEvent(activatedEvent, MOCK_TRACING_INFO)),
             checkpointer,
             MessageHeaders(mapOf())))
-        .expectNext()
+        .expectNext(Unit)
         .expectComplete()
         .verify()
 
@@ -2839,7 +2842,7 @@ class TransactionExpirationQueueConsumerTests {
       StepVerifier.create(
           transactionExpirationQueueConsumer.messageReceiver(
             event, checkpointer, MessageHeaders(mapOf())))
-        .expectNext()
+        .expectNext(Unit)
         .expectComplete()
         .verify()
 
@@ -2919,7 +2922,7 @@ class TransactionExpirationQueueConsumerTests {
             Either.left(QueueEvent(activatedEvent, MOCK_TRACING_INFO)),
             checkpointer,
             MessageHeaders(mapOf())))
-        .expectNext()
+        .expectNext(Unit)
         .expectComplete()
         .verify()
 

@@ -136,7 +136,7 @@ class TransactionNotificationsQueueConsumerTest {
     StepVerifier.create(
         transactionNotificationsRetryQueueConsumer.messageReceiver(
           notificationRequested to MOCK_TRACING_INFO, checkpointer))
-      .expectNext()
+      .expectNext(Unit)
       .verifyComplete()
     verify(checkpointer, times(1)).success()
     verify(transactionsEventStoreRepository, times(1))
@@ -209,7 +209,7 @@ class TransactionNotificationsQueueConsumerTest {
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
             notificationRequested to MOCK_TRACING_INFO, checkpointer))
-        .expectNext()
+        .expectNext(Unit)
         .verifyComplete()
       verify(checkpointer, times(1)).success()
       verify(transactionsEventStoreRepository, times(1))
@@ -286,7 +286,7 @@ class TransactionNotificationsQueueConsumerTest {
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
             notificationRequested to null, checkpointer))
-        .expectNext()
+        .expectNext(Unit)
         .verifyComplete()
       verify(checkpointer, times(1)).success()
       verify(transactionsEventStoreRepository, times(1))
@@ -359,7 +359,7 @@ class TransactionNotificationsQueueConsumerTest {
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
             notificationRequested to null, checkpointer))
-        .expectNext()
+        .expectNext(Unit)
         .verifyComplete()
       verify(checkpointer, times(1)).success()
       verify(transactionsEventStoreRepository, times(1))
@@ -449,7 +449,7 @@ class TransactionNotificationsQueueConsumerTest {
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
             notificationRequested to MOCK_TRACING_INFO, checkpointer))
-        .expectNext()
+        .expectNext(Unit)
         .verifyComplete()
       verify(checkpointer, times(1)).success()
       verify(transactionsEventStoreRepository, times(1))
@@ -528,7 +528,7 @@ class TransactionNotificationsQueueConsumerTest {
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
             notificationRequested to MOCK_TRACING_INFO, checkpointer))
-        .expectNext()
+        .expectNext(Unit)
         .verifyComplete()
       verify(checkpointer, times(1)).success()
       verify(transactionsEventStoreRepository, times(1))
@@ -592,7 +592,7 @@ class TransactionNotificationsQueueConsumerTest {
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
             notificationRequested to MOCK_TRACING_INFO, checkpointer))
-        .expectNext()
+        .expectNext(Unit)
         .verifyComplete()
       verify(checkpointer, times(1)).success()
       verify(transactionsEventStoreRepository, times(1))
@@ -665,6 +665,7 @@ class TransactionNotificationsQueueConsumerTest {
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
             notificationRequested to MOCK_TRACING_INFO, checkpointer))
+        .expectNext(Unit)
         .verifyComplete()
       verify(checkpointer, times(1)).success()
       verify(transactionsEventStoreRepository, times(1))
@@ -720,6 +721,7 @@ class TransactionNotificationsQueueConsumerTest {
     StepVerifier.create(
         transactionNotificationsRetryQueueConsumer.messageReceiver(
           notificationRequested to MOCK_TRACING_INFO, checkpointer))
+      .expectNext(Unit)
       .verifyComplete()
     verify(checkpointer, times(1)).success()
     verify(transactionsEventStoreRepository, times(1))
@@ -868,7 +870,7 @@ class TransactionNotificationsQueueConsumerTest {
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
             notificationRequested to MOCK_TRACING_INFO, checkpointer))
-        .expectNext()
+        .expectNext(Unit)
         .verifyComplete()
       verify(checkpointer, times(1)).success()
       verify(transactionsEventStoreRepository, times(1))

@@ -57,7 +57,7 @@ class TransactionClosePaymentQueueConsumer(
     queueEvent: QueueEvent<TransactionUserCanceledEvent>,
     checkPointer: Checkpointer,
     emptyTransaction: EmptyTransaction
-  ): Mono<Void> {
+  ): Mono<Unit> {
     val event = queueEvent.event
     val tracingInfo = queueEvent.tracingInfo
     val transactionId = event.transactionId

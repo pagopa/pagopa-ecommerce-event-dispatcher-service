@@ -65,7 +65,7 @@ class TransactionExpirationQueueConsumer(
     queueEvent: Pair<Either<TransactionActivatedEvent, TransactionExpiredEvent>, TracingInfo?>,
     @Header(AzureHeaders.CHECKPOINTER) checkPointer: Checkpointer,
     @Headers headers: MessageHeaders
-  ): Mono<Void> {
+  ): Mono<Unit> {
     val event = queueEvent.first.fold({ it }, { it })
     val transactionId = queueEvent.first.fold({ it.transactionId }, { it.transactionId })
     val events =

@@ -59,7 +59,7 @@ class TransactionNotificationsQueueConsumer(
     parsedEvent: Pair<TransactionUserReceiptRequestedEvent, TracingInfo?>,
     checkPointer: Checkpointer,
     emptyTransaction: EmptyTransaction
-  ): Mono<Void> {
+  ): Mono<Unit> {
     val (event, tracingInfo) = parsedEvent
     val transactionId = event.transactionId
     val baseTransaction =

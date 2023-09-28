@@ -147,7 +147,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
     StepVerifier.create(
         transactionNotificationsRetryQueueConsumer.messageReceiver(
           Either.left(QueueEvent(notificationErrorEvent, MOCK_TRACING_INFO)), checkpointer))
-      .expectNext()
+      .expectNext(Unit)
       .verifyComplete()
     verify(checkpointer, times(1)).success()
     verify(transactionsEventStoreRepository, times(1))
@@ -221,7 +221,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
     StepVerifier.create(
         transactionNotificationsRetryQueueConsumer.messageReceiver(
           Either.left(QueueEvent(notificationErrorEvent, MOCK_TRACING_INFO)), checkpointer))
-      .expectNext()
+      .expectNext(Unit)
       .verifyComplete()
     verify(checkpointer, times(1)).success()
     verify(transactionsEventStoreRepository, times(1))
@@ -302,7 +302,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
             Either.left(QueueEvent(notificationErrorEvent, null)), checkpointer))
-        .expectNext()
+        .expectNext(Unit)
         .verifyComplete()
       verify(checkpointer, times(1)).success()
       verify(transactionsEventStoreRepository, times(1))
@@ -377,7 +377,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
             Either.left(QueueEvent(notificationErrorEvent, null)), checkpointer))
-        .expectNext()
+        .expectNext(Unit)
         .verifyComplete()
       verify(checkpointer, times(1)).success()
       verify(transactionsEventStoreRepository, times(1))
@@ -461,7 +461,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
             Either.left(QueueEvent(notificationErrorEvent, MOCK_TRACING_INFO)), checkpointer))
-        .expectNext()
+        .expectNext(Unit)
         .verifyComplete()
       verify(checkpointer, times(1)).success()
       verify(transactionsEventStoreRepository, times(1))
@@ -521,7 +521,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
             Either.left(QueueEvent(notificationErrorEvent, MOCK_TRACING_INFO)), checkpointer))
-        .expectNext()
+        .expectNext(Unit)
         .verifyComplete()
       verify(checkpointer, times(1)).success()
       verify(transactionsEventStoreRepository, times(1))
@@ -583,7 +583,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
             Either.right(QueueEvent(notificationRetriedEvent, MOCK_TRACING_INFO)), checkpointer))
-        .expectNext()
+        .expectNext(Unit)
         .verifyComplete()
       verify(checkpointer, times(1)).success()
       verify(transactionsEventStoreRepository, times(1))
@@ -645,7 +645,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
             Either.right(QueueEvent(notificationRetriedEvent, null)), checkpointer))
-        .expectNext()
+        .expectNext(Unit)
         .verifyComplete()
       verify(checkpointer, times(1)).success()
       verify(transactionsEventStoreRepository, times(1))
@@ -716,7 +716,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
             Either.right(QueueEvent(notificationRetriedEvent, MOCK_TRACING_INFO)), checkpointer))
-        .expectNext()
+        .expectNext(Unit)
         .verifyComplete()
       verify(checkpointer, times(1)).success()
       verify(transactionsEventStoreRepository, times(1))
@@ -793,7 +793,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
             Either.right(QueueEvent(notificationRetriedEvent, MOCK_TRACING_INFO)), checkpointer))
-        .expectNext()
+        .expectNext(Unit)
         .verifyComplete()
       verify(checkpointer, times(1)).success()
       verify(transactionsEventStoreRepository, times(1))
@@ -873,7 +873,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
             Either.right(QueueEvent(notificationRetriedEvent, MOCK_TRACING_INFO)), checkpointer))
-        .expectNext()
+        .expectNext(Unit)
         .verifyComplete()
       verify(checkpointer, times(1)).success()
       verify(transactionsEventStoreRepository, times(1))
@@ -924,6 +924,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
     StepVerifier.create(
         transactionNotificationsRetryQueueConsumer.messageReceiver(
           Either.left(QueueEvent(notificationErrorEvent, MOCK_TRACING_INFO)), checkpointer))
+      .expectNext(Unit)
       .verifyComplete()
     verify(checkpointer, times(1)).success()
     verify(transactionsEventStoreRepository, times(1))

@@ -135,7 +135,7 @@ class TransactionsRefundEventsConsumerTests {
           Either.right<TransactionRefundRetriedEvent, TransactionRefundRequestedEvent>(
             refundRequestedEvent as TransactionRefundRequestedEvent) to MOCK_TRACING_INFO,
           checkpointer))
-      .expectNext()
+      .expectNext(Unit)
       .verifyComplete()
 
     /* Asserts */
@@ -202,7 +202,7 @@ class TransactionsRefundEventsConsumerTests {
             Either.right<TransactionRefundRetriedEvent, TransactionRefundRequestedEvent>(
               refundRequestedEvent as TransactionRefundRequestedEvent) to null,
             checkpointer))
-        .expectNext()
+        .expectNext(Unit)
         .verifyComplete()
 
       /* Asserts */
@@ -269,7 +269,7 @@ class TransactionsRefundEventsConsumerTests {
           Either.right<TransactionRefundRetriedEvent, TransactionRefundRequestedEvent>(
             refundRequestedEvent as TransactionRefundRequestedEvent) to MOCK_TRACING_INFO,
           checkpointer))
-      .expectNext()
+      .expectNext(Unit)
       .verifyComplete()
 
     /* Asserts */
@@ -323,7 +323,7 @@ class TransactionsRefundEventsConsumerTests {
             Either.right<TransactionRefundRetriedEvent, TransactionRefundRequestedEvent>(
               refundRequestedEvent as TransactionRefundRequestedEvent) to MOCK_TRACING_INFO,
             checkpointer))
-        .expectNext()
+        .expectNext(Unit)
         .verifyComplete()
 
       /* Asserts */
@@ -385,7 +385,7 @@ class TransactionsRefundEventsConsumerTests {
           Either.right<TransactionRefundRetriedEvent, TransactionRefundRequestedEvent>(
             refundRequestedEvent as TransactionRefundRequestedEvent) to MOCK_TRACING_INFO,
           checkpointer))
-      .expectNext()
+      .expectNext(Unit)
       .verifyComplete()
 
     /* Asserts */
@@ -456,7 +456,7 @@ class TransactionsRefundEventsConsumerTests {
             Either.right<TransactionRefundRetriedEvent, TransactionRefundRequestedEvent>(
               refundRequestedEvent as TransactionRefundRequestedEvent) to null,
             checkpointer))
-        .expectNext()
+        .expectNext(Unit)
         .verifyComplete()
 
       /* Asserts */
@@ -526,7 +526,7 @@ class TransactionsRefundEventsConsumerTests {
           Either.right<TransactionRefundRetriedEvent, TransactionRefundRequestedEvent>(
             refundRequestedEvent as TransactionRefundRequestedEvent) to MOCK_TRACING_INFO,
           checkpointer))
-      .expectNext()
+      .expectNext(Unit)
       .verifyComplete()
 
     /* Asserts */
@@ -597,7 +597,7 @@ class TransactionsRefundEventsConsumerTests {
           Either.right<TransactionRefundRetriedEvent, TransactionRefundRequestedEvent>(
             refundRequestedEvent as TransactionRefundRequestedEvent) to MOCK_TRACING_INFO,
           checkpointer))
-      .expectNext()
+      .expectNext(Unit)
       .verifyComplete()
 
     /* Asserts */
@@ -669,7 +669,7 @@ class TransactionsRefundEventsConsumerTests {
           Either.right<TransactionRefundRetriedEvent, TransactionRefundRequestedEvent>(
             refundRequestedEvent as TransactionRefundRequestedEvent) to MOCK_TRACING_INFO,
           checkpointer))
-      .expectNext()
+      .expectNext(Unit)
       .verifyComplete()
 
     /* Asserts */
@@ -736,7 +736,7 @@ class TransactionsRefundEventsConsumerTests {
           Either.right<TransactionRefundRetriedEvent, TransactionRefundRequestedEvent>(
             refundRequestedEvent as TransactionRefundRequestedEvent) to MOCK_TRACING_INFO,
           checkpointer))
-      .expectNext()
+      .expectNext(Unit)
       .verifyComplete()
 
     /* Asserts */
@@ -804,7 +804,7 @@ class TransactionsRefundEventsConsumerTests {
             Either.right<TransactionRefundRetriedEvent, TransactionRefundRequestedEvent>(
               refundRequestedEvent as TransactionRefundRequestedEvent) to MOCK_TRACING_INFO,
             checkpointer))
-        .expectNext()
+        .expectNext(Unit)
         .verifyComplete()
 
       /* Asserts */

@@ -59,7 +59,7 @@ class TransactionsRefundQueueConsumer(
     parsedEvent:
       Pair<Either<TransactionRefundRetriedEvent, TransactionRefundRequestedEvent>, TracingInfo?>,
     checkPointer: Checkpointer
-  ): Mono<Void> {
+  ): Mono<Unit> {
     val (event, tracingInfo) = parsedEvent
     val transactionId = getTransactionIdFromPayload(event)
     val refundPipeline =

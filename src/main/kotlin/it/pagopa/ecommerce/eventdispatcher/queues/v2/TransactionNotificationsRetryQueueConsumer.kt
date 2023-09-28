@@ -73,7 +73,7 @@ class TransactionNotificationsRetryQueueConsumer(
         QueueEvent<TransactionUserReceiptAddErrorEvent>,
         QueueEvent<TransactionUserReceiptAddRetriedEvent>>,
     checkPointer: Checkpointer
-  ): Mono<Void> {
+  ): Mono<Unit> {
     val event = parsedEvent.bimap({ it.event }, { it.event })
     val tracingInfo = parsedEvent.fold({ it.tracingInfo }, { it.tracingInfo })
     val transactionId = getTransactionIdFromPayload(event)

@@ -128,6 +128,7 @@ class TransactionRefundRetryQueueConsumerTest {
     StepVerifier.create(
         transactionRefundRetryQueueConsumer.messageReceiver(
           refundRetriedEvent to MOCK_TRACING_INFO, checkpointer))
+      .expectNext(Unit)
       .verifyComplete()
 
     /* Asserts */
@@ -204,6 +205,7 @@ class TransactionRefundRetryQueueConsumerTest {
       StepVerifier.create(
           transactionRefundRetryQueueConsumer.messageReceiver(
             refundRetriedEvent to MOCK_TRACING_INFO, checkpointer))
+        .expectNext(Unit)
         .verifyComplete()
 
       /* Asserts */
@@ -275,6 +277,7 @@ class TransactionRefundRetryQueueConsumerTest {
     StepVerifier.create(
         transactionRefundRetryQueueConsumer.messageReceiver(
           refundRetriedEvent to null, checkpointer))
+      .expectNext(Unit)
       .verifyComplete()
 
     /* Asserts */
@@ -351,6 +354,7 @@ class TransactionRefundRetryQueueConsumerTest {
       StepVerifier.create(
           transactionRefundRetryQueueConsumer.messageReceiver(
             refundRetriedEvent to null, checkpointer))
+        .expectNext(Unit)
         .verifyComplete()
 
       /* Asserts */
@@ -421,6 +425,7 @@ class TransactionRefundRetryQueueConsumerTest {
       StepVerifier.create(
           transactionRefundRetryQueueConsumer.messageReceiver(
             refundRetriedEvent to MOCK_TRACING_INFO, checkpointer))
+        .expectNext(Unit)
         .verifyComplete()
 
       /* Asserts */
@@ -473,6 +478,7 @@ class TransactionRefundRetryQueueConsumerTest {
       StepVerifier.create(
           transactionRefundRetryQueueConsumer.messageReceiver(
             refundRetriedEvent to MOCK_TRACING_INFO, checkpointer))
+        .expectNext(Unit)
         .verifyComplete()
 
       /* Asserts */

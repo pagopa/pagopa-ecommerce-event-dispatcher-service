@@ -5,6 +5,7 @@ import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
 import java.nio.charset.StandardCharsets
 import java.time.Duration
+import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
@@ -19,7 +20,7 @@ fun writeEventToDeadLetterQueue(
   exception: Throwable,
   deadLetterQueueAsyncClient: QueueAsyncClient,
   deadLetterQueueTTLSeconds: Int
-): Mono<Void> {
+): Mono<Unit> {
   val binaryData = BinaryData.fromBytes(eventPayload)
   val eventLogString = "event payload: ${eventPayload.toString(StandardCharsets.UTF_8)}"
 
@@ -49,5 +50,5 @@ fun writeEventToDeadLetterQueue(
             "Error sending event: [${eventPayload.toString(StandardCharsets.UTF_8)}] to dead letter queue.",
             queueException)
         }
-        .then())
+        .then(mono {}))
 }

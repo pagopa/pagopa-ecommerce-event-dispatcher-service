@@ -143,7 +143,7 @@ class TransactionsRefundEventsConsumerTests {
           Either.right(
             QueueEvent(refundRequestedEvent as TransactionRefundRequestedEvent, MOCK_TRACING_INFO)),
           checkpointer))
-      .expectNext()
+      .expectNext(Unit)
       .verifyComplete()
 
     /* Asserts */
@@ -211,7 +211,7 @@ class TransactionsRefundEventsConsumerTests {
           transactionRefundedEventsConsumer.messageReceiver(
             Either.right(QueueEvent(refundRequestedEvent as TransactionRefundRequestedEvent, null)),
             checkpointer))
-        .expectNext()
+        .expectNext(Unit)
         .verifyComplete()
 
       /* Asserts */
@@ -280,7 +280,7 @@ class TransactionsRefundEventsConsumerTests {
           Either.right(
             QueueEvent(refundRequestedEvent as TransactionRefundRequestedEvent, MOCK_TRACING_INFO)),
           checkpointer))
-      .expectNext()
+      .expectNext(Unit)
       .verifyComplete()
 
     /* Asserts */
@@ -337,7 +337,7 @@ class TransactionsRefundEventsConsumerTests {
               QueueEvent(
                 refundRequestedEvent as TransactionRefundRequestedEvent, MOCK_TRACING_INFO)),
             checkpointer))
-        .expectNext()
+        .expectNext(Unit)
         .verifyComplete()
 
       /* Asserts */
@@ -401,7 +401,7 @@ class TransactionsRefundEventsConsumerTests {
           Either.right(
             QueueEvent(refundRequestedEvent as TransactionRefundRequestedEvent, MOCK_TRACING_INFO)),
           checkpointer))
-      .expectNext()
+      .expectNext(Unit)
       .verifyComplete()
 
     /* Asserts */
@@ -473,7 +473,7 @@ class TransactionsRefundEventsConsumerTests {
           transactionRefundedEventsConsumer.messageReceiver(
             Either.right(QueueEvent(refundRequestedEvent as TransactionRefundRequestedEvent, null)),
             checkpointer))
-        .expectNext()
+        .expectNext(Unit)
         .verifyComplete()
 
       /* Asserts */
@@ -545,7 +545,7 @@ class TransactionsRefundEventsConsumerTests {
           Either.right(
             QueueEvent(refundRequestedEvent as TransactionRefundRequestedEvent, MOCK_TRACING_INFO)),
           checkpointer))
-      .expectNext()
+      .expectNext(Unit)
       .verifyComplete()
 
     /* Asserts */
@@ -618,7 +618,7 @@ class TransactionsRefundEventsConsumerTests {
           Either.right(
             QueueEvent(refundRequestedEvent as TransactionRefundRequestedEvent, MOCK_TRACING_INFO)),
           checkpointer))
-      .expectNext()
+      .expectNext(Unit)
       .verifyComplete()
 
     /* Asserts */
@@ -692,7 +692,7 @@ class TransactionsRefundEventsConsumerTests {
           Either.right(
             QueueEvent(refundRequestedEvent as TransactionRefundRequestedEvent, MOCK_TRACING_INFO)),
           checkpointer))
-      .expectNext()
+      .expectNext(Unit)
       .verifyComplete()
 
     /* Asserts */
@@ -761,7 +761,7 @@ class TransactionsRefundEventsConsumerTests {
           Either.right(
             QueueEvent(refundRequestedEvent as TransactionRefundRequestedEvent, MOCK_TRACING_INFO)),
           checkpointer))
-      .expectNext()
+      .expectNext(Unit)
       .verifyComplete()
 
     /* Asserts */
@@ -832,7 +832,7 @@ class TransactionsRefundEventsConsumerTests {
               QueueEvent(
                 refundRequestedEvent as TransactionRefundRequestedEvent, MOCK_TRACING_INFO)),
             checkpointer))
-        .expectNext()
+        .expectNext(Unit)
         .verifyComplete()
 
       /* Asserts */

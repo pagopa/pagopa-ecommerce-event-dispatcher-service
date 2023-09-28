@@ -69,7 +69,7 @@ class TransactionClosePaymentQueueConsumer(
   fun messageReceiver(
     @Payload payload: ByteArray,
     @Header(AzureHeaders.CHECKPOINTER) checkPointer: Checkpointer,
-  ): Mono<Void> {
+  ): Mono<Unit> {
     val parsedEvents = parseEvent(payload)
     return parsedEvents
       .flatMap { (e, tracingInfo) ->

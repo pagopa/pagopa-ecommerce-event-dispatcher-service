@@ -30,6 +30,7 @@ import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
 import java.time.Duration
 import java.time.ZonedDateTime
 import java.util.*
+import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
@@ -487,7 +488,7 @@ fun <T> runTracedPipelineWithDeadLetterQueue(
   tracingUtils: TracingUtils,
   spanName: String,
   jsonSerializerProviderV2: StrictJsonSerializerProvider
-): Mono<Void> {
+): Mono<Unit> {
   val eventLogString = "${queueEvent.event.id}, transactionId: ${queueEvent.event.transactionId}"
 
   val deadLetterPipeline =
@@ -516,7 +517,9 @@ fun <T> runTracedPipelineWithDeadLetterQueue(
           .then()
       }
 
-  return tracingUtils.traceMonoWithRemoteSpan(queueEvent.tracingInfo, spanName, deadLetterPipeline)
+  return tracingUtils
+    .traceMonoWithRemoteSpan(queueEvent.tracingInfo, spanName, deadLetterPipeline)
+    .then(mono {})
 }
 
 fun getClosePaymentOutcome(tx: BaseTransaction): TransactionClosureData.Outcome? =

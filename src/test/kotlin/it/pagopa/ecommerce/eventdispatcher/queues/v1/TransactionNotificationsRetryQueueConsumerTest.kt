@@ -142,7 +142,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
           Either.left<TransactionUserReceiptAddErrorEvent, TransactionUserReceiptAddRetriedEvent>(
             notificationErrorEvent) to MOCK_TRACING_INFO,
           checkpointer))
-      .expectNext()
+      .expectNext(Unit)
       .verifyComplete()
     verify(checkpointer, times(1)).success()
     verify(transactionsEventStoreRepository, times(1))
@@ -217,7 +217,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
           Either.left<TransactionUserReceiptAddErrorEvent, TransactionUserReceiptAddRetriedEvent>(
             notificationErrorEvent) to MOCK_TRACING_INFO,
           checkpointer))
-      .expectNext()
+      .expectNext(Unit)
       .verifyComplete()
     verify(checkpointer, times(1)).success()
     verify(transactionsEventStoreRepository, times(1))
@@ -299,7 +299,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
             Either.left<TransactionUserReceiptAddErrorEvent, TransactionUserReceiptAddRetriedEvent>(
               notificationErrorEvent) to null,
             checkpointer))
-        .expectNext()
+        .expectNext(Unit)
         .verifyComplete()
       verify(checkpointer, times(1)).success()
       verify(transactionsEventStoreRepository, times(1))
@@ -375,7 +375,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
             Either.left<TransactionUserReceiptAddErrorEvent, TransactionUserReceiptAddRetriedEvent>(
               notificationErrorEvent) to null,
             checkpointer))
-        .expectNext()
+        .expectNext(Unit)
         .verifyComplete()
       verify(checkpointer, times(1)).success()
       verify(transactionsEventStoreRepository, times(1))
@@ -460,7 +460,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
             Either.left<TransactionUserReceiptAddErrorEvent, TransactionUserReceiptAddRetriedEvent>(
               notificationErrorEvent) to MOCK_TRACING_INFO,
             checkpointer))
-        .expectNext()
+        .expectNext(Unit)
         .verifyComplete()
       verify(checkpointer, times(1)).success()
       verify(transactionsEventStoreRepository, times(1))
@@ -521,7 +521,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
             Either.left<TransactionUserReceiptAddErrorEvent, TransactionUserReceiptAddRetriedEvent>(
               notificationErrorEvent) to MOCK_TRACING_INFO,
             checkpointer))
-        .expectNext()
+        .expectNext(Unit)
         .verifyComplete()
       verify(checkpointer, times(1)).success()
       verify(transactionsEventStoreRepository, times(1))
@@ -585,7 +585,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
               TransactionUserReceiptAddErrorEvent, TransactionUserReceiptAddRetriedEvent>(
               notificationRetriedEvent) to MOCK_TRACING_INFO,
             checkpointer))
-        .expectNext()
+        .expectNext(Unit)
         .verifyComplete()
       verify(checkpointer, times(1)).success()
       verify(transactionsEventStoreRepository, times(1))
@@ -649,7 +649,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
               TransactionUserReceiptAddErrorEvent, TransactionUserReceiptAddRetriedEvent>(
               notificationRetriedEvent) to null,
             checkpointer))
-        .expectNext()
+        .expectNext(Unit)
         .verifyComplete()
       verify(checkpointer, times(1)).success()
       verify(transactionsEventStoreRepository, times(1))
@@ -722,7 +722,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
               TransactionUserReceiptAddErrorEvent, TransactionUserReceiptAddRetriedEvent>(
               notificationRetriedEvent) to MOCK_TRACING_INFO,
             checkpointer))
-        .expectNext()
+        .expectNext(Unit)
         .verifyComplete()
       verify(checkpointer, times(1)).success()
       verify(transactionsEventStoreRepository, times(1))
@@ -801,7 +801,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
               TransactionUserReceiptAddErrorEvent, TransactionUserReceiptAddRetriedEvent>(
               notificationRetriedEvent) to MOCK_TRACING_INFO,
             checkpointer))
-        .expectNext()
+        .expectNext(Unit)
         .verifyComplete()
       verify(checkpointer, times(1)).success()
       verify(transactionsEventStoreRepository, times(1))
@@ -883,7 +883,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
               TransactionUserReceiptAddErrorEvent, TransactionUserReceiptAddRetriedEvent>(
               notificationRetriedEvent) to MOCK_TRACING_INFO,
             checkpointer))
-        .expectNext()
+        .expectNext(Unit)
         .verifyComplete()
       verify(checkpointer, times(1)).success()
       verify(transactionsEventStoreRepository, times(1))
@@ -936,6 +936,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
           Either.left<TransactionUserReceiptAddErrorEvent, TransactionUserReceiptAddRetriedEvent>(
             notificationErrorEvent) to MOCK_TRACING_INFO,
           checkpointer))
+      .expectNext(Unit)
       .verifyComplete()
     verify(checkpointer, times(1)).success()
     verify(transactionsEventStoreRepository, times(1))

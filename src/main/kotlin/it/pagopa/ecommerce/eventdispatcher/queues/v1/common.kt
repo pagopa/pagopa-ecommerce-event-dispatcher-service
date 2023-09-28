@@ -26,6 +26,7 @@ import java.nio.charset.StandardCharsets
 import java.time.Duration
 import java.time.ZonedDateTime
 import java.util.*
+import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
@@ -459,7 +460,7 @@ fun <T> runPipelineWithDeadLetterQueue(
   eventPayload: ByteArray,
   deadLetterQueueAsyncClient: QueueAsyncClient,
   deadLetterQueueTTLSeconds: Int
-): Mono<Void> {
+): Mono<Unit> {
   val binaryData = BinaryData.fromBytes(eventPayload)
   val eventLogString = "event payload: ${eventPayload.toString(StandardCharsets.UTF_8)}"
   return checkPointer
@@ -487,6 +488,7 @@ fun <T> runPipelineWithDeadLetterQueue(
         }
         .then()
     }
+    .then(mono {})
 }
 
 fun <T> runTracedPipelineWithDeadLetterQueue(
@@ -497,7 +499,7 @@ fun <T> runTracedPipelineWithDeadLetterQueue(
   deadLetterQueueTTLSeconds: Int,
   tracingUtils: TracingUtils,
   spanName: String
-): Mono<Void> {
+): Mono<Unit> {
   val eventLogString = "${queueEvent.event.id}, transactionId: ${queueEvent.event.transactionId}"
 
   val deadLetterPipeline =
@@ -526,7 +528,9 @@ fun <T> runTracedPipelineWithDeadLetterQueue(
           .then()
       }
 
-  return tracingUtils.traceMonoWithRemoteSpan(queueEvent.tracingInfo, spanName, deadLetterPipeline)
+  return tracingUtils
+    .traceMonoWithRemoteSpan(queueEvent.tracingInfo, spanName, deadLetterPipeline)
+    .then(mono {})
 }
 
 fun getClosePaymentOutcome(tx: BaseTransaction): TransactionClosureData.Outcome? =

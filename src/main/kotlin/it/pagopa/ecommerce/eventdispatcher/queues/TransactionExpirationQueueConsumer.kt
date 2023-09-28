@@ -105,7 +105,7 @@ class TransactionExpirationQueueConsumer(
     @Payload payload: ByteArray,
     @Header(AzureHeaders.CHECKPOINTER) checkPointer: Checkpointer,
     @Headers headers: MessageHeaders
-  ): Mono<Void> {
+  ): Mono<Unit> {
     val eventWithTracingInfo = parseEvent(payload)
 
     return eventWithTracingInfo

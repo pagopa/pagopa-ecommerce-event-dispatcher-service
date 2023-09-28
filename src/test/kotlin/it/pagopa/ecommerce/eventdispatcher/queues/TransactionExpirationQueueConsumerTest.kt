@@ -226,6 +226,7 @@ class TransactionExpirationQueueConsumerTest {
     StepVerifier.create(
         transactionClosePaymentQueueConsumer.messageReceiver(
           invalidEvent.toByteArray(StandardCharsets.UTF_8), checkpointer, MessageHeaders(mapOf())))
+      .expectNext(Unit)
       .verifyComplete()
     // assertions
     verify(queueConsumerV1, times(0)).messageReceiver(any(), any(), any())
@@ -313,6 +314,7 @@ class TransactionExpirationQueueConsumerTest {
     StepVerifier.create(
         transactionClosePaymentQueueConsumer.messageReceiver(
           payload, checkpointer, MessageHeaders(mapOf())))
+      .expectNext(Unit)
       .verifyComplete()
     // assertions
     verify(queueConsumerV1, times(0)).messageReceiver(any(), any(), any())

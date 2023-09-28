@@ -147,7 +147,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
             Either.left<TransactionClosureErrorEvent, TransactionClosureRetriedEvent>(
               closureErrorEvent as TransactionClosureErrorEvent) to MOCK_TRACING_INFO,
             checkpointer))
-        .expectNext()
+        .expectNext(Unit)
         .verifyComplete()
 
       /* Asserts */
@@ -221,7 +221,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
             Either.left<TransactionClosureErrorEvent, TransactionClosureRetriedEvent>(
               closureErrorEvent as TransactionClosureErrorEvent) to MOCK_TRACING_INFO,
             checkpointer))
-        .expectNext()
+        .expectNext(Unit)
         .verifyComplete()
 
       /* Asserts */
@@ -292,7 +292,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
             Either.left<TransactionClosureErrorEvent, TransactionClosureRetriedEvent>(
               closureErrorEvent as TransactionClosureErrorEvent) to null,
             checkpointer))
-        .expectNext()
+        .expectNext(Unit)
         .verifyComplete()
 
       /* Asserts */
@@ -366,7 +366,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
             Either.left<TransactionClosureErrorEvent, TransactionClosureRetriedEvent>(
               closureErrorEvent as TransactionClosureErrorEvent) to null,
             checkpointer))
-        .expectNext()
+        .expectNext(Unit)
         .verifyComplete()
 
       /* Asserts */
@@ -440,7 +440,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
             Either.left<TransactionClosureErrorEvent, TransactionClosureRetriedEvent>(
               closureErrorEvent as TransactionClosureErrorEvent) to null,
             checkpointer))
-        .expectNext()
+        .expectNext(Unit)
         .verifyComplete()
 
       /* Asserts */
@@ -506,7 +506,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
             Either.left<TransactionClosureErrorEvent, TransactionClosureRetriedEvent>(
               closureErrorEvent as TransactionClosureErrorEvent) to MOCK_TRACING_INFO,
             checkpointer))
-        .expectNext()
+        .expectNext(Unit)
         .verifyComplete()
 
       /* Asserts */
@@ -572,7 +572,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
             Either.left<TransactionClosureErrorEvent, TransactionClosureRetriedEvent>(
               closureErrorEvent as TransactionClosureErrorEvent) to null,
             checkpointer))
-        .expectNext()
+        .expectNext(Unit)
         .verifyComplete()
 
       /* Asserts */
@@ -650,6 +650,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
             Either.left<TransactionClosureErrorEvent, TransactionClosureRetriedEvent>(
               closureErrorEvent as TransactionClosureErrorEvent) to MOCK_TRACING_INFO,
             checkpointer))
+        .expectNext(Unit)
         .verifyComplete()
 
       /* Asserts */
@@ -709,6 +710,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
               closureErrorEvent as TransactionClosureErrorEvent) to MOCK_TRACING_INFO,
             checkpointer,
             emptyTransactionMock))
+        .expectNext(Unit)
         .verifyComplete()
 
       /* Asserts */
@@ -777,7 +779,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
           Either.right<TransactionClosureErrorEvent, TransactionClosureRetriedEvent>(
             closureRetriedEvent) to MOCK_TRACING_INFO,
           checkpointer))
-      .expectNext()
+      .expectNext(Unit)
       .verifyComplete()
 
     /* Asserts */
@@ -843,7 +845,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
           Either.right<TransactionClosureErrorEvent, TransactionClosureRetriedEvent>(
             closureRetriedEvent as TransactionClosureRetriedEvent) to null,
           checkpointer))
-      .expectNext()
+      .expectNext(Unit)
       .verifyComplete()
 
     /* Asserts */
@@ -891,6 +893,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
           Either.left<TransactionClosureErrorEvent, TransactionClosureRetriedEvent>(
             closureErrorEvent as TransactionClosureErrorEvent) to MOCK_TRACING_INFO,
           checkpointer))
+      .expectNext(Unit)
       .verifyComplete()
 
     /* Asserts */
@@ -971,7 +974,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
             Either.left<TransactionClosureErrorEvent, TransactionClosureRetriedEvent>(
               closureErrorEvent as TransactionClosureErrorEvent) to MOCK_TRACING_INFO,
             checkpointer))
-        .expectNext()
+        .expectNext(Unit)
         .verifyComplete()
 
       /* Asserts */
@@ -1062,7 +1065,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
           Either.left<TransactionClosureErrorEvent, TransactionClosureRetriedEvent>(
             closureErrorEvent as TransactionClosureErrorEvent) to MOCK_TRACING_INFO,
           checkpointer))
-      .expectNext()
+      .expectNext(Unit)
       .verifyComplete()
 
     /* Asserts */
@@ -1151,7 +1154,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
           Either.right<TransactionClosureErrorEvent, TransactionClosureRetriedEvent>(
             closureRetriedEvent as TransactionClosureRetriedEvent) to MOCK_TRACING_INFO,
           checkpointer))
-      .expectNext()
+      .expectNext(Unit)
       .verifyComplete()
 
     /* Asserts */
@@ -1243,7 +1246,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
           Either.left<TransactionClosureErrorEvent, TransactionClosureRetriedEvent>(
             closureErrorEvent as TransactionClosureErrorEvent) to MOCK_TRACING_INFO,
           checkpointer))
-      .expectNext()
+      .expectNext(Unit)
       .verifyComplete()
 
     /* Asserts */
@@ -1334,6 +1337,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
             Either.left<TransactionClosureErrorEvent, TransactionClosureRetriedEvent>(
               closureErrorEvent as TransactionClosureErrorEvent) to MOCK_TRACING_INFO,
             checkpointer))
+        .expectNext(Unit)
         .verifyComplete()
 
       /* Asserts */
