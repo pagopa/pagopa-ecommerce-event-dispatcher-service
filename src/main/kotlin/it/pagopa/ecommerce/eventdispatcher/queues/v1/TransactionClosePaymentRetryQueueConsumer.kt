@@ -37,6 +37,7 @@ import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
 
 @Service("TransactionClosePaymentRetryQueueConsumerV1")
+@Deprecated("Mark for deprecation in favor of V2 version")
 class TransactionClosePaymentRetryQueueConsumer(
   @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,
   @Autowired

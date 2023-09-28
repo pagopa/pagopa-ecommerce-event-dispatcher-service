@@ -52,18 +52,30 @@ class TransactionNotificationsQueueConsumer(
           object : TypeReference<QueueEvent<TransactionUserReceiptRequestedEventV1>>() {},
           jsonSerializerV1)
         .map { Pair(it.event, it.tracingInfo) }
+        .onErrorResume {
+          logger.debug(ERROR_PARSING_EVENT_ERROR, it)
+          Mono.empty()
+        }
 
     val untracedEventV1 =
       binaryData
         .toObjectAsync(
           object : TypeReference<TransactionUserReceiptRequestedEventV1>() {}, jsonSerializerV1)
         .map { Pair(it, null) }
+        .onErrorResume {
+          logger.debug(ERROR_PARSING_EVENT_ERROR, it)
+          Mono.empty()
+        }
     val queueEventV2 =
       binaryData
         .toObjectAsync(
           object : TypeReference<QueueEvent<TransactionUserReceiptRequestedEventV2>>() {},
           jsonSerializerV2)
         .map { Pair(it.event, it.tracingInfo) }
+        .onErrorResume {
+          logger.debug(ERROR_PARSING_EVENT_ERROR, it)
+          Mono.empty()
+        }
 
     return Mono.firstWithValue(queueEventV1, untracedEventV1, queueEventV2).onErrorMap {
       InvalidEventException(binaryData.toBytes(), it)

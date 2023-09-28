@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 
 @Service("UserReceiptMailBuilderV1")
+@Deprecated("Mark for deprecation in favor of V2 version")
 class UserReceiptMailBuilder(@Autowired private val confidentialMailUtils: ConfidentialMailUtils) {
 
   suspend fun buildNotificationEmailRequestDto(

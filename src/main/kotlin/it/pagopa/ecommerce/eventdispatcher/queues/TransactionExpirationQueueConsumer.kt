@@ -61,34 +61,58 @@ class TransactionExpirationQueueConsumer(
         .toObjectAsync(
           object : TypeReference<QueueEvent<TransactionActivatedEventV1>>() {}, jsonSerializerV1)
         .map { it.event to it.tracingInfo }
+        .onErrorResume {
+          logger.debug(ERROR_PARSING_EVENT_ERROR, it)
+          Mono.empty()
+        }
 
     val transactionExpiredEventV1 =
       data
         .toObjectAsync(
           object : TypeReference<QueueEvent<TransactionExpiredEventV1>>() {}, jsonSerializerV1)
         .map { it.event to it.tracingInfo }
+        .onErrorResume {
+          logger.debug(ERROR_PARSING_EVENT_ERROR, it)
+          Mono.empty()
+        }
 
     val untracedTransactionActivatedEventV1 =
       data
         .toObjectAsync(object : TypeReference<TransactionActivatedEventV1>() {}, jsonSerializerV1)
         .map { it to null }
+        .onErrorResume {
+          logger.debug(ERROR_PARSING_EVENT_ERROR, it)
+          Mono.empty()
+        }
 
     val untracedTransactionExpiredEventV1 =
       data
         .toObjectAsync(object : TypeReference<TransactionExpiredEventV1>() {}, jsonSerializerV1)
         .map { it to null }
+        .onErrorResume {
+          logger.debug(ERROR_PARSING_EVENT_ERROR, it)
+          Mono.empty()
+        }
 
     val transactionActivatedEventV2 =
       data
         .toObjectAsync(
           object : TypeReference<QueueEvent<TransactionActivatedEventV2>>() {}, jsonSerializerV2)
         .map { it.event to it.tracingInfo }
+        .onErrorResume {
+          logger.debug(ERROR_PARSING_EVENT_ERROR, it)
+          Mono.empty()
+        }
 
     val transactionExpiredEventV2 =
       data
         .toObjectAsync(
           object : TypeReference<QueueEvent<TransactionExpiredEventV2>>() {}, jsonSerializerV2)
         .map { it.event to it.tracingInfo }
+        .onErrorResume {
+          logger.debug(ERROR_PARSING_EVENT_ERROR, it)
+          Mono.empty()
+        }
 
     return Mono.firstWithValue(
         transactionActivatedEventV1,

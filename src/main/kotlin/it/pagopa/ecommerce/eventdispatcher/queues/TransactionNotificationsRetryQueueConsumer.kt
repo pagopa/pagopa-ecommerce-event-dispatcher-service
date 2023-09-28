@@ -55,6 +55,10 @@ class TransactionNotificationsRetryQueueConsumer(
           object : TypeReference<QueueEvent<TransactionUserReceiptAddErrorEventV1>>() {},
           jsonSerializerV1)
         .map { it.event to it.tracingInfo }
+        .onErrorResume {
+          logger.debug(ERROR_PARSING_EVENT_ERROR, it)
+          Mono.empty()
+        }
 
     val notificationRetryEventV1 =
       data
@@ -62,24 +66,40 @@ class TransactionNotificationsRetryQueueConsumer(
           object : TypeReference<QueueEvent<TransactionUserReceiptAddRetriedEventV1>>() {},
           jsonSerializerV1)
         .map { it.event to it.tracingInfo }
+        .onErrorResume {
+          logger.debug(ERROR_PARSING_EVENT_ERROR, it)
+          Mono.empty()
+        }
 
     val untracedNotificationErrorEventV1 =
       data
         .toObjectAsync(
           object : TypeReference<TransactionUserReceiptAddErrorEventV1>() {}, jsonSerializerV1)
         .map { it to null }
+        .onErrorResume {
+          logger.debug(ERROR_PARSING_EVENT_ERROR, it)
+          Mono.empty()
+        }
 
     val untracedNotificationRetryEventV1 =
       data
         .toObjectAsync(
           object : TypeReference<TransactionUserReceiptAddRetriedEventV1>() {}, jsonSerializerV1)
         .map { it to null }
+        .onErrorResume {
+          logger.debug(ERROR_PARSING_EVENT_ERROR, it)
+          Mono.empty()
+        }
     val notificationErrorEventV2 =
       data
         .toObjectAsync(
           object : TypeReference<QueueEvent<TransactionUserReceiptAddErrorEventV2>>() {},
           jsonSerializerV2)
         .map { it.event to it.tracingInfo }
+        .onErrorResume {
+          logger.debug(ERROR_PARSING_EVENT_ERROR, it)
+          Mono.empty()
+        }
 
     val notificationRetryEventV2 =
       data
@@ -87,6 +107,10 @@ class TransactionNotificationsRetryQueueConsumer(
           object : TypeReference<QueueEvent<TransactionUserReceiptAddRetriedEventV2>>() {},
           jsonSerializerV2)
         .map { it.event to it.tracingInfo }
+        .onErrorResume {
+          logger.debug(ERROR_PARSING_EVENT_ERROR, it)
+          Mono.empty()
+        }
 
     return Mono.firstWithValue(
         notificationErrorEventV1,

@@ -34,6 +34,7 @@ import reactor.core.publisher.Mono
  * pending/transient state.
  */
 @Service("TransactionExpirationQueueConsumerV1")
+@Deprecated("Mark for deprecation in favor of V2 version")
 class TransactionExpirationQueueConsumer(
   @Autowired private val paymentGatewayClient: PaymentGatewayClient,
   @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,

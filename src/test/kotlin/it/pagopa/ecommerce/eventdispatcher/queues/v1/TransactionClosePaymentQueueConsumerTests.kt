@@ -487,7 +487,7 @@ class TransactionClosePaymentQueueConsumerTests {
 
       given(closureRetryService.enqueueRetryEvent(any(), any(), any())).willReturn(Mono.empty())
       /* test */
-
+      Hooks.onOperatorDebug()
       StepVerifier.create(
           transactionClosureEventsConsumer.messageReceiver(
             cancelRequestEvent as TransactionUserCanceledEvent to MOCK_TRACING_INFO, checkpointer))

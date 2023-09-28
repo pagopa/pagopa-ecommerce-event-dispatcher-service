@@ -66,7 +66,7 @@ class TransactionsRefundQueueConsumerTest {
 
   private val checkpointer: Checkpointer = mock()
 
-  private val transactionClosePaymentQueueConsumer =
+  private val queueConsumer =
     spy(
       TransactionsRefundQueueConsumer(
         queueConsumerV1 = queueConsumerV1,
@@ -169,7 +169,7 @@ class TransactionsRefundQueueConsumerTest {
     // test
     Hooks.onOperatorDebug()
     StepVerifier.create(
-        transactionClosePaymentQueueConsumer.messageReceiver(
+        queueConsumer.messageReceiver(
           serializedEvent.toByteArray(StandardCharsets.UTF_8), checkpointer))
       .verifyComplete()
     // assertions
@@ -200,7 +200,7 @@ class TransactionsRefundQueueConsumerTest {
     // test
     Hooks.onOperatorDebug()
     StepVerifier.create(
-        transactionClosePaymentQueueConsumer.messageReceiver(
+        queueConsumer.messageReceiver(
           serializedEvent.toByteArray(StandardCharsets.UTF_8), checkpointer))
       .verifyComplete()
     // assertions
@@ -228,7 +228,7 @@ class TransactionsRefundQueueConsumerTest {
     // test
     Hooks.onOperatorDebug()
     StepVerifier.create(
-        transactionClosePaymentQueueConsumer.messageReceiver(
+        queueConsumer.messageReceiver(
           invalidEvent.toByteArray(StandardCharsets.UTF_8), checkpointer))
       .expectNext(Unit)
       .verifyComplete()
@@ -256,7 +256,7 @@ class TransactionsRefundQueueConsumerTest {
       // test
       Hooks.onOperatorDebug()
       StepVerifier.create(
-          transactionClosePaymentQueueConsumer.messageReceiver(
+          queueConsumer.messageReceiver(
             invalidEvent.toByteArray(StandardCharsets.UTF_8), checkpointer))
         .expectError(java.lang.RuntimeException::class.java)
         .verify()
@@ -284,7 +284,7 @@ class TransactionsRefundQueueConsumerTest {
     // test
     Hooks.onOperatorDebug()
     StepVerifier.create(
-        transactionClosePaymentQueueConsumer.messageReceiver(
+        queueConsumer.messageReceiver(
           invalidEvent.toByteArray(StandardCharsets.UTF_8), checkpointer))
       .expectError(java.lang.RuntimeException::class.java)
       .verify()
@@ -310,10 +310,10 @@ class TransactionsRefundQueueConsumerTest {
     given(checkpointer.success()).willReturn(Mono.empty())
     given(deadLetterQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), any()))
       .willReturn(queueSuccessfulResponse())
-    given(transactionClosePaymentQueueConsumer.parseEvent(payload)).willReturn(Mono.just(mock()))
+    given(queueConsumer.parseEvent(payload)).willReturn(Mono.just(mock()))
     // test
     Hooks.onOperatorDebug()
-    StepVerifier.create(transactionClosePaymentQueueConsumer.messageReceiver(payload, checkpointer))
+    StepVerifier.create(queueConsumer.messageReceiver(payload, checkpointer))
       .expectNext(Unit)
       .verifyComplete()
     // assertions

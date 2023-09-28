@@ -30,6 +30,7 @@ import reactor.core.publisher.Mono
  * refund process retry for a given transaction
  */
 @Service("TransactionRefundRetryQueueConsumerV1")
+@Deprecated("Mark for deprecation in favor of V2 version")
 class TransactionRefundRetryQueueConsumer(
   @Autowired private val paymentGatewayClient: PaymentGatewayClient,
   @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,

@@ -14,6 +14,8 @@ object QueueCommonsLogger {
   val logger: Logger = LoggerFactory.getLogger(QueueCommonsLogger::class.java)
 }
 
+const val ERROR_PARSING_EVENT_ERROR = "Cannot parse event"
+
 fun writeEventToDeadLetterQueue(
   checkPointer: Checkpointer,
   eventPayload: ByteArray,

@@ -35,6 +35,7 @@ enum class TransactionDetailsStatusEnum(val status: String) {
 }
 
 @Service("NodeServiceV1")
+@Deprecated("Mark for deprecation in favor of V2 version")
 class NodeService(
   @Autowired private val nodeClient: NodeClient,
   @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>

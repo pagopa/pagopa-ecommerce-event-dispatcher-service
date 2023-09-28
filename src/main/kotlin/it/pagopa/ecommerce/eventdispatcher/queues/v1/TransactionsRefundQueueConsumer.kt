@@ -33,6 +33,7 @@ import reactor.kotlin.core.publisher.switchIfEmpty
  * transaction is stuck in an REFUND_REQUESTED state **and** needs to be reverted
  */
 @Service("TransactionsRefundQueueConsumerV1")
+@Deprecated("Mark for deprecation in favor of V2 version")
 class TransactionsRefundQueueConsumer(
   @Autowired private val paymentGatewayClient: PaymentGatewayClient,
   @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,

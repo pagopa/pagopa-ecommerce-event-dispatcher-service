@@ -54,12 +54,20 @@ class TransactionRefundRetryQueueConsumer(
           object : TypeReference<QueueEvent<TransactionRefundRetriedEventV1>>() {},
           jsonSerializerV1)
         .map { it.event to it.tracingInfo }
+        .onErrorResume {
+          logger.debug(ERROR_PARSING_EVENT_ERROR, it)
+          Mono.empty()
+        }
 
     val untracedRefundRetriedEventV1 =
       data
         .toObjectAsync(
           object : TypeReference<TransactionRefundRetriedEventV1>() {}, jsonSerializerV1)
         .map { it to null }
+        .onErrorResume {
+          logger.debug(ERROR_PARSING_EVENT_ERROR, it)
+          Mono.empty()
+        }
 
     val refundRetriedEventV2 =
       data
@@ -67,6 +75,10 @@ class TransactionRefundRetryQueueConsumer(
           object : TypeReference<QueueEvent<TransactionRefundRetriedEventV2>>() {},
           jsonSerializerV2)
         .map { it.event to it.tracingInfo }
+        .onErrorResume {
+          logger.debug(ERROR_PARSING_EVENT_ERROR, it)
+          Mono.empty()
+        }
 
     return Mono.firstWithValue(
         refundRetriedEventV1, untracedRefundRetriedEventV1, refundRetriedEventV2)

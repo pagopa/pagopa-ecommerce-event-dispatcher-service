@@ -57,6 +57,10 @@ class TransactionsRefundQueueConsumer(
           object : TypeReference<QueueEvent<TransactionRefundRequestedEventV1>>() {},
           jsonSerializerV1)
         .map { it.event to it.tracingInfo }
+        .onErrorResume {
+          logger.debug(ERROR_PARSING_EVENT_ERROR, it)
+          Mono.empty()
+        }
 
     val refundRetriedEventV1 =
       data
@@ -64,18 +68,30 @@ class TransactionsRefundQueueConsumer(
           object : TypeReference<QueueEvent<TransactionRefundRetriedEventV1>>() {},
           jsonSerializerV1)
         .map { it.event to it.tracingInfo }
+        .onErrorResume {
+          logger.debug(ERROR_PARSING_EVENT_ERROR, it)
+          Mono.empty()
+        }
 
     val untracedRefundRequestedEventV1 =
       data
         .toObjectAsync(
           object : TypeReference<TransactionRefundRequestedEventV1>() {}, jsonSerializerV1)
         .map { it to null }
+        .onErrorResume {
+          logger.debug(ERROR_PARSING_EVENT_ERROR, it)
+          Mono.empty()
+        }
 
     val untracedRefundRetriedEventV1 =
       data
         .toObjectAsync(
           object : TypeReference<TransactionRefundRetriedEventV1>() {}, jsonSerializerV1)
         .map { it to null }
+        .onErrorResume {
+          logger.debug(ERROR_PARSING_EVENT_ERROR, it)
+          Mono.empty()
+        }
 
     val refundRequestedEventV2 =
       data
@@ -83,6 +99,10 @@ class TransactionsRefundQueueConsumer(
           object : TypeReference<QueueEvent<TransactionRefundRequestedEventV2>>() {},
           jsonSerializerV2)
         .map { it.event to it.tracingInfo }
+        .onErrorResume {
+          logger.debug(ERROR_PARSING_EVENT_ERROR, it)
+          Mono.empty()
+        }
 
     val refundRetriedEventV2 =
       data
@@ -90,6 +110,10 @@ class TransactionsRefundQueueConsumer(
           object : TypeReference<QueueEvent<TransactionRefundRetriedEventV2>>() {},
           jsonSerializerV2)
         .map { it.event to it.tracingInfo }
+        .onErrorResume {
+          logger.debug(ERROR_PARSING_EVENT_ERROR, it)
+          Mono.empty()
+        }
 
     return Mono.firstWithValue(
         refundRequestedEventV1,
@@ -99,7 +123,7 @@ class TransactionsRefundQueueConsumer(
         refundRequestedEventV2,
         refundRetriedEventV2,
       )
-      .onErrorMap { InvalidEventException(data.toBytes(), it) }
+      .onErrorMap(NoSuchElementException::class.java) { InvalidEventException(data.toBytes(), it) }
   }
 
   @ServiceActivator(inputChannel = "transactionsrefundchannel", outputChannel = "nullChannel")

@@ -54,22 +54,38 @@ class TransactionClosePaymentRetryQueueConsumer(
           object : TypeReference<QueueEvent<TransactionClosureRetriedEventV1>>() {},
           jsonSerializerV1)
         .map { it.event to it.tracingInfo }
+        .onErrorResume {
+          logger.debug(ERROR_PARSING_EVENT_ERROR, it)
+          Mono.empty()
+        }
     val closureErrorEventV1 =
       data
         .toObjectAsync(
           object : TypeReference<QueueEvent<TransactionClosureErrorEventV1>>() {}, jsonSerializerV1)
         .map { it.event to it.tracingInfo }
+        .onErrorResume {
+          logger.debug(ERROR_PARSING_EVENT_ERROR, it)
+          Mono.empty()
+        }
 
     val untracedClosureRetriedEventV1 =
       data
         .toObjectAsync(
           object : TypeReference<TransactionClosureRetriedEventV1>() {}, jsonSerializerV1)
         .map { it to null }
+        .onErrorResume {
+          logger.debug(ERROR_PARSING_EVENT_ERROR, it)
+          Mono.empty()
+        }
     val untracedClosureErrorEventV1 =
       data
         .toObjectAsync(
           object : TypeReference<TransactionClosureErrorEventV1>() {}, jsonSerializerV1)
         .map { it to null }
+        .onErrorResume {
+          logger.debug(ERROR_PARSING_EVENT_ERROR, it)
+          Mono.empty()
+        }
 
     val closureRetriedEventV2 =
       data
@@ -77,11 +93,19 @@ class TransactionClosePaymentRetryQueueConsumer(
           object : TypeReference<QueueEvent<TransactionClosureRetriedEventV2>>() {},
           jsonSerializerV2)
         .map { it.event to it.tracingInfo }
+        .onErrorResume {
+          logger.debug(ERROR_PARSING_EVENT_ERROR, it)
+          Mono.empty()
+        }
     val closureErrorEventV2 =
       data
         .toObjectAsync(
           object : TypeReference<QueueEvent<TransactionClosureErrorEventV2>>() {}, jsonSerializerV2)
         .map { it.event to it.tracingInfo }
+        .onErrorResume {
+          logger.debug(ERROR_PARSING_EVENT_ERROR, it)
+          Mono.empty()
+        }
 
     return Mono.firstWithValue(
         closureRetriedEventV1,
