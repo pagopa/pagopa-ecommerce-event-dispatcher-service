@@ -1,7 +1,7 @@
 package it.pagopa.ecommerce.eventdispatcher.utils
 
 import it.pagopa.ecommerce.commons.domain.Confidential
-import it.pagopa.ecommerce.commons.domain.v1.Email
+import it.pagopa.ecommerce.commons.domain.Email
 import it.pagopa.ecommerce.commons.utils.ConfidentialDataManager
 import kotlinx.coroutines.reactor.awaitSingle
 import org.slf4j.LoggerFactory

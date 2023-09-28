@@ -1,12 +1,11 @@
 package it.pagopa.ecommerce.eventdispatcher.exceptions
 
-import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
-import it.pagopa.ecommerce.commons.domain.v1.TransactionId
+import it.pagopa.ecommerce.commons.domain.TransactionId
 
 open class NoRetryAttemptsLeftException(message: String) : RuntimeException(message) {
   constructor(
     transactionId: TransactionId,
-    eventCode: TransactionEventCode
+    eventCode: String
   ) : this(
     "No attempts left for retry event $eventCode for transaction id: ${transactionId.value()}")
 }

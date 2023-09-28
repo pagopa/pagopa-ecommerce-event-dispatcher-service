@@ -1,12 +1,11 @@
 package it.pagopa.ecommerce.eventdispatcher.exceptions
 
-import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
-import it.pagopa.ecommerce.commons.domain.v1.TransactionId
+import it.pagopa.ecommerce.commons.domain.TransactionId
 import java.time.Instant
 
 class TooLateRetryAttemptException(
   transactionId: TransactionId,
-  eventCode: TransactionEventCode,
+  eventCode: String,
   visibilityTimeout: Instant
 ) :
   NoRetryAttemptsLeftException(

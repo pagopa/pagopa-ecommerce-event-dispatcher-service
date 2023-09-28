@@ -6,21 +6,16 @@ import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
 import io.vavr.control.Either
-import it.pagopa.ecommerce.commons.documents.v1.TransactionRefundRequestedEvent
-import it.pagopa.ecommerce.commons.documents.v1.TransactionRefundRetriedEvent
-import it.pagopa.ecommerce.commons.documents.v1.TransactionRefundedData
-import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
-import it.pagopa.ecommerce.commons.domain.v1.Transaction
-import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransaction
-import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithRefundRequested
-import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
+import it.pagopa.ecommerce.commons.documents.BaseTransactionEvent
+import it.pagopa.ecommerce.commons.documents.v1.TransactionRefundRequestedEvent as TransactionRefundRequestedEventV1
+import it.pagopa.ecommerce.commons.documents.v1.TransactionRefundRetriedEvent as TransactionRefundRetriedEventV1
+import it.pagopa.ecommerce.commons.documents.v2.TransactionRefundRequestedEvent as TransactionRefundRequestedEventV2
+import it.pagopa.ecommerce.commons.documents.v2.TransactionRefundRetriedEvent as TransactionRefundRetriedEventV2
 import it.pagopa.ecommerce.commons.queues.QueueEvent
+import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingInfo
-import it.pagopa.ecommerce.commons.queues.TracingUtils
-import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
-import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
-import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
-import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryService
+import it.pagopa.ecommerce.eventdispatcher.exceptions.InvalidEventException
+import java.util.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -30,132 +25,145 @@ import org.springframework.messaging.handler.annotation.Header
 import org.springframework.messaging.handler.annotation.Payload
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
-import reactor.kotlin.core.publisher.switchIfEmpty
 
 /**
  * Event consumer for transactions to refund. These events are input in the event queue only when a
  * transaction is stuck in an REFUND_REQUESTED state **and** needs to be reverted
  */
-@Service
+@Service("TransactionsRefundQueueConsumer")
 class TransactionsRefundQueueConsumer(
-  @Autowired private val paymentGatewayClient: PaymentGatewayClient,
-  @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,
   @Autowired
-  private val transactionsRefundedEventStoreRepository:
-    TransactionsEventStoreRepository<TransactionRefundedData>,
-  @Autowired private val transactionsViewRepository: TransactionsViewRepository,
-  @Autowired private val refundRetryService: RefundRetryService,
+  private val queueConsumerV1:
+    it.pagopa.ecommerce.eventdispatcher.queues.v1.TransactionsRefundQueueConsumer,
+  @Autowired
+  private val queueConsumerV2:
+    it.pagopa.ecommerce.eventdispatcher.queues.v2.TransactionsRefundQueueConsumer,
   @Autowired private val deadLetterQueueAsyncClient: QueueAsyncClient,
   @Value("\${azurestorage.queues.deadLetterQueue.ttlSeconds}")
   private val deadLetterTTLSeconds: Int,
-  @Autowired private val tracingUtils: TracingUtils,
+  @Autowired private val strictSerializerProviderV1: StrictJsonSerializerProvider,
+  @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider
 ) {
 
   var logger: Logger = LoggerFactory.getLogger(TransactionsRefundQueueConsumer::class.java)
 
-  private fun parseEvent(
-    data: BinaryData
-  ): Mono<
-    Pair<Either<TransactionRefundRetriedEvent, TransactionRefundRequestedEvent>, TracingInfo?>> {
-    val refundRequestedEvent =
+  fun parseEvent(payload: ByteArray): Mono<Pair<BaseTransactionEvent<*>, TracingInfo?>> {
+    val data = BinaryData.fromBytes(payload)
+    val jsonSerializerV1 = strictSerializerProviderV1.createInstance()
+    val jsonSerializerV2 = strictSerializerProviderV2.createInstance()
+    val refundRequestedEventV1 =
       data
-        .toObjectAsync(object : TypeReference<QueueEvent<TransactionRefundRequestedEvent>>() {})
-        .map {
-          Either.right<TransactionRefundRetriedEvent, TransactionRefundRequestedEvent>(it.event) to
-            it.tracingInfo
+        .toObjectAsync(
+          object : TypeReference<QueueEvent<TransactionRefundRequestedEventV1>>() {},
+          jsonSerializerV1)
+        .map { it.event to it.tracingInfo }
+        .onErrorResume {
+          logger.debug(ERROR_PARSING_EVENT_ERROR, it)
+          Mono.empty()
         }
 
-    val refundRetriedEvent =
+    val refundRetriedEventV1 =
       data
-        .toObjectAsync(object : TypeReference<QueueEvent<TransactionRefundRetriedEvent>>() {})
-        .map {
-          Either.left<TransactionRefundRetriedEvent, TransactionRefundRequestedEvent>(it.event) to
-            it.tracingInfo
+        .toObjectAsync(
+          object : TypeReference<QueueEvent<TransactionRefundRetriedEventV1>>() {},
+          jsonSerializerV1)
+        .map { it.event to it.tracingInfo }
+        .onErrorResume {
+          logger.debug(ERROR_PARSING_EVENT_ERROR, it)
+          Mono.empty()
         }
 
-    val untracedRefundRequestedEvent =
-      data.toObjectAsync(object : TypeReference<TransactionRefundRequestedEvent>() {}).map {
-        Either.right<TransactionRefundRetriedEvent, TransactionRefundRequestedEvent>(it) to null
-      }
+    val untracedRefundRequestedEventV1 =
+      data
+        .toObjectAsync(
+          object : TypeReference<TransactionRefundRequestedEventV1>() {}, jsonSerializerV1)
+        .map { it to null }
+        .onErrorResume {
+          logger.debug(ERROR_PARSING_EVENT_ERROR, it)
+          Mono.empty()
+        }
 
-    val untracedRefundRetriedEvent =
-      data.toObjectAsync(object : TypeReference<TransactionRefundRetriedEvent>() {}).map {
-        Either.left<TransactionRefundRetriedEvent, TransactionRefundRequestedEvent>(it) to null
-      }
+    val untracedRefundRetriedEventV1 =
+      data
+        .toObjectAsync(
+          object : TypeReference<TransactionRefundRetriedEventV1>() {}, jsonSerializerV1)
+        .map { it to null }
+        .onErrorResume {
+          logger.debug(ERROR_PARSING_EVENT_ERROR, it)
+          Mono.empty()
+        }
+
+    val refundRequestedEventV2 =
+      data
+        .toObjectAsync(
+          object : TypeReference<QueueEvent<TransactionRefundRequestedEventV2>>() {},
+          jsonSerializerV2)
+        .map { it.event to it.tracingInfo }
+        .onErrorResume {
+          logger.debug(ERROR_PARSING_EVENT_ERROR, it)
+          Mono.empty()
+        }
+
+    val refundRetriedEventV2 =
+      data
+        .toObjectAsync(
+          object : TypeReference<QueueEvent<TransactionRefundRetriedEventV2>>() {},
+          jsonSerializerV2)
+        .map { it.event to it.tracingInfo }
+        .onErrorResume {
+          logger.debug(ERROR_PARSING_EVENT_ERROR, it)
+          Mono.empty()
+        }
 
     return Mono.firstWithValue(
-      refundRequestedEvent,
-      refundRetriedEvent,
-      untracedRefundRequestedEvent,
-      untracedRefundRetriedEvent)
-  }
-
-  private fun getTransactionIdFromPayload(
-    event: Either<TransactionRefundRetriedEvent, TransactionRefundRequestedEvent>
-  ): String {
-    return event.fold({ it.transactionId }, { it.transactionId })
+        refundRequestedEventV1,
+        refundRetriedEventV1,
+        untracedRefundRequestedEventV1,
+        untracedRefundRetriedEventV1,
+        refundRequestedEventV2,
+        refundRetriedEventV2,
+      )
+      .onErrorMap(NoSuchElementException::class.java) { InvalidEventException(data.toBytes(), it) }
   }
 
   @ServiceActivator(inputChannel = "transactionsrefundchannel", outputChannel = "nullChannel")
   fun messageReceiver(
     @Payload payload: ByteArray,
     @Header(AzureHeaders.CHECKPOINTER) checkPointer: Checkpointer
-  ): Mono<Void> {
-    val binaryData = BinaryData.fromBytes(payload)
-    val eventData = parseEvent(binaryData)
-    val transactionId = eventData.map { getTransactionIdFromPayload(it.first) }
-
-    val refundPipeline =
-      transactionId
-        .flatMapMany {
-          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(it)
+  ): Mono<Unit> {
+    val eventWithTracingInfo = parseEvent(payload)
+    return eventWithTracingInfo
+      .flatMap { (e, tracingInfo) ->
+        when (e) {
+          is TransactionRefundRequestedEventV1 -> {
+            logger.debug("Event {} with tracing info {} dispatched to V1 handler", e, tracingInfo)
+            queueConsumerV1.messageReceiver(Pair(Either.right(e), tracingInfo), checkPointer)
+          }
+          is TransactionRefundRetriedEventV1 -> {
+            logger.debug("Event {} with tracing info {} dispatched to V1 handler", e, tracingInfo)
+            queueConsumerV1.messageReceiver(Pair(Either.left(e), tracingInfo), checkPointer)
+          }
+          is TransactionRefundRequestedEventV2 -> {
+            logger.debug("Event {} with tracing info {} dispatched to V2 handler", e, tracingInfo)
+            queueConsumerV2.messageReceiver(Either.right(QueueEvent(e, tracingInfo)), checkPointer)
+          }
+          is TransactionRefundRetriedEventV2 -> {
+            logger.debug("Event {} with tracing info {} dispatched to V2 handler", e, tracingInfo)
+            queueConsumerV2.messageReceiver(Either.left(QueueEvent(e, tracingInfo)), checkPointer)
+          }
+          else -> {
+            logger.error(
+              "Event {} with tracing info {} cannot be dispatched to any know handler",
+              e,
+              tracingInfo)
+            Mono.error(InvalidEventException(payload, null))
+          }
         }
-        .reduce(EmptyTransaction(), Transaction::applyEvent)
-        .cast(BaseTransaction::class.java)
-        .filter { it.status == TransactionStatusDto.REFUND_REQUESTED }
-        .switchIfEmpty {
-          return@switchIfEmpty transactionId
-            .doOnNext {
-              logger.info("Transaction $it was not previously authorized. No refund needed")
-            }
-            .flatMap { Mono.empty() }
-        }
-        .doOnNext {
-          logger.info("Handling refund request for transaction with id ${it.transactionId.value()}")
-        }
-        .cast(BaseTransactionWithRefundRequested::class.java)
-        .zipWith(eventData, ::Pair)
-        .flatMap { (tx, eventData) ->
-          val tracingInfo = eventData.second
-
-          refundTransaction(
-            tx,
-            transactionsRefundedEventStoreRepository,
-            transactionsViewRepository,
-            paymentGatewayClient,
-            refundRetryService,
-            tracingInfo)
-        }
-
-    return eventData.flatMap { (e, tracingInfo) ->
-      if (tracingInfo != null) {
-        val event = e.fold({ QueueEvent(it, tracingInfo) }, { QueueEvent(it, tracingInfo) })
-
-        runTracedPipelineWithDeadLetterQueue(
-          checkPointer,
-          refundPipeline,
-          event,
-          deadLetterQueueAsyncClient,
-          deadLetterTTLSeconds,
-          tracingUtils,
-          this::class.simpleName!!)
-      } else {
-        val event =
-          e.fold({ BinaryData.fromObject(it).toBytes() }, { BinaryData.fromObject(it).toBytes() })
-
-        runPipelineWithDeadLetterQueue(
-          checkPointer, refundPipeline, event, deadLetterQueueAsyncClient, deadLetterTTLSeconds)
       }
-    }
+      .onErrorResume(InvalidEventException::class.java) {
+        logger.error("Invalid input event", it)
+        writeEventToDeadLetterQueue(
+          checkPointer, payload, it, deadLetterQueueAsyncClient, deadLetterTTLSeconds)
+      }
   }
 }
