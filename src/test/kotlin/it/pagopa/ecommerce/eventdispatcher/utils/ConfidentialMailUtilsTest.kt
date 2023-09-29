@@ -1,6 +1,6 @@
 package it.pagopa.ecommerce.eventdispatcher.utils
 
-import it.pagopa.ecommerce.commons.domain.v1.Email
+import it.pagopa.ecommerce.commons.domain.Email
 import it.pagopa.ecommerce.commons.utils.ConfidentialDataManager
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils
 import java.util.function.Function

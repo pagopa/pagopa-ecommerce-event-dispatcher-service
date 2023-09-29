@@ -1,498 +1,281 @@
 package it.pagopa.ecommerce.eventdispatcher.queues
 
 import com.azure.core.util.BinaryData
-import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
-import it.pagopa.ecommerce.commons.documents.v1.*
-import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
-import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
+import it.pagopa.ecommerce.commons.documents.BaseTransactionEvent
 import it.pagopa.ecommerce.commons.queues.QueueEvent
-import it.pagopa.ecommerce.commons.queues.TracingInfoTest.MOCK_TRACING_INFO
-import it.pagopa.ecommerce.commons.queues.TracingUtilsTests
-import it.pagopa.ecommerce.commons.v1.TransactionTestUtils
-import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
-import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
-import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
-import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryService
-import it.pagopa.ecommerce.eventdispatcher.utils.DEAD_LETTER_QUEUE_TTL_SECONDS
+import it.pagopa.ecommerce.commons.queues.TracingInfo
+import it.pagopa.ecommerce.commons.queues.TracingInfoTest
+import it.pagopa.ecommerce.eventdispatcher.config.QueuesConsumerConfig
 import it.pagopa.ecommerce.eventdispatcher.utils.queueSuccessfulResponse
-import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
+import java.nio.charset.StandardCharsets
 import java.time.Duration
-import java.time.ZonedDateTime
+import java.util.stream.Stream
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.extension.ExtendWith
-import org.mockito.ArgumentCaptor
-import org.mockito.Captor
-import org.mockito.junit.jupiter.MockitoExtension
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
 import org.mockito.kotlin.*
-import reactor.core.publisher.Flux
+import reactor.core.publisher.Hooks
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
 
-@ExtendWith(MockitoExtension::class)
 @OptIn(ExperimentalCoroutinesApi::class)
 class TransactionRefundRetryQueueConsumerTest {
 
-  private val paymentGatewayClient: PaymentGatewayClient = mock()
-
-  private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any> = mock()
-  private val transactionsRefundedEventStoreRepository:
-    TransactionsEventStoreRepository<TransactionRefundedData> =
+  private val queueConsumerV1:
+    it.pagopa.ecommerce.eventdispatcher.queues.v1.TransactionRefundRetryQueueConsumer =
     mock()
 
-  private val transactionsViewRepository: TransactionsViewRepository = mock()
-  private val checkpointer: Checkpointer = mock()
-
-  private val refundRetryService: RefundRetryService = mock()
-
-  private val tracingUtils = TracingUtilsTests.getMock()
-
-  @Captor private lateinit var transactionViewRepositoryCaptor: ArgumentCaptor<Transaction>
-
-  @Captor
-  private lateinit var transactionRefundEventStoreCaptor:
-    ArgumentCaptor<TransactionEvent<TransactionRefundedData>>
-
-  @Captor private lateinit var retryCountCaptor: ArgumentCaptor<Int>
-
+  private val queueConsumerV2:
+    it.pagopa.ecommerce.eventdispatcher.queues.v2.TransactionRefundRetryQueueConsumer =
+    mock()
   private val deadLetterQueueAsyncClient: QueueAsyncClient = mock()
 
-  private val transactionRefundRetryQueueConsumer =
-    TransactionRefundRetryQueueConsumer(
-      paymentGatewayClient = paymentGatewayClient,
-      transactionsEventStoreRepository = transactionsEventStoreRepository,
-      transactionsRefundedEventStoreRepository = transactionsRefundedEventStoreRepository,
-      transactionsViewRepository = transactionsViewRepository,
-      refundRetryService = refundRetryService,
-      deadLetterQueueAsyncClient = deadLetterQueueAsyncClient,
-      deadLetterTTLSeconds = DEAD_LETTER_QUEUE_TTL_SECONDS,
-      tracingUtils = tracingUtils)
+  private val deadLetterTTLSeconds = 1
 
-  @Test
-  fun `messageReceiver consume event correctly with OK outcome from gateway`() = runTest {
-    val activatedEvent = TransactionTestUtils.transactionActivateEvent()
+  private val queueConsumerV1Captor:
+    KArgumentCaptor<
+      Pair<it.pagopa.ecommerce.commons.documents.v1.TransactionRefundRetriedEvent, TracingInfo?>> =
+    argumentCaptor<
+      Pair<it.pagopa.ecommerce.commons.documents.v1.TransactionRefundRetriedEvent, TracingInfo?>>()
 
-    val authorizationRequestedEvent = TransactionTestUtils.transactionAuthorizationRequestedEvent()
+  private val queueConsumerV2Captor:
+    KArgumentCaptor<
+      QueueEvent<it.pagopa.ecommerce.commons.documents.v2.TransactionRefundRetriedEvent>> =
+    argumentCaptor<
+      QueueEvent<it.pagopa.ecommerce.commons.documents.v2.TransactionRefundRetriedEvent>>()
 
-    val expiredEvent =
-      TransactionTestUtils.transactionExpiredEvent(
-        TransactionTestUtils.reduceEvents(activatedEvent, authorizationRequestedEvent))
-    val refundRequestedEvent =
-      TransactionTestUtils.transactionRefundRequestedEvent(
-        TransactionTestUtils.reduceEvents(
-          activatedEvent, authorizationRequestedEvent, expiredEvent))
-    val refundErrorEvent =
-      TransactionTestUtils.transactionRefundErrorEvent(
-        TransactionTestUtils.reduceEvents(
-          activatedEvent, authorizationRequestedEvent, expiredEvent, refundRequestedEvent))
-    val refundRetriedEvent = TransactionTestUtils.transactionRefundRetriedEvent(0)
+  private val checkpointer: Checkpointer = mock()
 
-    val gatewayClientResponse =
-      VposDeleteResponseDto().apply { status = VposDeleteResponseDto.StatusEnum.CANCELLED }
+  private val transactionClosePaymentQueueConsumer =
+    spy(
+      TransactionRefundRetryQueueConsumer(
+        queueConsumerV1 = queueConsumerV1,
+        queueConsumerV2 = queueConsumerV2,
+        deadLetterQueueAsyncClient = deadLetterQueueAsyncClient,
+        deadLetterTTLSeconds = deadLetterTTLSeconds,
+        strictSerializerProviderV1 = strictSerializerProviderV1,
+        strictSerializerProviderV2 = strictSerializerProviderV2))
 
-    /* preconditions */
-    given(checkpointer.success()).willReturn(Mono.empty())
-    given(
-        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
-          any(),
-        ))
-      .willReturn(
-        Flux.just(
-          activatedEvent as TransactionEvent<Any>,
-          authorizationRequestedEvent as TransactionEvent<Any>,
-          expiredEvent as TransactionEvent<Any>,
-          refundRequestedEvent as TransactionEvent<Any>,
-          refundRetriedEvent as TransactionEvent<Any>,
-          refundErrorEvent as TransactionEvent<Any>))
+  companion object {
+    private val queuesConsumerConfig = QueuesConsumerConfig()
 
-    given(
-        transactionsRefundedEventStoreRepository.save(transactionRefundEventStoreCaptor.capture()))
-      .willAnswer { Mono.just(it.arguments[0]) }
-    given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
-      Mono.just(it.arguments[0])
+    val strictSerializerProviderV1 = queuesConsumerConfig.strictSerializerProviderV1()
+
+    val strictSerializerProviderV2 = queuesConsumerConfig.strictSerializerProviderV2()
+    private val refundRetryV1 =
+      it.pagopa.ecommerce.commons.v1.TransactionTestUtils.transactionRefundRetriedEvent(1)
+    private val refundRetryV2 =
+      it.pagopa.ecommerce.commons.v2.TransactionTestUtils.transactionRefundRetriedEvent(1)
+    private val tracingInfo = TracingInfoTest.MOCK_TRACING_INFO
+
+    @JvmStatic
+    fun eventToHandleTestV1(): Stream<Arguments> {
+
+      return Stream.of(
+        Arguments.of(
+          String(
+            BinaryData.fromObject(refundRetryV1, strictSerializerProviderV1.createInstance())
+              .toBytes(),
+            StandardCharsets.UTF_8),
+          refundRetryV1,
+          false),
+        Arguments.of(
+          String(
+            BinaryData.fromObject(
+                QueueEvent(refundRetryV1, tracingInfo), strictSerializerProviderV1.createInstance())
+              .toBytes(),
+            StandardCharsets.UTF_8),
+          refundRetryV1,
+          true),
+      )
     }
-    given(paymentGatewayClient.requestVPosRefund(any()))
-      .willReturn(Mono.just(gatewayClientResponse))
-    given(refundRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture(), any()))
-      .willReturn(Mono.empty())
-    given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
-      .willReturn(
-        Mono.just(
-          TransactionTestUtils.transactionDocument(
-            TransactionStatusDto.REFUND_ERROR, ZonedDateTime.now())))
-    /* test */
-    StepVerifier.create(
-        transactionRefundRetryQueueConsumer.messageReceiver(
-          BinaryData.fromObject(QueueEvent(refundRetriedEvent, MOCK_TRACING_INFO)).toBytes(),
-          checkpointer))
-      .verifyComplete()
 
-    /* Asserts */
-    verify(checkpointer, times(1)).success()
-    verify(paymentGatewayClient, times(1)).requestVPosRefund(any())
-    assertEquals(
-      TransactionStatusDto.REFUNDED,
-      transactionViewRepositoryCaptor.value.status,
-      "Unexpected view status")
-    assertEquals(
-      TransactionEventCode.TRANSACTION_REFUNDED_EVENT,
-      transactionRefundEventStoreCaptor.value.eventCode,
-      "Unexpected event code")
-    verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
+    @JvmStatic
+    fun eventToHandleTestV2(): Stream<Arguments> {
+
+      return Stream.of(
+        Arguments.of(
+          String(
+            BinaryData.fromObject(
+                QueueEvent(refundRetryV2, tracingInfo), strictSerializerProviderV2.createInstance())
+              .toBytes(),
+            StandardCharsets.UTF_8),
+          refundRetryV2),
+      )
+    }
+  }
+
+  @ParameterizedTest
+  @MethodSource("eventToHandleTestV1")
+  fun `Should dispatch TransactionV1 events`(
+    serializedEvent: String,
+    originalEvent: BaseTransactionEvent<*>,
+    withTracingInfo: Boolean
+  ) = runTest {
+    // pre-condition
+    println("Serialized event: $serializedEvent")
+    given(queueConsumerV1.messageReceiver(queueConsumerV1Captor.capture(), any()))
+      .willReturn(Mono.empty())
+    // test
+    Hooks.onOperatorDebug()
+    StepVerifier.create(
+        transactionClosePaymentQueueConsumer.messageReceiver(
+          serializedEvent.toByteArray(StandardCharsets.UTF_8), checkpointer))
+      .verifyComplete()
+    // assertions
+    verify(queueConsumerV1, times(1)).messageReceiver(any(), any())
+    verify(queueConsumerV2, times(0)).messageReceiver(any(), any())
+    verify(deadLetterQueueAsyncClient, times(0))
+      .sendMessageWithResponse(any<BinaryData>(), any(), any())
+    val (parsedEvent, tracingInfo) = queueConsumerV1Captor.firstValue
+    assertEquals(originalEvent, parsedEvent)
+    if (withTracingInfo) {
+      assertNotNull(tracingInfo)
+    } else {
+      assertNull(tracingInfo)
+    }
+  }
+
+  @ParameterizedTest
+  @MethodSource("eventToHandleTestV2")
+  fun `Should dispatch TransactionV2 events`(
+    serializedEvent: String,
+    originalEvent: BaseTransactionEvent<*>
+  ) = runTest {
+    // pre-condition
+    println("Serialized event: $serializedEvent")
+    given(queueConsumerV2.messageReceiver(queueConsumerV2Captor.capture(), any()))
+      .willReturn(Mono.empty())
+    // test
+    Hooks.onOperatorDebug()
+    StepVerifier.create(
+        transactionClosePaymentQueueConsumer.messageReceiver(
+          serializedEvent.toByteArray(StandardCharsets.UTF_8), checkpointer))
+      .verifyComplete()
+    // assertions
+    verify(queueConsumerV1, times(0)).messageReceiver(any(), any())
+    verify(queueConsumerV2, times(1)).messageReceiver(any(), any())
+    verify(deadLetterQueueAsyncClient, times(0))
+      .sendMessageWithResponse(any<BinaryData>(), any(), any())
+    val queueEvent = queueConsumerV2Captor.firstValue
+    assertEquals(originalEvent, queueEvent.event)
+    assertNotNull(queueEvent.tracingInfo)
   }
 
   @Test
-  fun `messageReceiver consume event correctly with KO outcome AUTHORIZED from gateway writing refund error event`() =
-    runTest {
-      val retryCount = 0
-      val activatedEvent = TransactionTestUtils.transactionActivateEvent()
-
-      val authorizationRequestedEvent =
-        TransactionTestUtils.transactionAuthorizationRequestedEvent()
-
-      val expiredEvent =
-        TransactionTestUtils.transactionExpiredEvent(
-          TransactionTestUtils.reduceEvents(activatedEvent, authorizationRequestedEvent))
-      val refundRequestedEvent =
-        TransactionTestUtils.transactionRefundRequestedEvent(
-          TransactionTestUtils.reduceEvents(
-            activatedEvent, authorizationRequestedEvent, expiredEvent))
-      val refundErrorEvent =
-        TransactionTestUtils.transactionRefundErrorEvent(
-          TransactionTestUtils.reduceEvents(
-            activatedEvent, authorizationRequestedEvent, expiredEvent, refundRequestedEvent))
-      val refundRetriedEvent = TransactionTestUtils.transactionRefundRetriedEvent(retryCount)
-
-      val gatewayClientResponse =
-        VposDeleteResponseDto().apply { status = VposDeleteResponseDto.StatusEnum.AUTHORIZED }
-
-      /* preconditions */
-      given(checkpointer.success()).willReturn(Mono.empty())
-      given(
-          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
-            any(),
-          ))
-        .willReturn(
-          Flux.just(
-            activatedEvent as TransactionEvent<Any>,
-            authorizationRequestedEvent as TransactionEvent<Any>,
-            expiredEvent as TransactionEvent<Any>,
-            refundRequestedEvent as TransactionEvent<Any>,
-            refundRetriedEvent as TransactionEvent<Any>,
-            refundErrorEvent as TransactionEvent<Any>))
-
-      given(
-          transactionsRefundedEventStoreRepository.save(
-            transactionRefundEventStoreCaptor.capture()))
-        .willAnswer { Mono.just(it.arguments[0]) }
-      given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
-        Mono.just(it.arguments[0])
-      }
-      given(paymentGatewayClient.requestVPosRefund(any()))
-        .willReturn(Mono.just(gatewayClientResponse))
-      given(refundRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture(), any()))
-        .willReturn(Mono.empty())
-      given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
-        .willReturn(
-          Mono.just(
-            TransactionTestUtils.transactionDocument(
-              TransactionStatusDto.REFUND_ERROR, ZonedDateTime.now())))
-      /* test */
-      StepVerifier.create(
-          transactionRefundRetryQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(refundRetriedEvent, MOCK_TRACING_INFO)).toBytes(),
-            checkpointer))
-        .verifyComplete()
-
-      /* Asserts */
-      verify(checkpointer, times(1)).success()
-      verify(paymentGatewayClient, times(1)).requestVPosRefund(any())
-      verify(transactionsRefundedEventStoreRepository, times(1)).save(any())
-      verify(transactionsViewRepository, times(1)).save(any())
-      verify(refundRetryService, times(1)).enqueueRetryEvent(any(), any(), any())
-      assertEquals(retryCount, retryCountCaptor.value)
-      assertEquals(TransactionStatusDto.REFUND_ERROR, transactionViewRepositoryCaptor.value.status)
-      assertEquals(
-        TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT,
-        transactionRefundEventStoreCaptor.value.eventCode)
-    }
-
-  @Test
-  fun `messageReceiver consume legacy event correctly with OK outcome from gateway`() = runTest {
-    val activatedEvent = TransactionTestUtils.transactionActivateEvent()
-
-    val authorizationRequestedEvent = TransactionTestUtils.transactionAuthorizationRequestedEvent()
-
-    val expiredEvent =
-      TransactionTestUtils.transactionExpiredEvent(
-        TransactionTestUtils.reduceEvents(activatedEvent, authorizationRequestedEvent))
-    val refundRequestedEvent =
-      TransactionTestUtils.transactionRefundRequestedEvent(
-        TransactionTestUtils.reduceEvents(
-          activatedEvent, authorizationRequestedEvent, expiredEvent))
-    val refundErrorEvent =
-      TransactionTestUtils.transactionRefundErrorEvent(
-        TransactionTestUtils.reduceEvents(
-          activatedEvent, authorizationRequestedEvent, expiredEvent, refundRequestedEvent))
-    val refundRetriedEvent = TransactionTestUtils.transactionRefundRetriedEvent(0)
-
-    val gatewayClientResponse =
-      VposDeleteResponseDto().apply { status = VposDeleteResponseDto.StatusEnum.CANCELLED }
-
-    /* preconditions */
-    given(checkpointer.success()).willReturn(Mono.empty())
-    given(
-        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
-          any(),
-        ))
-      .willReturn(
-        Flux.just(
-          activatedEvent as TransactionEvent<Any>,
-          authorizationRequestedEvent as TransactionEvent<Any>,
-          expiredEvent as TransactionEvent<Any>,
-          refundRequestedEvent as TransactionEvent<Any>,
-          refundRetriedEvent as TransactionEvent<Any>,
-          refundErrorEvent as TransactionEvent<Any>))
-
-    given(
-        transactionsRefundedEventStoreRepository.save(transactionRefundEventStoreCaptor.capture()))
-      .willAnswer { Mono.just(it.arguments[0]) }
-    given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
-      Mono.just(it.arguments[0])
-    }
-    given(paymentGatewayClient.requestVPosRefund(any()))
-      .willReturn(Mono.just(gatewayClientResponse))
-    given(refundRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture(), any()))
+  fun `Should write event to dead letter queue for invalid event received`() = runTest {
+    // pre-condition
+    val invalidEvent = "test"
+    val binaryData = BinaryData.fromBytes(invalidEvent.toByteArray(StandardCharsets.UTF_8))
+    given(queueConsumerV2.messageReceiver(queueConsumerV2Captor.capture(), any()))
       .willReturn(Mono.empty())
-    given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
-      .willReturn(
-        Mono.just(
-          TransactionTestUtils.transactionDocument(
-            TransactionStatusDto.REFUND_ERROR, ZonedDateTime.now())))
-    /* test */
+    given(checkpointer.success()).willReturn(Mono.empty())
+    given(deadLetterQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), any()))
+      .willReturn(queueSuccessfulResponse())
+    // test
+    Hooks.onOperatorDebug()
     StepVerifier.create(
-        transactionRefundRetryQueueConsumer.messageReceiver(
-          BinaryData.fromObject(refundRetriedEvent).toBytes(), checkpointer))
+        transactionClosePaymentQueueConsumer.messageReceiver(
+          invalidEvent.toByteArray(StandardCharsets.UTF_8), checkpointer))
+      .expectNext(Unit)
       .verifyComplete()
-
-    /* Asserts */
-    verify(checkpointer, times(1)).success()
-    verify(paymentGatewayClient, times(1)).requestVPosRefund(any())
-    assertEquals(
-      TransactionStatusDto.REFUNDED,
-      transactionViewRepositoryCaptor.value.status,
-      "Unexpected view status")
-    assertEquals(
-      TransactionEventCode.TRANSACTION_REFUNDED_EVENT,
-      transactionRefundEventStoreCaptor.value.eventCode,
-      "Unexpected event code")
-    verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
+    // assertions
+    verify(queueConsumerV1, times(0)).messageReceiver(any(), any())
+    verify(queueConsumerV2, times(0)).messageReceiver(any(), any())
+    verify(deadLetterQueueAsyncClient, times(1))
+      .sendMessageWithResponse(
+        argThat<BinaryData> { this.toString() == binaryData.toString() },
+        eq(Duration.ZERO),
+        eq(Duration.ofSeconds(deadLetterTTLSeconds.toLong())))
   }
 
   @Test
-  fun `messageReceiver consume legacy event correctly with KO outcome AUTHORIZED from gateway writing refund error event`() =
+  fun `Should handle error writing event to dead letter queue for invalid event received`() =
     runTest {
-      val retryCount = 0
-      val activatedEvent = TransactionTestUtils.transactionActivateEvent()
-
-      val authorizationRequestedEvent =
-        TransactionTestUtils.transactionAuthorizationRequestedEvent()
-
-      val expiredEvent =
-        TransactionTestUtils.transactionExpiredEvent(
-          TransactionTestUtils.reduceEvents(activatedEvent, authorizationRequestedEvent))
-      val refundRequestedEvent =
-        TransactionTestUtils.transactionRefundRequestedEvent(
-          TransactionTestUtils.reduceEvents(
-            activatedEvent, authorizationRequestedEvent, expiredEvent))
-      val refundErrorEvent =
-        TransactionTestUtils.transactionRefundErrorEvent(
-          TransactionTestUtils.reduceEvents(
-            activatedEvent, authorizationRequestedEvent, expiredEvent, refundRequestedEvent))
-      val refundRetriedEvent = TransactionTestUtils.transactionRefundRetriedEvent(retryCount)
-
-      val gatewayClientResponse =
-        VposDeleteResponseDto().apply { status = VposDeleteResponseDto.StatusEnum.AUTHORIZED }
-
-      /* preconditions */
-      given(checkpointer.success()).willReturn(Mono.empty())
-      given(
-          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
-            any(),
-          ))
-        .willReturn(
-          Flux.just(
-            activatedEvent as TransactionEvent<Any>,
-            authorizationRequestedEvent as TransactionEvent<Any>,
-            expiredEvent as TransactionEvent<Any>,
-            refundRequestedEvent as TransactionEvent<Any>,
-            refundRetriedEvent as TransactionEvent<Any>,
-            refundErrorEvent as TransactionEvent<Any>))
-
-      given(
-          transactionsRefundedEventStoreRepository.save(
-            transactionRefundEventStoreCaptor.capture()))
-        .willAnswer { Mono.just(it.arguments[0]) }
-      given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
-        Mono.just(it.arguments[0])
-      }
-      given(paymentGatewayClient.requestVPosRefund(any()))
-        .willReturn(Mono.just(gatewayClientResponse))
-      given(refundRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture(), isNull()))
+      // pre-condition
+      val invalidEvent = "test"
+      val binaryData = BinaryData.fromBytes(invalidEvent.toByteArray(StandardCharsets.UTF_8))
+      given(queueConsumerV2.messageReceiver(queueConsumerV2Captor.capture(), any()))
         .willReturn(Mono.empty())
-      given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
-        .willReturn(
-          Mono.just(
-            TransactionTestUtils.transactionDocument(
-              TransactionStatusDto.REFUND_ERROR, ZonedDateTime.now())))
-      /* test */
-      StepVerifier.create(
-          transactionRefundRetryQueueConsumer.messageReceiver(
-            BinaryData.fromObject(refundRetriedEvent).toBytes(), checkpointer))
-        .verifyComplete()
-
-      /* Asserts */
-      verify(checkpointer, times(1)).success()
-      verify(paymentGatewayClient, times(1)).requestVPosRefund(any())
-      verify(transactionsRefundedEventStoreRepository, times(1)).save(any())
-      verify(transactionsViewRepository, times(1)).save(any())
-      verify(refundRetryService, times(1)).enqueueRetryEvent(any(), any(), isNull())
-      assertEquals(retryCount, retryCountCaptor.value)
-      assertEquals(TransactionStatusDto.REFUND_ERROR, transactionViewRepositoryCaptor.value.status)
-      assertEquals(
-        TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT,
-        transactionRefundEventStoreCaptor.value.eventCode)
-    }
-
-  @Test
-  fun `messageReceiver consume event correctly with KO outcome AUTHORIZED from gateway not writing refund error event for retried event`() =
-    runTest {
-      val retryCount = 1
-      val activatedEvent = TransactionTestUtils.transactionActivateEvent()
-
-      val authorizationRequestedEvent =
-        TransactionTestUtils.transactionAuthorizationRequestedEvent()
-
-      val expiredEvent =
-        TransactionTestUtils.transactionExpiredEvent(
-          TransactionTestUtils.reduceEvents(activatedEvent, authorizationRequestedEvent))
-      val refundRequestedEvent =
-        TransactionTestUtils.transactionRefundRequestedEvent(
-          TransactionTestUtils.reduceEvents(
-            activatedEvent, authorizationRequestedEvent, expiredEvent))
-      val refundErrorEvent =
-        TransactionTestUtils.transactionRefundErrorEvent(
-          TransactionTestUtils.reduceEvents(
-            activatedEvent, authorizationRequestedEvent, expiredEvent, refundRequestedEvent))
-      val refundRetriedEvent = TransactionTestUtils.transactionRefundRetriedEvent(retryCount)
-
-      val gatewayClientResponse =
-        VposDeleteResponseDto().apply { status = VposDeleteResponseDto.StatusEnum.AUTHORIZED }
-
-      /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
-      given(
-          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
-            any(),
-          ))
-        .willReturn(
-          Flux.just(
-            activatedEvent as TransactionEvent<Any>,
-            authorizationRequestedEvent as TransactionEvent<Any>,
-            expiredEvent as TransactionEvent<Any>,
-            refundRequestedEvent as TransactionEvent<Any>,
-            refundRetriedEvent as TransactionEvent<Any>,
-            refundErrorEvent as TransactionEvent<Any>))
-
-      given(
-          transactionsRefundedEventStoreRepository.save(
-            transactionRefundEventStoreCaptor.capture()))
-        .willAnswer { Mono.just(it.arguments[0]) }
-      given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
-        Mono.just(it.arguments[0])
-      }
-      given(paymentGatewayClient.requestVPosRefund(any()))
-        .willReturn(Mono.just(gatewayClientResponse))
-      given(refundRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture(), any()))
-        .willReturn(Mono.empty())
-      /* test */
+      given(deadLetterQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), any()))
+        .willReturn(Mono.error(RuntimeException("Error writing event to queue")))
+      // test
+      Hooks.onOperatorDebug()
       StepVerifier.create(
-          transactionRefundRetryQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(refundRetriedEvent, MOCK_TRACING_INFO)).toBytes(),
-            checkpointer))
-        .verifyComplete()
-
-      /* Asserts */
-      verify(checkpointer, times(1)).success()
-      verify(paymentGatewayClient, times(1)).requestVPosRefund(any())
-      verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
-      verify(transactionsViewRepository, times(0)).save(any())
-      verify(refundRetryService, times(1)).enqueueRetryEvent(any(), any(), any())
-      assertEquals(retryCount, retryCountCaptor.value)
-    }
-
-  @Test
-  fun `messageReceiver consume event aborting operation for transaction in unexpected state`() =
-    runTest {
-      val activatedEvent = TransactionTestUtils.transactionActivateEvent()
-
-      val refundRetriedEvent = TransactionTestUtils.transactionRefundRetriedEvent(1)
-
-      val gatewayClientResponse =
-        VposDeleteResponseDto().apply { status = VposDeleteResponseDto.StatusEnum.CANCELLED }
-
-      /* preconditions */
-      given(checkpointer.success()).willReturn(Mono.empty())
-      given(
-          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
-            any(),
-          ))
-        .willReturn(
-          Flux.just(
-            activatedEvent as TransactionEvent<Any>,
-            refundRetriedEvent as TransactionEvent<Any>,
-          ))
-
-      given(
-          transactionsRefundedEventStoreRepository.save(
-            transactionRefundEventStoreCaptor.capture()))
-        .willAnswer { Mono.just(it.arguments[0]) }
-      given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
-        Mono.just(it.arguments[0])
-      }
-      given(paymentGatewayClient.requestVPosRefund(any()))
-        .willReturn(Mono.just(gatewayClientResponse))
-      given(refundRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture(), any()))
-        .willReturn(Mono.empty())
-      given(
-          deadLetterQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull()))
-        .willReturn(queueSuccessfulResponse())
-
-      /* test */
-      StepVerifier.create(
-          transactionRefundRetryQueueConsumer.messageReceiver(
-            BinaryData.fromObject(QueueEvent(refundRetriedEvent, MOCK_TRACING_INFO)).toBytes(),
-            checkpointer))
-        .verifyComplete()
-
-      /* Asserts */
-      verify(checkpointer, times(1)).success()
-      verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
-      verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
-      verify(transactionsViewRepository, times(0)).save(any())
-      verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
+          transactionClosePaymentQueueConsumer.messageReceiver(
+            invalidEvent.toByteArray(StandardCharsets.UTF_8), checkpointer))
+        .expectError(java.lang.RuntimeException::class.java)
+        .verify()
+      // assertions
+      verify(queueConsumerV1, times(0)).messageReceiver(any(), any())
+      verify(queueConsumerV2, times(0)).messageReceiver(any(), any())
       verify(deadLetterQueueAsyncClient, times(1))
         .sendMessageWithResponse(
-          argThat<BinaryData> {
-            this.toObject(object : TypeReference<QueueEvent<TransactionRefundRetriedEvent>>() {})
-              .event
-              .eventCode == TransactionEventCode.TRANSACTION_REFUND_RETRIED_EVENT
-          },
+          argThat<BinaryData> { this.toString() == binaryData.toString() },
           eq(Duration.ZERO),
-          eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
+          eq(Duration.ofSeconds(deadLetterTTLSeconds.toLong())))
     }
+
+  @Test
+  fun `Should write event to dead letter queue for error checkpointing event`() = runTest {
+    // pre-condition
+    val invalidEvent = "test"
+    val binaryData = BinaryData.fromBytes(invalidEvent.toByteArray(StandardCharsets.UTF_8))
+    given(queueConsumerV2.messageReceiver(queueConsumerV2Captor.capture(), any()))
+      .willReturn(Mono.empty())
+    given(checkpointer.success())
+      .willReturn(Mono.error(RuntimeException("Error checkpointing event")))
+    given(deadLetterQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), any()))
+      .willReturn(Mono.error(RuntimeException("Error writing event to queue")))
+    // test
+    Hooks.onOperatorDebug()
+    StepVerifier.create(
+        transactionClosePaymentQueueConsumer.messageReceiver(
+          invalidEvent.toByteArray(StandardCharsets.UTF_8), checkpointer))
+      .expectError(java.lang.RuntimeException::class.java)
+      .verify()
+    // assertions
+    verify(queueConsumerV1, times(0)).messageReceiver(any(), any())
+    verify(queueConsumerV2, times(0)).messageReceiver(any(), any())
+    verify(deadLetterQueueAsyncClient, times(1))
+      .sendMessageWithResponse(
+        argThat<BinaryData> { this.toString() == binaryData.toString() },
+        eq(Duration.ZERO),
+        eq(Duration.ofSeconds(deadLetterTTLSeconds.toLong())))
+  }
+
+  @Test
+  fun `Should write event to dead letter queue for unhandled parsed event`() = runTest {
+    val invalidEvent = "test"
+    val payload = invalidEvent.toByteArray(StandardCharsets.UTF_8)
+    val binaryData = BinaryData.fromBytes(invalidEvent.toByteArray(StandardCharsets.UTF_8))
+    // pre-condition
+
+    given(queueConsumerV2.messageReceiver(queueConsumerV2Captor.capture(), any()))
+      .willReturn(Mono.empty())
+    given(checkpointer.success()).willReturn(Mono.empty())
+    given(deadLetterQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), any()))
+      .willReturn(queueSuccessfulResponse())
+    given(transactionClosePaymentQueueConsumer.parseEvent(payload)).willReturn(Mono.just(mock()))
+    // test
+    Hooks.onOperatorDebug()
+    StepVerifier.create(transactionClosePaymentQueueConsumer.messageReceiver(payload, checkpointer))
+      .expectNext(Unit)
+      .verifyComplete()
+    // assertions
+    verify(queueConsumerV1, times(0)).messageReceiver(any(), any())
+    verify(queueConsumerV2, times(0)).messageReceiver(any(), any())
+    verify(deadLetterQueueAsyncClient, times(1))
+      .sendMessageWithResponse(
+        argThat<BinaryData> { this.toString() == binaryData.toString() },
+        eq(Duration.ZERO),
+        eq(Duration.ofSeconds(deadLetterTTLSeconds.toLong())))
+  }
 }
