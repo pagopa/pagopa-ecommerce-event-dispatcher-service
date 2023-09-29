@@ -12,6 +12,7 @@ import it.pagopa.ecommerce.commons.domain.v2.TransactionEventCode
 import it.pagopa.ecommerce.commons.domain.v2.TransactionWithClosureError
 import it.pagopa.ecommerce.commons.domain.v2.pojos.*
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
+import it.pagopa.ecommerce.commons.generated.npg.v1.dto.RefundResponseDto
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
@@ -169,7 +170,6 @@ fun refundTransaction(
     .flatMap { transaction ->
       val authorizationRequestId =
         transaction.transactionAuthorizationRequestData.authorizationRequestId
-
       when (transaction.transactionAuthorizationRequestData.paymentGateway) {
         TransactionAuthorizationRequestData.PaymentGateway.XPAY ->
           paymentGatewayClient.requestXPayRefund(UUID.fromString(authorizationRequestId)).map {
@@ -181,14 +181,20 @@ fun refundTransaction(
             refundResponse ->
             Pair(refundResponse, transaction)
           }
-        TransactionAuthorizationRequestData.PaymentGateway.NPG ->
-          refundService
-            .requestNpgRefund(
-              transaction.transactionId.value(),
-              transaction.transactionId.uuid.toString(),
-              BigDecimal(transaction.transactionAuthorizationRequestData.amount)
-                .add(BigDecimal(transaction.transactionAuthorizationRequestData.fee)))
-            .map { refundResponse -> Pair(refundResponse, transaction) }
+        TransactionAuthorizationRequestData.PaymentGateway.NPG -> {
+          val transactionAuthorizationCompletedData = getAuthorizationCompletedData(transaction)
+          mono { transactionAuthorizationCompletedData }
+            .cast(NpgTransactionGatewayAuthorizationData::class.java)
+            .flatMap {
+              refundService
+                .requestNpgRefund(
+                  it.operationId,
+                  transaction.transactionId.uuid.toString(),
+                  BigDecimal(transaction.transactionAuthorizationRequestData.amount)
+                    .add(BigDecimal(transaction.transactionAuthorizationRequestData.fee)))
+                .map { refundResponse -> Pair(refundResponse, transaction) }
+            }
+        }
         else ->
           Mono.error(
             RuntimeException(
@@ -207,6 +213,12 @@ fun refundTransaction(
             transactionsViewRepository)
         is XPayRefundResponse200Dto ->
           handleXpayRefundResponse(
+            transaction,
+            refundResponse,
+            transactionsEventStoreRepository,
+            transactionsViewRepository)
+        is RefundResponseDto ->
+          handleNpgRefundResponse(
             transaction,
             refundResponse,
             transactionsEventStoreRepository,
@@ -299,6 +311,20 @@ fun handleXpayRefundResponse(
   }
 }
 
+fun handleNpgRefundResponse(
+  transaction: BaseTransactionWithRequestedAuthorization,
+  refundResponse: RefundResponseDto,
+  transactionsEventStoreRepository: TransactionsEventStoreRepository<TransactionRefundedData>,
+  transactionsViewRepository: TransactionsViewRepository
+): Mono<BaseTransaction> {
+  logger.info(
+    "Refund for transaction with id: [{}] and NPG operationId [{}] processed successfully",
+    transaction.transactionId.value(),
+    refundResponse.operationId!!)
+  return updateTransactionToRefunded(
+    transaction, transactionsEventStoreRepository, transactionsViewRepository)
+}
+
 fun isTransactionRefundable(tx: BaseTransaction): Boolean {
   val wasAuthorizationRequested = wasAuthorizationRequested(tx)
   val wasSendPaymentResultOutcomeKO = wasSendPaymentResultOutcomeKO(tx)
@@ -370,6 +396,17 @@ fun getAuthorizationOutcome(tx: BaseTransaction): AuthorizationResultDto? =
         tx.transactionAuthorizationCompletedData.transactionGatewayAuthorizationData)
     is TransactionWithClosureError -> getAuthorizationOutcome(tx.transactionAtPreviousState)
     is BaseTransactionExpired -> getAuthorizationOutcome(tx.transactionAtPreviousState)
+    else -> null
+  }
+
+fun getAuthorizationCompletedData(tx: BaseTransaction): TransactionGatewayAuthorizationData? =
+  when (tx) {
+    is BaseTransactionWithCompletedAuthorization ->
+      tx.transactionAuthorizationCompletedData.transactionGatewayAuthorizationData
+    is BaseTransactionWithRefundRequested ->
+      getAuthorizationCompletedData(tx.transactionAtPreviousState)
+    is TransactionWithClosureError -> getAuthorizationCompletedData(tx.transactionAtPreviousState)
+    is BaseTransactionExpired -> getAuthorizationCompletedData(tx.transactionAtPreviousState)
     else -> null
   }
 

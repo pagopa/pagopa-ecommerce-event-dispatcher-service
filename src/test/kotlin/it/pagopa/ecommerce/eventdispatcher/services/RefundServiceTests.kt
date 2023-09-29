@@ -1,6 +1,5 @@
 package it.pagopa.ecommerce.eventdispatcher.services
 
-
 import it.pagopa.ecommerce.commons.client.NpgClient
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadGatewayException
@@ -26,7 +25,7 @@ import reactor.test.StepVerifier
 
 @SpringBootTest
 @TestPropertySource(locations = ["classpath:application.test.properties"])
-class RefundServiceTests  {
+class RefundServiceTests {
   private val paymentGatewayClient: PaymentGatewayClient = mock()
   private val npgClient: NpgClient = mock()
   private val apiKey = "mocked-api-key"
@@ -69,7 +68,7 @@ class RefundServiceTests  {
     // Test
 
     StepVerifier.create(
-      refundService.requestNpgRefund(operationId, idempotenceKey.toString(), amount))
+        refundService.requestNpgRefund(operationId, idempotenceKey.toString(), amount))
       .expectError(RefundNotAllowedException::class.java)
       .verify()
 
@@ -95,7 +94,7 @@ class RefundServiceTests  {
     // Test
 
     StepVerifier.create(
-      refundService.requestNpgRefund(operationId, idempotenceKey.toString(), amount))
+        refundService.requestNpgRefund(operationId, idempotenceKey.toString(), amount))
       .expectError(TransactionNotFound::class.java)
       .verify()
 
@@ -121,7 +120,7 @@ class RefundServiceTests  {
     // Test
 
     StepVerifier.create(
-      refundService.requestNpgRefund(operationId, idempotenceKey.toString(), amount))
+        refundService.requestNpgRefund(operationId, idempotenceKey.toString(), amount))
       .expectError(WebClientResponseException::class.java)
       .verify()
 
@@ -151,7 +150,7 @@ class RefundServiceTests  {
     // Test
 
     StepVerifier.create(
-      refundService.requestNpgRefund(operationId, idempotenceKey.toString(), amount))
+        refundService.requestNpgRefund(operationId, idempotenceKey.toString(), amount))
       .expectError(BadGatewayException::class.java)
       .verify()
 
@@ -177,7 +176,7 @@ class RefundServiceTests  {
     // Test
 
     StepVerifier.create(
-      refundService.requestNpgRefund(operationId, idempotenceKey.toString(), amount))
+        refundService.requestNpgRefund(operationId, idempotenceKey.toString(), amount))
       .expectError(GatewayTimeoutException::class.java)
       .verify()
 
