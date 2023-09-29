@@ -6,26 +6,18 @@ import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
 import io.vavr.control.Either
-import it.pagopa.ecommerce.commons.documents.v1.*
-import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
-import it.pagopa.ecommerce.commons.domain.v1.TransactionWithUserReceiptError
-import it.pagopa.ecommerce.commons.domain.v1.pojos.*
-import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
+import it.pagopa.ecommerce.commons.documents.BaseTransactionEvent
+import it.pagopa.ecommerce.commons.documents.v1.TransactionUserReceiptAddErrorEvent as TransactionUserReceiptAddErrorEventV1
+import it.pagopa.ecommerce.commons.documents.v1.TransactionUserReceiptAddRetriedEvent as TransactionUserReceiptAddRetriedEventV1
+import it.pagopa.ecommerce.commons.documents.v2.TransactionUserReceiptAddErrorEvent as TransactionUserReceiptAddErrorEventV2
+import it.pagopa.ecommerce.commons.documents.v2.TransactionUserReceiptAddRetriedEvent as TransactionUserReceiptAddRetriedEventV2
 import it.pagopa.ecommerce.commons.queues.QueueEvent
+import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingInfo
-import it.pagopa.ecommerce.commons.queues.TracingUtils
-import it.pagopa.ecommerce.eventdispatcher.client.NotificationsServiceClient
-import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
-import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
-import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
-import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
-import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
-import it.pagopa.ecommerce.eventdispatcher.services.eventretry.NotificationRetryService
-import it.pagopa.ecommerce.eventdispatcher.services.eventretry.RefundRetryService
-import it.pagopa.ecommerce.eventdispatcher.utils.UserReceiptMailBuilder
+import it.pagopa.ecommerce.eventdispatcher.exceptions.InvalidEventException
+import it.pagopa.ecommerce.eventdispatcher.queues.*
 import it.pagopa.generated.notifications.templates.success.*
 import java.util.*
-import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -36,81 +28,98 @@ import org.springframework.messaging.handler.annotation.Payload
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
 
-@Service
+@Service("TransactionNotificationsRetryQueueConsumer")
 class TransactionNotificationsRetryQueueConsumer(
-  @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,
   @Autowired
-  private val transactionUserReceiptRepository:
-    TransactionsEventStoreRepository<TransactionUserReceiptData>,
-  @Autowired private val transactionsViewRepository: TransactionsViewRepository,
-  @Autowired private val notificationRetryService: NotificationRetryService,
+  private val queueConsumerV1:
+    it.pagopa.ecommerce.eventdispatcher.queues.v1.TransactionNotificationsRetryQueueConsumer,
   @Autowired
-  private val transactionsRefundedEventStoreRepository:
-    TransactionsEventStoreRepository<TransactionRefundedData>,
-  @Autowired private val paymentGatewayClient: PaymentGatewayClient,
-  @Autowired private val refundRetryService: RefundRetryService,
-  @Autowired private val userReceiptMailBuilder: UserReceiptMailBuilder,
-  @Autowired private val notificationsServiceClient: NotificationsServiceClient,
+  private val queueConsumerV2:
+    it.pagopa.ecommerce.eventdispatcher.queues.v2.TransactionNotificationsRetryQueueConsumer,
   @Autowired private val deadLetterQueueAsyncClient: QueueAsyncClient,
   @Value("\${azurestorage.queues.deadLetterQueue.ttlSeconds}")
   private val deadLetterTTLSeconds: Int,
-  @Autowired private val tracingUtils: TracingUtils
+  @Autowired private val strictSerializerProviderV1: StrictJsonSerializerProvider,
+  @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider
 ) {
   var logger: Logger =
     LoggerFactory.getLogger(TransactionNotificationsRetryQueueConsumer::class.java)
 
-  private fun getTransactionIdFromPayload(
-    event: Either<TransactionUserReceiptAddErrorEvent, TransactionUserReceiptAddRetriedEvent>
-  ): String {
-    return event.fold({ it.transactionId }, { it.transactionId })
-  }
-
-  private fun getRetryCountFromPayload(
-    event: Either<TransactionUserReceiptAddErrorEvent, TransactionUserReceiptAddRetriedEvent>
-  ): Int {
-    return event.fold({ 0 }, { Optional.ofNullable(it.data.retryCount).orElse(0) })
-  }
-
-  private fun parseEvent(
-    data: BinaryData
-  ): Mono<
-    Pair<
-      Either<TransactionUserReceiptAddErrorEvent, TransactionUserReceiptAddRetriedEvent>,
-      TracingInfo?>> {
-    val notificationErrorEvent =
-      data
-        .toObjectAsync(object : TypeReference<QueueEvent<TransactionUserReceiptAddErrorEvent>>() {})
-        .map {
-          Either.left<TransactionUserReceiptAddErrorEvent, TransactionUserReceiptAddRetriedEvent>(
-            it.event) to it.tracingInfo
-        }
-
-    val notificationRetryEvent =
+  fun parseEvent(payload: ByteArray): Mono<Pair<BaseTransactionEvent<*>, TracingInfo?>> {
+    val data = BinaryData.fromBytes(payload)
+    val jsonSerializerV1 = strictSerializerProviderV1.createInstance()
+    val jsonSerializerV2 = strictSerializerProviderV2.createInstance()
+    val notificationErrorEventV1 =
       data
         .toObjectAsync(
-          object : TypeReference<QueueEvent<TransactionUserReceiptAddRetriedEvent>>() {})
-        .map {
-          Either.right<TransactionUserReceiptAddErrorEvent, TransactionUserReceiptAddRetriedEvent>(
-            it.event) to it.tracingInfo
+          object : TypeReference<QueueEvent<TransactionUserReceiptAddErrorEventV1>>() {},
+          jsonSerializerV1)
+        .map { it.event to it.tracingInfo }
+        .onErrorResume {
+          logger.debug(ERROR_PARSING_EVENT_ERROR, it)
+          Mono.empty()
         }
 
-    val untracedNotificationErrorEvent =
-      data.toObjectAsync(object : TypeReference<TransactionUserReceiptAddErrorEvent>() {}).map {
-        Either.left<TransactionUserReceiptAddErrorEvent, TransactionUserReceiptAddRetriedEvent>(
-          it) to null
-      }
+    val notificationRetryEventV1 =
+      data
+        .toObjectAsync(
+          object : TypeReference<QueueEvent<TransactionUserReceiptAddRetriedEventV1>>() {},
+          jsonSerializerV1)
+        .map { it.event to it.tracingInfo }
+        .onErrorResume {
+          logger.debug(ERROR_PARSING_EVENT_ERROR, it)
+          Mono.empty()
+        }
 
-    val untracedNotificationRetryEvent =
-      data.toObjectAsync(object : TypeReference<TransactionUserReceiptAddRetriedEvent>() {}).map {
-        Either.right<TransactionUserReceiptAddErrorEvent, TransactionUserReceiptAddRetriedEvent>(
-          it) to null
-      }
+    val untracedNotificationErrorEventV1 =
+      data
+        .toObjectAsync(
+          object : TypeReference<TransactionUserReceiptAddErrorEventV1>() {}, jsonSerializerV1)
+        .map { it to null }
+        .onErrorResume {
+          logger.debug(ERROR_PARSING_EVENT_ERROR, it)
+          Mono.empty()
+        }
+
+    val untracedNotificationRetryEventV1 =
+      data
+        .toObjectAsync(
+          object : TypeReference<TransactionUserReceiptAddRetriedEventV1>() {}, jsonSerializerV1)
+        .map { it to null }
+        .onErrorResume {
+          logger.debug(ERROR_PARSING_EVENT_ERROR, it)
+          Mono.empty()
+        }
+    val notificationErrorEventV2 =
+      data
+        .toObjectAsync(
+          object : TypeReference<QueueEvent<TransactionUserReceiptAddErrorEventV2>>() {},
+          jsonSerializerV2)
+        .map { it.event to it.tracingInfo }
+        .onErrorResume {
+          logger.debug(ERROR_PARSING_EVENT_ERROR, it)
+          Mono.empty()
+        }
+
+    val notificationRetryEventV2 =
+      data
+        .toObjectAsync(
+          object : TypeReference<QueueEvent<TransactionUserReceiptAddRetriedEventV2>>() {},
+          jsonSerializerV2)
+        .map { it.event to it.tracingInfo }
+        .onErrorResume {
+          logger.debug(ERROR_PARSING_EVENT_ERROR, it)
+          Mono.empty()
+        }
 
     return Mono.firstWithValue(
-      notificationErrorEvent,
-      notificationRetryEvent,
-      untracedNotificationErrorEvent,
-      untracedNotificationRetryEvent)
+        notificationErrorEventV1,
+        notificationRetryEventV1,
+        untracedNotificationErrorEventV1,
+        untracedNotificationRetryEventV1,
+        notificationErrorEventV2,
+        notificationRetryEventV2)
+      .onErrorMap { InvalidEventException(data.toBytes(), it) }
   }
 
   @ServiceActivator(
@@ -118,103 +127,40 @@ class TransactionNotificationsRetryQueueConsumer(
   fun messageReceiver(
     @Payload payload: ByteArray,
     @Header(AzureHeaders.CHECKPOINTER) checkPointer: Checkpointer
-  ): Mono<Void> {
-    val binaryData = BinaryData.fromBytes(payload)
-    val eventData = parseEvent(binaryData)
-    val transactionId = eventData.map { getTransactionIdFromPayload(it.first) }
-    val retryCount = eventData.map { getRetryCountFromPayload(it.first) }
-    val baseTransaction =
-      reduceEvents(transactionId, transactionsEventStoreRepository, EmptyTransaction())
-    val notificationResendPipeline =
-      baseTransaction
-        .flatMap {
-          logger.info("Status for transaction ${it.transactionId.value()}: ${it.status}")
-
-          if (it.status != TransactionStatusDto.NOTIFICATION_ERROR) {
-            Mono.error(
-              BadTransactionStatusException(
-                transactionId = it.transactionId,
-                expected = listOf(TransactionStatusDto.NOTIFICATION_ERROR),
-                actual = it.status))
-          } else {
-            Mono.just(it)
+  ): Mono<Unit> {
+    val eventWithTracingInfo = parseEvent(payload)
+    return eventWithTracingInfo
+      .flatMap { (e, tracingInfo) ->
+        when (e) {
+          is TransactionUserReceiptAddErrorEventV1 -> {
+            logger.debug("Event {} with tracing info {} dispatched to V1 handler", e, tracingInfo)
+            queueConsumerV1.messageReceiver(Pair(Either.left(e), tracingInfo), checkPointer)
+          }
+          is TransactionUserReceiptAddRetriedEventV1 -> {
+            logger.debug("Event {} with tracing info {} dispatched to V1 handler", e, tracingInfo)
+            queueConsumerV1.messageReceiver(Pair(Either.right(e), tracingInfo), checkPointer)
+          }
+          is TransactionUserReceiptAddErrorEventV2 -> {
+            logger.debug("Event {} with tracing info {} dispatched to V2 handler", e, tracingInfo)
+            queueConsumerV2.messageReceiver(Either.left(QueueEvent(e, tracingInfo)), checkPointer)
+          }
+          is TransactionUserReceiptAddRetriedEventV2 -> {
+            logger.debug("Event {} with tracing info {} dispatched to V2 handler", e, tracingInfo)
+            queueConsumerV2.messageReceiver(Either.right(QueueEvent(e, tracingInfo)), checkPointer)
+          }
+          else -> {
+            logger.error(
+              "Event {} with tracing info {} cannot be dispatched to any know handler",
+              e,
+              tracingInfo)
+            Mono.error(InvalidEventException(payload, null))
           }
         }
-        .cast(TransactionWithUserReceiptError::class.java)
-        .flatMap { tx ->
-          mono { userReceiptMailBuilder.buildNotificationEmailRequestDto(tx) }
-            .flatMap { notificationsServiceClient.sendNotificationEmail(it) }
-            .zipWith(eventData, ::Pair)
-            .flatMap { (_, eventData) ->
-              updateNotifiedTransactionStatus(
-                  tx, transactionsViewRepository, transactionUserReceiptRepository)
-                .flatMap {
-                  val tracingInfo = eventData.second
-
-                  notificationRefundTransactionPipeline(
-                    tx,
-                    transactionsRefundedEventStoreRepository,
-                    transactionsViewRepository,
-                    paymentGatewayClient,
-                    refundRetryService,
-                    tracingInfo)
-                }
-            }
-            .then()
-            .onErrorResume { exception ->
-              logger.error(
-                "Got exception while retrying user receipt mail sending for transaction with id ${tx.transactionId}!",
-                exception)
-              retryCount
-                .zipWith(eventData, ::Pair)
-                .flatMap { (retryCount, eventData) ->
-                  val tracingInfo = eventData.second
-                  val v = notificationRetryService.enqueueRetryEvent(tx, retryCount, tracingInfo)
-                  logger.info("enq response: {}", v)
-                  v
-                }
-                .onErrorResume(NoRetryAttemptsLeftException::class.java) { enqueueException ->
-                  logger.error(
-                    "No more attempts left for user receipt send retry", enqueueException)
-
-                  eventData.flatMap {
-                    notificationRefundTransactionPipeline(
-                        tx,
-                        transactionsRefundedEventStoreRepository,
-                        transactionsViewRepository,
-                        paymentGatewayClient,
-                        refundRetryService,
-                        it.second)
-                      .then()
-                  }
-                }
-                .then()
-            }
-        }
-
-    return eventData.flatMap { (e, tracingInfo) ->
-      if (tracingInfo != null) {
-        val event = e.fold({ QueueEvent(it, tracingInfo) }, { QueueEvent(it, tracingInfo) })
-
-        runTracedPipelineWithDeadLetterQueue(
-          checkPointer,
-          notificationResendPipeline,
-          event,
-          deadLetterQueueAsyncClient,
-          deadLetterTTLSeconds,
-          tracingUtils,
-          this::class.simpleName!!)
-      } else {
-        val eventBytes =
-          e.fold({ BinaryData.fromObject(it).toBytes() }, { BinaryData.fromObject(it).toBytes() })
-
-        runPipelineWithDeadLetterQueue(
-          checkPointer,
-          notificationResendPipeline,
-          eventBytes,
-          deadLetterQueueAsyncClient,
-          deadLetterTTLSeconds)
       }
-    }
+      .onErrorResume(InvalidEventException::class.java) {
+        logger.error("Invalid input event", it)
+        writeEventToDeadLetterQueue(
+          checkPointer, payload, it, deadLetterQueueAsyncClient, deadLetterTTLSeconds)
+      }
   }
 }

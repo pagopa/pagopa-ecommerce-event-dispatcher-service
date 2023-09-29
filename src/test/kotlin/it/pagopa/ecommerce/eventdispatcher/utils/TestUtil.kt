@@ -4,7 +4,7 @@ import com.azure.core.http.rest.Response
 import com.azure.core.http.rest.ResponseBase
 import com.azure.storage.queue.models.SendMessageResult
 import it.pagopa.ecommerce.commons.documents.v1.TransactionAuthorizationRequestData
-import it.pagopa.ecommerce.commons.domain.v1.TransactionId
+import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto

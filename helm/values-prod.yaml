@@ -74,7 +74,7 @@ microservice-chart:
       PAYMENT_TRANSACTIONS_GATEWAY_API_KEY: payment-transactions-gateway-api-key
   image:
     repository: pagopapcommonacr.azurecr.io/pagopaecommerceeventdispatcherservice
-    tag: "0.8.12"
+    tag: "0.9.0"
     pullPolicy: Always
   livenessProbe:
     httpGet:
