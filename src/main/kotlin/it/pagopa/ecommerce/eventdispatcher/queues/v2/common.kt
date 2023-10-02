@@ -320,7 +320,7 @@ fun handleNpgRefundResponse(
   logger.info(
     "Refund for transaction with id: [{}] and NPG operationId [{}] processed successfully",
     transaction.transactionId.value(),
-    refundResponse.operationId!!)
+    Optional.ofNullable(refundResponse.operationId).orElse("N/A"))
   return updateTransactionToRefunded(
     transaction, transactionsEventStoreRepository, transactionsViewRepository)
 }
