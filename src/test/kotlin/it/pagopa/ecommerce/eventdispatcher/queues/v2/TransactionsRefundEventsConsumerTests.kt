@@ -3,26 +3,30 @@ package it.pagopa.ecommerce.eventdispatcher.queues.v2
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
 import io.vavr.control.Either
+import it.pagopa.ecommerce.commons.client.NpgClient
 import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.documents.v2.authorization.PgsTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.domain.v2.TransactionEventCode
-import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithRequestedAuthorization
+import it.pagopa.ecommerce.commons.domain.v2.pojos.*
+import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
+import it.pagopa.ecommerce.commons.generated.npg.v1.dto.RefundResponseDto
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.TracingInfoTest.MOCK_TRACING_INFO
 import it.pagopa.ecommerce.commons.queues.TracingUtilsTests
-import it.pagopa.ecommerce.commons.v2.*
 import it.pagopa.ecommerce.commons.v2.TransactionTestUtils.*
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.config.QueuesConsumerConfig
 import it.pagopa.ecommerce.eventdispatcher.exceptions.RefundNotAllowedException
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
+import it.pagopa.ecommerce.eventdispatcher.services.RefundService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
 import it.pagopa.ecommerce.eventdispatcher.utils.DEAD_LETTER_QUEUE_TTL_SECONDS
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
+import java.math.BigDecimal
 import java.time.ZonedDateTime
 import java.util.*
 import java.util.stream.Stream
@@ -30,6 +34,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.reactor.mono
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.params.ParameterizedTest
@@ -52,6 +57,8 @@ class TransactionsRefundEventsConsumerTests {
   private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any> = mock()
 
   private val paymentGatewayClient: PaymentGatewayClient = mock()
+
+  private val refundService: RefundService = mock()
 
   private val refundRetryService: RefundRetryService = mock()
 
@@ -76,6 +83,7 @@ class TransactionsRefundEventsConsumerTests {
       transactionsEventStoreRepository = transactionsEventStoreRepository,
       transactionsRefundedEventStoreRepository = transactionsRefundedEventStoreRepository,
       transactionsViewRepository = transactionsViewRepository,
+      refundService = refundService,
       refundRetryService = refundRetryService,
       deadLetterQueueAsyncClient = deadLetterQueueAsyncClient,
       deadLetterTTLSeconds = DEAD_LETTER_QUEUE_TTL_SECONDS,
@@ -848,5 +856,346 @@ class TransactionsRefundEventsConsumerTests {
         TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT,
         TransactionEventCode.valueOf(storedEvent.eventCode))
       assertEquals(TransactionStatusDto.REFUND_REQUESTED, storedEvent.data.statusBeforeRefunded)
+    }
+
+  @Test
+  fun `consumer doesn't process refund request event correctly with unknown payment gateway`() =
+    runTest {
+      val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
+      val authorizationRequestEvent =
+        transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
+      (authorizationRequestEvent.data as TransactionAuthorizationRequestData).paymentMethodName =
+        null
+      (authorizationRequestEvent.data as TransactionAuthorizationRequestData).paymentGateway = null
+
+      val authorizationCompleteEvent =
+        transactionAuthorizationCompletedEvent(
+          npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED))
+          as TransactionEvent<Any>
+      val closedEvent =
+        transactionClosedEvent(TransactionClosureData.Outcome.KO) as TransactionEvent<Any>
+      val refundRequestedEvent =
+        TransactionRefundRequestedEvent(
+          TRANSACTION_ID, TransactionRefundedData(TransactionStatusDto.REFUND_REQUESTED))
+          as TransactionEvent<Any>
+
+      val events =
+        listOf(
+          activationEvent,
+          authorizationRequestEvent,
+          authorizationCompleteEvent,
+          closedEvent,
+          refundRequestedEvent)
+
+      /* preconditions */
+      given(checkpointer.success()).willReturn(Mono.empty())
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
+        .willReturn(events.toFlux())
+      given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
+      given(transactionsRefundedEventStoreRepository.save(refundEventStoreCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
+      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturn(
+          mono { transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now()) })
+
+      /* test */
+      StepVerifier.create(
+          transactionRefundedEventsConsumer.messageReceiver(
+            Either.right(
+              QueueEvent(
+                refundRequestedEvent as TransactionRefundRequestedEvent, MOCK_TRACING_INFO)),
+            checkpointer))
+        .expectError(RuntimeException::class.java)
+        .verify()
+
+      /* Asserts */
+      verify(checkpointer, Mockito.times(1)).success()
+      verify(refundService, Mockito.times(0)).requestNpgRefund(any(), any(), any())
+      verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
+      verify(refundRetryService, times(1)).enqueueRetryEvent(any(), any(), any())
+      val storedEvent = refundEventStoreCaptor.value
+      assertEquals(
+        TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT.toString(), storedEvent.eventCode)
+      assertEquals(TransactionStatusDto.REFUND_REQUESTED, storedEvent.data.statusBeforeRefunded)
+    }
+  @Test
+  fun `consumer processes refund request event correctly with npg refund`() = runTest {
+    val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
+    val authorizationRequestEvent =
+      transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
+    (authorizationRequestEvent.data as TransactionAuthorizationRequestData).paymentGateway =
+      TransactionAuthorizationRequestData.PaymentGateway.NPG
+
+    val authorizationCompleteEvent =
+      transactionAuthorizationCompletedEvent(
+        npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED))
+        as TransactionEvent<Any>
+    val closedEvent =
+      transactionClosedEvent(TransactionClosureData.Outcome.KO) as TransactionEvent<Any>
+    val refundRequestedEvent =
+      TransactionRefundRequestedEvent(
+        TRANSACTION_ID, TransactionRefundedData(TransactionStatusDto.REFUND_REQUESTED))
+        as TransactionEvent<Any>
+
+    val refundServiceNpgResponse =
+      RefundResponseDto().apply {
+        operationId = "operationId"
+        operationTime = "operationTime"
+      }
+
+    val events =
+      listOf(
+        activationEvent,
+        authorizationRequestEvent,
+        authorizationCompleteEvent,
+        closedEvent,
+        refundRequestedEvent)
+
+    val transaction =
+      reduceEvents(*events.toTypedArray()) as BaseTransactionWithRequestedAuthorization
+
+    /* preconditions */
+    given(checkpointer.success()).willReturn(Mono.empty())
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
+      .willReturn(events.toFlux())
+    given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
+    given(transactionsRefundedEventStoreRepository.save(refundEventStoreCaptor.capture()))
+      .willAnswer { Mono.just(it.arguments[0]) }
+    given(refundService.requestNpgRefund(any(), any(), any()))
+      .willReturn(Mono.just(refundServiceNpgResponse))
+    given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+      .willReturn(
+        mono { transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now()) })
+
+    /* test */
+    StepVerifier.create(
+        transactionRefundedEventsConsumer.messageReceiver(
+          Either.right(
+            QueueEvent(refundRequestedEvent as TransactionRefundRequestedEvent, MOCK_TRACING_INFO)),
+          checkpointer))
+      .expectNext(Unit)
+      .verifyComplete()
+
+    /* Asserts */
+    verify(checkpointer, Mockito.times(1)).success()
+    verify(refundService, Mockito.times(1))
+      .requestNpgRefund(
+        NPG_OPERATION_ID,
+        transaction.transactionId.uuid.toString(),
+        BigDecimal(
+          transaction.transactionAuthorizationRequestData.amount +
+            transaction.transactionAuthorizationRequestData.fee))
+    verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
+    verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
+    val storedEvent = refundEventStoreCaptor.value
+    assertEquals(TransactionEventCode.TRANSACTION_REFUNDED_EVENT.toString(), storedEvent.eventCode)
+    assertEquals(TransactionStatusDto.REFUND_REQUESTED, storedEvent.data.statusBeforeRefunded)
+  }
+
+  @Test
+  fun `consumer does not enqueue refund retry event for RefundNotAllowedException response from NPG`() =
+    runTest {
+      val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
+      val authorizationRequestEvent =
+        transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
+      val authorizationCompleteEvent =
+        transactionAuthorizationCompletedEvent(
+          npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED))
+          as TransactionEvent<Any>
+      (authorizationRequestEvent.data as TransactionAuthorizationRequestData).paymentGateway =
+        TransactionAuthorizationRequestData.PaymentGateway.NPG
+      (authorizationRequestEvent.data as TransactionAuthorizationRequestData).paymentMethodName =
+        NpgClient.PaymentMethod.CARDS.serviceName
+      val closedEvent =
+        transactionClosedEvent(TransactionClosureData.Outcome.KO) as TransactionEvent<Any>
+      val refundRequestedEvent =
+        TransactionRefundRequestedEvent(
+          TRANSACTION_ID, TransactionRefundedData(TransactionStatusDto.REFUND_REQUESTED))
+          as TransactionEvent<Any>
+
+      val events =
+        listOf(
+          activationEvent,
+          authorizationRequestEvent,
+          authorizationCompleteEvent,
+          closedEvent,
+          refundRequestedEvent)
+
+      val transaction =
+        reduceEvents(*events.toTypedArray()) as BaseTransactionWithRequestedAuthorization
+
+      /* preconditions */
+      given(checkpointer.success()).willReturn(Mono.empty())
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
+        .willReturn(events.toFlux())
+      given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
+      given(transactionsRefundedEventStoreRepository.save(refundEventStoreCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
+      given(refundService.requestNpgRefund(any(), any(), any()))
+        .willThrow(RefundNotAllowedException(transaction.transactionId.uuid))
+      given(refundRetryService.enqueueRetryEvent(any(), any(), any())).willReturn(Mono.empty())
+      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturn(
+          Mono.just(
+            transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now())))
+
+      /* test */
+
+      StepVerifier.create(
+          transactionRefundedEventsConsumer.messageReceiver(
+            Either.right(
+              QueueEvent(
+                refundRequestedEvent as TransactionRefundRequestedEvent, MOCK_TRACING_INFO)),
+            checkpointer))
+        .expectNext(Unit)
+        .verifyComplete()
+
+      /* Asserts */
+      verify(checkpointer, Mockito.times(1)).success()
+      verify(refundService, Mockito.times(1))
+        .requestNpgRefund(
+          NPG_OPERATION_ID,
+          transaction.transactionId.uuid.toString(),
+          BigDecimal(
+            transaction.transactionAuthorizationRequestData.amount +
+              transaction.transactionAuthorizationRequestData.fee))
+      verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
+      verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
+
+      val storedEvent = refundEventStoreCaptor.value
+      assertEquals(
+        TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT.toString(), storedEvent.eventCode)
+      assertEquals(TransactionStatusDto.REFUND_REQUESTED, storedEvent.data.statusBeforeRefunded)
+    }
+  @Test
+  fun `test getAuthorizationCompletedData with BaseTransactionWithRefundRequested`() = runTest {
+    val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
+    val authorizationRequestEvent =
+      transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
+    (authorizationRequestEvent.data as TransactionAuthorizationRequestData).paymentGateway =
+      TransactionAuthorizationRequestData.PaymentGateway.NPG
+
+    val transactionGatewayAuthorizationData =
+      npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)
+
+    val authorizationCompleteEvent =
+      transactionAuthorizationCompletedEvent(transactionGatewayAuthorizationData)
+        as TransactionEvent<Any>
+    val closedEvent =
+      transactionClosedEvent(TransactionClosureData.Outcome.KO) as TransactionEvent<Any>
+    val refundRequestedEvent =
+      TransactionRefundRequestedEvent(
+        TRANSACTION_ID, TransactionRefundedData(TransactionStatusDto.REFUND_REQUESTED))
+        as TransactionEvent<Any>
+
+    val events =
+      listOf(
+        activationEvent,
+        authorizationRequestEvent,
+        authorizationCompleteEvent,
+        closedEvent,
+        refundRequestedEvent)
+
+    val transaction = reduceEvents(*events.toTypedArray()) as BaseTransactionWithRefundRequested
+
+    assertEquals(getAuthorizationCompletedData(transaction), transactionGatewayAuthorizationData)
+  }
+
+  @Test
+  fun `test getAuthorizationCompletedData with BaseTransactionWithCompletedAuthorization`() =
+    runTest {
+      val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
+      val authorizationRequestEvent =
+        transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
+      (authorizationRequestEvent.data as TransactionAuthorizationRequestData).paymentGateway =
+        TransactionAuthorizationRequestData.PaymentGateway.NPG
+
+      val transactionGatewayAuthorizationData =
+        npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)
+
+      val authorizationCompleteEvent =
+        transactionAuthorizationCompletedEvent(transactionGatewayAuthorizationData)
+          as TransactionEvent<Any>
+
+      val events = listOf(activationEvent, authorizationRequestEvent, authorizationCompleteEvent)
+
+      val transaction =
+        reduceEvents(*events.toTypedArray()) as BaseTransactionWithCompletedAuthorization
+
+      assertEquals(getAuthorizationCompletedData(transaction), transactionGatewayAuthorizationData)
+    }
+
+  @Test
+  fun `test getAuthorizationCompletedData with BaseTransactionWithClosureError`() = runTest {
+    val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
+    val authorizationRequestEvent =
+      transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
+    (authorizationRequestEvent.data as TransactionAuthorizationRequestData).paymentGateway =
+      TransactionAuthorizationRequestData.PaymentGateway.NPG
+
+    val transactionGatewayAuthorizationData =
+      npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)
+
+    val authorizationCompleteEvent =
+      transactionAuthorizationCompletedEvent(transactionGatewayAuthorizationData)
+        as TransactionEvent<Any>
+    val closureError = transactionClosureErrorEvent() as TransactionEvent<Any>
+
+    val events =
+      listOf(activationEvent, authorizationRequestEvent, authorizationCompleteEvent, closureError)
+
+    val transaction = reduceEvents(*events.toTypedArray()) as BaseTransactionWithClosureError
+
+    assertEquals(getAuthorizationCompletedData(transaction), transactionGatewayAuthorizationData)
+  }
+
+  @Test
+  fun `test getAuthorizationCompletedData with BaseTransactionExpired`() = runTest {
+    val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
+    val authorizationRequestEvent =
+      transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
+    (authorizationRequestEvent.data as TransactionAuthorizationRequestData).paymentGateway =
+      TransactionAuthorizationRequestData.PaymentGateway.NPG
+
+    val transactionGatewayAuthorizationData =
+      npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)
+
+    val authorizationCompleteEvent =
+      transactionAuthorizationCompletedEvent(transactionGatewayAuthorizationData)
+        as TransactionEvent<Any>
+
+    val events: MutableList<TransactionEvent<Any>> =
+      mutableListOf(activationEvent, authorizationRequestEvent, authorizationCompleteEvent)
+
+    val expiredEvent =
+      transactionExpiredEvent(reduceEvents(*events.toTypedArray())) as TransactionEvent<Any>
+
+    events.add(expiredEvent)
+
+    val transaction = reduceEvents(*events.toTypedArray()) as BaseTransactionExpired
+
+    assertEquals(getAuthorizationCompletedData(transaction), transactionGatewayAuthorizationData)
+  }
+
+  @Test
+  fun `test getAuthorizationCompletedData with BaseTransactionWithRequestedAuthorization`() =
+    runTest {
+      val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
+      val authorizationRequestEvent =
+        transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
+      (authorizationRequestEvent.data as TransactionAuthorizationRequestData).paymentGateway =
+        TransactionAuthorizationRequestData.PaymentGateway.NPG
+
+      val events = listOf(activationEvent, authorizationRequestEvent)
+
+      val transaction =
+        reduceEvents(*events.toTypedArray()) as BaseTransactionWithRequestedAuthorization
+
+      assertNull(getAuthorizationCompletedData(transaction))
     }
 }

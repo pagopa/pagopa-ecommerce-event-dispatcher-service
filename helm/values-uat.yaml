@@ -58,6 +58,9 @@ microservice-chart:
       OTEL_TRACES_SAMPLER: "always_on"
       SEND_PAYMENT_RESULT_TIMEOUT_SECONDS: "3900"
       SEND_PAYMENT_RESULT_EXPIRATION_OFFSET_SECONDS: "5"
+      NPG_URI: https://stg-ta.nexigroup.com/api/phoenix-0.0
+      NPG_READ_TIMEOUT: "10000"
+      NPG_CONNECTION_TIMEOUT: "10000"
       ECS_SERVICE_NAME: pagopa-ecommerce-event-dispatcher-service-blue
       ECS_SERVICE_ENVIRONMENT: uat
     envSecret:
@@ -71,6 +74,7 @@ microservice-chart:
       PERSONAL_DATA_VAULT_API_KEY: personal-data-vault-api-key
       OTEL_EXPORTER_OTLP_HEADERS: elastic-otel-token-header
       PAYMENT_TRANSACTIONS_GATEWAY_API_KEY: payment-transactions-gateway-api-key
+      NPG_API_KEY: npg-api-key
   image:
     repository: pagopaucommonacr.azurecr.io/pagopaecommerceeventdispatcherservice
     tag: "0.9.0"
@@ -176,6 +180,9 @@ microservice-chart:
     OTEL_TRACES_SAMPLER: "always_on"
     SEND_PAYMENT_RESULT_TIMEOUT_SECONDS: "3900"
     SEND_PAYMENT_RESULT_EXPIRATION_OFFSET_SECONDS: "5"
+    NPG_URI: https://stg-ta.nexigroup.com/api/phoenix-0.0
+    NPG_READ_TIMEOUT: "10000"
+    NPG_CONNECTION_TIMEOUT: "10000"
     ECS_SERVICE_NAME: pagopa-ecommerce-event-dispatcher-service
     ECS_SERVICE_ENVIRONMENT: uat
   envSecret:
@@ -189,6 +196,7 @@ microservice-chart:
     PERSONAL_DATA_VAULT_API_KEY: personal-data-vault-api-key
     OTEL_EXPORTER_OTLP_HEADERS: elastic-otel-token-header
     PAYMENT_TRANSACTIONS_GATEWAY_API_KEY: payment-transactions-gateway-api-key
+    NPG_API_KEY: npg-api-key
   keyvault:
     name: "pagopa-u-ecommerce-kv"
     tenantId: "7788edaf-0346-4068-9d79-c868aed15b3d"

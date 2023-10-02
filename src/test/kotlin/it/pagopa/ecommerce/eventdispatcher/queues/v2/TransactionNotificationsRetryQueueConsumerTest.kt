@@ -22,6 +22,7 @@ import it.pagopa.ecommerce.eventdispatcher.config.QueuesConsumerConfig
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
+import it.pagopa.ecommerce.eventdispatcher.services.RefundService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.NotificationRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
 import it.pagopa.ecommerce.eventdispatcher.utils.DEAD_LETTER_QUEUE_TTL_SECONDS
@@ -68,6 +69,8 @@ class TransactionNotificationsRetryQueueConsumerTest {
 
   private val notificationRetryService: NotificationRetryService = mock()
 
+  private val refundService: RefundService = mock()
+
   private val refundRetryService: RefundRetryService = mock()
 
   private val notificationsServiceClient: NotificationsServiceClient = mock()
@@ -100,6 +103,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
       notificationRetryService = notificationRetryService,
       transactionsRefundedEventStoreRepository = transactionRefundRepository,
       paymentGatewayClient = paymentGatewayClient,
+      refundService = refundService,
       refundRetryService = refundRetryService,
       userReceiptMailBuilder = userReceiptMailBuilder,
       notificationsServiceClient = notificationsServiceClient,
