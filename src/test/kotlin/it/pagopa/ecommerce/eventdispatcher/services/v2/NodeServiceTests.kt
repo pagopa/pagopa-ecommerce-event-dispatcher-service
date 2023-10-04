@@ -1,6 +1,7 @@
 package it.pagopa.ecommerce.eventdispatcher.services.v2
 
 import it.pagopa.ecommerce.commons.documents.v2.Transaction
+import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationRequestData
 import it.pagopa.ecommerce.commons.documents.v2.TransactionEvent
 import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.PgsTransactionGatewayAuthorizationData
@@ -322,7 +323,9 @@ class NodeServiceTests {
       val transactionOutcome = OutcomeEnum.OK
 
       val activatedEvent = transactionActivateEvent()
-      val authEvent = transactionAuthorizationRequestedEvent()
+      val authEvent =
+        transactionAuthorizationRequestedEvent(
+          TransactionAuthorizationRequestData.PaymentGateway.NPG)
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(
           npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED))
@@ -588,7 +591,9 @@ class NodeServiceTests {
       val transactionOutcome = OutcomeEnum.OK
 
       val activatedEvent = transactionActivateEvent()
-      val authEvent = transactionAuthorizationRequestedEvent()
+      val authEvent =
+        transactionAuthorizationRequestedEvent(
+          TransactionAuthorizationRequestData.PaymentGateway.NPG)
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(
           npgTransactionGatewayAuthorizationData(OperationResultDto.DECLINED))
@@ -833,7 +838,9 @@ class NodeServiceTests {
       val transactionOutcome = OutcomeEnum.KO
 
       val activatedEvent = transactionActivateEvent()
-      val authEvent = transactionAuthorizationRequestedEvent()
+      val authEvent =
+        transactionAuthorizationRequestedEvent(
+          TransactionAuthorizationRequestData.PaymentGateway.NPG)
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(
           npgTransactionGatewayAuthorizationData(OperationResultDto.DECLINED))
@@ -939,7 +946,9 @@ class NodeServiceTests {
   fun `closePayment returns successfully for close payment after authorization Completed from NPG KO`() =
     runTest {
       val activatedEvent = transactionActivateEvent()
-      val authEvent = transactionAuthorizationRequestedEvent()
+      val authEvent =
+        transactionAuthorizationRequestedEvent(
+          TransactionAuthorizationRequestData.PaymentGateway.NPG)
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(
           NpgTransactionGatewayAuthorizationData(
