@@ -1,6 +1,9 @@
 package it.pagopa.ecommerce.eventdispatcher.utils.v2
 
+import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationRequestData
 import it.pagopa.ecommerce.commons.documents.v2.TransactionUserReceiptData
+import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationData
+import it.pagopa.ecommerce.commons.documents.v2.authorization.PgsTransactionGatewayAuthorizationRequestedData
 import it.pagopa.ecommerce.commons.domain.PaymentNotice
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithRequestedUserReceipt
 import it.pagopa.ecommerce.eventdispatcher.client.NotificationsServiceClient
@@ -118,7 +121,20 @@ class UserReceiptMailBuilder(@Autowired private val confidentialMailUtils: Confi
             transactionAuthorizationCompletedData.authorizationCode,
             PaymentMethodTemplate(
               transactionAuthorizationRequestData.paymentMethodDescription,
-              transactionAuthorizationRequestData.logo.toString(),
+              when (transactionAuthorizationRequestData.paymentGateway) {
+                TransactionAuthorizationRequestData.PaymentGateway.NPG -> {
+                  (transactionAuthorizationCompletedData.transactionGatewayAuthorizationData
+                      as NpgTransactionGatewayAuthorizationData)
+                    .logo
+                    .toString()
+                }
+                else -> {
+                  (transactionAuthorizationRequestData.transactionGatewayAuthorizationRequestedData
+                      as PgsTransactionGatewayAuthorizationRequestedData)
+                    .logo
+                    .toString()
+                }
+              },
               null,
               false)),
           UserTemplate(null, emailAddress),
