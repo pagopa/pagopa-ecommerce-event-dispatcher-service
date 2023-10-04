@@ -18,6 +18,12 @@ import it.pagopa.ecommerce.eventdispatcher.utils.ConfidentialMailUtils
 import it.pagopa.generated.notifications.templates.ko.KoTemplate
 import it.pagopa.generated.notifications.templates.success.*
 import it.pagopa.generated.notifications.v1.dto.NotificationEmailRequestDto
+import java.net.URI
+import java.time.LocalDateTime
+import java.time.Month
+import java.time.ZoneOffset
+import java.time.ZonedDateTime
+import java.util.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -26,12 +32,6 @@ import org.junit.jupiter.api.assertThrows
 import org.mockito.kotlin.any
 import org.mockito.kotlin.given
 import org.mockito.kotlin.mock
-import java.net.URI
-import java.time.LocalDateTime
-import java.time.Month
-import java.time.ZoneOffset
-import java.time.ZonedDateTime
-import java.util.*
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class UserReceiptMailBuilderTest {
@@ -51,19 +51,24 @@ class UserReceiptMailBuilderTest {
       val events =
         listOf<TransactionEvent<*>>(
           TransactionTestUtils.transactionActivateEvent() as TransactionEvent<*>,
-          TransactionTestUtils.transactionAuthorizationRequestedEvent(TransactionAuthorizationRequestData.PaymentGateway.NPG,
+          TransactionTestUtils.transactionAuthorizationRequestedEvent(
+            TransactionAuthorizationRequestData.PaymentGateway.NPG,
             EmptyTransactionGatewayAuthorizationRequestedData()) as TransactionEvent<*>,
           TransactionTestUtils.transactionAuthorizationCompletedEvent(
-            NpgTransactionGatewayAuthorizationData(OperationResultDto.AUTHORIZED,"operationId","paymentEndToEndId","VISA", URI.create("exampleURI")))
-                  as TransactionEvent<*>,
+            NpgTransactionGatewayAuthorizationData(
+              OperationResultDto.EXECUTED,
+              "operationId",
+              "paymentEndToEndId",
+              "VISA",
+              URI.create(TransactionTestUtils.LOGO_URI.toString()))) as TransactionEvent<*>,
           TransactionTestUtils.transactionClosedEvent(TransactionClosureData.Outcome.OK)
-                  as TransactionEvent<*>,
+            as TransactionEvent<*>,
           TransactionTestUtils.transactionUserReceiptRequestedEvent(
             TransactionTestUtils.transactionUserReceiptData(TransactionUserReceiptData.Outcome.OK)),
         )
       val baseTransaction =
         TransactionTestUtils.reduceEvents(*events.toTypedArray())
-                as BaseTransactionWithRequestedUserReceipt
+          as BaseTransactionWithRequestedUserReceipt
       val totalAmountWithFeeString =
         userReceiptMailBuilder.amountToHumanReadableString(
           baseTransaction.paymentNotices
