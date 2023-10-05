@@ -5,8 +5,8 @@ import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationRequestD
 import it.pagopa.ecommerce.commons.documents.v2.TransactionClosureData
 import it.pagopa.ecommerce.commons.documents.v2.TransactionEvent
 import it.pagopa.ecommerce.commons.documents.v2.TransactionUserReceiptData
-import it.pagopa.ecommerce.commons.documents.v2.authorization.EmptyTransactionGatewayAuthorizationRequestedData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationData
+import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationRequestedData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.PgsTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.domain.Email
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithRequestedUserReceipt
@@ -53,14 +53,12 @@ class UserReceiptMailBuilderTest {
           TransactionTestUtils.transactionActivateEvent() as TransactionEvent<*>,
           TransactionTestUtils.transactionAuthorizationRequestedEvent(
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
-            EmptyTransactionGatewayAuthorizationRequestedData()) as TransactionEvent<*>,
+            NpgTransactionGatewayAuthorizationRequestedData(
+              URI.create(TransactionTestUtils.LOGO_URI.toString()), "VISA")) as TransactionEvent<*>,
           TransactionTestUtils.transactionAuthorizationCompletedEvent(
             NpgTransactionGatewayAuthorizationData(
-              OperationResultDto.EXECUTED,
-              "operationId",
-              "paymentEndToEndId",
-              "VISA",
-              URI.create(TransactionTestUtils.LOGO_URI.toString()))) as TransactionEvent<*>,
+              OperationResultDto.EXECUTED, "operationId", "paymentEndToEndId"))
+            as TransactionEvent<*>,
           TransactionTestUtils.transactionClosedEvent(TransactionClosureData.Outcome.OK)
             as TransactionEvent<*>,
           TransactionTestUtils.transactionUserReceiptRequestedEvent(

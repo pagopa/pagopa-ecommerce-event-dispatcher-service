@@ -1,10 +1,7 @@
 package it.pagopa.ecommerce.eventdispatcher.services.v2
 
 import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationRequestData
-import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationData
-import it.pagopa.ecommerce.commons.documents.v2.authorization.PgsTransactionGatewayAuthorizationData
-import it.pagopa.ecommerce.commons.documents.v2.authorization.PgsTransactionGatewayAuthorizationRequestedData
-import it.pagopa.ecommerce.commons.documents.v2.authorization.TransactionGatewayAuthorizationData
+import it.pagopa.ecommerce.commons.documents.v2.authorization.*
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v2.TransactionWithClosureError
@@ -253,29 +250,17 @@ class NodeService(
             InfoDto().apply {
               type = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
               brandLogo =
-                when (authCompleted.transactionAuthorizationRequestData.paymentGateway) {
-                  TransactionAuthorizationRequestData.PaymentGateway.NPG -> {
-                    (authCompleted.transactionAuthorizationCompletedData
-                        .transactionGatewayAuthorizationData
-                        as NpgTransactionGatewayAuthorizationData)
-                      .logo
-                      .toString()
-                  }
-                  else -> {
-                    (authCompleted.transactionAuthorizationRequestData
-                        .transactionGatewayAuthorizationRequestedData
-                        as PgsTransactionGatewayAuthorizationRequestedData)
-                      .logo
-                      .toString()
-                  }
-                }
+                authCompleted.transactionAuthorizationRequestData
+                  .transactionGatewayAuthorizationRequestedData
+                  .logo
+                  .toString()
               brand =
                 when (authCompleted.transactionAuthorizationRequestData.paymentGateway) {
                   TransactionAuthorizationRequestData.PaymentGateway.NPG -> {
-                    (authCompleted.transactionAuthorizationCompletedData
-                        .transactionGatewayAuthorizationData
-                        as NpgTransactionGatewayAuthorizationData)
-                      .paymentCircuit
+                    (authCompleted.transactionAuthorizationRequestData
+                        .transactionGatewayAuthorizationRequestedData
+                        as NpgTransactionGatewayAuthorizationRequestedData)
+                      .brand
                   }
                   else -> {
                     (authCompleted.transactionAuthorizationRequestData
