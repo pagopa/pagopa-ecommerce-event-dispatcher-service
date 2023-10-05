@@ -18,16 +18,17 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 import reactor.core.publisher.Mono
 
 @Component
-class NodeClient(@Autowired private val nodeApi: NodoApi,  @Value("\${nodo.ecommerce.clientId}") private val ecommerceClientId: String) {
+class NodeClient(
+  @Autowired private val nodeApi: NodoApi,
+  @Value("\${nodo.ecommerce.clientId}") private val ecommerceClientId: String
+) {
 
   suspend fun closePayment(
     closePaymentRequest: ClosePaymentRequestV2Dto
   ): Mono<ClosePaymentResponseDto> {
     return mono {
       try {
-        return@mono nodeApi
-          .closePaymentV2(closePaymentRequest, ecommerceClientId)
-          .awaitSingle()
+        return@mono nodeApi.closePaymentV2(closePaymentRequest, ecommerceClientId).awaitSingle()
       } catch (exception: WebClientResponseException) {
         throw when (exception.statusCode) {
           HttpStatus.NOT_FOUND ->
