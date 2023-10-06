@@ -1,9 +1,9 @@
 package it.pagopa.ecommerce.eventdispatcher.services.v2
 
 import it.pagopa.ecommerce.commons.documents.v2.Transaction
+import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationRequestData
 import it.pagopa.ecommerce.commons.documents.v2.TransactionEvent
-import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationData
-import it.pagopa.ecommerce.commons.documents.v2.authorization.PgsTransactionGatewayAuthorizationData
+import it.pagopa.ecommerce.commons.documents.v2.authorization.*
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
@@ -17,6 +17,7 @@ import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto.OutcomeEnum
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.UserDto
+import java.net.URI
 import java.time.OffsetDateTime
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
@@ -286,12 +287,19 @@ class NodeServiceTests {
         authEvent.data.paymentTypeCode,
         closePaymentRequestCaptor.value.transactionDetails.info.type)
       assertEquals(
-        authEvent.data.brand!!.name, closePaymentRequestCaptor.value.transactionDetails.info.brand)
+        (authEvent.data.transactionGatewayAuthorizationRequestedData
+            as PgsTransactionGatewayAuthorizationRequestedData)
+          .brand!!
+          .name,
+        closePaymentRequestCaptor.value.transactionDetails.info.brand)
       assertEquals(
         authEvent.data.paymentMethodName,
         closePaymentRequestCaptor.value.transactionDetails.info.paymentMethodName)
       assertEquals(
-        authEvent.data.logo.toString(),
+        (authEvent.data.transactionGatewayAuthorizationRequestedData
+            as PgsTransactionGatewayAuthorizationRequestedData)
+          .logo
+          .toString(),
         closePaymentRequestCaptor.value.transactionDetails.info.brandLogo)
       // Check additionalPaymentInfo
       assertEquals(expectedTimestamp, additionalPaymentInfo.timestampOperation)
@@ -313,7 +321,10 @@ class NodeServiceTests {
       val transactionOutcome = OutcomeEnum.OK
 
       val activatedEvent = transactionActivateEvent()
-      val authEvent = transactionAuthorizationRequestedEvent()
+      val authEvent =
+        transactionAuthorizationRequestedEvent(
+          TransactionAuthorizationRequestData.PaymentGateway.NPG,
+          NpgTransactionGatewayAuthorizationRequestedData(LOGO_URI, "VISA"))
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(
           npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED))
@@ -412,12 +423,15 @@ class NodeServiceTests {
         authEvent.data.paymentTypeCode,
         closePaymentRequestCaptor.value.transactionDetails.info.type)
       assertEquals(
-        authEvent.data.brand!!.name, closePaymentRequestCaptor.value.transactionDetails.info.brand)
+        (authEvent.data.transactionGatewayAuthorizationRequestedData
+            as NpgTransactionGatewayAuthorizationRequestedData)
+          .brand,
+        closePaymentRequestCaptor.value.transactionDetails.info.brand)
       assertEquals(
         authEvent.data.paymentMethodName,
         closePaymentRequestCaptor.value.transactionDetails.info.paymentMethodName)
       assertEquals(
-        authEvent.data.logo.toString(),
+        authEvent.data.transactionGatewayAuthorizationRequestedData.logo.toString(),
         closePaymentRequestCaptor.value.transactionDetails.info.brandLogo)
       // Check additionalPaymentInfo
       assertEquals(expectedTimestamp, additionalPaymentInfo.timestampOperation)
@@ -538,12 +552,19 @@ class NodeServiceTests {
         authEvent.data.paymentTypeCode,
         closePaymentRequestCaptor.value.transactionDetails.info.type)
       assertEquals(
-        authEvent.data.brand!!.name, closePaymentRequestCaptor.value.transactionDetails.info.brand)
+        (authEvent.data.transactionGatewayAuthorizationRequestedData
+            as PgsTransactionGatewayAuthorizationRequestedData)
+          .brand!!
+          .name,
+        closePaymentRequestCaptor.value.transactionDetails.info.brand)
       assertEquals(
         authEvent.data.paymentMethodName,
         closePaymentRequestCaptor.value.transactionDetails.info.paymentMethodName)
       assertEquals(
-        authEvent.data.logo.toString(),
+        (authEvent.data.transactionGatewayAuthorizationRequestedData
+            as PgsTransactionGatewayAuthorizationRequestedData)
+          .logo
+          .toString(),
         closePaymentRequestCaptor.value.transactionDetails.info.brandLogo)
       // Check additionalPaymentInfo
       assertEquals(expectedTimestamp, additionalPaymentInfo.timestampOperation)
@@ -565,7 +586,10 @@ class NodeServiceTests {
       val transactionOutcome = OutcomeEnum.OK
 
       val activatedEvent = transactionActivateEvent()
-      val authEvent = transactionAuthorizationRequestedEvent()
+      val authEvent =
+        transactionAuthorizationRequestedEvent(
+          TransactionAuthorizationRequestData.PaymentGateway.NPG,
+          NpgTransactionGatewayAuthorizationRequestedData(LOGO_URI, "VISA"))
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(
           npgTransactionGatewayAuthorizationData(OperationResultDto.DECLINED))
@@ -664,12 +688,15 @@ class NodeServiceTests {
         authEvent.data.paymentTypeCode,
         closePaymentRequestCaptor.value.transactionDetails.info.type)
       assertEquals(
-        authEvent.data.brand!!.name, closePaymentRequestCaptor.value.transactionDetails.info.brand)
+        (authEvent.data.transactionGatewayAuthorizationRequestedData
+            as NpgTransactionGatewayAuthorizationRequestedData)
+          .brand,
+        closePaymentRequestCaptor.value.transactionDetails.info.brand)
       assertEquals(
         authEvent.data.paymentMethodName,
         closePaymentRequestCaptor.value.transactionDetails.info.paymentMethodName)
       assertEquals(
-        authEvent.data.logo.toString(),
+        authEvent.data.transactionGatewayAuthorizationRequestedData.logo.toString(),
         closePaymentRequestCaptor.value.transactionDetails.info.brandLogo)
       // Check additionalPaymentInfo
       assertEquals(expectedTimestamp, additionalPaymentInfo.timestampOperation)
@@ -779,12 +806,19 @@ class NodeServiceTests {
         authEvent.data.paymentTypeCode,
         closePaymentRequestCaptor.value.transactionDetails.info.type)
       assertEquals(
-        authEvent.data.brand!!.name, closePaymentRequestCaptor.value.transactionDetails.info.brand)
+        (authEvent.data.transactionGatewayAuthorizationRequestedData
+            as PgsTransactionGatewayAuthorizationRequestedData)
+          .brand!!
+          .name,
+        closePaymentRequestCaptor.value.transactionDetails.info.brand)
       assertEquals(
         authEvent.data.paymentMethodName,
         closePaymentRequestCaptor.value.transactionDetails.info.paymentMethodName)
       assertEquals(
-        authEvent.data.logo.toString(),
+        (authEvent.data.transactionGatewayAuthorizationRequestedData
+            as PgsTransactionGatewayAuthorizationRequestedData)
+          .logo
+          .toString(),
         closePaymentRequestCaptor.value.transactionDetails.info.brandLogo)
 
       // Check additionalPaymentInfo
@@ -797,7 +831,10 @@ class NodeServiceTests {
       val transactionOutcome = OutcomeEnum.KO
 
       val activatedEvent = transactionActivateEvent()
-      val authEvent = transactionAuthorizationRequestedEvent()
+      val authEvent =
+        transactionAuthorizationRequestedEvent(
+          TransactionAuthorizationRequestData.PaymentGateway.NPG,
+          NpgTransactionGatewayAuthorizationRequestedData(LOGO_URI, "VISA"))
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(
           npgTransactionGatewayAuthorizationData(OperationResultDto.DECLINED))
@@ -881,12 +918,15 @@ class NodeServiceTests {
         authEvent.data.paymentTypeCode,
         closePaymentRequestCaptor.value.transactionDetails.info.type)
       assertEquals(
-        authEvent.data.brand!!.name, closePaymentRequestCaptor.value.transactionDetails.info.brand)
+        (authEvent.data.transactionGatewayAuthorizationRequestedData
+            as NpgTransactionGatewayAuthorizationRequestedData)
+          .brand,
+        closePaymentRequestCaptor.value.transactionDetails.info.brand)
       assertEquals(
         authEvent.data.paymentMethodName,
         closePaymentRequestCaptor.value.transactionDetails.info.paymentMethodName)
       assertEquals(
-        authEvent.data.logo.toString(),
+        authEvent.data.transactionGatewayAuthorizationRequestedData.logo.toString(),
         closePaymentRequestCaptor.value.transactionDetails.info.brandLogo)
 
       // Check additionalPaymentInfo
@@ -894,14 +934,17 @@ class NodeServiceTests {
     }
 
   @Test
-  fun `closePayment returns successfully for close payment after authorization Completed from PGS KO`() =
+  fun `closePayment returns successfully for close payment after authorization Completed from NPG KO`() =
     runTest {
       val activatedEvent = transactionActivateEvent()
-      val authEvent = transactionAuthorizationRequestedEvent()
+      val authEvent =
+        transactionAuthorizationRequestedEvent(
+          TransactionAuthorizationRequestData.PaymentGateway.NPG,
+          NpgTransactionGatewayAuthorizationRequestedData(URI.create("logo"), "VISA"))
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(
           NpgTransactionGatewayAuthorizationData(
-            OperationResultDto.DECLINED, "operationId", "paymentEndToEndId"))
+            OperationResultDto.EXECUTED, "operationId", "paymentEndTOEndId"))
       val closureError = transactionClosureErrorEvent()
       val transactionId = activatedEvent.transactionId
       val events =
