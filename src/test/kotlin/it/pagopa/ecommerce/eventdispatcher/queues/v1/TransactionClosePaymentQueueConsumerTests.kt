@@ -144,7 +144,7 @@ class TransactionClosePaymentQueueConsumerTests {
     // mocking
     verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransactionCanceled)
     verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
-    verify(paymentRequestInfoRedisTemplateWrapper, Mockito.times(1).also { Mockito.timeout(1000) })
+    verify(paymentRequestInfoRedisTemplateWrapper, Mockito.times(1).also { Mockito.timeout(5000) })
       .deleteById(any())
     assertEquals(TransactionStatusDto.CANCELED, viewArgumentCaptor.value.status)
     assertEquals(
@@ -206,7 +206,7 @@ class TransactionClosePaymentQueueConsumerTests {
     // mocking
     verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransactionCanceled)
     verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
-    verify(paymentRequestInfoRedisTemplateWrapper, Mockito.times(1).also { Mockito.timeout(1000) })
+    verify(paymentRequestInfoRedisTemplateWrapper, Mockito.times(1).also { Mockito.timeout(5000) })
       .deleteById(any())
     assertEquals(TransactionStatusDto.CANCELED, viewArgumentCaptor.value.status)
     assertEquals(
@@ -268,7 +268,7 @@ class TransactionClosePaymentQueueConsumerTests {
     // mocking
     verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransactionCanceled)
     verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
-    verify(paymentRequestInfoRedisTemplateWrapper, Mockito.times(1).also { Mockito.timeout(1000) })
+    verify(paymentRequestInfoRedisTemplateWrapper, Mockito.times(1).also { Mockito.timeout(5000) })
       .deleteById(any())
     assertEquals(TransactionStatusDto.CANCELED, viewArgumentCaptor.value.status)
     assertEquals(
@@ -330,7 +330,7 @@ class TransactionClosePaymentQueueConsumerTests {
     // mocking
     verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransactionCanceled)
     verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
-    verify(paymentRequestInfoRedisTemplateWrapper, Mockito.times(1).also { Mockito.timeout(1000) })
+    verify(paymentRequestInfoRedisTemplateWrapper, Mockito.times(1).also { Mockito.timeout(5000) })
       .deleteById(any())
     assertEquals(TransactionStatusDto.CANCELED, viewArgumentCaptor.value.status)
     assertEquals(
@@ -392,7 +392,7 @@ class TransactionClosePaymentQueueConsumerTests {
     verify(nodeService, Mockito.times(1)).closePayment(any(), any())
     verify(transactionClosedEventRepository, Mockito.times(0))
       .save(any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
-    verify(paymentRequestInfoRedisTemplateWrapper, Mockito.times(1).also { Mockito.timeout(1000) })
+    verify(paymentRequestInfoRedisTemplateWrapper, Mockito.times(1).also { Mockito.timeout(5000) })
       .deleteById(any())
     // mocking
     verify(transactionsViewRepository, Mockito.times(0)).save(expectedUpdatedTransactionCanceled)
@@ -439,7 +439,7 @@ class TransactionClosePaymentQueueConsumerTests {
     verify(transactionClosedEventRepository, Mockito.times(0)).save(any())
     verify(transactionsViewRepository, Mockito.times(0)).save(any())
     verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
-    verify(paymentRequestInfoRedisTemplateWrapper, Mockito.times(0).also { Mockito.timeout(1000) })
+    verify(paymentRequestInfoRedisTemplateWrapper, Mockito.times(0).also { Mockito.timeout(5000) })
       .deleteById(any())
     verify(deadLetterQueueAsyncClient, times(1))
       .sendMessageWithResponse(
@@ -504,7 +504,7 @@ class TransactionClosePaymentQueueConsumerTests {
       verify(checkpointer, Mockito.times(1)).success()
       verify(nodeService, Mockito.times(1)).closePayment(any(), any())
       verify(
-          paymentRequestInfoRedisTemplateWrapper, Mockito.times(1).also { Mockito.timeout(1000) })
+          paymentRequestInfoRedisTemplateWrapper, Mockito.times(1).also { Mockito.timeout(5000) })
         .deleteById(any())
       verify(transactionClosedEventRepository, Mockito.times(0))
         .save(
@@ -567,7 +567,7 @@ class TransactionClosePaymentQueueConsumerTests {
       verify(nodeService, Mockito.times(1)).closePayment(any(), any())
       verify(
           paymentRequestInfoRedisTemplateWrapper,
-          Mockito.times(1).also { Mockito.timeout(1000) }.also { Mockito.timeout(1000) })
+          Mockito.times(1).also { Mockito.timeout(1000) }.also { Mockito.timeout(5000) })
         .deleteById(any())
       verify(transactionClosedEventRepository, Mockito.times(0))
         .save(

@@ -1,8 +1,6 @@
 package it.pagopa.ecommerce.eventdispatcher.services.v2
 
-import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationData
-import it.pagopa.ecommerce.commons.documents.v2.authorization.PgsTransactionGatewayAuthorizationData
-import it.pagopa.ecommerce.commons.documents.v2.authorization.TransactionGatewayAuthorizationData
+import it.pagopa.ecommerce.commons.documents.v2.authorization.*
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v2.TransactionWithClosureError
@@ -163,8 +161,10 @@ class NodeService(
     authCompleted: BaseTransactionWithCompletedAuthorization,
     transactionOutcome: ClosePaymentRequestV2Dto.OutcomeEnum,
     transactionId: TransactionId
-  ): ClosePaymentRequestV2Dto =
-    ClosePaymentRequestV2Dto().apply {
+  ): ClosePaymentRequestV2Dto {
+    val authRequestedData =
+      authCompleted.transactionAuthorizationRequestData.transactionGatewayAuthorizationRequestedData
+    return ClosePaymentRequestV2Dto().apply {
       paymentTokens =
         authCompleted.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken.value }
       outcome = transactionOutcome
@@ -250,8 +250,18 @@ class NodeService(
           info =
             InfoDto().apply {
               type = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
-              brandLogo = authCompleted.transactionAuthorizationRequestData.logo.toString()
-              brand = authCompleted.transactionAuthorizationRequestData.brand?.name
+              brandLogo =
+                authCompleted.transactionAuthorizationRequestData
+                  .transactionGatewayAuthorizationRequestedData
+                  .logo
+                  .toString()
+              brand =
+                when (authRequestedData) {
+                  is NpgTransactionGatewayAuthorizationRequestedData -> authRequestedData.brand
+                  is PgsTransactionGatewayAuthorizationRequestedData ->
+                    authRequestedData.brand?.toString()
+                  else -> null
+                }
               paymentMethodName =
                 authCompleted.transactionAuthorizationRequestData.paymentMethodName
               clientId = authCompleted.transactionActivatedData.clientId.name
@@ -259,6 +269,7 @@ class NodeService(
           user = UserDto().apply { type = UserDto.TypeEnum.GUEST }
         }
     }
+  }
 
   private fun getOutcomePaymentGateway(
     transactionGatewayAuthData: TransactionGatewayAuthorizationData
