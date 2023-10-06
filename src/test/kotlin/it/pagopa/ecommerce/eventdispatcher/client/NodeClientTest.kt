@@ -53,7 +53,7 @@ class NodeClientTest {
       ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
 
     /* preconditions */
-    given(nodeApi.closePaymentV2(closePaymentRequest, Companion.CLOSE_PAYMENT_CLIENT_ID))
+    given(nodeApi.closePaymentV2(closePaymentRequest, CLOSE_PAYMENT_CLIENT_ID))
       .willReturn(Mono.just(expected))
 
     /* test */
@@ -69,7 +69,7 @@ class NodeClientTest {
     val closePaymentRequest = getMockedClosePaymentRequest(transactionId, OutcomeEnum.OK)
 
     /* preconditions */
-    given(nodeApi.closePaymentV2(closePaymentRequest, Companion.CLOSE_PAYMENT_CLIENT_ID))
+    given(nodeApi.closePaymentV2(closePaymentRequest, CLOSE_PAYMENT_CLIENT_ID))
       .willReturn(
         Mono.error(
           WebClientResponseException.create(
@@ -86,7 +86,7 @@ class NodeClientTest {
     val closePaymentRequest = getMockedClosePaymentRequest(transactionId, OutcomeEnum.OK)
 
     /* preconditions */
-    given(nodeApi.closePaymentV2(closePaymentRequest, Companion.CLOSE_PAYMENT_CLIENT_ID))
+    given(nodeApi.closePaymentV2(closePaymentRequest, CLOSE_PAYMENT_CLIENT_ID))
       .willReturn(
         Mono.error(
           WebClientResponseException.create(
@@ -105,7 +105,7 @@ class NodeClientTest {
     val closePaymentRequest = getMockedClosePaymentRequest(transactionId, OutcomeEnum.OK)
 
     /* preconditions */
-    given(nodeApi.closePaymentV2(closePaymentRequest, Companion.CLOSE_PAYMENT_CLIENT_ID))
+    given(nodeApi.closePaymentV2(closePaymentRequest, CLOSE_PAYMENT_CLIENT_ID))
       .willReturn(
         Mono.error(
           WebClientResponseException.create(
@@ -126,7 +126,7 @@ class NodeClientTest {
     val closePaymentRequest = getMockedClosePaymentRequest(transactionId, OutcomeEnum.OK)
 
     /* preconditions */
-    given(nodeApi.closePaymentV2(closePaymentRequest, Companion.CLOSE_PAYMENT_CLIENT_ID))
+    given(nodeApi.closePaymentV2(closePaymentRequest, CLOSE_PAYMENT_CLIENT_ID))
       .willReturn(
         Mono.error(
           WebClientResponseException.create(
