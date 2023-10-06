@@ -11,26 +11,24 @@ import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
 import kotlinx.coroutines.reactor.awaitSingle
 import kotlinx.coroutines.reactor.mono
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
 import org.springframework.web.reactive.function.client.WebClientResponseException
 import reactor.core.publisher.Mono
 
 @Component
-class NodeClient(@Autowired private val nodeApi: NodoApi) {
-
-  companion object {
-    const val CLOSE_PAYMENT_CLIENT_ID: String = "ecomm"
-  }
+class NodeClient(
+  @Autowired private val nodeApi: NodoApi,
+  @Value("\${nodo.ecommerce.clientId}") private val ecommerceClientId: String
+) {
 
   suspend fun closePayment(
     closePaymentRequest: ClosePaymentRequestV2Dto
   ): Mono<ClosePaymentResponseDto> {
     return mono {
       try {
-        return@mono nodeApi
-          .closePaymentV2(closePaymentRequest, CLOSE_PAYMENT_CLIENT_ID)
-          .awaitSingle()
+        return@mono nodeApi.closePaymentV2(closePaymentRequest, ecommerceClientId).awaitSingle()
       } catch (exception: WebClientResponseException) {
         throw when (exception.statusCode) {
           HttpStatus.NOT_FOUND ->
