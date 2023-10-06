@@ -15,10 +15,10 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.reactor.awaitSingle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.mockito.BDDMockito.given
-import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.http.HttpHeaders
@@ -31,12 +31,17 @@ import reactor.core.publisher.Mono
 @TestPropertySource(locations = ["classpath:application.test.properties"])
 class NodeClientTest {
 
+  companion object {
+    const val CLOSE_PAYMENT_CLIENT_ID = "ecomm"
+  }
+
   @Mock private lateinit var nodeApi: NodoApi
 
-  @InjectMocks private lateinit var nodeClient: NodeClient
+  private lateinit var nodeClient: NodeClient
 
-  companion object {
-    const val CLOSE_PAYMENT_CLIENT_ID: String = "ecomm"
+  @BeforeEach
+  fun init() {
+    nodeClient = NodeClient(nodeApi, CLOSE_PAYMENT_CLIENT_ID)
   }
 
   @Test
@@ -48,7 +53,7 @@ class NodeClientTest {
       ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
 
     /* preconditions */
-    given(nodeApi.closePaymentV2(closePaymentRequest, CLOSE_PAYMENT_CLIENT_ID))
+    given(nodeApi.closePaymentV2(closePaymentRequest, Companion.CLOSE_PAYMENT_CLIENT_ID))
       .willReturn(Mono.just(expected))
 
     /* test */
@@ -64,7 +69,7 @@ class NodeClientTest {
     val closePaymentRequest = getMockedClosePaymentRequest(transactionId, OutcomeEnum.OK)
 
     /* preconditions */
-    given(nodeApi.closePaymentV2(closePaymentRequest, CLOSE_PAYMENT_CLIENT_ID))
+    given(nodeApi.closePaymentV2(closePaymentRequest, Companion.CLOSE_PAYMENT_CLIENT_ID))
       .willReturn(
         Mono.error(
           WebClientResponseException.create(
@@ -81,7 +86,7 @@ class NodeClientTest {
     val closePaymentRequest = getMockedClosePaymentRequest(transactionId, OutcomeEnum.OK)
 
     /* preconditions */
-    given(nodeApi.closePaymentV2(closePaymentRequest, CLOSE_PAYMENT_CLIENT_ID))
+    given(nodeApi.closePaymentV2(closePaymentRequest, Companion.CLOSE_PAYMENT_CLIENT_ID))
       .willReturn(
         Mono.error(
           WebClientResponseException.create(
@@ -100,7 +105,7 @@ class NodeClientTest {
     val closePaymentRequest = getMockedClosePaymentRequest(transactionId, OutcomeEnum.OK)
 
     /* preconditions */
-    given(nodeApi.closePaymentV2(closePaymentRequest, CLOSE_PAYMENT_CLIENT_ID))
+    given(nodeApi.closePaymentV2(closePaymentRequest, Companion.CLOSE_PAYMENT_CLIENT_ID))
       .willReturn(
         Mono.error(
           WebClientResponseException.create(
@@ -121,7 +126,7 @@ class NodeClientTest {
     val closePaymentRequest = getMockedClosePaymentRequest(transactionId, OutcomeEnum.OK)
 
     /* preconditions */
-    given(nodeApi.closePaymentV2(closePaymentRequest, CLOSE_PAYMENT_CLIENT_ID))
+    given(nodeApi.closePaymentV2(closePaymentRequest, Companion.CLOSE_PAYMENT_CLIENT_ID))
       .willReturn(
         Mono.error(
           WebClientResponseException.create(
