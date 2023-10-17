@@ -17,7 +17,6 @@ import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto.OutcomeEnum
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.UserDto
-import java.net.URI
 import java.time.OffsetDateTime
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
@@ -324,7 +323,7 @@ class NodeServiceTests {
       val authEvent =
         transactionAuthorizationRequestedEvent(
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
-          NpgTransactionGatewayAuthorizationRequestedData(LOGO_URI, "VISA"))
+          npgTransactionGatewayAuthorizationRequestedData())
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(
           npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED))
@@ -589,7 +588,7 @@ class NodeServiceTests {
       val authEvent =
         transactionAuthorizationRequestedEvent(
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
-          NpgTransactionGatewayAuthorizationRequestedData(LOGO_URI, "VISA"))
+          npgTransactionGatewayAuthorizationRequestedData())
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(
           npgTransactionGatewayAuthorizationData(OperationResultDto.DECLINED))
@@ -834,7 +833,7 @@ class NodeServiceTests {
       val authEvent =
         transactionAuthorizationRequestedEvent(
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
-          NpgTransactionGatewayAuthorizationRequestedData(LOGO_URI, "VISA"))
+          npgTransactionGatewayAuthorizationRequestedData())
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(
           npgTransactionGatewayAuthorizationData(OperationResultDto.DECLINED))
@@ -940,7 +939,7 @@ class NodeServiceTests {
       val authEvent =
         transactionAuthorizationRequestedEvent(
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
-          NpgTransactionGatewayAuthorizationRequestedData(URI.create("logo"), "VISA"))
+          npgTransactionGatewayAuthorizationRequestedData())
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(
           NpgTransactionGatewayAuthorizationData(
