@@ -54,7 +54,10 @@ class UserReceiptMailBuilderTest {
           TransactionTestUtils.transactionAuthorizationRequestedEvent(
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             NpgTransactionGatewayAuthorizationRequestedData(
-              URI.create(TransactionTestUtils.LOGO_URI.toString()), "VISA")) as TransactionEvent<*>,
+              URI.create(TransactionTestUtils.LOGO_URI.toString()),
+              "VISA",
+              TransactionTestUtils.NPG_SESSION_ID,
+              TransactionTestUtils.NPG_CONFIRM_PAYMENT_SESSION_ID)) as TransactionEvent<*>,
           TransactionTestUtils.transactionAuthorizationCompletedEvent(
             NpgTransactionGatewayAuthorizationData(
               OperationResultDto.EXECUTED, "operationId", "paymentEndToEndId"))

@@ -324,7 +324,8 @@ class NodeServiceTests {
       val authEvent =
         transactionAuthorizationRequestedEvent(
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
-          NpgTransactionGatewayAuthorizationRequestedData(LOGO_URI, "VISA"))
+          NpgTransactionGatewayAuthorizationRequestedData(
+            LOGO_URI, "VISA", NPG_SESSION_ID, NPG_CONFIRM_PAYMENT_SESSION_ID))
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(
           npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED))
@@ -589,7 +590,8 @@ class NodeServiceTests {
       val authEvent =
         transactionAuthorizationRequestedEvent(
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
-          NpgTransactionGatewayAuthorizationRequestedData(LOGO_URI, "VISA"))
+          NpgTransactionGatewayAuthorizationRequestedData(
+            LOGO_URI, "VISA", NPG_SESSION_ID, NPG_CONFIRM_PAYMENT_SESSION_ID))
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(
           npgTransactionGatewayAuthorizationData(OperationResultDto.DECLINED))
@@ -834,7 +836,8 @@ class NodeServiceTests {
       val authEvent =
         transactionAuthorizationRequestedEvent(
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
-          NpgTransactionGatewayAuthorizationRequestedData(LOGO_URI, "VISA"))
+          NpgTransactionGatewayAuthorizationRequestedData(
+            LOGO_URI, "VISA", NPG_SESSION_ID, NPG_CONFIRM_PAYMENT_SESSION_ID))
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(
           npgTransactionGatewayAuthorizationData(OperationResultDto.DECLINED))
@@ -940,7 +943,8 @@ class NodeServiceTests {
       val authEvent =
         transactionAuthorizationRequestedEvent(
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
-          NpgTransactionGatewayAuthorizationRequestedData(URI.create("logo"), "VISA"))
+          NpgTransactionGatewayAuthorizationRequestedData(
+            URI.create("logo"), "VISA", NPG_SESSION_ID, NPG_CONFIRM_PAYMENT_SESSION_ID))
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(
           NpgTransactionGatewayAuthorizationData(
