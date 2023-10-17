@@ -6,7 +6,6 @@ import it.pagopa.ecommerce.commons.documents.v2.TransactionClosureData
 import it.pagopa.ecommerce.commons.documents.v2.TransactionEvent
 import it.pagopa.ecommerce.commons.documents.v2.TransactionUserReceiptData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationData
-import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationRequestedData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.PgsTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.domain.Email
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithRequestedUserReceipt
@@ -18,7 +17,6 @@ import it.pagopa.ecommerce.eventdispatcher.utils.ConfidentialMailUtils
 import it.pagopa.generated.notifications.templates.ko.KoTemplate
 import it.pagopa.generated.notifications.templates.success.*
 import it.pagopa.generated.notifications.v1.dto.NotificationEmailRequestDto
-import java.net.URI
 import java.time.LocalDateTime
 import java.time.Month
 import java.time.ZoneOffset
@@ -53,11 +51,8 @@ class UserReceiptMailBuilderTest {
           TransactionTestUtils.transactionActivateEvent() as TransactionEvent<*>,
           TransactionTestUtils.transactionAuthorizationRequestedEvent(
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
-            NpgTransactionGatewayAuthorizationRequestedData(
-              URI.create(TransactionTestUtils.LOGO_URI.toString()),
-              "VISA",
-              TransactionTestUtils.NPG_SESSION_ID,
-              TransactionTestUtils.NPG_CONFIRM_PAYMENT_SESSION_ID)) as TransactionEvent<*>,
+            TransactionTestUtils.npgTransactionGatewayAuthorizationRequestedData())
+            as TransactionEvent<*>,
           TransactionTestUtils.transactionAuthorizationCompletedEvent(
             NpgTransactionGatewayAuthorizationData(
               OperationResultDto.EXECUTED, "operationId", "paymentEndToEndId"))
@@ -140,6 +135,7 @@ class UserReceiptMailBuilderTest {
         objectMapper.writeValueAsString(expected),
         objectMapper.writeValueAsString(notificationEmailRequest))
     }
+
   @Test
   fun `Should build success email for VPOS payments with rrn for notified transaction with send payment result outcome OK`() =
     runTest {
