@@ -984,7 +984,7 @@ class TransactionsRefundEventsConsumerTests {
     verify(refundService, Mockito.times(1))
       .requestNpgRefund(
         NPG_OPERATION_ID,
-        transaction.transactionId.uuid.toString(),
+        transaction.transactionId.uuid,
         BigDecimal(
           transaction.transactionAuthorizationRequestData.amount +
             transaction.transactionAuthorizationRequestData.fee))
@@ -1060,7 +1060,7 @@ class TransactionsRefundEventsConsumerTests {
       verify(refundService, Mockito.times(1))
         .requestNpgRefund(
           NPG_OPERATION_ID,
-          transaction.transactionId.uuid.toString(),
+          transaction.transactionId.uuid,
           BigDecimal(
             transaction.transactionAuthorizationRequestData.amount +
               transaction.transactionAuthorizationRequestData.fee))
