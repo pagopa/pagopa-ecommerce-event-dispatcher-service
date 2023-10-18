@@ -79,7 +79,7 @@ microservice-chart:
       NPG_API_KEY: npg-api-key
   image:
     repository: pagopapcommonacr.azurecr.io/pagopaecommerceeventdispatcherservice
-    tag: "0.10.2"
+    tag: "0.10.3"
     pullPolicy: Always
   livenessProbe:
     httpGet:
