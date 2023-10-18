@@ -27,17 +27,23 @@ class RefundService(
 
   fun requestNpgRefund(
     operationId: String,
-    idempotenceKey: String,
+    idempotenceKey: UUID,
     amount: BigDecimal
   ): Mono<RefundResponseDto> {
     return npgClient
-      .refundPayment(UUID.randomUUID(), operationId, idempotenceKey, amount, npgApiKey)
+      .refundPayment(
+        UUID.randomUUID(),
+        operationId,
+        idempotenceKey,
+        amount,
+        npgApiKey,
+        "Refund request for transactionId $idempotenceKey and operationId $operationId")
       .onErrorMap(WebClientResponseException::class.java) { exception: WebClientResponseException ->
         when (exception.statusCode) {
-          HttpStatus.NOT_FOUND -> TransactionNotFound(UUID.fromString(idempotenceKey))
+          HttpStatus.NOT_FOUND -> TransactionNotFound(idempotenceKey)
           HttpStatus.GATEWAY_TIMEOUT -> GatewayTimeoutException()
           HttpStatus.INTERNAL_SERVER_ERROR -> BadGatewayException("")
-          HttpStatus.BAD_REQUEST -> RefundNotAllowedException(UUID.fromString(idempotenceKey))
+          HttpStatus.BAD_REQUEST -> RefundNotAllowedException(idempotenceKey)
           else -> exception
         }
       }
