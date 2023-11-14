@@ -191,7 +191,8 @@ fun refundTransaction(
                   it.operationId,
                   transaction.transactionId.uuid,
                   BigDecimal(transaction.transactionAuthorizationRequestData.amount)
-                    .add(BigDecimal(transaction.transactionAuthorizationRequestData.fee)))
+                    .add(BigDecimal(transaction.transactionAuthorizationRequestData.fee)),
+                  transaction.transactionAuthorizationRequestData.pspId)
                 .map { refundResponse -> Pair(refundResponse, transaction) }
             }
         }

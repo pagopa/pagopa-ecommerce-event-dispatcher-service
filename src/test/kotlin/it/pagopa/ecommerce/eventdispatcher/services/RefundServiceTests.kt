@@ -11,7 +11,7 @@ import it.pagopa.ecommerce.eventdispatcher.utils.getMockedVPosRefundRequest
 import it.pagopa.ecommerce.eventdispatcher.utils.getMockedXPayRefundRequest
 import java.math.BigDecimal
 import java.nio.charset.Charset
-import java.util.UUID
+import java.util.*
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito
@@ -28,26 +28,30 @@ import reactor.test.StepVerifier
 class RefundServiceTests {
   private val paymentGatewayClient: PaymentGatewayClient = mock()
   private val npgClient: NpgClient = mock()
-  private val apiKey = "mocked-api-key"
-  private val refundService: RefundService = RefundService(paymentGatewayClient, npgClient, apiKey)
+  private val pspId = "pspId1"
+  private val npgPspApiKeys = mapOf("pspId1" to "pspKey1")
+  private val refundService: RefundService =
+    RefundService(paymentGatewayClient, npgClient, npgPspApiKeys)
 
   @Test
   fun requestRefund_200_npg() {
     val operationId = "operationID"
     val idempotenceKey = UUID.randomUUID()
     val amount = BigDecimal.valueOf(1000)
-
+    val pspId = "pspId1"
     // Precondition
     given(npgClient.refundPayment(any(), any(), any(), any(), any(), any()))
       .willReturn(Mono.just(getMockedNpgRefundResponse(operationId)))
 
     // Test
-    val response = refundService.requestNpgRefund(operationId, idempotenceKey, amount).block()
+    val response =
+      refundService.requestNpgRefund(operationId, idempotenceKey, amount, pspId).block()
 
     // Assertions
-    assertEquals(operationId, response?.operationId)
+    assertEquals(operationId, response!!.operationId)
     verify(npgClient, times(1))
-      .refundPayment(any(), eq(operationId), eq(idempotenceKey), eq(amount), eq(apiKey), any())
+      .refundPayment(
+        any(), eq(operationId), eq(idempotenceKey), eq(amount), eq(npgPspApiKeys[pspId]!!), any())
 
     Mockito.`when`(npgClient.refundPayment(any(), any(), any(), any(), any(), any()))
       .thenCallRealMethod()
@@ -58,7 +62,7 @@ class RefundServiceTests {
     val operationId = "operationID"
     val idempotenceKey = UUID.randomUUID()
     val amount = BigDecimal.valueOf(1000)
-
+    val pspId = "pspId1"
     // Precondition
     given { npgClient.refundPayment(any(), any(), any(), any(), any(), any()) }
       .willReturn(
@@ -68,12 +72,13 @@ class RefundServiceTests {
 
     // Test
 
-    StepVerifier.create(refundService.requestNpgRefund(operationId, idempotenceKey, amount))
+    StepVerifier.create(refundService.requestNpgRefund(operationId, idempotenceKey, amount, pspId))
       .expectError(RefundNotAllowedException::class.java)
       .verify()
 
     verify(npgClient, times(1))
-      .refundPayment(any(), eq(operationId), eq(idempotenceKey), eq(amount), eq(apiKey), any())
+      .refundPayment(
+        any(), eq(operationId), eq(idempotenceKey), eq(amount), eq(npgPspApiKeys[pspId]!!), any())
 
     Mockito.`when`(npgClient.refundPayment(any(), any(), any(), any(), any(), any()))
       .thenCallRealMethod()
@@ -84,7 +89,7 @@ class RefundServiceTests {
     val operationId = "operationID"
     val idempotenceKey = UUID.randomUUID()
     val amount = BigDecimal.valueOf(1000)
-
+    val pspId = "pspId1"
     // Precondition
     given { npgClient.refundPayment(any(), any(), any(), any(), any(), any()) }
       .willReturn(
@@ -94,12 +99,13 @@ class RefundServiceTests {
 
     // Test
 
-    StepVerifier.create(refundService.requestNpgRefund(operationId, idempotenceKey, amount))
+    StepVerifier.create(refundService.requestNpgRefund(operationId, idempotenceKey, amount, pspId))
       .expectError(TransactionNotFound::class.java)
       .verify()
 
     verify(npgClient, times(1))
-      .refundPayment(any(), eq(operationId), eq(idempotenceKey), eq(amount), eq(apiKey), any())
+      .refundPayment(
+        any(), eq(operationId), eq(idempotenceKey), eq(amount), eq(npgPspApiKeys[pspId]!!), any())
 
     Mockito.`when`(npgClient.refundPayment(any(), any(), any(), any(), any(), any()))
       .thenCallRealMethod()
@@ -110,7 +116,7 @@ class RefundServiceTests {
     val operationId = "operationID"
     val idempotenceKey = UUID.randomUUID()
     val amount = BigDecimal.valueOf(1000)
-
+    val pspId = "pspId1"
     // Precondition
     given { npgClient.refundPayment(any(), any(), any(), any(), any(), any()) }
       .willReturn(
@@ -120,12 +126,13 @@ class RefundServiceTests {
 
     // Test
 
-    StepVerifier.create(refundService.requestNpgRefund(operationId, idempotenceKey, amount))
+    StepVerifier.create(refundService.requestNpgRefund(operationId, idempotenceKey, amount, pspId))
       .expectError(WebClientResponseException::class.java)
       .verify()
 
     verify(npgClient, times(1))
-      .refundPayment(any(), eq(operationId), eq(idempotenceKey), eq(amount), eq(apiKey), any())
+      .refundPayment(
+        any(), eq(operationId), eq(idempotenceKey), eq(amount), eq(npgPspApiKeys[pspId]!!), any())
 
     Mockito.`when`(npgClient.refundPayment(any(), any(), any(), any(), any(), any()))
       .thenCallRealMethod()
@@ -136,7 +143,7 @@ class RefundServiceTests {
     val operationId = "operationID"
     val idempotenceKey = UUID.randomUUID()
     val amount = BigDecimal.valueOf(1000)
-
+    val pspId = "pspId1"
     // Precondition
     given { npgClient.refundPayment(any(), any(), any(), any(), any(), any()) }
       .willReturn(
@@ -150,12 +157,13 @@ class RefundServiceTests {
 
     // Test
 
-    StepVerifier.create(refundService.requestNpgRefund(operationId, idempotenceKey, amount))
+    StepVerifier.create(refundService.requestNpgRefund(operationId, idempotenceKey, amount, pspId))
       .expectError(BadGatewayException::class.java)
       .verify()
 
     verify(npgClient, times(1))
-      .refundPayment(any(), eq(operationId), eq(idempotenceKey), eq(amount), eq(apiKey), any())
+      .refundPayment(
+        any(), eq(operationId), eq(idempotenceKey), eq(amount), eq(npgPspApiKeys[pspId]!!), any())
 
     Mockito.`when`(npgClient.refundPayment(any(), any(), any(), any(), any(), any()))
       .thenCallRealMethod()
@@ -166,7 +174,7 @@ class RefundServiceTests {
     val operationId = "operationID"
     val idempotenceKey = UUID.randomUUID()
     val amount = BigDecimal.valueOf(1000)
-
+    val pspId = "pspId1"
     // Precondition
     given { npgClient.refundPayment(any(), any(), any(), any(), any(), any()) }
       .willReturn(
@@ -176,12 +184,13 @@ class RefundServiceTests {
 
     // Test
 
-    StepVerifier.create(refundService.requestNpgRefund(operationId, idempotenceKey, amount))
+    StepVerifier.create(refundService.requestNpgRefund(operationId, idempotenceKey, amount, pspId))
       .expectError(GatewayTimeoutException::class.java)
       .verify()
 
     verify(npgClient, times(1))
-      .refundPayment(any(), eq(operationId), eq(idempotenceKey), eq(amount), eq(apiKey), any())
+      .refundPayment(
+        any(), eq(operationId), eq(idempotenceKey), eq(amount), eq(npgPspApiKeys[pspId]!!), any())
 
     Mockito.`when`(npgClient.refundPayment(any(), any(), any(), any(), any(), any()))
       .thenCallRealMethod()
