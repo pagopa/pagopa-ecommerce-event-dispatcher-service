@@ -37,7 +37,7 @@ class RefundService(
         operationId,
         idempotenceKey,
         amount,
-        npgCardsPspApiKey[pspId]!!,
+        npgCardsPspApiKey.getValue(pspId),
         "Refund request for transactionId $idempotenceKey and operationId $operationId")
       .onErrorMap(WebClientResponseException::class.java) { exception: WebClientResponseException ->
         when (exception.statusCode) {
