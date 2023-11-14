@@ -919,8 +919,7 @@ class TransactionsRefundEventsConsumerTests {
           (activationEvent as TransactionActivatedEvent)
             .data
             .paymentNotices
-            .map { it.amount }
-            .sum()
+            .sumOf { it.amount }
             .toLong() +
             (authorizationRequestEvent as TransactionAuthorizationRequestedEvent).data.fee)
       val expectedPspId =
@@ -1007,8 +1006,7 @@ class TransactionsRefundEventsConsumerTests {
         (activationEvent as TransactionActivatedEvent)
           .data
           .paymentNotices
-          .map { it.amount }
-          .sum()
+          .sumOf { it.amount }
           .toLong() +
           (authorizationRequestEvent as TransactionAuthorizationRequestedEvent).data.fee)
     val expectedPspId =
@@ -1095,8 +1093,7 @@ class TransactionsRefundEventsConsumerTests {
           (activationEvent as TransactionActivatedEvent)
             .data
             .paymentNotices
-            .map { it.amount }
-            .sum()
+            .sumOf { it.amount }
             .toLong() +
             (authorizationRequestEvent as TransactionAuthorizationRequestedEvent).data.fee)
       val expectedPspId =

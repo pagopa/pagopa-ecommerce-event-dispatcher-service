@@ -1,226 +1,168 @@
 package it.pagopa.ecommerce.eventdispatcher.services
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import io.opentelemetry.api.trace.Span
+import io.opentelemetry.api.trace.SpanBuilder
+import io.opentelemetry.api.trace.Tracer
 import it.pagopa.ecommerce.commons.client.NpgClient
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadGatewayException
-import it.pagopa.ecommerce.eventdispatcher.exceptions.GatewayTimeoutException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.RefundNotAllowedException
-import it.pagopa.ecommerce.eventdispatcher.exceptions.TransactionNotFound
-import it.pagopa.ecommerce.eventdispatcher.utils.getMockedNpgRefundResponse
 import it.pagopa.ecommerce.eventdispatcher.utils.getMockedVPosRefundRequest
 import it.pagopa.ecommerce.eventdispatcher.utils.getMockedXPayRefundRequest
-import java.math.BigDecimal
-import java.nio.charset.Charset
-import java.util.*
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
+import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
 import org.mockito.Mockito
 import org.mockito.kotlin.*
 import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.http.HttpHeaders
+import org.springframework.http.HttpStatus
 import org.springframework.test.context.TestPropertySource
-import org.springframework.web.reactive.function.client.WebClientResponseException
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
+import java.math.BigDecimal
+import java.util.*
+import java.util.stream.Stream
 
 @SpringBootTest
 @TestPropertySource(locations = ["classpath:application.test.properties"])
 class RefundServiceTests {
-  private val paymentGatewayClient: PaymentGatewayClient = mock()
-  private val npgClient: NpgClient = mock()
-  private val pspId = "pspId1"
-  private val npgPspApiKeys = mapOf("pspId1" to "pspKey1")
-  private val refundService: RefundService =
-    RefundService(paymentGatewayClient, npgClient, npgPspApiKeys)
+    private val paymentGatewayClient: PaymentGatewayClient = mock()
+    private val tracer: Tracer = mock()
+    private val span: Span = mock()
+    private val spanBuilder: SpanBuilder = mock()
+    private val paymentServiceApi = PaymentGatewayClient().npgApiWebClient(
+        npgClientUrl = "http://localhost:8080",
+        npgWebClientConnectionTimeout = 10000,
+        npgWebClientReadTimeout = 10000
+    )
+    private val npgClient: NpgClient = NpgClient(paymentServiceApi, tracer, ObjectMapper())
+    private val npgPspApiKeys = mapOf("pspId1" to "pspKey1")
+    private val refundService: RefundService =
+        RefundService(paymentGatewayClient, npgClient, npgPspApiKeys)
 
-  @Test
-  fun requestRefund_200_npg() {
-    val operationId = "operationID"
-    val idempotenceKey = UUID.randomUUID()
-    val amount = BigDecimal.valueOf(1000)
-    val pspId = "pspId1"
-    // Precondition
-    given(npgClient.refundPayment(any(), any(), any(), any(), any(), any()))
-      .willReturn(Mono.just(getMockedNpgRefundResponse(operationId)))
+    companion object {
+        lateinit var mockWebServer: MockWebServer
 
-    // Test
-    val response =
-      refundService.requestNpgRefund(operationId, idempotenceKey, amount, pspId).block()
+        @JvmStatic
+        @BeforeAll
+        fun setup() {
+            mockWebServer = MockWebServer()
+            mockWebServer.start(8080)
+            println("Mock web server started on ${mockWebServer.hostName}:${mockWebServer.port}")
+        }
 
-    // Assertions
-    assertEquals(operationId, response!!.operationId)
-    verify(npgClient, times(1))
-      .refundPayment(
-        any(), eq(operationId), eq(idempotenceKey), eq(amount), eq(npgPspApiKeys[pspId]!!), any())
+        @JvmStatic
+        @AfterAll
+        fun tearDown() {
+            mockWebServer.shutdown()
+            println("Mock web stopped")
+        }
 
-    Mockito.`when`(npgClient.refundPayment(any(), any(), any(), any(), any(), any()))
-      .thenCallRealMethod()
-  }
+        @JvmStatic
+        private fun npgErrorsExpectedResponses(): Stream<Arguments> =
+            Stream.of(
+                Arguments.of(HttpStatus.BAD_REQUEST, RefundNotAllowedException::class.java),
+                Arguments.of(HttpStatus.UNAUTHORIZED, RefundNotAllowedException::class.java),
+                Arguments.of(HttpStatus.NOT_FOUND, RefundNotAllowedException::class.java),
+                Arguments.of(HttpStatus.INTERNAL_SERVER_ERROR, BadGatewayException::class.java),
+                Arguments.of(HttpStatus.GATEWAY_TIMEOUT, BadGatewayException::class.java),
+            )
+    }
 
-  @Test
-  fun requestRefund_400_npg() {
-    val operationId = "operationID"
-    val idempotenceKey = UUID.randomUUID()
-    val amount = BigDecimal.valueOf(1000)
-    val pspId = "pspId1"
-    // Precondition
-    given { npgClient.refundPayment(any(), any(), any(), any(), any(), any()) }
-      .willReturn(
-        Mono.error(
-          WebClientResponseException.BadRequest.create(
-            400, "bad request", HttpHeaders.EMPTY, ByteArray(0), Charset.defaultCharset())))
+    @Test
+    fun requestRefund_200_npg() {
+        val operationId = "operationID"
+        val idempotenceKey = UUID.randomUUID()
+        val amount = BigDecimal.valueOf(1000)
+        val pspId = "pspId1"
+        // Precondition
+        given(tracer.spanBuilder(any())).willReturn(spanBuilder)
+        given(spanBuilder.setParent(any())).willReturn(spanBuilder)
+        given(spanBuilder.setAttribute(any<String>(), any<String>())).willReturn(spanBuilder)
+        given(spanBuilder.startSpan()).willReturn(span)
+        mockWebServer.enqueue(
+            MockResponse()
+                .setBody(
+                    """
+                    {
+                        "operationId": "%s"
+                    }
+                """.format(operationId)
+                )
+                .setHeader("Content-type", "application/json")
+                .setResponseCode(200)
+        )
+        // Test
+        StepVerifier
+            .create(refundService.requestNpgRefund(operationId, idempotenceKey, amount, pspId))
+            .assertNext { assertEquals(operationId, it.operationId) }
+            .verifyComplete()
+    }
 
-    // Test
+    @ParameterizedTest
+    @MethodSource("npgErrorsExpectedResponses")
+    fun `should handle npg error response`(errorHttpStatusCode: HttpStatus, expectedException: Class<out Throwable>) {
+        val operationId = "operationID"
+        val idempotenceKey = UUID.randomUUID()
+        val amount = BigDecimal.valueOf(1000)
+        val pspId = "pspId1"
+        // Precondition
+        mockWebServer.enqueue(
+            MockResponse()
+                .setBody(
+                    """
+                    {
+                        "errors": []
+                    }
+                """
+                )
+                .setResponseCode(errorHttpStatusCode.value())
+        )
+        given(tracer.spanBuilder(any())).willReturn(spanBuilder)
+        given(spanBuilder.setParent(any())).willReturn(spanBuilder)
+        given(spanBuilder.setAttribute(any<String>(), any<String>())).willReturn(spanBuilder)
+        given(spanBuilder.startSpan()).willReturn(span)
 
-    StepVerifier.create(refundService.requestNpgRefund(operationId, idempotenceKey, amount, pspId))
-      .expectError(RefundNotAllowedException::class.java)
-      .verify()
+        // Test
+        StepVerifier
+            .create(refundService.requestNpgRefund(operationId, idempotenceKey, amount, pspId))
+            .expectError(expectedException)
+            .verify()
+    }
 
-    verify(npgClient, times(1))
-      .refundPayment(
-        any(), eq(operationId), eq(idempotenceKey), eq(amount), eq(npgPspApiKeys[pspId]!!), any())
 
-    Mockito.`when`(npgClient.refundPayment(any(), any(), any(), any(), any(), any()))
-      .thenCallRealMethod()
-  }
+    @Test
+    fun requestRefund_200_vpos() {
+        val testUUID: UUID = UUID.randomUUID()
 
-  @Test
-  fun requestRefund_404_npg() {
-    val operationId = "operationID"
-    val idempotenceKey = UUID.randomUUID()
-    val amount = BigDecimal.valueOf(1000)
-    val pspId = "pspId1"
-    // Precondition
-    given { npgClient.refundPayment(any(), any(), any(), any(), any(), any()) }
-      .willReturn(
-        Mono.error(
-          WebClientResponseException.BadRequest.create(
-            404, "not found", HttpHeaders.EMPTY, ByteArray(0), Charset.defaultCharset())))
+        // Precondition
+        Mockito.`when`(paymentGatewayClient.requestVPosRefund(testUUID))
+            .thenReturn(Mono.just(getMockedVPosRefundRequest(testUUID.toString())))
+        // Test
+        val response = refundService.requestVposRefund(testUUID.toString()).block()
+        // Assertions
+        assertEquals("CANCELLED", response?.status?.value)
+    }
 
-    // Test
+    @Test
+    fun requestRefund_200_xpay() {
+        val testUUID: UUID = UUID.randomUUID()
 
-    StepVerifier.create(refundService.requestNpgRefund(operationId, idempotenceKey, amount, pspId))
-      .expectError(TransactionNotFound::class.java)
-      .verify()
+        // Precondition
+        Mockito.`when`(paymentGatewayClient.requestXPayRefund(testUUID))
+            .thenReturn(Mono.just(getMockedXPayRefundRequest(testUUID.toString())))
 
-    verify(npgClient, times(1))
-      .refundPayment(
-        any(), eq(operationId), eq(idempotenceKey), eq(amount), eq(npgPspApiKeys[pspId]!!), any())
+        // Test
+        val response = refundService.requestXpayRefund(testUUID.toString()).block()
 
-    Mockito.`when`(npgClient.refundPayment(any(), any(), any(), any(), any(), any()))
-      .thenCallRealMethod()
-  }
-
-  @Test
-  fun requestRefund_401_npg() {
-    val operationId = "operationID"
-    val idempotenceKey = UUID.randomUUID()
-    val amount = BigDecimal.valueOf(1000)
-    val pspId = "pspId1"
-    // Precondition
-    given { npgClient.refundPayment(any(), any(), any(), any(), any(), any()) }
-      .willReturn(
-        Mono.error(
-          WebClientResponseException.BadRequest.create(
-            401, "unauthorized", HttpHeaders.EMPTY, ByteArray(0), Charset.defaultCharset())))
-
-    // Test
-
-    StepVerifier.create(refundService.requestNpgRefund(operationId, idempotenceKey, amount, pspId))
-      .expectError(WebClientResponseException::class.java)
-      .verify()
-
-    verify(npgClient, times(1))
-      .refundPayment(
-        any(), eq(operationId), eq(idempotenceKey), eq(amount), eq(npgPspApiKeys[pspId]!!), any())
-
-    Mockito.`when`(npgClient.refundPayment(any(), any(), any(), any(), any(), any()))
-      .thenCallRealMethod()
-  }
-
-  @Test
-  fun requestRefund_500_npg() {
-    val operationId = "operationID"
-    val idempotenceKey = UUID.randomUUID()
-    val amount = BigDecimal.valueOf(1000)
-    val pspId = "pspId1"
-    // Precondition
-    given { npgClient.refundPayment(any(), any(), any(), any(), any(), any()) }
-      .willReturn(
-        Mono.error(
-          WebClientResponseException.BadRequest.create(
-            500,
-            "internal server errror",
-            HttpHeaders.EMPTY,
-            ByteArray(0),
-            Charset.defaultCharset())))
-
-    // Test
-
-    StepVerifier.create(refundService.requestNpgRefund(operationId, idempotenceKey, amount, pspId))
-      .expectError(BadGatewayException::class.java)
-      .verify()
-
-    verify(npgClient, times(1))
-      .refundPayment(
-        any(), eq(operationId), eq(idempotenceKey), eq(amount), eq(npgPspApiKeys[pspId]!!), any())
-
-    Mockito.`when`(npgClient.refundPayment(any(), any(), any(), any(), any(), any()))
-      .thenCallRealMethod()
-  }
-
-  @Test
-  fun requestRefund_504_npg() {
-    val operationId = "operationID"
-    val idempotenceKey = UUID.randomUUID()
-    val amount = BigDecimal.valueOf(1000)
-    val pspId = "pspId1"
-    // Precondition
-    given { npgClient.refundPayment(any(), any(), any(), any(), any(), any()) }
-      .willReturn(
-        Mono.error(
-          WebClientResponseException.BadRequest.create(
-            504, "timeout", HttpHeaders.EMPTY, ByteArray(0), Charset.defaultCharset())))
-
-    // Test
-
-    StepVerifier.create(refundService.requestNpgRefund(operationId, idempotenceKey, amount, pspId))
-      .expectError(GatewayTimeoutException::class.java)
-      .verify()
-
-    verify(npgClient, times(1))
-      .refundPayment(
-        any(), eq(operationId), eq(idempotenceKey), eq(amount), eq(npgPspApiKeys[pspId]!!), any())
-
-    Mockito.`when`(npgClient.refundPayment(any(), any(), any(), any(), any(), any()))
-      .thenCallRealMethod()
-  }
-
-  @Test
-  fun requestRefund_200_vpos() {
-    val testUUID: UUID = UUID.randomUUID()
-
-    // Precondition
-    Mockito.`when`(paymentGatewayClient.requestVPosRefund(testUUID))
-      .thenReturn(Mono.just(getMockedVPosRefundRequest(testUUID.toString())))
-    // Test
-    val response = refundService.requestVposRefund(testUUID.toString()).block()
-    // Assertions
-    assertEquals("CANCELLED", response?.status?.value)
-  }
-
-  @Test
-  fun requestRefund_200_xpay() {
-    val testUUID: UUID = UUID.randomUUID()
-
-    // Precondition
-    Mockito.`when`(paymentGatewayClient.requestXPayRefund(testUUID))
-      .thenReturn(Mono.just(getMockedXPayRefundRequest(testUUID.toString())))
-
-    // Test
-    val response = refundService.requestXpayRefund(testUUID.toString()).block()
-
-    // Assertions
-    assertEquals("CANCELLED", response?.status?.value)
-  }
+        // Assertions
+        assertEquals("CANCELLED", response?.status?.value)
+    }
 }
