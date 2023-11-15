@@ -5,6 +5,7 @@ import io.opentelemetry.api.trace.Span
 import io.opentelemetry.api.trace.SpanBuilder
 import io.opentelemetry.api.trace.Tracer
 import it.pagopa.ecommerce.commons.client.NpgClient
+import it.pagopa.ecommerce.commons.exceptions.NpgResponseException
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.config.NpgPspsApiKeyConfigBuilder
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadGatewayException
@@ -163,6 +164,27 @@ class RefundServiceTests {
     // Test
     StepVerifier.create(refundService.requestNpgRefund(operationId, idempotenceKey, amount, pspId))
       .expectError(expectedException)
+      .verify()
+  }
+
+  @Test
+  fun `should handle npg error without http response code info`() {
+    val npgClient: NpgClient = mock()
+    val refundService = RefundService(paymentGatewayClient, npgClient, npgPspApiKeys)
+    val operationId = "operationID"
+    val idempotenceKey = UUID.randomUUID()
+    val amount = BigDecimal.valueOf(1000)
+    val pspId = "pspId1"
+    // Precondition
+    given(npgClient.refundPayment(any(), any(), any(), any(), any(), any()))
+      .willReturn(
+        Mono.error(
+          NpgResponseException(
+            "NPG error", listOf(), Optional.empty(), RuntimeException("NPG error"))))
+
+    // Test
+    StepVerifier.create(refundService.requestNpgRefund(operationId, idempotenceKey, amount, pspId))
+      .expectError(RefundNotAllowedException::class.java)
       .verify()
   }
 
