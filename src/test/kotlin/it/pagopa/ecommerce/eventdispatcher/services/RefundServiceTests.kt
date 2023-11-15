@@ -5,6 +5,7 @@ import io.opentelemetry.api.trace.Span
 import io.opentelemetry.api.trace.SpanBuilder
 import io.opentelemetry.api.trace.Tracer
 import it.pagopa.ecommerce.commons.client.NpgClient
+import it.pagopa.ecommerce.commons.exceptions.NpgApiKeyMissingPspRequestedException
 import it.pagopa.ecommerce.commons.exceptions.NpgResponseException
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.config.NpgPspsApiKeyConfigBuilder
@@ -45,7 +46,7 @@ class RefundServiceTests {
         npgClientUrl = "http://localhost:8080",
         npgWebClientConnectionTimeout = 10000,
         npgWebClientReadTimeout = 10000)
-  private val npgClient: NpgClient = NpgClient(paymentServiceApi, tracer, ObjectMapper())
+  private val npgClient: NpgClient = spy(NpgClient(paymentServiceApi, tracer, ObjectMapper()))
   private val npgPspApiKeys =
     NpgPspsApiKeyConfigBuilder()
       .npgCardsApiKeys("""
@@ -111,6 +112,8 @@ class RefundServiceTests {
     StepVerifier.create(refundService.requestNpgRefund(operationId, idempotenceKey, amount, pspId))
       .assertNext { assertEquals(operationId, it.operationId) }
       .verifyComplete()
+    verify(npgClient, times(1))
+      .refundPayment(any(), eq(operationId), eq(idempotenceKey), eq(amount), eq("pspKey1"), any())
   }
 
   @ParameterizedTest
@@ -142,6 +145,8 @@ class RefundServiceTests {
     StepVerifier.create(refundService.requestNpgRefund(operationId, idempotenceKey, amount, pspId))
       .expectError(expectedException)
       .verify()
+    verify(npgClient, times(1))
+      .refundPayment(any(), eq(operationId), eq(idempotenceKey), eq(amount), eq("pspKey1"), any())
   }
 
   @ParameterizedTest
@@ -165,6 +170,8 @@ class RefundServiceTests {
     StepVerifier.create(refundService.requestNpgRefund(operationId, idempotenceKey, amount, pspId))
       .expectError(expectedException)
       .verify()
+    verify(npgClient, times(1))
+      .refundPayment(any(), eq(operationId), eq(idempotenceKey), eq(amount), eq("pspKey1"), any())
   }
 
   @Test
@@ -186,6 +193,25 @@ class RefundServiceTests {
     StepVerifier.create(refundService.requestNpgRefund(operationId, idempotenceKey, amount, pspId))
       .expectError(RefundNotAllowedException::class.java)
       .verify()
+    verify(npgClient, times(1))
+      .refundPayment(any(), eq(operationId), eq(idempotenceKey), eq(amount), eq("pspKey1"), any())
+  }
+
+  @Test
+  fun `should not call NPG and return error for not configured PSP key`() {
+    val npgClient: NpgClient = mock()
+    val refundService = RefundService(paymentGatewayClient, npgClient, npgPspApiKeys)
+    val operationId = "operationID"
+    val idempotenceKey = UUID.randomUUID()
+    val amount = BigDecimal.valueOf(1000)
+    val pspId = "unknown"
+    // Precondition
+
+    // Test
+    StepVerifier.create(refundService.requestNpgRefund(operationId, idempotenceKey, amount, pspId))
+      .expectError(NpgApiKeyMissingPspRequestedException::class.java)
+      .verify()
+    verify(npgClient, times(0)).refundPayment(any(), any(), any(), any(), any(), any())
   }
 
   @Test
