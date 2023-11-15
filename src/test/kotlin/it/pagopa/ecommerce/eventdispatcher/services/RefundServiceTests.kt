@@ -143,6 +143,29 @@ class RefundServiceTests {
       .verify()
   }
 
+  @ParameterizedTest
+  @MethodSource("npgErrorsExpectedResponses")
+  fun `should handle npg error response without error body`(
+    errorHttpStatusCode: HttpStatus,
+    expectedException: Class<out Throwable>
+  ) {
+    val operationId = "operationID"
+    val idempotenceKey = UUID.randomUUID()
+    val amount = BigDecimal.valueOf(1000)
+    val pspId = "pspId1"
+    // Precondition
+    mockWebServer.enqueue(MockResponse().setResponseCode(errorHttpStatusCode.value()))
+    given(tracer.spanBuilder(any())).willReturn(spanBuilder)
+    given(spanBuilder.setParent(any())).willReturn(spanBuilder)
+    given(spanBuilder.setAttribute(any<String>(), any<String>())).willReturn(spanBuilder)
+    given(spanBuilder.startSpan()).willReturn(span)
+
+    // Test
+    StepVerifier.create(refundService.requestNpgRefund(operationId, idempotenceKey, amount, pspId))
+      .expectError(expectedException)
+      .verify()
+  }
+
   @Test
   fun requestRefund_200_vpos() {
     val testUUID: UUID = UUID.randomUUID()

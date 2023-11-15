@@ -11,10 +11,8 @@ import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
 import java.math.BigDecimal
 import java.util.*
-import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
-import org.springframework.web.reactive.function.client.WebClientResponseException
 import reactor.core.publisher.Mono
 
 @Component
@@ -23,8 +21,6 @@ class RefundService(
   @Autowired private var npgClient: NpgClient,
   @Autowired private var npgCardsPspApiKey: NpgPspApiKeysConfig
 ) {
-
-  private val logger = LoggerFactory.getLogger(javaClass)
 
   fun requestNpgRefund(
     operationId: String,
@@ -44,17 +40,17 @@ class RefundService(
             apiKey,
             "Refund request for transactionId $idempotenceKey and operationId $operationId")
           .onErrorMap(NpgResponseException::class.java) { exception: NpgResponseException ->
-            val throwable = exception.cause
-            if (throwable is WebClientResponseException) {
-              val errorCodeReason = "Received error code from NPG: ${throwable.statusCode}"
-              if (throwable.statusCode.is5xxServerError) {
-                BadGatewayException(errorCodeReason)
-              } else {
-                RefundNotAllowedException(idempotenceKey, errorCodeReason)
+            val responseStatusCode = exception.statusCode
+            responseStatusCode
+              .map {
+                val errorCodeReason = "Received HTTP error code from NPG: $it"
+                if (it.is5xxServerError) {
+                  BadGatewayException(errorCodeReason)
+                } else {
+                  RefundNotAllowedException(idempotenceKey, errorCodeReason)
+                }
               }
-            } else {
-              RefundNotAllowedException(idempotenceKey)
-            }
+              .orElse(RefundNotAllowedException(idempotenceKey))
           }
       })
   }
