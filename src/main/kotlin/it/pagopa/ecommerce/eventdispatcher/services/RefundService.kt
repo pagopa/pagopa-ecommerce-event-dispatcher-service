@@ -17,9 +17,9 @@ import reactor.core.publisher.Mono
 
 @Component
 class RefundService(
-  @Autowired private var paymentGatewayClient: PaymentGatewayClient,
-  @Autowired private var npgClient: NpgClient,
-  @Autowired private var npgCardsPspApiKey: NpgPspApiKeysConfig
+  @Autowired private val paymentGatewayClient: PaymentGatewayClient,
+  @Autowired private val npgClient: NpgClient,
+  @Autowired private val npgCardsPspApiKey: NpgPspApiKeysConfig
 ) {
 
   fun requestNpgRefund(
