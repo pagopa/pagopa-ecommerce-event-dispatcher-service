@@ -6,6 +6,7 @@ import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.client.NpgClient
 import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.documents.v2.authorization.PgsTransactionGatewayAuthorizationData
+import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.v2.TransactionEventCode
 import it.pagopa.ecommerce.commons.domain.v2.pojos.*
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
@@ -911,8 +912,25 @@ class TransactionsRefundEventsConsumerTests {
         .verify()
 
       /* Asserts */
+      val expectedOperationId = NPG_OPERATION_ID
+      val expectedIdempotencyKey = TransactionId(TRANSACTION_ID).uuid
+      val expectedAmount =
+        BigDecimal.valueOf(
+          (activationEvent as TransactionActivatedEvent)
+            .data
+            .paymentNotices
+            .sumOf { it.amount }
+            .toLong() +
+            (authorizationRequestEvent as TransactionAuthorizationRequestedEvent).data.fee)
+      val expectedPspId =
+        (authorizationRequestEvent as TransactionAuthorizationRequestedEvent).data.pspId
       verify(checkpointer, Mockito.times(1)).success()
-      verify(refundService, Mockito.times(0)).requestNpgRefund(any(), any(), any())
+      verify(refundService, Mockito.times(0))
+        .requestNpgRefund(
+          operationId = expectedOperationId,
+          idempotenceKey = expectedIdempotencyKey,
+          amount = expectedAmount,
+          pspId = expectedPspId)
       verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
       verify(refundRetryService, times(1)).enqueueRetryEvent(any(), any(), any())
       val storedEvent = refundEventStoreCaptor.value
@@ -920,6 +938,7 @@ class TransactionsRefundEventsConsumerTests {
         TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT.toString(), storedEvent.eventCode)
       assertEquals(TransactionStatusDto.REFUND_REQUESTED, storedEvent.data.statusBeforeRefunded)
     }
+
   @Test
   fun `consumer processes refund request event correctly with npg refund`() = runTest {
     val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
@@ -964,7 +983,7 @@ class TransactionsRefundEventsConsumerTests {
     given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
     given(transactionsRefundedEventStoreRepository.save(refundEventStoreCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
-    given(refundService.requestNpgRefund(any(), any(), any()))
+    given(refundService.requestNpgRefund(any(), any(), any(), any()))
       .willReturn(Mono.just(refundServiceNpgResponse))
     given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
       .willReturn(
@@ -980,14 +999,25 @@ class TransactionsRefundEventsConsumerTests {
       .verifyComplete()
 
     /* Asserts */
+    val expectedOperationId = NPG_OPERATION_ID
+    val expectedIdempotencyKey = TransactionId(TRANSACTION_ID).uuid
+    val expectedAmount =
+      BigDecimal.valueOf(
+        (activationEvent as TransactionActivatedEvent)
+          .data
+          .paymentNotices
+          .sumOf { it.amount }
+          .toLong() +
+          (authorizationRequestEvent as TransactionAuthorizationRequestedEvent).data.fee)
+    val expectedPspId =
+      (authorizationRequestEvent as TransactionAuthorizationRequestedEvent).data.pspId
     verify(checkpointer, Mockito.times(1)).success()
     verify(refundService, Mockito.times(1))
       .requestNpgRefund(
-        NPG_OPERATION_ID,
-        transaction.transactionId.uuid,
-        BigDecimal(
-          transaction.transactionAuthorizationRequestData.amount +
-            transaction.transactionAuthorizationRequestData.fee))
+        operationId = expectedOperationId,
+        idempotenceKey = expectedIdempotencyKey,
+        amount = expectedAmount,
+        pspId = expectedPspId)
     verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
     verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
     val storedEvent = refundEventStoreCaptor.value
@@ -1036,7 +1066,7 @@ class TransactionsRefundEventsConsumerTests {
       given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
       given(transactionsRefundedEventStoreRepository.save(refundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
-      given(refundService.requestNpgRefund(any(), any(), any()))
+      given(refundService.requestNpgRefund(any(), any(), any(), any()))
         .willThrow(RefundNotAllowedException(transaction.transactionId.uuid))
       given(refundRetryService.enqueueRetryEvent(any(), any(), any())).willReturn(Mono.empty())
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
@@ -1056,14 +1086,25 @@ class TransactionsRefundEventsConsumerTests {
         .verifyComplete()
 
       /* Asserts */
+      val expectedOperationId = NPG_OPERATION_ID
+      val expectedIdempotencyKey = TransactionId(TRANSACTION_ID).uuid
+      val expectedAmount =
+        BigDecimal.valueOf(
+          (activationEvent as TransactionActivatedEvent)
+            .data
+            .paymentNotices
+            .sumOf { it.amount }
+            .toLong() +
+            (authorizationRequestEvent as TransactionAuthorizationRequestedEvent).data.fee)
+      val expectedPspId =
+        (authorizationRequestEvent as TransactionAuthorizationRequestedEvent).data.pspId
       verify(checkpointer, Mockito.times(1)).success()
       verify(refundService, Mockito.times(1))
         .requestNpgRefund(
-          NPG_OPERATION_ID,
-          transaction.transactionId.uuid,
-          BigDecimal(
-            transaction.transactionAuthorizationRequestData.amount +
-              transaction.transactionAuthorizationRequestData.fee))
+          operationId = expectedOperationId,
+          idempotenceKey = expectedIdempotencyKey,
+          amount = expectedAmount,
+          pspId = expectedPspId)
       verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
       verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
 
@@ -1072,6 +1113,7 @@ class TransactionsRefundEventsConsumerTests {
         TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT.toString(), storedEvent.eventCode)
       assertEquals(TransactionStatusDto.REFUND_REQUESTED, storedEvent.data.statusBeforeRefunded)
     }
+
   @Test
   fun `test getAuthorizationCompletedData with BaseTransactionWithRefundRequested`() = runTest {
     val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
