@@ -1,5 +1,6 @@
 package it.pagopa.ecommerce.eventdispatcher.config
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import it.pagopa.ecommerce.commons.client.NpgClient
 import it.pagopa.ecommerce.commons.utils.NpgPspApiKeysConfig
 import org.springframework.beans.factory.annotation.Qualifier
@@ -8,7 +9,9 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
 @Configuration
-class NpgPspsApiKeyConfig {
+class NpgPspsApiKeyConfigBuilder {
+
+  private val objectMapper = ObjectMapper()
 
   /**
    * Return a map where valued with each psp id - api keys entries
@@ -22,9 +25,9 @@ class NpgPspsApiKeyConfig {
   fun npgCardsApiKeys(
     @Value("\${npg.authorization.cards.keys}") apiKeys: String,
     @Value("\${npg.authorization.cards.pspList}") pspToHandle: Set<String?>
-  ): Map<String, String> {
-    return NpgPspApiKeysConfig(apiKeys, pspToHandle, NpgClient.PaymentMethod.CARDS)
-      .parseApiKeyConfiguration()
+  ): NpgPspApiKeysConfig {
+    return NpgPspApiKeysConfig.parseApiKeyConfiguration(
+        apiKeys, pspToHandle, NpgClient.PaymentMethod.CARDS, objectMapper)
       .fold({ throw it }, { it })
   }
 }

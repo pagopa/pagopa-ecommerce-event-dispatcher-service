@@ -6,6 +6,7 @@ import io.opentelemetry.api.trace.SpanBuilder
 import io.opentelemetry.api.trace.Tracer
 import it.pagopa.ecommerce.commons.client.NpgClient
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
+import it.pagopa.ecommerce.eventdispatcher.config.NpgPspsApiKeyConfigBuilder
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadGatewayException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.RefundNotAllowedException
 import it.pagopa.ecommerce.eventdispatcher.utils.getMockedVPosRefundRequest
@@ -44,7 +45,13 @@ class RefundServiceTests {
         npgWebClientConnectionTimeout = 10000,
         npgWebClientReadTimeout = 10000)
   private val npgClient: NpgClient = NpgClient(paymentServiceApi, tracer, ObjectMapper())
-  private val npgPspApiKeys = mapOf("pspId1" to "pspKey1")
+  private val npgPspApiKeys =
+    NpgPspsApiKeyConfigBuilder()
+      .npgCardsApiKeys("""
+      {
+        "pspId1": "pspKey1"
+      }
+    """, setOf("pspId1"))
   private val refundService: RefundService =
     RefundService(paymentGatewayClient, npgClient, npgPspApiKeys)
 
