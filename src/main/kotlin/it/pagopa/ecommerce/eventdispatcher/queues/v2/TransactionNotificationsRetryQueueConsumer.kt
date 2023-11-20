@@ -127,17 +127,23 @@ class TransactionNotificationsRetryQueueConsumer(
               v.onErrorResume(NoRetryAttemptsLeftException::class.java) { enqueueException ->
                   logger.error(
                     "No more attempts left for user receipt send retry", enqueueException)
-                  val binaryData =
-                    BinaryData.fromObject(queueEvent, strictSerializerProviderV2.createInstance())
-                  deadLetterQueueAsyncClient
-                    .sendMessageWithResponse(
-                      binaryData,
-                      Duration.ZERO,
-                      Duration.ofSeconds(deadLetterTTLSeconds.toLong()),
-                    )
-                    .doOnNext {
-                      logger.info(
-                        "Event: [${queueEvent}] successfully sent with visibility timeout: [${it.value.timeNextVisible}] ms to queue: [${deadLetterQueueAsyncClient.queueName}]")
+                  BinaryData.fromObjectAsync(
+                      queueEvent, strictSerializerProviderV2.createInstance())
+                    .flatMap {
+                      deadLetterQueueAsyncClient
+                        .sendMessageWithResponse(
+                          it,
+                          Duration.ZERO,
+                          Duration.ofSeconds(deadLetterTTLSeconds.toLong()),
+                        )
+                        .doOnNext {
+                          logger.info(
+                            "Event: [${queueEvent}] successfully sent with visibility timeout: [${it.value.timeNextVisible}] ms to queue: [${deadLetterQueueAsyncClient.queueName}]")
+                        }
+                    }
+                    .onErrorResume {
+                      logger.error("Error writing event to dead letter queue", it)
+                      Mono.empty()
                     }
                     .then(
                       notificationRefundTransactionPipeline(
