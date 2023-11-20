@@ -1061,6 +1061,8 @@ class TransactionNotificationsRetryQueueConsumerTest {
       verify(transactionUserReceiptRepository, times(0)).save(any())
       verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
       verify(userReceiptMailBuilder, times(1)).buildNotificationEmailRequestDto(baseTransaction)
+      verify(deadLetterQueueAsyncClient, times(1))
+        .sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull())
       assertEquals(
         String(
           jsonSerializerV2.serializeToBytes(
