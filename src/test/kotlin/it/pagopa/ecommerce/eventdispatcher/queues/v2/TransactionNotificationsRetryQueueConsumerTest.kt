@@ -31,6 +31,7 @@ import it.pagopa.ecommerce.eventdispatcher.utils.v2.UserReceiptMailBuilder
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.notifications.v1.dto.NotificationEmailRequestDto
 import it.pagopa.generated.notifications.v1.dto.NotificationEmailResponseDto
+import java.nio.charset.StandardCharsets
 import java.time.Duration
 import java.time.ZonedDateTime
 import java.util.*
@@ -90,6 +91,8 @@ class TransactionNotificationsRetryQueueConsumerTest {
     ArgumentCaptor<TransactionEvent<TransactionUserReceiptData>>
 
   @Captor private lateinit var retryCountCaptor: ArgumentCaptor<Int>
+
+  @Captor private lateinit var queueArgumentCaptor: ArgumentCaptor<BinaryData>
 
   private val deadLetterQueueAsyncClient: QueueAsyncClient = mock()
   private val strictJsonSerializerProviderV2 = QueuesConsumerConfig().strictSerializerProviderV2()
@@ -793,7 +796,10 @@ class TransactionNotificationsRetryQueueConsumerTest {
             Mono.just(transactionDocument(TransactionStatusDto.EXPIRED, ZonedDateTime.now())),
             Mono.just(
               transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now()))))
-
+      given(
+          deadLetterQueueAsyncClient.sendMessageWithResponse(
+            queueArgumentCaptor.capture(), any(), anyOrNull()))
+        .willReturn(queueSuccessfulResponse())
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
             Either.right(QueueEvent(notificationRetriedEvent, MOCK_TRACING_INFO)), checkpointer))
@@ -810,7 +816,15 @@ class TransactionNotificationsRetryQueueConsumerTest {
       verify(transactionUserReceiptRepository, times(0)).save(any())
       verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
       verify(userReceiptMailBuilder, times(1)).buildNotificationEmailRequestDto(baseTransaction)
+      verify(deadLetterQueueAsyncClient, times(1))
+        .sendMessageWithResponse(any<BinaryData>(), any(), any())
       assertEquals(attempt, retryCountCaptor.value)
+      assertEquals(
+        String(
+          jsonSerializerV2.serializeToBytes(
+            QueueEvent(notificationRetriedEvent, MOCK_TRACING_INFO)),
+          StandardCharsets.UTF_8),
+        String(queueArgumentCaptor.value.toBytes(), StandardCharsets.UTF_8))
     }
 
   @Test
@@ -874,6 +888,10 @@ class TransactionNotificationsRetryQueueConsumerTest {
             Mono.just(transactionDocument(TransactionStatusDto.EXPIRED, ZonedDateTime.now())),
             Mono.just(
               transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now()))))
+      given(
+          deadLetterQueueAsyncClient.sendMessageWithResponse(
+            queueArgumentCaptor.capture(), any(), anyOrNull()))
+        .willReturn(queueSuccessfulResponse())
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
             Either.right(QueueEvent(notificationRetriedEvent, MOCK_TRACING_INFO)), checkpointer))
@@ -890,6 +908,15 @@ class TransactionNotificationsRetryQueueConsumerTest {
       verify(transactionUserReceiptRepository, times(0)).save(any())
       verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
       verify(userReceiptMailBuilder, times(1)).buildNotificationEmailRequestDto(baseTransaction)
+      verify(deadLetterQueueAsyncClient, times(1))
+        .sendMessageWithResponse(any<BinaryData>(), any(), any())
+      assertEquals(
+        String(
+          jsonSerializerV2.serializeToBytes(
+            QueueEvent(notificationRetriedEvent, MOCK_TRACING_INFO)),
+          StandardCharsets.UTF_8),
+        String(queueArgumentCaptor.value.toBytes(), StandardCharsets.UTF_8))
+
       assertEquals(attempt, retryCountCaptor.value)
       val expectedStatuses =
         listOf(TransactionStatusDto.REFUND_REQUESTED, TransactionStatusDto.REFUNDED)
@@ -954,4 +981,115 @@ class TransactionNotificationsRetryQueueConsumerTest {
         eq(Duration.ZERO),
         eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
   }
+
+  @Test
+  fun `Should perform refund for no left attempts resending mail for send payment result KO and error writing event to dead letter queue`() =
+    runTest {
+      val attempt = 3
+      val transactionUserReceiptData =
+        transactionUserReceiptData(TransactionUserReceiptData.Outcome.KO)
+      val notificationErrorEvent = transactionUserReceiptAddErrorEvent(transactionUserReceiptData)
+      val notificationRetriedEvent = transactionUserReceiptAddRetriedEvent(attempt)
+      val events =
+        listOf(
+          transactionActivateEvent(),
+          transactionAuthorizationRequestedEvent(),
+          transactionAuthorizationCompletedEvent(
+            PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+          transactionClosedEvent(TransactionClosureData.Outcome.OK),
+          transactionUserReceiptRequestedEvent(transactionUserReceiptData),
+          notificationErrorEvent,
+          notificationRetriedEvent)
+          as List<TransactionEvent<Any>>
+      val baseTransaction =
+        reduceEvents(*events.toTypedArray()) as BaseTransactionWithRequestedUserReceipt
+      val transactionId = TRANSACTION_ID
+      val document =
+        transactionDocument(TransactionStatusDto.NOTIFICATION_ERROR, ZonedDateTime.now())
+      Hooks.onOperatorDebug()
+      given(checkpointer.success()).willReturn(Mono.empty())
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
+        .willReturn(Flux.fromIterable(events))
+      given(userReceiptMailBuilder.buildNotificationEmailRequestDto(baseTransaction))
+        .willReturn(NotificationEmailRequestDto())
+      given(notificationsServiceClient.sendNotificationEmail(any()))
+        .willReturn(Mono.error(RuntimeException("Error calling notification service")))
+      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturn(Mono.just(document))
+      given(transactionsViewRepository.save(capture(transactionViewRepositoryCaptor))).willAnswer {
+        Mono.just(it.arguments[0])
+      }
+      given(transactionUserReceiptRepository.save(capture(transactionUserReceiptCaptor)))
+        .willAnswer { Mono.just(it.arguments[0]) }
+      given(notificationRetryService.enqueueRetryEvent(any(), capture(retryCountCaptor), any()))
+        .willReturn(
+          Mono.error(
+            NoRetryAttemptsLeftException(
+              TransactionId(transactionId),
+              TransactionEventCode.TRANSACTION_ADD_USER_RECEIPT_ERROR_EVENT.toString())))
+      given(transactionRefundRepository.save(capture(transactionRefundEventStoreCaptor)))
+        .willAnswer { Mono.just(it.arguments[0]) }
+      given(paymentGatewayClient.requestVPosRefund(any()))
+        .willReturn(
+          Mono.just(VposDeleteResponseDto().status(VposDeleteResponseDto.StatusEnum.CANCELLED)))
+
+      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturnConsecutively(
+          listOf(
+            Mono.just(
+              transactionDocument(TransactionStatusDto.NOTIFICATION_ERROR, ZonedDateTime.now())),
+            Mono.just(transactionDocument(TransactionStatusDto.EXPIRED, ZonedDateTime.now())),
+            Mono.just(
+              transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now()))))
+      given(
+          deadLetterQueueAsyncClient.sendMessageWithResponse(
+            queueArgumentCaptor.capture(), any(), anyOrNull()))
+        .willReturn(Mono.error(RuntimeException("Error writing event to dead letter queue")))
+      StepVerifier.create(
+          transactionNotificationsRetryQueueConsumer.messageReceiver(
+            Either.right(QueueEvent(notificationRetriedEvent, MOCK_TRACING_INFO)), checkpointer))
+        .expectNext(Unit)
+        .verifyComplete()
+      verify(checkpointer, times(1)).success()
+      verify(transactionsEventStoreRepository, times(1))
+        .findByTransactionIdOrderByCreationDateAsc(transactionId)
+      verify(notificationsServiceClient, times(1)).sendNotificationEmail(any())
+      verify(notificationRetryService, times(1)).enqueueRetryEvent(any(), any(), any())
+      verify(transactionsViewRepository, times(2)).save(any())
+      verify(transactionRefundRepository, times(2)).save(any())
+      verify(paymentGatewayClient, times(1)).requestVPosRefund(any())
+      verify(transactionUserReceiptRepository, times(0)).save(any())
+      verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
+      verify(userReceiptMailBuilder, times(1)).buildNotificationEmailRequestDto(baseTransaction)
+      verify(deadLetterQueueAsyncClient, times(1))
+        .sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull())
+      assertEquals(
+        String(
+          jsonSerializerV2.serializeToBytes(
+            QueueEvent(notificationRetriedEvent, MOCK_TRACING_INFO)),
+          StandardCharsets.UTF_8),
+        String(queueArgumentCaptor.value.toBytes(), StandardCharsets.UTF_8))
+
+      assertEquals(attempt, retryCountCaptor.value)
+      val expectedStatuses =
+        listOf(TransactionStatusDto.REFUND_REQUESTED, TransactionStatusDto.REFUNDED)
+      val expectedEventCodes =
+        listOf(
+          TransactionEventCode.TRANSACTION_REFUND_REQUESTED_EVENT,
+          TransactionEventCode.TRANSACTION_REFUNDED_EVENT)
+      expectedEventCodes.forEachIndexed { index, eventCode ->
+        assertEquals(
+          eventCode,
+          TransactionEventCode.valueOf(
+            transactionRefundEventStoreCaptor.allValues[index].eventCode))
+        assertEquals(
+          TransactionStatusDto.NOTIFICATION_ERROR,
+          transactionRefundEventStoreCaptor.allValues[index].data.statusBeforeRefunded)
+      }
+      expectedStatuses.forEachIndexed { index, transactionStatus ->
+        assertEquals(transactionStatus, transactionViewRepositoryCaptor.allValues[index].status)
+      }
+    }
 }

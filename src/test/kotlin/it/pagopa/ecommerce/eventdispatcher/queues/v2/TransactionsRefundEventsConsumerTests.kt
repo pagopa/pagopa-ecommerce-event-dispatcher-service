@@ -1,5 +1,6 @@
 package it.pagopa.ecommerce.eventdispatcher.queues.v2
 
+import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
 import io.vavr.control.Either
@@ -25,9 +26,11 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewReposito
 import it.pagopa.ecommerce.eventdispatcher.services.RefundService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
 import it.pagopa.ecommerce.eventdispatcher.utils.DEAD_LETTER_QUEUE_TTL_SECONDS
+import it.pagopa.ecommerce.eventdispatcher.utils.queueSuccessfulResponse
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
 import java.math.BigDecimal
+import java.nio.charset.StandardCharsets
 import java.time.ZonedDateTime
 import java.util.*
 import java.util.stream.Stream
@@ -73,6 +76,8 @@ class TransactionsRefundEventsConsumerTests {
   private lateinit var refundEventStoreCaptor:
     ArgumentCaptor<TransactionEvent<TransactionRefundedData>>
 
+  @Captor private lateinit var queueArgumentCaptor: ArgumentCaptor<BinaryData>
+
   private val transactionsViewRepository: TransactionsViewRepository = mock()
 
   private val deadLetterQueueAsyncClient: QueueAsyncClient = mock()
@@ -90,6 +95,8 @@ class TransactionsRefundEventsConsumerTests {
       deadLetterTTLSeconds = DEAD_LETTER_QUEUE_TTL_SECONDS,
       tracingUtils = tracingUtils,
       strictSerializerProviderV2 = strictJsonSerializerProviderV2)
+
+  private val jsonSerializerV2 = strictJsonSerializerProviderV2.createInstance()
 
   companion object {
     @JvmStatic
@@ -763,6 +770,10 @@ class TransactionsRefundEventsConsumerTests {
       .willReturn(
         Mono.just(transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now())))
 
+    given(
+        deadLetterQueueAsyncClient.sendMessageWithResponse(
+          queueArgumentCaptor.capture(), any(), anyOrNull()))
+      .willReturn(queueSuccessfulResponse())
     /* test */
 
     StepVerifier.create(
@@ -780,12 +791,19 @@ class TransactionsRefundEventsConsumerTests {
         UUID.fromString(transaction.transactionAuthorizationRequestData.authorizationRequestId))
     verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
     verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
-
+    verify(deadLetterQueueAsyncClient, times(1))
+      .sendMessageWithResponse(any<BinaryData>(), any(), any())
     val storedEvent = refundEventStoreCaptor.value
     assertEquals(
       TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT,
       TransactionEventCode.valueOf(storedEvent.eventCode))
     assertEquals(TransactionStatusDto.REFUND_REQUESTED, storedEvent.data.statusBeforeRefunded)
+    assertEquals(
+      String(
+        jsonSerializerV2.serializeToBytes(
+          QueueEvent(refundRequestedEvent as TransactionRefundRequestedEvent, MOCK_TRACING_INFO)),
+        StandardCharsets.UTF_8),
+      String(queueArgumentCaptor.value.toBytes(), StandardCharsets.UTF_8))
   }
 
   @Test
@@ -832,7 +850,10 @@ class TransactionsRefundEventsConsumerTests {
         .willReturn(
           Mono.just(
             transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now())))
-
+      given(
+          deadLetterQueueAsyncClient.sendMessageWithResponse(
+            queueArgumentCaptor.capture(), any(), anyOrNull()))
+        .willReturn(queueSuccessfulResponse())
       /* test */
 
       StepVerifier.create(
@@ -851,6 +872,14 @@ class TransactionsRefundEventsConsumerTests {
           UUID.fromString(transaction.transactionAuthorizationRequestData.authorizationRequestId))
       verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
       verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
+      verify(deadLetterQueueAsyncClient, times(1))
+        .sendMessageWithResponse(any<BinaryData>(), any(), any())
+      assertEquals(
+        String(
+          jsonSerializerV2.serializeToBytes(
+            QueueEvent(refundRequestedEvent as TransactionRefundRequestedEvent, MOCK_TRACING_INFO)),
+          StandardCharsets.UTF_8),
+        String(queueArgumentCaptor.value.toBytes(), StandardCharsets.UTF_8))
 
       val storedEvent = refundEventStoreCaptor.value
       assertEquals(
@@ -1073,7 +1102,10 @@ class TransactionsRefundEventsConsumerTests {
         .willReturn(
           Mono.just(
             transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now())))
-
+      given(
+          deadLetterQueueAsyncClient.sendMessageWithResponse(
+            queueArgumentCaptor.capture(), any(), anyOrNull()))
+        .willReturn(queueSuccessfulResponse())
       /* test */
 
       StepVerifier.create(
@@ -1107,6 +1139,14 @@ class TransactionsRefundEventsConsumerTests {
           pspId = expectedPspId)
       verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
       verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
+      verify(deadLetterQueueAsyncClient, times(1))
+        .sendMessageWithResponse(any<BinaryData>(), any(), any())
+      assertEquals(
+        String(
+          jsonSerializerV2.serializeToBytes(
+            QueueEvent(refundRequestedEvent as TransactionRefundRequestedEvent, MOCK_TRACING_INFO)),
+          StandardCharsets.UTF_8),
+        String(queueArgumentCaptor.value.toBytes(), StandardCharsets.UTF_8))
 
       val storedEvent = refundEventStoreCaptor.value
       assertEquals(
