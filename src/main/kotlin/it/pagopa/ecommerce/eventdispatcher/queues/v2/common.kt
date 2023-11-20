@@ -245,7 +245,7 @@ fun refundTransaction(
             // Enqueue retry event only if refund is allowed
             !is RefundNotAllowedException ->
               refundRetryService.enqueueRetryEvent(it, retryCount, tracingInfo)
-            else -> Mono.empty()
+            else -> Mono.error(exception)
           }
         }
         .thenReturn(tx)

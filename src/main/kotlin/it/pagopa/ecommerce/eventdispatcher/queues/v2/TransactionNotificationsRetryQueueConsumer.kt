@@ -1,5 +1,6 @@
 package it.pagopa.ecommerce.eventdispatcher.queues.v2
 
+import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
 import io.vavr.control.Either
@@ -23,6 +24,7 @@ import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.NotificationRe
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
 import it.pagopa.ecommerce.eventdispatcher.utils.v2.UserReceiptMailBuilder
 import it.pagopa.generated.notifications.templates.success.*
+import java.time.Duration
 import java.util.*
 import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
@@ -78,6 +80,7 @@ class TransactionNotificationsRetryQueueConsumer(
   ): Mono<Unit> {
     val event = parsedEvent.bimap({ it.event }, { it.event })
     val tracingInfo = parsedEvent.fold({ it.tracingInfo }, { it.tracingInfo })
+    val queueEvent = parsedEvent.fold({ it }, { it })
     val transactionId = getTransactionIdFromPayload(event)
     val retryCount = getRetryCountFromPayload(event)
     val baseTransaction =
@@ -121,28 +124,40 @@ class TransactionNotificationsRetryQueueConsumer(
                 "Got exception while retrying user receipt mail sending for transaction with id ${tx.transactionId}!",
                 exception)
               val v = notificationRetryService.enqueueRetryEvent(tx, retryCount, tracingInfo)
-              logger.info("enq response: {}", v)
               v.onErrorResume(NoRetryAttemptsLeftException::class.java) { enqueueException ->
                   logger.error(
                     "No more attempts left for user receipt send retry", enqueueException)
-                  notificationRefundTransactionPipeline(
-                      tx,
-                      transactionsRefundedEventStoreRepository,
-                      transactionsViewRepository,
-                      paymentGatewayClient,
-                      refundService,
-                      refundRetryService,
-                      tracingInfo)
+                  val binaryData =
+                    BinaryData.fromObject(queueEvent, strictSerializerProviderV2.createInstance())
+                  deadLetterQueueAsyncClient
+                    .sendMessageWithResponse(
+                      binaryData,
+                      Duration.ZERO,
+                      Duration.ofSeconds(deadLetterTTLSeconds.toLong()),
+                    )
+                    .doOnNext {
+                      logger.info(
+                        "Event: [${queueEvent}] successfully sent with visibility timeout: [${it.value.timeNextVisible}] ms to queue: [${deadLetterQueueAsyncClient.queueName}]")
+                    }
+                    .then(
+                      notificationRefundTransactionPipeline(
+                        tx,
+                        transactionsRefundedEventStoreRepository,
+                        transactionsViewRepository,
+                        paymentGatewayClient,
+                        refundService,
+                        refundRetryService,
+                        tracingInfo))
                     .then()
                 }
                 .then()
             }
         }
-    val e = event.fold({ QueueEvent(it, tracingInfo) }, { QueueEvent(it, tracingInfo) })
+
     return runTracedPipelineWithDeadLetterQueue(
       checkPointer,
       notificationResendPipeline,
-      e,
+      queueEvent,
       deadLetterQueueAsyncClient,
       deadLetterTTLSeconds,
       tracingUtils,
