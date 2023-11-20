@@ -791,7 +791,8 @@ class TransactionsRefundEventsConsumerTests {
         UUID.fromString(transaction.transactionAuthorizationRequestData.authorizationRequestId))
     verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
     verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
-
+    verify(deadLetterQueueAsyncClient, times(1))
+      .sendMessageWithResponse(any<BinaryData>(), any(), any())
     val storedEvent = refundEventStoreCaptor.value
     assertEquals(
       TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT,
@@ -871,6 +872,8 @@ class TransactionsRefundEventsConsumerTests {
           UUID.fromString(transaction.transactionAuthorizationRequestData.authorizationRequestId))
       verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
       verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
+      verify(deadLetterQueueAsyncClient, times(1))
+        .sendMessageWithResponse(any<BinaryData>(), any(), any())
       assertEquals(
         String(
           jsonSerializerV2.serializeToBytes(
@@ -1136,6 +1139,8 @@ class TransactionsRefundEventsConsumerTests {
           pspId = expectedPspId)
       verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
       verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
+      verify(deadLetterQueueAsyncClient, times(1))
+        .sendMessageWithResponse(any<BinaryData>(), any(), any())
       assertEquals(
         String(
           jsonSerializerV2.serializeToBytes(
