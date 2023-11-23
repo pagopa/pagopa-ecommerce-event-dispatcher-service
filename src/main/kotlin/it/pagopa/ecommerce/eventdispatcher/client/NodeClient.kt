@@ -10,6 +10,7 @@ import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
 import kotlinx.coroutines.reactor.awaitSingle
 import kotlinx.coroutines.reactor.mono
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpStatus
@@ -23,13 +24,28 @@ class NodeClient(
   @Value("\${nodo.ecommerce.clientId}") private val ecommerceClientId: String
 ) {
 
+  private val logger = LoggerFactory.getLogger(javaClass)
+
   suspend fun closePayment(
     closePaymentRequest: ClosePaymentRequestV2Dto
   ): Mono<ClosePaymentResponseDto> {
     return mono {
       try {
-        return@mono nodeApi.closePaymentV2(closePaymentRequest, ecommerceClientId).awaitSingle()
+        return@mono nodeApi
+          .closePaymentV2(closePaymentRequest, ecommerceClientId)
+          .doOnNext {
+            logger.info(
+              "Nodo close payment response for transactionId: [{}], received outcome: [{}]",
+              closePaymentRequest.transactionId,
+              it.outcome)
+          }
+          .awaitSingle()
       } catch (exception: WebClientResponseException) {
+        logger.error(
+          "Error performing Nodo close payment for transactionId: [{}}, received HTTP error code: [{}], response body: [{}]",
+          closePaymentRequest.transactionId,
+          exception.statusCode,
+          exception.responseBodyAsString)
         throw when (exception.statusCode) {
           HttpStatus.NOT_FOUND ->
             TransactionNotFound(TransactionId(closePaymentRequest.transactionId).uuid)
