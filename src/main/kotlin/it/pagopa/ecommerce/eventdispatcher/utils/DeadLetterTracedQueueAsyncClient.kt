@@ -96,7 +96,7 @@ class DeadLetterTracedQueueAsyncClient(
     PROCESSING_ERROR
   }
 
-  /** This data class contains error context that trigger dead letter event writing */
+  /** This data class contains the context of the error that triggered the writing of a dead letter event */
   data class ErrorContext(
     val transactionId: TransactionId?,
     val transactionEventCode: String?,
