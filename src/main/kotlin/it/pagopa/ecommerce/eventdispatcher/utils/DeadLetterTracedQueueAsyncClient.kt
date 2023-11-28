@@ -52,10 +52,10 @@ class DeadLetterTracedQueueAsyncClient(
           DEAD_LETTER_EVENT_SERVICE_ERROR_CATEGORY_KEY, errorContext.errorCategory.toString())
         it.setAttribute(
           DEAD_LETTER_EVENT_SERVICE_TRANSACTION_ID_KEY,
-          errorContext.transactionId?.toString() ?: "N/A")
+          errorContext.transactionId?.value() ?: "N/A")
         it.setAttribute(
           DEAD_LETTER_EVENT_SERVICE_TRANSACTION_EVENT_CODE_KEY,
-          errorContext.transactionEventCode?.toString() ?: "N/A")
+          errorContext.transactionEventCode ?: "N/A")
         deadLetterQueueAsyncClient
           .sendMessageWithResponse(
             binaryData,
@@ -66,7 +66,9 @@ class DeadLetterTracedQueueAsyncClient(
             logger.info(
               "Event: [$binaryData] successfully sent with visibility timeout: [${queueResponse.value.timeNextVisible}] ms to queue: [${deadLetterQueueAsyncClient.queueName}]")
           }
-          .doOnError { logger.error("Error sending event: [$binaryData] to dead letter queue.") }
+          .doOnError { exception ->
+            logger.error("Error sending event: [$binaryData] to dead letter queue.", exception)
+          }
           .then(mono {})
       },
       { it.end() })
