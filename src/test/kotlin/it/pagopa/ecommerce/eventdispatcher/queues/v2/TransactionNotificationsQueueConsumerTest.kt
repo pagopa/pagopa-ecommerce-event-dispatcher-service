@@ -723,7 +723,8 @@ class TransactionNotificationsQueueConsumerTest {
           eq(
             DeadLetterTracedQueueAsyncClient.ErrorContext(
               transactionId = TransactionId(TRANSACTION_ID),
-              transactionEventCode = TransactionEventCode.TRANSACTION_USER_RECEIPT_REQUESTED_EVENT,
+              transactionEventCode =
+                TransactionEventCode.TRANSACTION_USER_RECEIPT_REQUESTED_EVENT.toString(),
               errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)))
     }
 
@@ -771,7 +772,8 @@ class TransactionNotificationsQueueConsumerTest {
         eq(
           DeadLetterTracedQueueAsyncClient.ErrorContext(
             transactionId = TransactionId(TRANSACTION_ID),
-            transactionEventCode = TransactionEventCode.TRANSACTION_USER_RECEIPT_REQUESTED_EVENT,
+            transactionEventCode =
+              TransactionEventCode.TRANSACTION_USER_RECEIPT_REQUESTED_EVENT.toString(),
             errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)))
   }
 

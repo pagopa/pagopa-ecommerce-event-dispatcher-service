@@ -455,7 +455,7 @@ class TransactionClosePaymentQueueConsumerTests {
         eq(
           DeadLetterTracedQueueAsyncClient.ErrorContext(
             transactionId = TransactionId(TRANSACTION_ID),
-            transactionEventCode = TransactionEventCode.TRANSACTION_USER_CANCELED_EVENT,
+            transactionEventCode = TransactionEventCode.TRANSACTION_USER_CANCELED_EVENT.toString(),
             errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)))
   }
 

@@ -794,7 +794,8 @@ class TransactionsRefundEventsConsumerTests {
         eq(
           DeadLetterTracedQueueAsyncClient.ErrorContext(
             transactionId = TransactionId(TRANSACTION_ID),
-            transactionEventCode = TransactionEventCode.TRANSACTION_REFUND_REQUESTED_EVENT,
+            transactionEventCode =
+              TransactionEventCode.TRANSACTION_REFUND_REQUESTED_EVENT.toString(),
             errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)))
     val storedEvent = refundEventStoreCaptor.value
     assertEquals(
@@ -881,7 +882,8 @@ class TransactionsRefundEventsConsumerTests {
           eq(
             DeadLetterTracedQueueAsyncClient.ErrorContext(
               transactionId = TransactionId(TRANSACTION_ID),
-              transactionEventCode = TransactionEventCode.TRANSACTION_REFUND_REQUESTED_EVENT,
+              transactionEventCode =
+                TransactionEventCode.TRANSACTION_REFUND_REQUESTED_EVENT.toString(),
               errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)))
       assertEquals(
         String(
@@ -1154,7 +1156,8 @@ class TransactionsRefundEventsConsumerTests {
           eq(
             DeadLetterTracedQueueAsyncClient.ErrorContext(
               transactionId = TransactionId(TRANSACTION_ID),
-              transactionEventCode = TransactionEventCode.TRANSACTION_REFUND_REQUESTED_EVENT,
+              transactionEventCode =
+                TransactionEventCode.TRANSACTION_REFUND_REQUESTED_EVENT.toString(),
               errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)))
       assertEquals(
         String(

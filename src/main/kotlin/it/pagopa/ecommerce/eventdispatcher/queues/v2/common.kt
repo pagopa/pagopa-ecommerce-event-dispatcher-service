@@ -563,7 +563,7 @@ fun <T> runTracedPipelineWithDeadLetterQueue(
           errorContext =
             DeadLetterTracedQueueAsyncClient.ErrorContext(
               transactionId = TransactionId(queueEvent.event.transactionId),
-              transactionEventCode = TransactionEventCode.valueOf(queueEvent.event.eventCode),
+              transactionEventCode = queueEvent.event.eventCode,
               errorCategory = errorCategory),
         )
       }

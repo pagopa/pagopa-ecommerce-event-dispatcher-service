@@ -6,7 +6,6 @@ import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
-import it.pagopa.ecommerce.commons.domain.v2.TransactionEventCode
 import it.pagopa.ecommerce.commons.domain.v2.TransactionWithUserReceiptError
 import it.pagopa.ecommerce.commons.domain.v2.pojos.*
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
@@ -132,8 +131,7 @@ class TransactionNotificationsRetryQueueConsumer(
                         it,
                         DeadLetterTracedQueueAsyncClient.ErrorContext(
                           transactionId = TransactionId(queueEvent.event.transactionId),
-                          transactionEventCode =
-                            TransactionEventCode.valueOf(queueEvent.event.eventCode),
+                          transactionEventCode = queueEvent.event.eventCode,
                           DeadLetterTracedQueueAsyncClient.ErrorCategory
                             .RETRY_EVENT_NO_ATTEMPT_LEFT))
                     }

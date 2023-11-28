@@ -374,7 +374,7 @@ class TransactionExpirationQueueConsumerTests {
         eq(
           DeadLetterTracedQueueAsyncClient.ErrorContext(
             transactionId = TransactionId(TRANSACTION_ID),
-            transactionEventCode = TransactionEventCode.TRANSACTION_ACTIVATED_EVENT,
+            transactionEventCode = TransactionEventCode.TRANSACTION_ACTIVATED_EVENT.toString(),
             errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)))
   }
 
@@ -435,7 +435,7 @@ class TransactionExpirationQueueConsumerTests {
         eq(
           DeadLetterTracedQueueAsyncClient.ErrorContext(
             transactionId = TransactionId(TRANSACTION_ID),
-            transactionEventCode = TransactionEventCode.TRANSACTION_ACTIVATED_EVENT,
+            transactionEventCode = TransactionEventCode.TRANSACTION_ACTIVATED_EVENT.toString(),
             errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)))
   }
 
@@ -2247,7 +2247,7 @@ class TransactionExpirationQueueConsumerTests {
           eq(
             DeadLetterTracedQueueAsyncClient.ErrorContext(
               transactionId = TransactionId(TRANSACTION_ID),
-              transactionEventCode = TransactionEventCode.TRANSACTION_ACTIVATED_EVENT,
+              transactionEventCode = TransactionEventCode.TRANSACTION_ACTIVATED_EVENT.toString(),
               errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)))
     }
 
@@ -2294,7 +2294,7 @@ class TransactionExpirationQueueConsumerTests {
           eq(
             DeadLetterTracedQueueAsyncClient.ErrorContext(
               transactionId = TransactionId(TRANSACTION_ID),
-              transactionEventCode = TransactionEventCode.TRANSACTION_ACTIVATED_EVENT,
+              transactionEventCode = TransactionEventCode.TRANSACTION_ACTIVATED_EVENT.toString(),
               errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)))
     }
 
@@ -2742,7 +2742,7 @@ class TransactionExpirationQueueConsumerTests {
           eq(
             DeadLetterTracedQueueAsyncClient.ErrorContext(
               transactionId = TransactionId(TRANSACTION_ID),
-              transactionEventCode = TransactionEventCode.TRANSACTION_ACTIVATED_EVENT,
+              transactionEventCode = TransactionEventCode.TRANSACTION_ACTIVATED_EVENT.toString(),
               errorCategory =
                 DeadLetterTracedQueueAsyncClient.ErrorCategory
                   .SEND_PAYMENT_RESULT_RECEIVING_TIMEOUT)))
@@ -2969,7 +2969,7 @@ class TransactionExpirationQueueConsumerTests {
           eq(
             DeadLetterTracedQueueAsyncClient.ErrorContext(
               transactionId = TransactionId(TRANSACTION_ID),
-              transactionEventCode = TransactionEventCode.TRANSACTION_ACTIVATED_EVENT,
+              transactionEventCode = TransactionEventCode.TRANSACTION_ACTIVATED_EVENT.toString(),
               errorCategory =
                 DeadLetterTracedQueueAsyncClient.ErrorCategory
                   .SEND_PAYMENT_RESULT_RECEIVING_TIMEOUT)))

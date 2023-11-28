@@ -838,7 +838,8 @@ class TransactionClosePaymentRetryQueueConsumerTests {
           eq(
             DeadLetterTracedQueueAsyncClient.ErrorContext(
               transactionId = TransactionId(TRANSACTION_ID),
-              transactionEventCode = TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT,
+              transactionEventCode =
+                TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT.toString(),
               errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)),
         )
     }
@@ -901,7 +902,8 @@ class TransactionClosePaymentRetryQueueConsumerTests {
           eq(
             DeadLetterTracedQueueAsyncClient.ErrorContext(
               transactionId = TransactionId(TRANSACTION_ID),
-              transactionEventCode = TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT,
+              transactionEventCode =
+                TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT.toString(),
               errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)),
         )
     }
@@ -1094,7 +1096,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
         eq(
           DeadLetterTracedQueueAsyncClient.ErrorContext(
             transactionId = TransactionId(TRANSACTION_ID),
-            transactionEventCode = TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT,
+            transactionEventCode = TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT.toString(),
             errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)),
       )
   }
@@ -1557,7 +1559,8 @@ class TransactionClosePaymentRetryQueueConsumerTests {
           eq(
             DeadLetterTracedQueueAsyncClient.ErrorContext(
               transactionId = TransactionId(TRANSACTION_ID),
-              transactionEventCode = TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT,
+              transactionEventCode =
+                TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT.toString(),
               errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)),
         )
     }

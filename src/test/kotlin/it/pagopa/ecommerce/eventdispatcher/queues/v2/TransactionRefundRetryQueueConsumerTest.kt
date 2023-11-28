@@ -505,7 +505,8 @@ class TransactionRefundRetryQueueConsumerTest {
           eq(
             DeadLetterTracedQueueAsyncClient.ErrorContext(
               transactionId = TransactionId(TransactionTestUtils.TRANSACTION_ID),
-              transactionEventCode = TransactionEventCode.TRANSACTION_REFUND_RETRIED_EVENT,
+              transactionEventCode =
+                TransactionEventCode.TRANSACTION_REFUND_RETRIED_EVENT.toString(),
               errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)),
         )
     }

@@ -6,7 +6,6 @@ import com.azure.storage.queue.QueueAsyncClient
 import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.domain.TransactionId
-import it.pagopa.ecommerce.commons.domain.v2.TransactionEventCode
 import it.pagopa.ecommerce.commons.domain.v2.TransactionWithClosureError
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
@@ -100,7 +99,7 @@ class TransactionExpirationQueueConsumer(
                     binaryData,
                     DeadLetterTracedQueueAsyncClient.ErrorContext(
                       transactionId = TransactionId(transactionId),
-                      transactionEventCode = TransactionEventCode.valueOf(event.event.eventCode),
+                      transactionEventCode = event.event.eventCode,
                       errorCategory =
                         DeadLetterTracedQueueAsyncClient.ErrorCategory
                           .SEND_PAYMENT_RESULT_RECEIVING_TIMEOUT),

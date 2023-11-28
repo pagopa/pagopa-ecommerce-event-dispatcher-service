@@ -819,7 +819,8 @@ class TransactionNotificationsRetryQueueConsumerTest {
           eq(
             DeadLetterTracedQueueAsyncClient.ErrorContext(
               transactionId = TransactionId(TRANSACTION_ID),
-              transactionEventCode = TransactionEventCode.TRANSACTION_ADD_USER_RECEIPT_RETRY_EVENT,
+              transactionEventCode =
+                TransactionEventCode.TRANSACTION_ADD_USER_RECEIPT_RETRY_EVENT.toString(),
               errorCategory =
                 DeadLetterTracedQueueAsyncClient.ErrorCategory.RETRY_EVENT_NO_ATTEMPT_LEFT)))
       assertEquals(attempt, retryCountCaptor.value)
@@ -918,7 +919,8 @@ class TransactionNotificationsRetryQueueConsumerTest {
           eq(
             DeadLetterTracedQueueAsyncClient.ErrorContext(
               transactionId = TransactionId(TRANSACTION_ID),
-              transactionEventCode = TransactionEventCode.TRANSACTION_ADD_USER_RECEIPT_RETRY_EVENT,
+              transactionEventCode =
+                TransactionEventCode.TRANSACTION_ADD_USER_RECEIPT_RETRY_EVENT.toString(),
               errorCategory =
                 DeadLetterTracedQueueAsyncClient.ErrorCategory.RETRY_EVENT_NO_ATTEMPT_LEFT)))
       assertEquals(
@@ -993,7 +995,8 @@ class TransactionNotificationsRetryQueueConsumerTest {
         eq(
           DeadLetterTracedQueueAsyncClient.ErrorContext(
             transactionId = TransactionId(TRANSACTION_ID),
-            transactionEventCode = TransactionEventCode.TRANSACTION_ADD_USER_RECEIPT_ERROR_EVENT,
+            transactionEventCode =
+              TransactionEventCode.TRANSACTION_ADD_USER_RECEIPT_ERROR_EVENT.toString(),
             errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)))
   }
 
@@ -1084,7 +1087,8 @@ class TransactionNotificationsRetryQueueConsumerTest {
           eq(
             DeadLetterTracedQueueAsyncClient.ErrorContext(
               transactionId = TransactionId(TRANSACTION_ID),
-              transactionEventCode = TransactionEventCode.TRANSACTION_ADD_USER_RECEIPT_RETRY_EVENT,
+              transactionEventCode =
+                TransactionEventCode.TRANSACTION_ADD_USER_RECEIPT_RETRY_EVENT.toString(),
               errorCategory =
                 DeadLetterTracedQueueAsyncClient.ErrorCategory.RETRY_EVENT_NO_ATTEMPT_LEFT)))
       assertEquals(

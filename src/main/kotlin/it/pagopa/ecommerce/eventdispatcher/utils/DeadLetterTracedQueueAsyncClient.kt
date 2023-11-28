@@ -4,7 +4,6 @@ import com.azure.core.util.BinaryData
 import com.azure.storage.queue.QueueAsyncClient
 import io.opentelemetry.api.trace.Tracer
 import it.pagopa.ecommerce.commons.domain.TransactionId
-import it.pagopa.ecommerce.commons.domain.v2.TransactionEventCode
 import java.time.Duration
 import kotlinx.coroutines.reactor.mono
 import org.slf4j.LoggerFactory
@@ -94,7 +93,7 @@ class DeadLetterTracedQueueAsyncClient(
   /** This data class contains error context that trigger dead letter event writing */
   data class ErrorContext(
     val transactionId: TransactionId?,
-    val transactionEventCode: TransactionEventCode?,
+    val transactionEventCode: String?,
     val errorCategory: ErrorCategory
   )
 }
