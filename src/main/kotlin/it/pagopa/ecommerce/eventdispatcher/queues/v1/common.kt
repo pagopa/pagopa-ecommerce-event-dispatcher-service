@@ -14,6 +14,7 @@ import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
+import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.RefundNotAllowedException
 import it.pagopa.ecommerce.eventdispatcher.queues.v1.QueueCommonsLogger.logger
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
@@ -470,14 +471,18 @@ fun <T> runPipelineWithDeadLetterQueue(
     .then(pipeline)
     .then()
     .onErrorResume { pipelineException ->
+      val errorCategory: DeadLetterTracedQueueAsyncClient.ErrorCategory =
+        if (pipelineException is NoRetryAttemptsLeftException) {
+          DeadLetterTracedQueueAsyncClient.ErrorCategory.RETRY_EVENT_NO_ATTEMPT_LEFT
+        } else {
+          DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR
+        }
       logger.error("Exception processing event $eventLogString", pipelineException)
       deadLetterTracedQueueAsyncClient
         .sendAndTraceDeadLetterQueueEvent(
           binaryData,
           DeadLetterTracedQueueAsyncClient.ErrorContext(
-            transactionId = null,
-            transactionEventCode = null,
-            errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR))
+            transactionId = null, transactionEventCode = null, errorCategory = errorCategory))
         .then()
     }
     .then(mono {})
@@ -501,6 +506,12 @@ fun <T> runTracedPipelineWithDeadLetterQueue(
       .then(pipeline)
       .then()
       .onErrorResume { pipelineException ->
+        val errorCategory: DeadLetterTracedQueueAsyncClient.ErrorCategory =
+          if (pipelineException is NoRetryAttemptsLeftException) {
+            DeadLetterTracedQueueAsyncClient.ErrorCategory.RETRY_EVENT_NO_ATTEMPT_LEFT
+          } else {
+            DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR
+          }
         logger.error("Exception processing event $eventLogString", pipelineException)
         deadLetterTracedQueueAsyncClient
           .sendAndTraceDeadLetterQueueEvent(
@@ -508,7 +519,7 @@ fun <T> runTracedPipelineWithDeadLetterQueue(
             DeadLetterTracedQueueAsyncClient.ErrorContext(
               transactionId = TransactionId(queueEvent.event.transactionId),
               transactionEventCode = queueEvent.event.eventCode,
-              errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR))
+              errorCategory = errorCategory))
           .then()
       }
 
