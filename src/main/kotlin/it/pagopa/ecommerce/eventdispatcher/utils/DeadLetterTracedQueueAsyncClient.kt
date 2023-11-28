@@ -14,8 +14,8 @@ import org.springframework.stereotype.Component
 import reactor.core.publisher.Mono
 
 /**
- * Dead letter queue async client wrapper. This component expose method to send event to dead letter
- * queue and create, contextually, a new open telemetry span with error context
+ * Dead letter queue async client wrapper. This component exposes a method to send an event to a
+ * dead letter queue and contextually creates a new OpenTelemetry span with an error context
  */
 @Component
 class DeadLetterTracedQueueAsyncClient(
@@ -38,6 +38,10 @@ class DeadLetterTracedQueueAsyncClient(
       AttributeKey.stringKey("deadLetterEvent.transactionId")
     private val DEAD_LETTER_EVENT_SERVICE_TRANSACTION_EVENT_CODE_KEY: AttributeKey<String> =
       AttributeKey.stringKey("deadLetterEvent.transactionEventCode")
+
+    val PARSING_EVENT_ERROR_CONTEXT =
+      DeadLetterTracedQueueAsyncClient.ErrorContext(
+        null, null, DeadLetterTracedQueueAsyncClient.ErrorCategory.EVENT_PARSING_ERROR)
   }
 
   /**
@@ -86,8 +90,8 @@ class DeadLetterTracedQueueAsyncClient(
      */
     SEND_PAYMENT_RESULT_RECEIVING_TIMEOUT,
 
-    /** Event processing error caused by no attempt left for processing a retry event */
-    RETRY_EVENT_NO_ATTEMPT_LEFT,
+    /** Event processing error caused by no attempts left for processing a retry event */
+    RETRY_EVENT_NO_ATTEMPTS_LEFT,
 
     /** Event processing error caused by input event processing error */
     EVENT_PARSING_ERROR,
@@ -96,7 +100,10 @@ class DeadLetterTracedQueueAsyncClient(
     PROCESSING_ERROR
   }
 
-  /** This data class contains error context that trigger dead letter event writing */
+  /**
+   * This data class contains the context of the error that triggered the writing of a dead letter
+   * event
+   */
   data class ErrorContext(
     val transactionId: TransactionId?,
     val transactionEventCode: String?,

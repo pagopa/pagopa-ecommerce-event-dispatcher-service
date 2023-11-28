@@ -136,7 +136,7 @@ the `Chart version` labels must be contemporary present for a given PR or the `s
 
 This microservice has a built-in logic that write events to dead letter queue.
 This dead letter queue is used to store all events that cannot be processed by this microservice.
-There are common scenario for which an event can be written to dead letter queue:
+There are common scenarios for which an event can be written to a dead letter queue:
 
 1. syntactically incorrect input event
 2. unhandled exception raised during event processing
@@ -147,16 +147,16 @@ HTTP 400 for which a retry has no meaning)
 ### Monitoring
 
 Since an event can be written to dead letter queue for multiple reasons (see above) there is a mechanism that,
-contextually to dead letter event writing to dead letter queue
-create an OpenTelemetry span that is used to display an overall dead letter queue event dashboard.
+contextually to dead letter event writing to dead letter queue,
+creates an OpenTelemetry span that is used to display an overall dead letter queue event dashboard.
 This span has the following fields:
 
 | field key                            | description                                                                                                                            | mandatory |
 |--------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------|-----------|
 | deadLetterEvent.serviceName          | Constant value `pagopa-ecommerce-event-dispatcher-service`, used to uniquely identify this microservice as event writer                | ✅         |
 | deadLetterEvent.category             | Enumeration of all possible errors that can make an event to be written to dead letter (see [Error category section](#Error-category)) | ✅         |
-| deadLetterEvent.transactionId        | Transaction id of the input event (if event is parsable)                                                                               | ❌         |
-| deadLetterEvent.transactionEventCode | Transaction event code of the input event (if event is parsable)                                                                       | ❌         |
+| deadLetterEvent.transactionId        | Transaction id of the input event (if the input event is parsable)                                                                               | ❌         |
+| deadLetterEvent.transactionEventCode | Transaction event code of the input event (if the input event is parsable)                                                                       | ❌         |
 
 #### Error category
 
