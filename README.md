@@ -136,7 +136,7 @@ the `Chart version` labels must be contemporary present for a given PR or the `s
 
 This microservice has a built-in logic that write events to dead letter queue.
 This dead letter queue is used to store all events that cannot be processed by this microservice.
-There are common scenario for which an event can be written to dead letter queue:
+There are common scenarios for which an event can be written to a dead letter queue:
 
 1. syntactically incorrect input event
 2. unhandled exception raised during event processing
