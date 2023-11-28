@@ -131,3 +131,38 @@ tags presence during PR analysis:
 
 For the check to be successfully passed only one of the `Application version` labels and only ones of
 the `Chart version` labels must be contemporary present for a given PR or the `skip-release` for skipping release step
+
+## Dead lettering
+
+This microservice has a built-in logic that write events to dead letter queue.
+This dead letter queue is used to store all events that cannot be processed by this microservice.
+There are common scenario for which an event can be written to dead letter queue:
+
+1. syntactically incorrect input event
+2. unhandled exception raised during event processing
+3. retry attempt exhaustion for a refund retry event or refund process interruption (because of blocking error codes as
+HTTP 400 for which a retry has no meaning)
+4. retry attempt exhaustion for sending user notification (mail)
+
+### Monitoring
+
+Since an event can be written to dead letter queue for multiple reasons (see above) there is a mechanism that,
+contextually to dead letter event writing to dead letter queue
+create an OpenTelemetry span that is used to display an overall dead letter queue event dashboard.
+This span has the following fields:
+
+| field key                            | description                                                                                                                            | mandatory |
+|--------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------|-----------|
+| deadLetterEvent.serviceName          | Constant value `pagopa-ecommerce-event-dispatcher-service`, used to uniquely identify this microservice as event writer                | ✅         |
+| deadLetterEvent.category             | Enumeration of all possible errors that can make an event to be written to dead letter (see [Error category section](#Error-category)) | ✅         |
+| deadLetterEvent.transactionId        | Transaction id of the input event (if event is parsable)                                                                               | ❌         |
+| deadLetterEvent.transactionEventCode | Transaction event code of the input event (if event is parsable)                                                                       | ❌         |
+
+#### Error category
+
+| Error code                            | Description                                                                                                                                  |
+|---------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------|
+| SEND_PAYMENT_RESULT_RECEIVING_TIMEOUT | Transaction is stuck in CLOSED status and a sendPaymentResult has not been received before the `SEND_PAYMENT_RESULT_TIMEOUT_SECONDS` timeout |
+| RETRY_EVENT_NO_ATTEMPT_LEFT           | All retry for perform a retry event have been exhausted                                                                                      |
+| EVENT_PARSING_ERROR                   | Input event is not formally valid                                                                                                            |
+| PROCESSING_ERROR                      | Unhandled error processing the event                                                                                                         |
