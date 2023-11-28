@@ -147,7 +147,7 @@ HTTP 400 for which a retry has no meaning)
 ### Monitoring
 
 Since an event can be written to dead letter queue for multiple reasons (see above) there is a mechanism that,
-contextually to dead letter event writing to dead letter queue
+contextually to dead letter event writing to dead letter queue,
 create an OpenTelemetry span that is used to display an overall dead letter queue event dashboard.
 This span has the following fields:
 
