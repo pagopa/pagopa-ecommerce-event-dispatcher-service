@@ -14,6 +14,10 @@ object QueueCommonsLogger {
 
 const val ERROR_PARSING_EVENT_ERROR = "Cannot parse event"
 
+val PARSING_EVENT_ERROR_CONTEXT =
+  DeadLetterTracedQueueAsyncClient.ErrorContext(
+    null, null, DeadLetterTracedQueueAsyncClient.ErrorCategory.EVENT_PARSING_ERROR)
+
 fun writeEventToDeadLetterQueue(
   checkPointer: Checkpointer,
   eventPayload: ByteArray,

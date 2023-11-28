@@ -157,12 +157,7 @@ class TransactionNotificationsRetryQueueConsumer(
       .onErrorResume(InvalidEventException::class.java) {
         logger.error("Invalid input event", it)
         writeEventToDeadLetterQueue(
-          checkPointer,
-          payload,
-          it,
-          deadLetterTracedQueueAsyncClient,
-          DeadLetterTracedQueueAsyncClient.ErrorContext(
-            null, null, DeadLetterTracedQueueAsyncClient.ErrorCategory.EVENT_PARSING_ERROR))
+          checkPointer, payload, it, deadLetterTracedQueueAsyncClient, PARSING_EVENT_ERROR_CONTEXT)
       }
   }
 }
