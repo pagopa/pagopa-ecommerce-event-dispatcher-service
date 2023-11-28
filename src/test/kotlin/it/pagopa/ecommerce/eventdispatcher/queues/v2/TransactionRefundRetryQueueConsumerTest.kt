@@ -3,8 +3,8 @@ package it.pagopa.ecommerce.eventdispatcher.queues.v2
 import com.azure.core.util.BinaryData
 import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.checkpoint.Checkpointer
-import com.azure.storage.queue.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v2.*
+import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.v2.TransactionEventCode
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
@@ -17,12 +17,11 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRe
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.RefundService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
-import it.pagopa.ecommerce.eventdispatcher.utils.DEAD_LETTER_QUEUE_TTL_SECONDS
-import it.pagopa.ecommerce.eventdispatcher.utils.queueSuccessfulResponse
+import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
-import java.time.Duration
 import java.time.ZonedDateTime
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.reactor.mono
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -61,7 +60,7 @@ class TransactionRefundRetryQueueConsumerTest {
 
   @Captor private lateinit var retryCountCaptor: ArgumentCaptor<Int>
 
-  private val deadLetterQueueAsyncClient: QueueAsyncClient = mock()
+  private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient = mock()
   private val strictJsonSerializerProviderV2 = QueuesConsumerConfig().strictSerializerProviderV2()
   private val jsonSerializerV2 = strictJsonSerializerProviderV2.createInstance()
 
@@ -73,8 +72,7 @@ class TransactionRefundRetryQueueConsumerTest {
       transactionsViewRepository = transactionsViewRepository,
       refundService = refundService,
       refundRetryService = refundRetryService,
-      deadLetterQueueAsyncClient = deadLetterQueueAsyncClient,
-      deadLetterTTLSeconds = DEAD_LETTER_QUEUE_TTL_SECONDS,
+      deadLetterTracedQueueAsyncClient = deadLetterTracedQueueAsyncClient,
       tracingUtils = tracingUtils,
       strictSerializerProviderV2 = strictJsonSerializerProviderV2)
 
@@ -477,8 +475,9 @@ class TransactionRefundRetryQueueConsumerTest {
       given(refundRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture(), any()))
         .willReturn(Mono.empty())
       given(
-          deadLetterQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull()))
-        .willReturn(queueSuccessfulResponse())
+          deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(
+            any<BinaryData>(), any()))
+        .willReturn(mono {})
 
       /* test */
       StepVerifier.create(
@@ -493,8 +492,8 @@ class TransactionRefundRetryQueueConsumerTest {
       verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
       verify(transactionsViewRepository, times(0)).save(any())
       verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
-      verify(deadLetterQueueAsyncClient, times(1))
-        .sendMessageWithResponse(
+      verify(deadLetterTracedQueueAsyncClient, times(1))
+        .sendAndTraceDeadLetterQueueEvent(
           argThat<BinaryData> {
             TransactionEventCode.valueOf(
               this.toObject(
@@ -503,7 +502,11 @@ class TransactionRefundRetryQueueConsumerTest {
                 .event
                 .eventCode) == TransactionEventCode.TRANSACTION_REFUND_RETRIED_EVENT
           },
-          eq(Duration.ZERO),
-          eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
+          eq(
+            DeadLetterTracedQueueAsyncClient.ErrorContext(
+              transactionId = TransactionId(TransactionTestUtils.TRANSACTION_ID),
+              transactionEventCode = TransactionEventCode.TRANSACTION_REFUND_RETRIED_EVENT,
+              errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)),
+        )
     }
 }

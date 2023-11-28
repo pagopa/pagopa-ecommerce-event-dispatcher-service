@@ -26,154 +26,143 @@ import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetrySer
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.ecommerce.eventdispatcher.utils.v2.UserReceiptMailBuilder
 import it.pagopa.generated.notifications.templates.success.*
+import java.util.*
 import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
-import java.util.*
 
 @Service("TransactionNotificationsRetryQueueConsumerV2")
 class TransactionNotificationsRetryQueueConsumer(
-    @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,
-    @Autowired
-    private val transactionUserReceiptRepository:
+  @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,
+  @Autowired
+  private val transactionUserReceiptRepository:
     TransactionsEventStoreRepository<TransactionUserReceiptData>,
-    @Autowired private val transactionsViewRepository: TransactionsViewRepository,
-    @Autowired private val notificationRetryService: NotificationRetryService,
-    @Autowired
-    private val transactionsRefundedEventStoreRepository:
+  @Autowired private val transactionsViewRepository: TransactionsViewRepository,
+  @Autowired private val notificationRetryService: NotificationRetryService,
+  @Autowired
+  private val transactionsRefundedEventStoreRepository:
     TransactionsEventStoreRepository<TransactionRefundedData>,
-    @Autowired private val paymentGatewayClient: PaymentGatewayClient,
-    @Autowired private val refundService: RefundService,
-    @Autowired private val refundRetryService: RefundRetryService,
-    @Autowired private val userReceiptMailBuilder: UserReceiptMailBuilder,
-    @Autowired private val notificationsServiceClient: NotificationsServiceClient,
-    @Autowired private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient,
-    @Autowired private val tracingUtils: TracingUtils,
-    @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider,
+  @Autowired private val paymentGatewayClient: PaymentGatewayClient,
+  @Autowired private val refundService: RefundService,
+  @Autowired private val refundRetryService: RefundRetryService,
+  @Autowired private val userReceiptMailBuilder: UserReceiptMailBuilder,
+  @Autowired private val notificationsServiceClient: NotificationsServiceClient,
+  @Autowired private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient,
+  @Autowired private val tracingUtils: TracingUtils,
+  @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider,
 ) {
-    var logger: Logger =
-        LoggerFactory.getLogger(TransactionNotificationsRetryQueueConsumer::class.java)
+  var logger: Logger =
+    LoggerFactory.getLogger(TransactionNotificationsRetryQueueConsumer::class.java)
 
-    private fun getTransactionIdFromPayload(
-        event: Either<TransactionUserReceiptAddErrorEvent, TransactionUserReceiptAddRetriedEvent>
-    ): String {
-        return event.fold({ it.transactionId }, { it.transactionId })
-    }
+  private fun getTransactionIdFromPayload(
+    event: Either<TransactionUserReceiptAddErrorEvent, TransactionUserReceiptAddRetriedEvent>
+  ): String {
+    return event.fold({ it.transactionId }, { it.transactionId })
+  }
 
-    private fun getRetryCountFromPayload(
-        event: Either<TransactionUserReceiptAddErrorEvent, TransactionUserReceiptAddRetriedEvent>
-    ): Int {
-        return event.fold({ 0 }, { Optional.ofNullable(it.data.retryCount).orElse(0) })
-    }
+  private fun getRetryCountFromPayload(
+    event: Either<TransactionUserReceiptAddErrorEvent, TransactionUserReceiptAddRetriedEvent>
+  ): Int {
+    return event.fold({ 0 }, { Optional.ofNullable(it.data.retryCount).orElse(0) })
+  }
 
-    fun messageReceiver(
-        parsedEvent:
-        Either<
-                QueueEvent<TransactionUserReceiptAddErrorEvent>,
-                QueueEvent<TransactionUserReceiptAddRetriedEvent>>,
-        checkPointer: Checkpointer
-    ): Mono<Unit> {
-        val event = parsedEvent.bimap({ it.event }, { it.event })
-        val tracingInfo = parsedEvent.fold({ it.tracingInfo }, { it.tracingInfo })
-        val queueEvent = parsedEvent.fold({ it }, { it })
-        val transactionId = getTransactionIdFromPayload(event)
-        val retryCount = getRetryCountFromPayload(event)
-        val baseTransaction =
-            reduceEvents(mono { transactionId }, transactionsEventStoreRepository, EmptyTransaction())
-        val notificationResendPipeline =
-            baseTransaction
+  fun messageReceiver(
+    parsedEvent:
+      Either<
+        QueueEvent<TransactionUserReceiptAddErrorEvent>,
+        QueueEvent<TransactionUserReceiptAddRetriedEvent>>,
+    checkPointer: Checkpointer
+  ): Mono<Unit> {
+    val event = parsedEvent.bimap({ it.event }, { it.event })
+    val tracingInfo = parsedEvent.fold({ it.tracingInfo }, { it.tracingInfo })
+    val queueEvent = parsedEvent.fold({ it }, { it })
+    val transactionId = getTransactionIdFromPayload(event)
+    val retryCount = getRetryCountFromPayload(event)
+    val baseTransaction =
+      reduceEvents(mono { transactionId }, transactionsEventStoreRepository, EmptyTransaction())
+    val notificationResendPipeline =
+      baseTransaction
+        .flatMap {
+          logger.info("Status for transaction ${it.transactionId.value()}: ${it.status}")
+
+          if (it.status != TransactionStatusDto.NOTIFICATION_ERROR) {
+            Mono.error(
+              BadTransactionStatusException(
+                transactionId = it.transactionId,
+                expected = listOf(TransactionStatusDto.NOTIFICATION_ERROR),
+                actual = it.status))
+          } else {
+            Mono.just(it)
+          }
+        }
+        .cast(TransactionWithUserReceiptError::class.java)
+        .flatMap { tx ->
+          mono { userReceiptMailBuilder.buildNotificationEmailRequestDto(tx) }
+            .flatMap { notificationsServiceClient.sendNotificationEmail(it) }
+            .flatMap {
+              updateNotifiedTransactionStatus(
+                  tx, transactionsViewRepository, transactionUserReceiptRepository)
                 .flatMap {
-                    logger.info("Status for transaction ${it.transactionId.value()}: ${it.status}")
-
-                    if (it.status != TransactionStatusDto.NOTIFICATION_ERROR) {
-                        Mono.error(
-                            BadTransactionStatusException(
-                                transactionId = it.transactionId,
-                                expected = listOf(TransactionStatusDto.NOTIFICATION_ERROR),
-                                actual = it.status
-                            )
-                        )
-                    } else {
-                        Mono.just(it)
+                  notificationRefundTransactionPipeline(
+                    tx,
+                    transactionsRefundedEventStoreRepository,
+                    transactionsViewRepository,
+                    paymentGatewayClient,
+                    refundService,
+                    refundRetryService,
+                    tracingInfo)
+                }
+            }
+            .then()
+            .onErrorResume { exception ->
+              logger.error(
+                "Got exception while retrying user receipt mail sending for transaction with id ${tx.transactionId}!",
+                exception)
+              val v = notificationRetryService.enqueueRetryEvent(tx, retryCount, tracingInfo)
+              v.onErrorResume(NoRetryAttemptsLeftException::class.java) { enqueueException ->
+                  logger.error(
+                    "No more attempts left for user receipt send retry", enqueueException)
+                  BinaryData.fromObjectAsync(
+                      queueEvent, strictSerializerProviderV2.createInstance())
+                    .flatMap {
+                      deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(
+                        it,
+                        DeadLetterTracedQueueAsyncClient.ErrorContext(
+                          transactionId = TransactionId(queueEvent.event.transactionId),
+                          transactionEventCode =
+                            TransactionEventCode.valueOf(queueEvent.event.eventCode),
+                          DeadLetterTracedQueueAsyncClient.ErrorCategory
+                            .RETRY_EVENT_NO_ATTEMPT_LEFT))
                     }
+                    .onErrorResume {
+                      logger.error("Error writing event to dead letter queue", it)
+                      Mono.empty()
+                    }
+                    .then(
+                      notificationRefundTransactionPipeline(
+                        tx,
+                        transactionsRefundedEventStoreRepository,
+                        transactionsViewRepository,
+                        paymentGatewayClient,
+                        refundService,
+                        refundRetryService,
+                        tracingInfo))
+                    .then()
                 }
-                .cast(TransactionWithUserReceiptError::class.java)
-                .flatMap { tx ->
-                    mono { userReceiptMailBuilder.buildNotificationEmailRequestDto(tx) }
-                        .flatMap { notificationsServiceClient.sendNotificationEmail(it) }
-                        .flatMap {
-                            updateNotifiedTransactionStatus(
-                                tx, transactionsViewRepository, transactionUserReceiptRepository
-                            )
-                                .flatMap {
-                                    notificationRefundTransactionPipeline(
-                                        tx,
-                                        transactionsRefundedEventStoreRepository,
-                                        transactionsViewRepository,
-                                        paymentGatewayClient,
-                                        refundService,
-                                        refundRetryService,
-                                        tracingInfo
-                                    )
-                                }
-                        }
-                        .then()
-                        .onErrorResume { exception ->
-                            logger.error(
-                                "Got exception while retrying user receipt mail sending for transaction with id ${tx.transactionId}!",
-                                exception
-                            )
-                            val v = notificationRetryService.enqueueRetryEvent(tx, retryCount, tracingInfo)
-                            v.onErrorResume(NoRetryAttemptsLeftException::class.java) { enqueueException ->
-                                logger.error(
-                                    "No more attempts left for user receipt send retry", enqueueException
-                                )
-                                BinaryData.fromObjectAsync(
-                                    queueEvent, strictSerializerProviderV2.createInstance()
-                                )
-                                    .flatMap {
-                                        deadLetterTracedQueueAsyncClient
-                                            .sendAndTraceDeadLetterQueueEvent(
-                                                it,
-                                                DeadLetterTracedQueueAsyncClient.ErrorContext(
-                                                    transactionId = TransactionId(queueEvent.event.transactionId),
-                                                    transactionEventCode = TransactionEventCode.valueOf(queueEvent.event.eventCode),
-                                                    DeadLetterTracedQueueAsyncClient.ErrorCategory.RETRY_EVENT_NO_ATTEMPT_LEFT
-                                                )
-                                            )
-                                    }
-                                    .onErrorResume {
-                                        logger.error("Error writing event to dead letter queue", it)
-                                        Mono.empty()
-                                    }
-                                    .then(
-                                        notificationRefundTransactionPipeline(
-                                            tx,
-                                            transactionsRefundedEventStoreRepository,
-                                            transactionsViewRepository,
-                                            paymentGatewayClient,
-                                            refundService,
-                                            refundRetryService,
-                                            tracingInfo
-                                        )
-                                    )
-                                    .then()
-                            }
-                                .then()
-                        }
-                }
+                .then()
+            }
+        }
 
-        return runTracedPipelineWithDeadLetterQueue(
-            checkPointer,
-            notificationResendPipeline,
-            queueEvent,
-            deadLetterTracedQueueAsyncClient,
-            tracingUtils,
-            this::class.simpleName!!,
-            strictSerializerProviderV2
-        )
-    }
+    return runTracedPipelineWithDeadLetterQueue(
+      checkPointer,
+      notificationResendPipeline,
+      queueEvent,
+      deadLetterTracedQueueAsyncClient,
+      tracingUtils,
+      this::class.simpleName!!,
+      strictSerializerProviderV2)
+  }
 }

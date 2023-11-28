@@ -19,13 +19,13 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewReposito
 import it.pagopa.ecommerce.eventdispatcher.services.RefundService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
+import java.util.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.switchIfEmpty
-import java.util.*
 
 /**
  * Event consumer for transactions to refund. These events are input in the event queue only when a
@@ -33,70 +33,68 @@ import java.util.*
  */
 @Service("TransactionsRefundQueueConsumerV2")
 class TransactionsRefundQueueConsumer(
-    @Autowired private val paymentGatewayClient: PaymentGatewayClient,
-    @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,
-    @Autowired
-    private val transactionsRefundedEventStoreRepository:
+  @Autowired private val paymentGatewayClient: PaymentGatewayClient,
+  @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,
+  @Autowired
+  private val transactionsRefundedEventStoreRepository:
     TransactionsEventStoreRepository<TransactionRefundedData>,
-    @Autowired private val transactionsViewRepository: TransactionsViewRepository,
-    @Autowired private val refundService: RefundService,
-    @Autowired private val refundRetryService: RefundRetryService,
-    @Autowired private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient,
-    @Autowired private val tracingUtils: TracingUtils,
-    @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider,
+  @Autowired private val transactionsViewRepository: TransactionsViewRepository,
+  @Autowired private val refundService: RefundService,
+  @Autowired private val refundRetryService: RefundRetryService,
+  @Autowired private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient,
+  @Autowired private val tracingUtils: TracingUtils,
+  @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider,
 ) {
 
-    var logger: Logger = LoggerFactory.getLogger(TransactionsRefundQueueConsumer::class.java)
+  var logger: Logger = LoggerFactory.getLogger(TransactionsRefundQueueConsumer::class.java)
 
-    private fun getTransactionIdFromPayload(
-        event: Either<TransactionRefundRetriedEvent, TransactionRefundRequestedEvent>
-    ): String {
-        return event.fold({ it.transactionId }, { it.transactionId })
-    }
+  private fun getTransactionIdFromPayload(
+    event: Either<TransactionRefundRetriedEvent, TransactionRefundRequestedEvent>
+  ): String {
+    return event.fold({ it.transactionId }, { it.transactionId })
+  }
 
-    fun messageReceiver(
-        parsedEvent:
-        Either<
-                QueueEvent<TransactionRefundRetriedEvent>, QueueEvent<TransactionRefundRequestedEvent>>,
-        checkPointer: Checkpointer
-    ): Mono<Unit> {
-        val event = parsedEvent.bimap({ it.event }, { it.event })
-        val tracingInfo = parsedEvent.fold({ it.tracingInfo }, { it.tracingInfo })
-        val transactionId = getTransactionIdFromPayload(event)
-        val refundPipeline =
-            transactionsEventStoreRepository
-                .findByTransactionIdOrderByCreationDateAsc(transactionId)
-                .reduce(EmptyTransaction(), Transaction::applyEvent)
-                .cast(BaseTransaction::class.java)
-                .filter { it.status == TransactionStatusDto.REFUND_REQUESTED }
-                .switchIfEmpty {
-                    logger.info("Transaction $transactionId was not previously authorized. No refund needed")
-                    Mono.empty()
-                }
-                .doOnNext {
-                    logger.info("Handling refund request for transaction with id ${it.transactionId.value()}")
-                }
-                .cast(BaseTransactionWithRefundRequested::class.java)
-                .flatMap { tx ->
-                    refundTransaction(
-                        tx,
-                        transactionsRefundedEventStoreRepository,
-                        transactionsViewRepository,
-                        paymentGatewayClient,
-                        refundService,
-                        refundRetryService,
-                        tracingInfo
-                    )
-                }
-        val e = event.fold({ QueueEvent(it, tracingInfo) }, { QueueEvent(it, tracingInfo) })
-        return runTracedPipelineWithDeadLetterQueue(
-            checkPointer,
-            refundPipeline,
-            e,
-            deadLetterTracedQueueAsyncClient,
-            tracingUtils,
-            this::class.simpleName!!,
-            strictSerializerProviderV2
-        )
-    }
+  fun messageReceiver(
+    parsedEvent:
+      Either<
+        QueueEvent<TransactionRefundRetriedEvent>, QueueEvent<TransactionRefundRequestedEvent>>,
+    checkPointer: Checkpointer
+  ): Mono<Unit> {
+    val event = parsedEvent.bimap({ it.event }, { it.event })
+    val tracingInfo = parsedEvent.fold({ it.tracingInfo }, { it.tracingInfo })
+    val transactionId = getTransactionIdFromPayload(event)
+    val refundPipeline =
+      transactionsEventStoreRepository
+        .findByTransactionIdOrderByCreationDateAsc(transactionId)
+        .reduce(EmptyTransaction(), Transaction::applyEvent)
+        .cast(BaseTransaction::class.java)
+        .filter { it.status == TransactionStatusDto.REFUND_REQUESTED }
+        .switchIfEmpty {
+          logger.info("Transaction $transactionId was not previously authorized. No refund needed")
+          Mono.empty()
+        }
+        .doOnNext {
+          logger.info("Handling refund request for transaction with id ${it.transactionId.value()}")
+        }
+        .cast(BaseTransactionWithRefundRequested::class.java)
+        .flatMap { tx ->
+          refundTransaction(
+            tx,
+            transactionsRefundedEventStoreRepository,
+            transactionsViewRepository,
+            paymentGatewayClient,
+            refundService,
+            refundRetryService,
+            tracingInfo)
+        }
+    val e = event.fold({ QueueEvent(it, tracingInfo) }, { QueueEvent(it, tracingInfo) })
+    return runTracedPipelineWithDeadLetterQueue(
+      checkPointer,
+      refundPipeline,
+      e,
+      deadLetterTracedQueueAsyncClient,
+      tracingUtils,
+      this::class.simpleName!!,
+      strictSerializerProviderV2)
+  }
 }
