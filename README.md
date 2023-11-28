@@ -155,8 +155,8 @@ This span has the following fields:
 |--------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------|-----------|
 | deadLetterEvent.serviceName          | Constant value `pagopa-ecommerce-event-dispatcher-service`, used to uniquely identify this microservice as event writer                | ✅         |
 | deadLetterEvent.category             | Enumeration of all possible errors that can make an event to be written to dead letter (see [Error category section](#Error-category)) | ✅         |
-| deadLetterEvent.transactionId        | Transaction id of the input event (if event is parsable)                                                                               | ❌         |
-| deadLetterEvent.transactionEventCode | Transaction event code of the input event (if event is parsable)                                                                       | ❌         |
+| deadLetterEvent.transactionId        | Transaction id of the input event (if the input event is parsable)                                                                               | ❌         |
+| deadLetterEvent.transactionEventCode | Transaction event code of the input event (if the input event is parsable)                                                                       | ❌         |
 
 #### Error category
 
