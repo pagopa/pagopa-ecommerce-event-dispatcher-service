@@ -2,6 +2,7 @@ package it.pagopa.ecommerce.eventdispatcher.utils
 
 import com.azure.core.util.BinaryData
 import com.azure.storage.queue.QueueAsyncClient
+import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.trace.Tracer
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import java.time.Duration
@@ -27,13 +28,16 @@ class DeadLetterTracedQueueAsyncClient(
   private val logger = LoggerFactory.getLogger(javaClass)
 
   companion object {
-    const val DEAD_LETTER_EVENT_SERVICE_NAME_KEY: String = "deadLetterEvent.serviceName"
-    const val DEAD_LETTER_EVENT_SERVICE_NAME_VALUE: String =
+    private val DEAD_LETTER_EVENT_SERVICE_NAME_KEY: AttributeKey<String> =
+      AttributeKey.stringKey("deadLetterEvent.serviceName")
+    private const val DEAD_LETTER_EVENT_SERVICE_NAME_VALUE: String =
       "pagopa-ecommerce-event-dispatcher-service"
-    const val DEAD_LETTER_EVENT_SERVICE_ERROR_CATEGORY_KEY: String = "deadLetterEvent.category"
-    const val DEAD_LETTER_EVENT_SERVICE_TRANSACTION_ID_KEY: String = "deadLetterEvent.transactionId"
-    const val DEAD_LETTER_EVENT_SERVICE_TRANSACTION_EVENT_CODE_KEY: String =
-      "deadLetterEvent.transactionEventCode"
+    private val DEAD_LETTER_EVENT_SERVICE_ERROR_CATEGORY_KEY: AttributeKey<String> =
+      AttributeKey.stringKey("deadLetterEvent.category")
+    private val DEAD_LETTER_EVENT_SERVICE_TRANSACTION_ID_KEY: AttributeKey<String> =
+      AttributeKey.stringKey("deadLetterEvent.transactionId")
+    private val DEAD_LETTER_EVENT_SERVICE_TRANSACTION_EVENT_CODE_KEY: AttributeKey<String> =
+      AttributeKey.stringKey("deadLetterEvent.transactionEventCode")
   }
 
   /**

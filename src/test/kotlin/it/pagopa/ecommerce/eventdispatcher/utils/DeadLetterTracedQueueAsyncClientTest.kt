@@ -2,6 +2,7 @@ package it.pagopa.ecommerce.eventdispatcher.utils
 
 import com.azure.core.util.BinaryData
 import com.azure.storage.queue.QueueAsyncClient
+import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.trace.Span
 import io.opentelemetry.api.trace.SpanBuilder
 import io.opentelemetry.api.trace.Tracer
@@ -69,12 +70,17 @@ class DeadLetterTracedQueueAsyncClientTest {
     verify(spanBuilder, times(1)).startSpan()
     verify(span, times(1))
       .setAttribute(
-        eq("deadLetterEvent.serviceName"), eq("pagopa-ecommerce-event-dispatcher-service"))
+        eq(AttributeKey.stringKey("deadLetterEvent.serviceName")),
+        eq("pagopa-ecommerce-event-dispatcher-service"))
     verify(span, times(1))
-      .setAttribute(eq("deadLetterEvent.category"), eq(errorCategory.toString()))
+      .setAttribute(
+        eq(AttributeKey.stringKey("deadLetterEvent.category")), eq(errorCategory.toString()))
     verify(span, times(1))
-      .setAttribute(eq("deadLetterEvent.transactionId"), eq(transactionId.value()))
-    verify(span, times(1)).setAttribute(eq("deadLetterEvent.transactionEventCode"), eq(eventCode))
+      .setAttribute(
+        eq(AttributeKey.stringKey("deadLetterEvent.transactionId")), eq(transactionId.value()))
+    verify(span, times(1))
+      .setAttribute(
+        eq(AttributeKey.stringKey("deadLetterEvent.transactionEventCode")), eq(eventCode))
     verify(deadLetterQueueAsyncClient, times(1))
       .sendMessageWithResponse(
         eq(binaryData), eq(Duration.ZERO), eq(Duration.ofSeconds(deadLetterTTLSeconds.toLong())))
@@ -110,13 +116,16 @@ class DeadLetterTracedQueueAsyncClientTest {
     verify(spanBuilder, times(1)).startSpan()
     verify(span, times(1))
       .setAttribute(
-        eq("deadLetterEvent.serviceName"), eq("pagopa-ecommerce-event-dispatcher-service"))
+        eq(AttributeKey.stringKey("deadLetterEvent.serviceName")),
+        eq("pagopa-ecommerce-event-dispatcher-service"))
     verify(span, times(1))
       .setAttribute(
-        eq("deadLetterEvent.category"),
+        eq(AttributeKey.stringKey("deadLetterEvent.category")),
         eq(DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR.toString()))
-    verify(span, times(1)).setAttribute(eq("deadLetterEvent.transactionId"), eq("N/A"))
-    verify(span, times(1)).setAttribute(eq("deadLetterEvent.transactionEventCode"), eq("N/A"))
+    verify(span, times(1))
+      .setAttribute(eq(AttributeKey.stringKey("deadLetterEvent.transactionId")), eq("N/A"))
+    verify(span, times(1))
+      .setAttribute(eq(AttributeKey.stringKey("deadLetterEvent.transactionEventCode")), eq("N/A"))
     verify(deadLetterQueueAsyncClient, times(1))
       .sendMessageWithResponse(
         eq(binaryData), eq(Duration.ZERO), eq(Duration.ofSeconds(deadLetterTTLSeconds.toLong())))
@@ -152,13 +161,16 @@ class DeadLetterTracedQueueAsyncClientTest {
     verify(spanBuilder, times(1)).startSpan()
     verify(span, times(1))
       .setAttribute(
-        eq("deadLetterEvent.serviceName"), eq("pagopa-ecommerce-event-dispatcher-service"))
+        eq(AttributeKey.stringKey("deadLetterEvent.serviceName")),
+        eq("pagopa-ecommerce-event-dispatcher-service"))
     verify(span, times(1))
       .setAttribute(
-        eq("deadLetterEvent.category"),
+        eq(AttributeKey.stringKey("deadLetterEvent.category")),
         eq(DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR.toString()))
-    verify(span, times(1)).setAttribute(eq("deadLetterEvent.transactionId"), eq("N/A"))
-    verify(span, times(1)).setAttribute(eq("deadLetterEvent.transactionEventCode"), eq("N/A"))
+    verify(span, times(1))
+      .setAttribute(eq(AttributeKey.stringKey("deadLetterEvent.transactionId")), eq("N/A"))
+    verify(span, times(1))
+      .setAttribute(eq(AttributeKey.stringKey("deadLetterEvent.transactionEventCode")), eq("N/A"))
     verify(deadLetterQueueAsyncClient, times(1))
       .sendMessageWithResponse(
         eq(binaryData), eq(Duration.ZERO), eq(Duration.ofSeconds(deadLetterTTLSeconds.toLong())))
