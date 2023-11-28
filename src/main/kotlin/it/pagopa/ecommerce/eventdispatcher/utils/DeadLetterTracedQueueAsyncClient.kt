@@ -86,8 +86,8 @@ class DeadLetterTracedQueueAsyncClient(
      */
     SEND_PAYMENT_RESULT_RECEIVING_TIMEOUT,
 
-    /** Event processing error caused by no attempt left for processing a retry event */
-    RETRY_EVENT_NO_ATTEMPT_LEFT,
+    /** Event processing error caused by no attempts left for processing a retry event */
+    RETRY_EVENT_NO_ATTEMPTS_LEFT,
 
     /** Event processing error caused by input event processing error */
     EVENT_PARSING_ERROR,
