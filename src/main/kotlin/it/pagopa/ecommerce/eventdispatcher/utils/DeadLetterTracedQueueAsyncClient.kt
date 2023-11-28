@@ -14,8 +14,8 @@ import org.springframework.stereotype.Component
 import reactor.core.publisher.Mono
 
 /**
- * Dead letter queue async client wrapper. This component expose method to send event to dead letter
- * queue and create, contextually, a new open telemetry span with error context
+ * Dead letter queue async client wrapper. This component exposes a method to send an event to a dead letter
+ * queue and contextually creates a new OpenTelemetry span with an error context
  */
 @Component
 class DeadLetterTracedQueueAsyncClient(
