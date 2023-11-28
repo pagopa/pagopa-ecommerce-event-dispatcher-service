@@ -39,9 +39,7 @@ class DeadLetterTracedQueueAsyncClient(
     private val DEAD_LETTER_EVENT_SERVICE_TRANSACTION_EVENT_CODE_KEY: AttributeKey<String> =
       AttributeKey.stringKey("deadLetterEvent.transactionEventCode")
 
-    val PARSING_EVENT_ERROR_CONTEXT =
-      DeadLetterTracedQueueAsyncClient.ErrorContext(
-        null, null, DeadLetterTracedQueueAsyncClient.ErrorCategory.EVENT_PARSING_ERROR)
+    val PARSING_EVENT_ERROR_CONTEXT = ErrorContext(null, null, ErrorCategory.EVENT_PARSING_ERROR)
   }
 
   /**

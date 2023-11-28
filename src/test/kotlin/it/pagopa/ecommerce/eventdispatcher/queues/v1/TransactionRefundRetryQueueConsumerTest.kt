@@ -586,6 +586,6 @@ class TransactionRefundRetryQueueConsumerTest {
               transactionEventCode =
                 TransactionEventCode.TRANSACTION_REFUND_RETRIED_EVENT.toString(),
               errorCategory =
-                DeadLetterTracedQueueAsyncClient.ErrorCategory.RETRY_EVENT_NO_ATTEMPT_LEFT)))
+                DeadLetterTracedQueueAsyncClient.ErrorCategory.RETRY_EVENT_NO_ATTEMPTS_LEFT)))
     }
 }

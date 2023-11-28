@@ -473,7 +473,7 @@ fun <T> runPipelineWithDeadLetterQueue(
     .onErrorResume { pipelineException ->
       val errorCategory: DeadLetterTracedQueueAsyncClient.ErrorCategory =
         if (pipelineException is NoRetryAttemptsLeftException) {
-          DeadLetterTracedQueueAsyncClient.ErrorCategory.RETRY_EVENT_NO_ATTEMPT_LEFT
+          DeadLetterTracedQueueAsyncClient.ErrorCategory.RETRY_EVENT_NO_ATTEMPTS_LEFT
         } else {
           DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR
         }
@@ -508,7 +508,7 @@ fun <T> runTracedPipelineWithDeadLetterQueue(
       .onErrorResume { pipelineException ->
         val errorCategory: DeadLetterTracedQueueAsyncClient.ErrorCategory =
           if (pipelineException is NoRetryAttemptsLeftException) {
-            DeadLetterTracedQueueAsyncClient.ErrorCategory.RETRY_EVENT_NO_ATTEMPT_LEFT
+            DeadLetterTracedQueueAsyncClient.ErrorCategory.RETRY_EVENT_NO_ATTEMPTS_LEFT
           } else {
             DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR
           }
