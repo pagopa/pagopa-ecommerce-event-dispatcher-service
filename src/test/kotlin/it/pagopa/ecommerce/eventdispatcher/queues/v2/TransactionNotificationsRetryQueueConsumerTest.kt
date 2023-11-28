@@ -822,7 +822,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
               transactionEventCode =
                 TransactionEventCode.TRANSACTION_ADD_USER_RECEIPT_RETRY_EVENT.toString(),
               errorCategory =
-                DeadLetterTracedQueueAsyncClient.ErrorCategory.RETRY_EVENT_NO_ATTEMPT_LEFT)))
+                DeadLetterTracedQueueAsyncClient.ErrorCategory.RETRY_EVENT_NO_ATTEMPTS_LEFT)))
       assertEquals(attempt, retryCountCaptor.value)
       assertEquals(
         String(
@@ -922,7 +922,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
               transactionEventCode =
                 TransactionEventCode.TRANSACTION_ADD_USER_RECEIPT_RETRY_EVENT.toString(),
               errorCategory =
-                DeadLetterTracedQueueAsyncClient.ErrorCategory.RETRY_EVENT_NO_ATTEMPT_LEFT)))
+                DeadLetterTracedQueueAsyncClient.ErrorCategory.RETRY_EVENT_NO_ATTEMPTS_LEFT)))
       assertEquals(
         String(
           jsonSerializerV2.serializeToBytes(
@@ -1090,7 +1090,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
               transactionEventCode =
                 TransactionEventCode.TRANSACTION_ADD_USER_RECEIPT_RETRY_EVENT.toString(),
               errorCategory =
-                DeadLetterTracedQueueAsyncClient.ErrorCategory.RETRY_EVENT_NO_ATTEMPT_LEFT)))
+                DeadLetterTracedQueueAsyncClient.ErrorCategory.RETRY_EVENT_NO_ATTEMPTS_LEFT)))
       assertEquals(
         String(
           jsonSerializerV2.serializeToBytes(

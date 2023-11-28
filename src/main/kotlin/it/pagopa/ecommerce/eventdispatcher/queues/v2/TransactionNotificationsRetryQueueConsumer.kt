@@ -133,7 +133,7 @@ class TransactionNotificationsRetryQueueConsumer(
                           transactionId = TransactionId(queueEvent.event.transactionId),
                           transactionEventCode = queueEvent.event.eventCode,
                           DeadLetterTracedQueueAsyncClient.ErrorCategory
-                            .RETRY_EVENT_NO_ATTEMPT_LEFT))
+                            .RETRY_EVENT_NO_ATTEMPTS_LEFT))
                     }
                     .onErrorResume {
                       logger.error("Error writing event to dead letter queue", it)

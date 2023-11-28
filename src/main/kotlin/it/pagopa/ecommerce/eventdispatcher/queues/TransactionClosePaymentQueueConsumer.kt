@@ -99,7 +99,11 @@ class TransactionClosePaymentQueueConsumer(
       .onErrorResume(InvalidEventException::class.java) {
         logger.error("Invalid input event", it)
         writeEventToDeadLetterQueue(
-          checkPointer, payload, it, deadLetterTracedQueueAsyncClient, PARSING_EVENT_ERROR_CONTEXT)
+          checkPointer,
+          payload,
+          it,
+          deadLetterTracedQueueAsyncClient,
+          DeadLetterTracedQueueAsyncClient.PARSING_EVENT_ERROR_CONTEXT)
       }
   }
 }
