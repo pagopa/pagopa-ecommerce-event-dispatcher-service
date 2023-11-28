@@ -2,8 +2,8 @@ package it.pagopa.ecommerce.eventdispatcher.queues.v1
 
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
-import com.azure.storage.queue.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v1.*
+import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
 import it.pagopa.ecommerce.commons.domain.v1.TransactionWithClosureError
@@ -14,11 +14,13 @@ import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
+import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.RefundNotAllowedException
 import it.pagopa.ecommerce.eventdispatcher.queues.v1.QueueCommonsLogger.logger
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v1.RefundRetryService
+import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto.StatusEnum
 import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
@@ -458,8 +460,7 @@ fun <T> runPipelineWithDeadLetterQueue(
   checkPointer: Checkpointer,
   pipeline: Mono<T>,
   eventPayload: ByteArray,
-  deadLetterQueueAsyncClient: QueueAsyncClient,
-  deadLetterQueueTTLSeconds: Int
+  deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient
 ): Mono<Unit> {
   val binaryData = BinaryData.fromBytes(eventPayload)
   val eventLogString = "event payload: ${eventPayload.toString(StandardCharsets.UTF_8)}"
@@ -470,22 +471,18 @@ fun <T> runPipelineWithDeadLetterQueue(
     .then(pipeline)
     .then()
     .onErrorResume { pipelineException ->
+      val errorCategory: DeadLetterTracedQueueAsyncClient.ErrorCategory =
+        if (pipelineException is NoRetryAttemptsLeftException) {
+          DeadLetterTracedQueueAsyncClient.ErrorCategory.RETRY_EVENT_NO_ATTEMPT_LEFT
+        } else {
+          DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR
+        }
       logger.error("Exception processing event $eventLogString", pipelineException)
-      deadLetterQueueAsyncClient
-        .sendMessageWithResponse(
+      deadLetterTracedQueueAsyncClient
+        .sendAndTraceDeadLetterQueueEvent(
           binaryData,
-          Duration.ZERO,
-          Duration.ofSeconds(deadLetterQueueTTLSeconds.toLong()), // timeToLive
-        )
-        .doOnNext {
-          logger.info(
-            "Event: [${eventPayload.toString(StandardCharsets.UTF_8)}] successfully sent with visibility timeout: [${it.value.timeNextVisible}] ms to queue: [${deadLetterQueueAsyncClient.queueName}]")
-        }
-        .doOnError { queueException ->
-          logger.error(
-            "Error sending event: [${eventPayload.toString(StandardCharsets.UTF_8)}] to dead letter queue.",
-            queueException)
-        }
+          DeadLetterTracedQueueAsyncClient.ErrorContext(
+            transactionId = null, transactionEventCode = null, errorCategory = errorCategory))
         .then()
     }
     .then(mono {})
@@ -495,8 +492,7 @@ fun <T> runTracedPipelineWithDeadLetterQueue(
   checkPointer: Checkpointer,
   pipeline: Mono<T>,
   queueEvent: QueueEvent<*>,
-  deadLetterQueueAsyncClient: QueueAsyncClient,
-  deadLetterQueueTTLSeconds: Int,
+  deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient,
   tracingUtils: TracingUtils,
   spanName: String
 ): Mono<Unit> {
@@ -510,21 +506,20 @@ fun <T> runTracedPipelineWithDeadLetterQueue(
       .then(pipeline)
       .then()
       .onErrorResume { pipelineException ->
+        val errorCategory: DeadLetterTracedQueueAsyncClient.ErrorCategory =
+          if (pipelineException is NoRetryAttemptsLeftException) {
+            DeadLetterTracedQueueAsyncClient.ErrorCategory.RETRY_EVENT_NO_ATTEMPT_LEFT
+          } else {
+            DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR
+          }
         logger.error("Exception processing event $eventLogString", pipelineException)
-        deadLetterQueueAsyncClient
-          .sendMessageWithResponse(
+        deadLetterTracedQueueAsyncClient
+          .sendAndTraceDeadLetterQueueEvent(
             BinaryData.fromObject(queueEvent),
-            Duration.ZERO,
-            Duration.ofSeconds(deadLetterQueueTTLSeconds.toLong()), // timeToLive
-          )
-          .doOnNext {
-            logger.info(
-              "Event: [${queueEvent.event}] successfully sent with visibility timeout: [${it.value.timeNextVisible}] ms to queue: [${deadLetterQueueAsyncClient.queueName}]")
-          }
-          .doOnError { queueException ->
-            logger.error(
-              "Error sending event: [${queueEvent.event}] to dead letter queue.", queueException)
-          }
+            DeadLetterTracedQueueAsyncClient.ErrorContext(
+              transactionId = TransactionId(queueEvent.event.transactionId),
+              transactionEventCode = queueEvent.event.eventCode,
+              errorCategory = errorCategory))
           .then()
       }
 

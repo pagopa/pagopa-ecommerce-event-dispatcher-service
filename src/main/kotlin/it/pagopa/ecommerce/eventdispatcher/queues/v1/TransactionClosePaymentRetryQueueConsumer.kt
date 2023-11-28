@@ -2,7 +2,6 @@ package it.pagopa.ecommerce.eventdispatcher.queues.v1
 
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
-import com.azure.storage.queue.QueueAsyncClient
 import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
@@ -25,6 +24,7 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewReposito
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v1.ClosureRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v1.RefundRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.v1.NodeService
+import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
 import java.util.*
@@ -32,7 +32,6 @@ import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
 
@@ -51,9 +50,7 @@ class TransactionClosePaymentRetryQueueConsumer(
     TransactionsEventStoreRepository<TransactionRefundedData>,
   @Autowired private val paymentGatewayClient: PaymentGatewayClient,
   @Autowired private val refundRetryService: RefundRetryService,
-  @Autowired private val deadLetterQueueAsyncClient: QueueAsyncClient,
-  @Value("\${azurestorage.queues.deadLetterQueue.ttlSeconds}")
-  private val deadLetterTTLSeconds: Int,
+  @Autowired private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient,
   @Autowired private val tracingUtils: TracingUtils
 ) {
   var logger: Logger =
@@ -189,8 +186,7 @@ class TransactionClosePaymentRetryQueueConsumer(
         checkPointer,
         closurePipeline,
         QueueEvent(e, tracingInfo),
-        deadLetterQueueAsyncClient,
-        deadLetterTTLSeconds,
+        deadLetterTracedQueueAsyncClient,
         tracingUtils,
         this::class.simpleName!!)
     } else {
@@ -198,8 +194,7 @@ class TransactionClosePaymentRetryQueueConsumer(
         checkPointer,
         closurePipeline,
         BinaryData.fromObject(e).toBytes(),
-        deadLetterQueueAsyncClient,
-        deadLetterTTLSeconds)
+        deadLetterTracedQueueAsyncClient)
     }
   }
 

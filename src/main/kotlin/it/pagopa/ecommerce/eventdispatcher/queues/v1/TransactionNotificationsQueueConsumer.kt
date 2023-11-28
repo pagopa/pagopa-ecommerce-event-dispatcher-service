@@ -2,7 +2,6 @@ package it.pagopa.ecommerce.eventdispatcher.queues.v1
 
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
-import com.azure.storage.queue.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v1.pojos.*
@@ -17,6 +16,7 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRe
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v1.NotificationRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v1.RefundRetryService
+import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.ecommerce.eventdispatcher.utils.v1.UserReceiptMailBuilder
 import it.pagopa.generated.notifications.templates.success.*
 import java.util.*
@@ -24,7 +24,6 @@ import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
 
@@ -44,9 +43,7 @@ class TransactionNotificationsQueueConsumer(
     TransactionsEventStoreRepository<TransactionRefundedData>,
   @Autowired private val paymentGatewayClient: PaymentGatewayClient,
   @Autowired private val refundRetryService: RefundRetryService,
-  @Autowired private val deadLetterQueueAsyncClient: QueueAsyncClient,
-  @Value("\${azurestorage.queues.deadLetterQueue.ttlSeconds}")
-  private val deadLetterTTLSeconds: Int,
+  @Autowired private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient,
   @Autowired private val tracingUtils: TracingUtils
 ) {
   var logger: Logger = LoggerFactory.getLogger(TransactionNotificationsQueueConsumer::class.java)
@@ -119,8 +116,7 @@ class TransactionNotificationsQueueConsumer(
         checkPointer,
         notificationResendPipeline,
         QueueEvent(event, tracingInfo),
-        deadLetterQueueAsyncClient,
-        deadLetterTTLSeconds,
+        deadLetterTracedQueueAsyncClient,
         tracingUtils,
         this::class.simpleName!!)
     } else {
@@ -128,9 +124,7 @@ class TransactionNotificationsQueueConsumer(
         checkPointer,
         notificationResendPipeline,
         BinaryData.fromObject(event).toBytes(),
-        deadLetterQueueAsyncClient,
-        deadLetterTTLSeconds,
-      )
+        deadLetterTracedQueueAsyncClient)
     }
   }
 }

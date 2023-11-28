@@ -1,7 +1,6 @@
 package it.pagopa.ecommerce.eventdispatcher.queues.v1
 
 import com.azure.spring.messaging.checkpoint.Checkpointer
-import com.azure.storage.queue.QueueAsyncClient
 import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
@@ -16,7 +15,7 @@ import it.pagopa.ecommerce.eventdispatcher.exceptions.RefundNotAllowedException
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v1.RefundRetryService
-import it.pagopa.ecommerce.eventdispatcher.utils.DEAD_LETTER_QUEUE_TTL_SECONDS
+import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
 import java.time.ZonedDateTime
@@ -63,7 +62,7 @@ class TransactionsRefundEventsConsumerTests {
 
   private val transactionsViewRepository: TransactionsViewRepository = mock()
 
-  private val deadLetterQueueAsyncClient: QueueAsyncClient = mock()
+  private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient = mock()
 
   private val transactionRefundedEventsConsumer =
     TransactionsRefundQueueConsumer(
@@ -72,8 +71,7 @@ class TransactionsRefundEventsConsumerTests {
       transactionsRefundedEventStoreRepository = transactionsRefundedEventStoreRepository,
       transactionsViewRepository = transactionsViewRepository,
       refundRetryService = refundRetryService,
-      deadLetterQueueAsyncClient = deadLetterQueueAsyncClient,
-      deadLetterTTLSeconds = DEAD_LETTER_QUEUE_TTL_SECONDS,
+      deadLetterTracedQueueAsyncClient = deadLetterTracedQueueAsyncClient,
       tracingUtils = tracingUtils)
 
   companion object {
