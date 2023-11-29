@@ -2,11 +2,11 @@ package it.pagopa.ecommerce.eventdispatcher.queues.v2
 
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
-import com.azure.storage.queue.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.PgsTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.TransactionGatewayAuthorizationData
+import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v2.TransactionEventCode
 import it.pagopa.ecommerce.commons.domain.v2.TransactionWithClosureError
@@ -20,12 +20,14 @@ import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
+import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.RefundNotAllowedException
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.QueueCommonsLogger.logger
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.RefundService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
+import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto.StatusEnum
 import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
@@ -534,8 +536,7 @@ fun <T> runTracedPipelineWithDeadLetterQueue(
   checkPointer: Checkpointer,
   pipeline: Mono<T>,
   queueEvent: QueueEvent<*>,
-  deadLetterQueueAsyncClient: QueueAsyncClient,
-  deadLetterQueueTTLSeconds: Int,
+  deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient,
   tracingUtils: TracingUtils,
   spanName: String,
   jsonSerializerProviderV2: StrictJsonSerializerProvider
@@ -548,24 +549,23 @@ fun <T> runTracedPipelineWithDeadLetterQueue(
       .doOnSuccess { logger.info("Checkpoint performed successfully for event $eventLogString") }
       .doOnError { logger.error("Error performing checkpoint for event $eventLogString", it) }
       .then(pipeline)
-      .then()
+      .then(mono {})
       .onErrorResume { pipelineException ->
+        val errorCategory: DeadLetterTracedQueueAsyncClient.ErrorCategory =
+          if (pipelineException is NoRetryAttemptsLeftException) {
+            DeadLetterTracedQueueAsyncClient.ErrorCategory.RETRY_EVENT_NO_ATTEMPTS_LEFT
+          } else {
+            DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR
+          }
         logger.error("Exception processing event $eventLogString", pipelineException)
-        deadLetterQueueAsyncClient
-          .sendMessageWithResponse(
-            BinaryData.fromObject(queueEvent, jsonSerializerProviderV2.createInstance()),
-            Duration.ZERO,
-            Duration.ofSeconds(deadLetterQueueTTLSeconds.toLong()), // timeToLive
-          )
-          .doOnNext {
-            logger.info(
-              "Event: [${queueEvent.event}] successfully sent with visibility timeout: [${it.value.timeNextVisible}] ms to queue: [${deadLetterQueueAsyncClient.queueName}]")
-          }
-          .doOnError { queueException ->
-            logger.error(
-              "Error sending event: [${queueEvent.event}] to dead letter queue.", queueException)
-          }
-          .then()
+        deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(
+          binaryData = BinaryData.fromObject(queueEvent, jsonSerializerProviderV2.createInstance()),
+          errorContext =
+            DeadLetterTracedQueueAsyncClient.ErrorContext(
+              transactionId = TransactionId(queueEvent.event.transactionId),
+              transactionEventCode = queueEvent.event.eventCode,
+              errorCategory = errorCategory),
+        )
       }
 
   return tracingUtils

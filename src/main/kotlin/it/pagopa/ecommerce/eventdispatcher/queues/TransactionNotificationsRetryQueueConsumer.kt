@@ -4,7 +4,6 @@ import com.azure.core.util.BinaryData
 import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
-import com.azure.storage.queue.QueueAsyncClient
 import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.documents.BaseTransactionEvent
 import it.pagopa.ecommerce.commons.documents.v1.TransactionUserReceiptAddErrorEvent as TransactionUserReceiptAddErrorEventV1
@@ -16,12 +15,12 @@ import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.eventdispatcher.exceptions.InvalidEventException
 import it.pagopa.ecommerce.eventdispatcher.queues.*
+import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.generated.notifications.templates.success.*
 import java.util.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.integration.annotation.ServiceActivator
 import org.springframework.messaging.handler.annotation.Header
 import org.springframework.messaging.handler.annotation.Payload
@@ -36,9 +35,7 @@ class TransactionNotificationsRetryQueueConsumer(
   @Autowired
   private val queueConsumerV2:
     it.pagopa.ecommerce.eventdispatcher.queues.v2.TransactionNotificationsRetryQueueConsumer,
-  @Autowired private val deadLetterQueueAsyncClient: QueueAsyncClient,
-  @Value("\${azurestorage.queues.deadLetterQueue.ttlSeconds}")
-  private val deadLetterTTLSeconds: Int,
+  @Autowired private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient,
   @Autowired private val strictSerializerProviderV1: StrictJsonSerializerProvider,
   @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider
 ) {
@@ -160,7 +157,11 @@ class TransactionNotificationsRetryQueueConsumer(
       .onErrorResume(InvalidEventException::class.java) {
         logger.error("Invalid input event", it)
         writeEventToDeadLetterQueue(
-          checkPointer, payload, it, deadLetterQueueAsyncClient, deadLetterTTLSeconds)
+          checkPointer,
+          payload,
+          it,
+          deadLetterTracedQueueAsyncClient,
+          DeadLetterTracedQueueAsyncClient.PARSING_EVENT_ERROR_CONTEXT)
       }
   }
 }

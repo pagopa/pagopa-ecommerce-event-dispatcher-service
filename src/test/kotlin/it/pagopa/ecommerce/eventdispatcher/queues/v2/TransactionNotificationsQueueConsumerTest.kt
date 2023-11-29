@@ -3,10 +3,10 @@ package it.pagopa.ecommerce.eventdispatcher.queues.v2
 import com.azure.core.util.BinaryData
 import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.checkpoint.Checkpointer
-import com.azure.storage.queue.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.documents.v2.authorization.PgsTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.domain.Email
+import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.v2.TransactionEventCode
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithRequestedUserReceipt
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
@@ -29,10 +29,10 @@ import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.notifications.templates.success.SuccessTemplate
 import it.pagopa.generated.notifications.v1.dto.NotificationEmailRequestDto
 import it.pagopa.generated.notifications.v1.dto.NotificationEmailResponseDto
-import java.time.Duration
 import java.time.ZonedDateTime
 import java.util.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.reactor.mono
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -86,7 +86,7 @@ class TransactionNotificationsQueueConsumerTest {
   private lateinit var transactionRefundEventStoreCaptor:
     ArgumentCaptor<TransactionEvent<TransactionRefundedData>>
 
-  private val deadLetterQueueAsyncClient: QueueAsyncClient = mock()
+  private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient = mock()
 
   private val strictJsonSerializerProviderV2 = QueuesConsumerConfig().strictSerializerProviderV2()
 
@@ -104,8 +104,7 @@ class TransactionNotificationsQueueConsumerTest {
       paymentGatewayClient = paymentGatewayClient,
       refundService = refundService,
       refundRetryService = refundRetryService,
-      deadLetterQueueAsyncClient = deadLetterQueueAsyncClient,
-      deadLetterTTLSeconds = DEAD_LETTER_QUEUE_TTL_SECONDS,
+      deadLetterTracedQueueAsyncClient = deadLetterTracedQueueAsyncClient,
       tracingUtils = tracingUtils,
       strictSerializerProviderV2 = strictJsonSerializerProviderV2)
 
@@ -678,8 +677,9 @@ class TransactionNotificationsQueueConsumerTest {
       given(notificationRetryService.enqueueRetryEvent(any(), capture(retryCountCaptor), any()))
         .willReturn(Mono.error(RuntimeException("Error enqueueing notification retry event")))
       given(
-          deadLetterQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull()))
-        .willReturn(queueSuccessfulResponse())
+          deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(
+            any<BinaryData>(), any()))
+        .willReturn(mono {})
 
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
@@ -710,8 +710,8 @@ class TransactionNotificationsQueueConsumerTest {
       expectedStatuses.forEachIndexed { index, transactionStatus ->
         assertEquals(transactionStatus, transactionViewRepositoryCaptor.allValues[index].status)
       }
-      verify(deadLetterQueueAsyncClient, times(1))
-        .sendMessageWithResponse(
+      verify(deadLetterTracedQueueAsyncClient, times(1))
+        .sendAndTraceDeadLetterQueueEvent(
           argThat<BinaryData> {
             TransactionEventCode.valueOf(
               this.toObject(
@@ -720,8 +720,12 @@ class TransactionNotificationsQueueConsumerTest {
                 .event
                 .eventCode) == TransactionEventCode.TRANSACTION_USER_RECEIPT_REQUESTED_EVENT
           },
-          eq(Duration.ZERO),
-          eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
+          eq(
+            DeadLetterTracedQueueAsyncClient.ErrorContext(
+              transactionId = TransactionId(TRANSACTION_ID),
+              transactionEventCode =
+                TransactionEventCode.TRANSACTION_USER_RECEIPT_REQUESTED_EVENT.toString(),
+              errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)))
     }
 
   @Test
@@ -735,8 +739,9 @@ class TransactionNotificationsQueueConsumerTest {
     given(checkpointer.success()).willReturn(Mono.empty())
     given(transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(transactionId))
       .willReturn(Flux.fromIterable(events))
-    given(deadLetterQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull()))
-      .willReturn(queueSuccessfulResponse())
+    given(
+        deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(any<BinaryData>(), any()))
+      .willReturn(mono {})
 
     StepVerifier.create(
         transactionNotificationsRetryQueueConsumer.messageReceiver(
@@ -754,8 +759,8 @@ class TransactionNotificationsQueueConsumerTest {
     verify(transactionUserReceiptRepository, times(0)).save(any())
     verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
     verify(userReceiptMailBuilder, times(0)).buildNotificationEmailRequestDto(any())
-    verify(deadLetterQueueAsyncClient, times(1))
-      .sendMessageWithResponse(
+    verify(deadLetterTracedQueueAsyncClient, times(1))
+      .sendAndTraceDeadLetterQueueEvent(
         argThat<BinaryData> {
           TransactionEventCode.valueOf(
             this.toObject(
@@ -764,8 +769,12 @@ class TransactionNotificationsQueueConsumerTest {
               .event
               .eventCode) == TransactionEventCode.TRANSACTION_USER_RECEIPT_REQUESTED_EVENT
         },
-        eq(Duration.ZERO),
-        eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
+        eq(
+          DeadLetterTracedQueueAsyncClient.ErrorContext(
+            transactionId = TransactionId(TRANSACTION_ID),
+            transactionEventCode =
+              TransactionEventCode.TRANSACTION_USER_RECEIPT_REQUESTED_EVENT.toString(),
+            errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)))
   }
 
   @Test

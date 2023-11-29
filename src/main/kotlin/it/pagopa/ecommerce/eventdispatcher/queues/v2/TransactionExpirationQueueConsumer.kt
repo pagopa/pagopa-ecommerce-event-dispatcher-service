@@ -5,6 +5,7 @@ import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
 import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.documents.v2.*
+import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.v2.TransactionWithClosureError
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
@@ -15,6 +16,7 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRe
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.RefundService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
+import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import java.time.Duration
 import java.util.*
 import org.slf4j.Logger
@@ -44,15 +46,13 @@ class TransactionExpirationQueueConsumer(
   @Autowired private val transactionUtils: TransactionUtils,
   @Autowired private val refundService: RefundService,
   @Autowired private val refundRetryService: RefundRetryService,
-  @Autowired private val deadLetterQueueAsyncClient: QueueAsyncClient,
+  @Autowired private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient,
   @Autowired private val expirationQueueAsyncClient: QueueAsyncClient,
   @Value("\${sendPaymentResult.timeoutSeconds}") private val sendPaymentResultTimeoutSeconds: Int,
   @Value("\${sendPaymentResult.expirationOffset}")
   private val sendPaymentResultTimeoutOffsetSeconds: Int,
   @Value("\${azurestorage.queues.transientQueues.ttlSeconds}")
   private val transientQueueTTLSeconds: Int,
-  @Value("\${azurestorage.queues.deadLetterQueue.ttlSeconds}")
-  private val deadLetterTTLSeconds: Int,
   @Autowired private val tracingUtils: TracingUtils,
   @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider,
 ) {
@@ -94,11 +94,15 @@ class TransactionExpirationQueueConsumer(
               if (expired) {
                 logger.error(
                   "Transaction ${it.transactionId.value()} - No send payment result received on time! Transaction will be expired.")
-                deadLetterQueueAsyncClient
-                  .sendMessageWithResponse(
+                deadLetterTracedQueueAsyncClient
+                  .sendAndTraceDeadLetterQueueEvent(
                     binaryData,
-                    Duration.ZERO,
-                    Duration.ofSeconds(deadLetterTTLSeconds.toLong()),
+                    DeadLetterTracedQueueAsyncClient.ErrorContext(
+                      transactionId = TransactionId(transactionId),
+                      transactionEventCode = event.event.eventCode,
+                      errorCategory =
+                        DeadLetterTracedQueueAsyncClient.ErrorCategory
+                          .SEND_PAYMENT_RESULT_RECEIVING_TIMEOUT),
                   )
                   .thenReturn(true)
               } else {
@@ -157,8 +161,7 @@ class TransactionExpirationQueueConsumer(
       checkPointer,
       refundPipeline,
       QueueEvent(event.event, event.tracingInfo),
-      deadLetterQueueAsyncClient,
-      deadLetterTTLSeconds,
+      deadLetterTracedQueueAsyncClient,
       tracingUtils,
       this::class.simpleName!!,
       strictSerializerProviderV2)

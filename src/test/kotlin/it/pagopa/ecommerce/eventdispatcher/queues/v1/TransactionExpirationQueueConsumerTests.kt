@@ -6,6 +6,7 @@ import com.azure.spring.messaging.checkpoint.Checkpointer
 import com.azure.storage.queue.QueueAsyncClient
 import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.documents.v1.*
+import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
@@ -19,13 +20,14 @@ import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v1.RefundRetryService
-import it.pagopa.ecommerce.eventdispatcher.utils.DEAD_LETTER_QUEUE_TTL_SECONDS
+import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.ecommerce.eventdispatcher.utils.TRANSIENT_QUEUE_TTL_SECONDS
 import it.pagopa.ecommerce.eventdispatcher.utils.queueSuccessfulResponse
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import java.time.Duration
 import java.time.ZonedDateTime
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.reactor.mono
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -84,7 +86,7 @@ class TransactionExpirationQueueConsumerTests {
 
   private val transactionUtils = TransactionUtils()
 
-  private val deadLetterQueueAsyncClient: QueueAsyncClient = mock()
+  private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient = mock()
 
   private val expirationQueueAsyncClient: QueueAsyncClient = mock()
 
@@ -103,12 +105,11 @@ class TransactionExpirationQueueConsumerTests {
       transactionsViewRepository = transactionsViewRepository,
       transactionUtils = transactionUtils,
       refundRetryService = refundRetryService,
-      deadLetterQueueAsyncClient = deadLetterQueueAsyncClient,
+      deadLetterTracedQueueAsyncClient = deadLetterTracedQueueAsyncClient,
       expirationQueueAsyncClient = expirationQueueAsyncClient,
       sendPaymentResultTimeoutSeconds = sendPaymentResultTimeout,
       sendPaymentResultTimeoutOffsetSeconds = sendPaymentResultOffset,
       transientQueueTTLSeconds = TRANSIENT_QUEUE_TTL_SECONDS,
-      deadLetterTTLSeconds = DEAD_LETTER_QUEUE_TTL_SECONDS,
       tracingUtils = tracingUtils)
 
   @Test
@@ -341,8 +342,9 @@ class TransactionExpirationQueueConsumerTests {
         Mono.just(transactionDocument(TransactionStatusDto.ACTIVATED, ZonedDateTime.now())))
     given(transactionsViewRepository.save(any()))
       .willReturn(Mono.error(RuntimeException("error while trying to save event")))
-    given(deadLetterQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull()))
-      .willReturn(queueSuccessfulResponse())
+    given(
+        deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(any<BinaryData>(), any()))
+      .willReturn(mono {})
 
     /* test */
     StepVerifier.create(
@@ -356,16 +358,19 @@ class TransactionExpirationQueueConsumerTests {
 
     /* Asserts */
     verify(checkpointer, times(1)).success()
-    verify(deadLetterQueueAsyncClient, times(1))
-      .sendMessageWithResponse(
+    verify(deadLetterTracedQueueAsyncClient, times(1))
+      .sendAndTraceDeadLetterQueueEvent(
         argThat<BinaryData> {
           TransactionEventCode.valueOf(
             this.toObject(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {})
               .event
               .eventCode) == TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
         },
-        eq(Duration.ZERO),
-        eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
+        eq(
+          DeadLetterTracedQueueAsyncClient.ErrorContext(
+            transactionId = TransactionId(TRANSACTION_ID),
+            transactionEventCode = TransactionEventCode.TRANSACTION_ACTIVATED_EVENT.toString(),
+            errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)))
   }
 
   @Test
@@ -397,8 +402,9 @@ class TransactionExpirationQueueConsumerTests {
         Mono.just(transactionDocument(TransactionStatusDto.ACTIVATED, ZonedDateTime.now())))
     given(transactionsViewRepository.save(any()))
       .willReturn(Mono.error(RuntimeException("error while saving data")))
-    given(deadLetterQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull()))
-      .willReturn(queueSuccessfulResponse())
+    given(
+        deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(any<BinaryData>(), any()))
+      .willReturn(mono {})
 
     /* test */
     StepVerifier.create(
@@ -412,16 +418,19 @@ class TransactionExpirationQueueConsumerTests {
 
     /* Asserts */
     verify(checkpointer, times(1)).success()
-    verify(deadLetterQueueAsyncClient, times(1))
-      .sendMessageWithResponse(
+    verify(deadLetterTracedQueueAsyncClient, times(1))
+      .sendAndTraceDeadLetterQueueEvent(
         argThat<BinaryData> {
           TransactionEventCode.valueOf(
             this.toObject(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {})
               .event
               .eventCode) == TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
         },
-        eq(Duration.ZERO),
-        eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
+        eq(
+          DeadLetterTracedQueueAsyncClient.ErrorContext(
+            transactionId = TransactionId(TRANSACTION_ID),
+            transactionEventCode = TransactionEventCode.TRANSACTION_ACTIVATED_EVENT.toString(),
+            errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)))
   }
 
   @Test
@@ -2213,8 +2222,9 @@ class TransactionExpirationQueueConsumerTests {
           ))
         .willReturn(Flux.error(RuntimeException("Error finding event from event store")))
       given(
-          deadLetterQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull()))
-        .willReturn(queueSuccessfulResponse())
+          deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(
+            any<BinaryData>(), any()))
+        .willReturn(mono {})
 
       /* test */
       StepVerifier.create(
@@ -2228,16 +2238,19 @@ class TransactionExpirationQueueConsumerTests {
 
       /* Asserts */
       verify(checkpointer, times(1)).success()
-      verify(deadLetterQueueAsyncClient, times(1))
-        .sendMessageWithResponse(
+      verify(deadLetterTracedQueueAsyncClient, times(1))
+        .sendAndTraceDeadLetterQueueEvent(
           argThat<BinaryData> {
             TransactionEventCode.valueOf(
               this.toObject(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {})
                 .event
                 .eventCode) == TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
           },
-          eq(Duration.ZERO),
-          eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
+          eq(
+            DeadLetterTracedQueueAsyncClient.ErrorContext(
+              transactionId = TransactionId(TRANSACTION_ID),
+              transactionEventCode = TransactionEventCode.TRANSACTION_ACTIVATED_EVENT.toString(),
+              errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)))
     }
 
   @Test
@@ -2255,7 +2268,8 @@ class TransactionExpirationQueueConsumerTests {
           ))
         .willReturn(Flux.error(RuntimeException("Error finding event from event store")))
       given(
-          deadLetterQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull()))
+          deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(
+            any<BinaryData>(), any()))
         .willReturn(Mono.error(RuntimeException("Error sending event to dead letter queue")))
 
       /* test */
@@ -2270,16 +2284,19 @@ class TransactionExpirationQueueConsumerTests {
 
       /* Asserts */
       verify(checkpointer, times(1)).success()
-      verify(deadLetterQueueAsyncClient, times(1))
-        .sendMessageWithResponse(
+      verify(deadLetterTracedQueueAsyncClient, times(1))
+        .sendAndTraceDeadLetterQueueEvent(
           argThat<BinaryData> {
             TransactionEventCode.valueOf(
               this.toObject(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {})
                 .event
                 .eventCode) == TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
           },
-          eq(Duration.ZERO),
-          eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
+          eq(
+            DeadLetterTracedQueueAsyncClient.ErrorContext(
+              transactionId = TransactionId(TRANSACTION_ID),
+              transactionEventCode = TransactionEventCode.TRANSACTION_ACTIVATED_EVENT.toString(),
+              errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)))
     }
 
   @Test
@@ -2694,9 +2711,9 @@ class TransactionExpirationQueueConsumerTests {
         Mono.just(it.arguments[0])
       }
       given(
-          deadLetterQueueAsyncClient.sendMessageWithResponse(
-            binaryDataCaptor.capture(), visibilityTimeoutCaptor.capture(), anyOrNull()))
-        .willReturn(queueSuccessfulResponse())
+          deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(
+            capture(binaryDataCaptor), any()))
+        .willReturn(mono {})
 
       Hooks.onOperatorDebug()
       /* test */
@@ -2715,16 +2732,21 @@ class TransactionExpirationQueueConsumerTests {
       verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
       verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
       verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
-      verify(deadLetterQueueAsyncClient, times(1))
-        .sendMessageWithResponse(
+      verify(deadLetterTracedQueueAsyncClient, times(1))
+        .sendAndTraceDeadLetterQueueEvent(
           argThat<BinaryData> {
             TransactionEventCode.valueOf(
               this.toObject(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {})
                 .event
                 .eventCode) == TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
           },
-          eq(Duration.ZERO),
-          eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
+          eq(
+            DeadLetterTracedQueueAsyncClient.ErrorContext(
+              transactionId = TransactionId(TRANSACTION_ID),
+              transactionEventCode = TransactionEventCode.TRANSACTION_ACTIVATED_EVENT.toString(),
+              errorCategory =
+                DeadLetterTracedQueueAsyncClient.ErrorCategory
+                  .SEND_PAYMENT_RESULT_RECEIVING_TIMEOUT)))
       /*
        * check view update statuses and events stored into event store
        */
@@ -2910,9 +2932,9 @@ class TransactionExpirationQueueConsumerTests {
       }
 
       given(
-          deadLetterQueueAsyncClient.sendMessageWithResponse(
-            binaryDataCaptor.capture(), visibilityTimeoutCaptor.capture(), anyOrNull()))
-        .willReturn(queueSuccessfulResponse())
+          deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(
+            capture(binaryDataCaptor), any()))
+        .willReturn(mono {})
 
       Hooks.onOperatorDebug()
       /* test */
@@ -2932,16 +2954,21 @@ class TransactionExpirationQueueConsumerTests {
       verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
       verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
       verify(transactionsViewRepository, times(1)).save(any())
-      verify(deadLetterQueueAsyncClient, times(1))
-        .sendMessageWithResponse(
+      verify(deadLetterTracedQueueAsyncClient, times(1))
+        .sendAndTraceDeadLetterQueueEvent(
           argThat<BinaryData> {
             TransactionEventCode.valueOf(
               this.toObject(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {})
                 .event
                 .eventCode) == TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
           },
-          eq(Duration.ZERO),
-          eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
+          eq(
+            DeadLetterTracedQueueAsyncClient.ErrorContext(
+              transactionId = TransactionId(TRANSACTION_ID),
+              transactionEventCode = TransactionEventCode.TRANSACTION_ACTIVATED_EVENT.toString(),
+              errorCategory =
+                DeadLetterTracedQueueAsyncClient.ErrorCategory
+                  .SEND_PAYMENT_RESULT_RECEIVING_TIMEOUT)))
       /*
        * check view update statuses and events stored into event store
        */

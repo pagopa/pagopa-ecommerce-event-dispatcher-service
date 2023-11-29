@@ -2,7 +2,6 @@ package it.pagopa.ecommerce.eventdispatcher.queues.v1
 
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
-import com.azure.storage.queue.QueueAsyncClient
 import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.documents.v1.TransactionRefundRequestedEvent
 import it.pagopa.ecommerce.commons.documents.v1.TransactionRefundRetriedEvent
@@ -19,11 +18,11 @@ import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v1.RefundRetryService
+import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import java.util.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.switchIfEmpty
@@ -42,9 +41,7 @@ class TransactionsRefundQueueConsumer(
     TransactionsEventStoreRepository<TransactionRefundedData>,
   @Autowired private val transactionsViewRepository: TransactionsViewRepository,
   @Autowired private val refundRetryService: RefundRetryService,
-  @Autowired private val deadLetterQueueAsyncClient: QueueAsyncClient,
-  @Value("\${azurestorage.queues.deadLetterQueue.ttlSeconds}")
-  private val deadLetterTTLSeconds: Int,
+  @Autowired private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient,
   @Autowired private val tracingUtils: TracingUtils,
 ) {
 
@@ -94,8 +91,7 @@ class TransactionsRefundQueueConsumer(
         checkPointer,
         refundPipeline,
         e,
-        deadLetterQueueAsyncClient,
-        deadLetterTTLSeconds,
+        deadLetterTracedQueueAsyncClient,
         tracingUtils,
         this::class.simpleName!!)
     } else {
@@ -103,7 +99,7 @@ class TransactionsRefundQueueConsumer(
         event.fold({ BinaryData.fromObject(it).toBytes() }, { BinaryData.fromObject(it).toBytes() })
 
       runPipelineWithDeadLetterQueue(
-        checkPointer, refundPipeline, e, deadLetterQueueAsyncClient, deadLetterTTLSeconds)
+        checkPointer, refundPipeline, e, deadLetterTracedQueueAsyncClient)
     }
   }
 }

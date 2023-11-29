@@ -2,7 +2,6 @@ package it.pagopa.ecommerce.eventdispatcher.queues
 
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
-import com.azure.storage.queue.QueueAsyncClient
 import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.documents.BaseTransactionEvent
 import it.pagopa.ecommerce.commons.documents.v1.TransactionActivatedEvent as TransactionActivatedEventV1
@@ -15,11 +14,11 @@ import it.pagopa.ecommerce.commons.queues.TracingInfoTest
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils as TransactionTestUtilsV1
 import it.pagopa.ecommerce.commons.v2.TransactionTestUtils as TransactionTestUtilsV2
 import it.pagopa.ecommerce.eventdispatcher.config.QueuesConsumerConfig
-import it.pagopa.ecommerce.eventdispatcher.utils.queueSuccessfulResponse
+import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import java.nio.charset.StandardCharsets
-import java.time.Duration
 import java.time.ZonedDateTime
 import java.util.stream.Stream
+import kotlinx.coroutines.reactor.mono
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -41,9 +40,7 @@ class TransactionExpirationQueueConsumerTest {
   private val queueConsumerV2:
     it.pagopa.ecommerce.eventdispatcher.queues.v2.TransactionExpirationQueueConsumer =
     mock()
-  private val deadLetterQueueAsyncClient: QueueAsyncClient = mock()
-
-  private val deadLetterTTLSeconds = 1
+  private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient = mock()
 
   private val queueConsumerV1Captor:
     KArgumentCaptor<
@@ -64,8 +61,7 @@ class TransactionExpirationQueueConsumerTest {
       TransactionExpirationQueueConsumer(
         queueConsumerV1 = queueConsumerV1,
         queueConsumerV2 = queueConsumerV2,
-        deadLetterQueueAsyncClient = deadLetterQueueAsyncClient,
-        deadLetterTTLSeconds = deadLetterTTLSeconds,
+        deadLetterTracedQueueAsyncClient = deadLetterTracedQueueAsyncClient,
         strictSerializerProviderV1 = strictSerializerProviderV1,
         strictSerializerProviderV2 = strictSerializerProviderV2))
 
@@ -169,8 +165,8 @@ class TransactionExpirationQueueConsumerTest {
     // assertions
     verify(queueConsumerV1, times(1)).messageReceiver(any(), any(), any())
     verify(queueConsumerV2, times(0)).messageReceiver(any(), any(), any())
-    verify(deadLetterQueueAsyncClient, times(0))
-      .sendMessageWithResponse(any<BinaryData>(), any(), any())
+    verify(deadLetterTracedQueueAsyncClient, times(0))
+      .sendAndTraceDeadLetterQueueEvent(any<BinaryData>(), any())
     val (parsedEvent, tracingInfo) = queueConsumerV1Captor.firstValue
     val event = parsedEvent.fold({ it }, { it })
     assertEquals(originalEvent, event)
@@ -202,8 +198,8 @@ class TransactionExpirationQueueConsumerTest {
     // assertions
     verify(queueConsumerV1, times(0)).messageReceiver(any(), any(), any())
     verify(queueConsumerV2, times(1)).messageReceiver(any(), any(), any())
-    verify(deadLetterQueueAsyncClient, times(0))
-      .sendMessageWithResponse(any<BinaryData>(), any(), any())
+    verify(deadLetterTracedQueueAsyncClient, times(0))
+      .sendAndTraceDeadLetterQueueEvent(any<BinaryData>(), any())
     val queueEvent = queueConsumerV2Captor.firstValue
     val event = queueEvent.fold({ it.event }, { it.event })
     val tracingInfo = queueEvent.fold({ it.tracingInfo }, { it.tracingInfo })
@@ -219,8 +215,9 @@ class TransactionExpirationQueueConsumerTest {
     given(queueConsumerV2.messageReceiver(queueConsumerV2Captor.capture(), any(), any()))
       .willReturn(Mono.empty())
     given(checkpointer.success()).willReturn(Mono.empty())
-    given(deadLetterQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), any()))
-      .willReturn(queueSuccessfulResponse())
+    given(
+        deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(any<BinaryData>(), any()))
+      .willReturn(mono {})
     // test
     Hooks.onOperatorDebug()
     StepVerifier.create(
@@ -231,11 +228,14 @@ class TransactionExpirationQueueConsumerTest {
     // assertions
     verify(queueConsumerV1, times(0)).messageReceiver(any(), any(), any())
     verify(queueConsumerV2, times(0)).messageReceiver(any(), any(), any())
-    verify(deadLetterQueueAsyncClient, times(1))
-      .sendMessageWithResponse(
+    verify(deadLetterTracedQueueAsyncClient, times(1))
+      .sendAndTraceDeadLetterQueueEvent(
         argThat<BinaryData> { this.toString() == binaryData.toString() },
-        eq(Duration.ZERO),
-        eq(Duration.ofSeconds(deadLetterTTLSeconds.toLong())))
+        eq(
+          DeadLetterTracedQueueAsyncClient.ErrorContext(
+            transactionId = null,
+            transactionEventCode = null,
+            errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.EVENT_PARSING_ERROR)))
   }
 
   @Test
@@ -247,7 +247,9 @@ class TransactionExpirationQueueConsumerTest {
       given(queueConsumerV2.messageReceiver(queueConsumerV2Captor.capture(), any(), any()))
         .willReturn(Mono.empty())
       given(checkpointer.success()).willReturn(Mono.empty())
-      given(deadLetterQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), any()))
+      given(
+          deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(
+            any<BinaryData>(), any()))
         .willReturn(Mono.error(RuntimeException("Error writing event to queue")))
       // test
       Hooks.onOperatorDebug()
@@ -261,11 +263,14 @@ class TransactionExpirationQueueConsumerTest {
       // assertions
       verify(queueConsumerV1, times(0)).messageReceiver(any(), any(), any())
       verify(queueConsumerV2, times(0)).messageReceiver(any(), any(), any())
-      verify(deadLetterQueueAsyncClient, times(1))
-        .sendMessageWithResponse(
+      verify(deadLetterTracedQueueAsyncClient, times(1))
+        .sendAndTraceDeadLetterQueueEvent(
           argThat<BinaryData> { this.toString() == binaryData.toString() },
-          eq(Duration.ZERO),
-          eq(Duration.ofSeconds(deadLetterTTLSeconds.toLong())))
+          eq(
+            DeadLetterTracedQueueAsyncClient.ErrorContext(
+              transactionId = null,
+              transactionEventCode = null,
+              errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.EVENT_PARSING_ERROR)))
     }
 
   @Test
@@ -277,7 +282,8 @@ class TransactionExpirationQueueConsumerTest {
       .willReturn(Mono.empty())
     given(checkpointer.success())
       .willReturn(Mono.error(RuntimeException("Error checkpointing event")))
-    given(deadLetterQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), any()))
+    given(
+        deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(any<BinaryData>(), any()))
       .willReturn(Mono.error(RuntimeException("Error writing event to queue")))
     // test
     Hooks.onOperatorDebug()
@@ -289,11 +295,14 @@ class TransactionExpirationQueueConsumerTest {
     // assertions
     verify(queueConsumerV1, times(0)).messageReceiver(any(), any(), any())
     verify(queueConsumerV2, times(0)).messageReceiver(any(), any(), any())
-    verify(deadLetterQueueAsyncClient, times(1))
-      .sendMessageWithResponse(
+    verify(deadLetterTracedQueueAsyncClient, times(1))
+      .sendAndTraceDeadLetterQueueEvent(
         argThat<BinaryData> { this.toString() == binaryData.toString() },
-        eq(Duration.ZERO),
-        eq(Duration.ofSeconds(deadLetterTTLSeconds.toLong())))
+        eq(
+          DeadLetterTracedQueueAsyncClient.ErrorContext(
+            transactionId = null,
+            transactionEventCode = null,
+            errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.EVENT_PARSING_ERROR)))
   }
 
   @Test
@@ -306,8 +315,9 @@ class TransactionExpirationQueueConsumerTest {
     given(queueConsumerV2.messageReceiver(queueConsumerV2Captor.capture(), any(), any()))
       .willReturn(Mono.empty())
     given(checkpointer.success()).willReturn(Mono.empty())
-    given(deadLetterQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), any()))
-      .willReturn(queueSuccessfulResponse())
+    given(
+        deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(any<BinaryData>(), any()))
+      .willReturn(mono {})
     given(transactionClosePaymentQueueConsumer.parseEvent(payload)).willReturn(Mono.just(mock()))
     // test
     Hooks.onOperatorDebug()
@@ -319,10 +329,13 @@ class TransactionExpirationQueueConsumerTest {
     // assertions
     verify(queueConsumerV1, times(0)).messageReceiver(any(), any(), any())
     verify(queueConsumerV2, times(0)).messageReceiver(any(), any(), any())
-    verify(deadLetterQueueAsyncClient, times(1))
-      .sendMessageWithResponse(
+    verify(deadLetterTracedQueueAsyncClient, times(1))
+      .sendAndTraceDeadLetterQueueEvent(
         argThat<BinaryData> { this.toString() == binaryData.toString() },
-        eq(Duration.ZERO),
-        eq(Duration.ofSeconds(deadLetterTTLSeconds.toLong())))
+        eq(
+          DeadLetterTracedQueueAsyncClient.ErrorContext(
+            transactionId = null,
+            transactionEventCode = null,
+            errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.EVENT_PARSING_ERROR)))
   }
 }

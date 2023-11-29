@@ -3,7 +3,6 @@ package it.pagopa.ecommerce.eventdispatcher.queues.v2
 import com.azure.core.util.BinaryData
 import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.checkpoint.Checkpointer
-import com.azure.storage.queue.QueueAsyncClient
 import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.documents.v2.authorization.PgsTransactionGatewayAuthorizationData
@@ -27,15 +26,14 @@ import it.pagopa.ecommerce.eventdispatcher.services.RefundService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.ClosureRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.NodeService
-import it.pagopa.ecommerce.eventdispatcher.utils.DEAD_LETTER_QUEUE_TTL_SECONDS
-import it.pagopa.ecommerce.eventdispatcher.utils.queueSuccessfulResponse
+import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
-import java.time.Duration
 import java.time.ZonedDateTime
 import java.util.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.reactor.mono
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -75,7 +73,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
 
   private val refundRetryService: RefundRetryService = mock()
 
-  private val deadLetterQueueAsyncClient: QueueAsyncClient = mock()
+  private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient = mock()
 
   private val tracingUtils = TracingUtilsTests.getMock()
 
@@ -104,8 +102,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       paymentGatewayClient = paymentGatewayClient,
       refundService = refundService,
       refundRetryService = refundRetryService,
-      deadLetterQueueAsyncClient = deadLetterQueueAsyncClient,
-      deadLetterTTLSeconds = DEAD_LETTER_QUEUE_TTL_SECONDS,
+      deadLetterTracedQueueAsyncClient = deadLetterTracedQueueAsyncClient,
       tracingUtils = tracingUtils,
       strictSerializerProviderV2 = strictJsonSerializerProviderV2)
 
@@ -804,8 +801,9 @@ class TransactionClosePaymentRetryQueueConsumerTests {
         .willReturn(
           ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.KO })
       given(
-          deadLetterQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull()))
-        .willReturn(queueSuccessfulResponse())
+          deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(
+            any<BinaryData>(), any()))
+        .willReturn(mono {})
       /* test */
 
       StepVerifier.create(
@@ -827,8 +825,8 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       verify(transactionsViewRepository, Mockito.times(0)).save(expectedUpdatedTransaction)
       verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
       verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
-      verify(deadLetterQueueAsyncClient, times(1))
-        .sendMessageWithResponse(
+      verify(deadLetterTracedQueueAsyncClient, times(1))
+        .sendAndTraceDeadLetterQueueEvent(
           argThat<BinaryData> {
             TransactionEventCode.valueOf(
               this.toObject(
@@ -837,8 +835,13 @@ class TransactionClosePaymentRetryQueueConsumerTests {
                 .event
                 .eventCode) == TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT
           },
-          eq(Duration.ZERO),
-          eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
+          eq(
+            DeadLetterTracedQueueAsyncClient.ErrorContext(
+              transactionId = TransactionId(TRANSACTION_ID),
+              transactionEventCode =
+                TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT.toString(),
+              errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)),
+        )
     }
 
   @Test
@@ -865,8 +868,9 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       given(transactionWithClosureError.transactionAtPreviousState)
         .willReturn(fakeTransactionAtPreviousState)
       given(
-          deadLetterQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull()))
-        .willReturn(queueSuccessfulResponse())
+          deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(
+            any<BinaryData>(), any()))
+        .willReturn(mono {})
       /* test */
 
       StepVerifier.create(
@@ -885,8 +889,8 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       verify(transactionClosedEventRepository, Mockito.times(0)).save(any())
       verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
       verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
-      verify(deadLetterQueueAsyncClient, times(1))
-        .sendMessageWithResponse(
+      verify(deadLetterTracedQueueAsyncClient, times(1))
+        .sendAndTraceDeadLetterQueueEvent(
           argThat<BinaryData> {
             TransactionEventCode.valueOf(
               this.toObject(
@@ -895,8 +899,13 @@ class TransactionClosePaymentRetryQueueConsumerTests {
                 .event
                 .eventCode) == TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT
           },
-          eq(Duration.ZERO),
-          eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
+          eq(
+            DeadLetterTracedQueueAsyncClient.ErrorContext(
+              transactionId = TransactionId(TRANSACTION_ID),
+              transactionEventCode =
+                TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT.toString(),
+              errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)),
+        )
     }
 
   @Test
@@ -1053,8 +1062,9 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       .willReturn(events.toFlux())
     given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
       .willReturn(Mono.just(transactionDocument))
-    given(deadLetterQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull()))
-      .willReturn(queueSuccessfulResponse())
+    given(
+        deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(any<BinaryData>(), any()))
+      .willReturn(mono {})
 
     /* test */
 
@@ -1073,8 +1083,8 @@ class TransactionClosePaymentRetryQueueConsumerTests {
     verify(transactionsViewRepository, Mockito.times(0)).save(any())
     verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
     verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
-    verify(deadLetterQueueAsyncClient, times(1))
-      .sendMessageWithResponse(
+    verify(deadLetterTracedQueueAsyncClient, times(1))
+      .sendAndTraceDeadLetterQueueEvent(
         argThat<BinaryData> {
           TransactionEventCode.valueOf(
             this.toObject(
@@ -1083,8 +1093,12 @@ class TransactionClosePaymentRetryQueueConsumerTests {
               .event
               .eventCode) == TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT
         },
-        eq(Duration.ZERO),
-        eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
+        eq(
+          DeadLetterTracedQueueAsyncClient.ErrorContext(
+            transactionId = TransactionId(TRANSACTION_ID),
+            transactionEventCode = TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT.toString(),
+            errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)),
+      )
   }
 
   @Test
@@ -1509,8 +1523,9 @@ class TransactionClosePaymentRetryQueueConsumerTests {
         .willReturn(Mono.error(RuntimeException("Error enqueuing retry event")))
 
       given(
-          deadLetterQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull()))
-        .willReturn(queueSuccessfulResponse())
+          deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(
+            any<BinaryData>(), any()))
+        .willReturn(mono {})
 
       /* test */
 
@@ -1531,8 +1546,8 @@ class TransactionClosePaymentRetryQueueConsumerTests {
       verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).save(any())
       verify(transactionsViewRepository, Mockito.times(0)).save(any())
       verify(closureRetryService, times(1)).enqueueRetryEvent(any(), any(), any())
-      verify(deadLetterQueueAsyncClient, times(1))
-        .sendMessageWithResponse(
+      verify(deadLetterTracedQueueAsyncClient, times(1))
+        .sendAndTraceDeadLetterQueueEvent(
           argThat<BinaryData> {
             TransactionEventCode.valueOf(
               this.toObject(
@@ -1541,7 +1556,12 @@ class TransactionClosePaymentRetryQueueConsumerTests {
                 .event
                 .eventCode) == TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT
           },
-          eq(Duration.ZERO),
-          eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
+          eq(
+            DeadLetterTracedQueueAsyncClient.ErrorContext(
+              transactionId = TransactionId(TRANSACTION_ID),
+              transactionEventCode =
+                TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT.toString(),
+              errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)),
+        )
     }
 }

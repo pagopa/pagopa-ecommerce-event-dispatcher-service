@@ -2,7 +2,6 @@ package it.pagopa.ecommerce.eventdispatcher.queues.v2
 
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
-import com.azure.storage.queue.QueueAsyncClient
 import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.client.NpgClient
 import it.pagopa.ecommerce.commons.documents.v2.*
@@ -25,8 +24,7 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRe
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.RefundService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
-import it.pagopa.ecommerce.eventdispatcher.utils.DEAD_LETTER_QUEUE_TTL_SECONDS
-import it.pagopa.ecommerce.eventdispatcher.utils.queueSuccessfulResponse
+import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
 import java.math.BigDecimal
@@ -80,7 +78,7 @@ class TransactionsRefundEventsConsumerTests {
 
   private val transactionsViewRepository: TransactionsViewRepository = mock()
 
-  private val deadLetterQueueAsyncClient: QueueAsyncClient = mock()
+  private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient = mock()
   private val strictJsonSerializerProviderV2 = QueuesConsumerConfig().strictSerializerProviderV2()
 
   private val transactionRefundedEventsConsumer =
@@ -91,8 +89,7 @@ class TransactionsRefundEventsConsumerTests {
       transactionsViewRepository = transactionsViewRepository,
       refundService = refundService,
       refundRetryService = refundRetryService,
-      deadLetterQueueAsyncClient = deadLetterQueueAsyncClient,
-      deadLetterTTLSeconds = DEAD_LETTER_QUEUE_TTL_SECONDS,
+      deadLetterTracedQueueAsyncClient = deadLetterTracedQueueAsyncClient,
       tracingUtils = tracingUtils,
       strictSerializerProviderV2 = strictJsonSerializerProviderV2)
 
@@ -771,9 +768,9 @@ class TransactionsRefundEventsConsumerTests {
         Mono.just(transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now())))
 
     given(
-        deadLetterQueueAsyncClient.sendMessageWithResponse(
-          queueArgumentCaptor.capture(), any(), anyOrNull()))
-      .willReturn(queueSuccessfulResponse())
+        deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(
+          capture(queueArgumentCaptor), any()))
+      .willReturn(mono {})
     /* test */
 
     StepVerifier.create(
@@ -791,8 +788,15 @@ class TransactionsRefundEventsConsumerTests {
         UUID.fromString(transaction.transactionAuthorizationRequestData.authorizationRequestId))
     verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
     verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
-    verify(deadLetterQueueAsyncClient, times(1))
-      .sendMessageWithResponse(any<BinaryData>(), any(), any())
+    verify(deadLetterTracedQueueAsyncClient, times(1))
+      .sendAndTraceDeadLetterQueueEvent(
+        any<BinaryData>(),
+        eq(
+          DeadLetterTracedQueueAsyncClient.ErrorContext(
+            transactionId = TransactionId(TRANSACTION_ID),
+            transactionEventCode =
+              TransactionEventCode.TRANSACTION_REFUND_REQUESTED_EVENT.toString(),
+            errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)))
     val storedEvent = refundEventStoreCaptor.value
     assertEquals(
       TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT,
@@ -851,9 +855,9 @@ class TransactionsRefundEventsConsumerTests {
           Mono.just(
             transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now())))
       given(
-          deadLetterQueueAsyncClient.sendMessageWithResponse(
-            queueArgumentCaptor.capture(), any(), anyOrNull()))
-        .willReturn(queueSuccessfulResponse())
+          deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(
+            capture(queueArgumentCaptor), any()))
+        .willReturn(mono {})
       /* test */
 
       StepVerifier.create(
@@ -872,8 +876,15 @@ class TransactionsRefundEventsConsumerTests {
           UUID.fromString(transaction.transactionAuthorizationRequestData.authorizationRequestId))
       verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
       verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
-      verify(deadLetterQueueAsyncClient, times(1))
-        .sendMessageWithResponse(any<BinaryData>(), any(), any())
+      verify(deadLetterTracedQueueAsyncClient, times(1))
+        .sendAndTraceDeadLetterQueueEvent(
+          any<BinaryData>(),
+          eq(
+            DeadLetterTracedQueueAsyncClient.ErrorContext(
+              transactionId = TransactionId(TRANSACTION_ID),
+              transactionEventCode =
+                TransactionEventCode.TRANSACTION_REFUND_REQUESTED_EVENT.toString(),
+              errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)))
       assertEquals(
         String(
           jsonSerializerV2.serializeToBytes(
@@ -1103,9 +1114,9 @@ class TransactionsRefundEventsConsumerTests {
           Mono.just(
             transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now())))
       given(
-          deadLetterQueueAsyncClient.sendMessageWithResponse(
-            queueArgumentCaptor.capture(), any(), anyOrNull()))
-        .willReturn(queueSuccessfulResponse())
+          deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(
+            capture(queueArgumentCaptor), any()))
+        .willReturn(mono {})
       /* test */
 
       StepVerifier.create(
@@ -1139,8 +1150,15 @@ class TransactionsRefundEventsConsumerTests {
           pspId = expectedPspId)
       verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
       verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
-      verify(deadLetterQueueAsyncClient, times(1))
-        .sendMessageWithResponse(any<BinaryData>(), any(), any())
+      verify(deadLetterTracedQueueAsyncClient, times(1))
+        .sendAndTraceDeadLetterQueueEvent(
+          any<BinaryData>(),
+          eq(
+            DeadLetterTracedQueueAsyncClient.ErrorContext(
+              transactionId = TransactionId(TRANSACTION_ID),
+              transactionEventCode =
+                TransactionEventCode.TRANSACTION_REFUND_REQUESTED_EVENT.toString(),
+              errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)))
       assertEquals(
         String(
           jsonSerializerV2.serializeToBytes(

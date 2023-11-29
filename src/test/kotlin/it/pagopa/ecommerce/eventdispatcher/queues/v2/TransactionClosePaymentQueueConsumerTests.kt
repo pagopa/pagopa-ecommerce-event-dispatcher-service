@@ -3,7 +3,6 @@ package it.pagopa.ecommerce.eventdispatcher.queues.v2
 import com.azure.core.util.BinaryData
 import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.checkpoint.Checkpointer
-import com.azure.storage.queue.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.v2.TransactionEventCode
@@ -21,14 +20,13 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRe
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.ClosureRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.NodeService
-import it.pagopa.ecommerce.eventdispatcher.utils.DEAD_LETTER_QUEUE_TTL_SECONDS
-import it.pagopa.ecommerce.eventdispatcher.utils.queueSuccessfulResponse
+import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
-import java.time.Duration
 import java.time.ZonedDateTime
 import java.util.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.reactor.mono
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -63,7 +61,7 @@ class TransactionClosePaymentQueueConsumerTests {
     TransactionsEventStoreRepository<TransactionClosureData> =
     mock()
 
-  private val deadLetterQueueAsyncClient: QueueAsyncClient = mock()
+  private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient = mock()
 
   private val paymentRequestInfoRedisTemplateWrapper: PaymentRequestInfoRedisTemplateWrapper =
     mock()
@@ -92,8 +90,7 @@ class TransactionClosePaymentQueueConsumerTests {
       transactionsViewRepository = transactionsViewRepository,
       nodeService = nodeService,
       closureRetryService = closureRetryService,
-      deadLetterQueueAsyncClient = deadLetterQueueAsyncClient,
-      deadLetterTTLSeconds = DEAD_LETTER_QUEUE_TTL_SECONDS,
+      deadLetterTracedQueueAsyncClient = deadLetterTracedQueueAsyncClient,
       tracingUtils = tracingUtils,
       paymentRequestInfoRedisTemplateWrapper = paymentRequestInfoRedisTemplateWrapper,
       strictSerializerProviderV2 = strictJsonSerializerProviderV2)
@@ -418,7 +415,6 @@ class TransactionClosePaymentQueueConsumerTests {
       transactionDocument(
         TransactionStatusDto.CANCELLATION_REQUESTED,
         ZonedDateTime.parse(activationEvent.creationDate))
-    val payload = BinaryData.fromObject(QueueEvent(cancelRequestEvent, MOCK_TRACING_INFO))
     /* preconditions */
     given(checkpointer.success()).willReturn(Mono.empty())
     given(
@@ -426,8 +422,9 @@ class TransactionClosePaymentQueueConsumerTests {
       .willReturn(events.toFlux())
     given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
       .willReturn(Mono.just(transactionDocument))
-    given(deadLetterQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull()))
-      .willReturn(queueSuccessfulResponse())
+    given(
+        deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(any<BinaryData>(), any()))
+      .willReturn(mono {})
 
     /* test */
     Hooks.onOperatorDebug()
@@ -445,8 +442,8 @@ class TransactionClosePaymentQueueConsumerTests {
     verify(transactionsViewRepository, Mockito.times(0)).save(any())
     verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
     verify(paymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).times(0)).deleteById(any())
-    verify(deadLetterQueueAsyncClient, times(1))
-      .sendMessageWithResponse(
+    verify(deadLetterTracedQueueAsyncClient, times(1))
+      .sendAndTraceDeadLetterQueueEvent(
         argThat<BinaryData> {
           TransactionEventCode.valueOf(
             this.toObject(
@@ -455,8 +452,11 @@ class TransactionClosePaymentQueueConsumerTests {
               .event
               .eventCode) == TransactionEventCode.TRANSACTION_USER_CANCELED_EVENT
         },
-        eq(Duration.ZERO),
-        eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
+        eq(
+          DeadLetterTracedQueueAsyncClient.ErrorContext(
+            transactionId = TransactionId(TRANSACTION_ID),
+            transactionEventCode = TransactionEventCode.TRANSACTION_USER_CANCELED_EVENT.toString(),
+            errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)))
   }
 
   @Test

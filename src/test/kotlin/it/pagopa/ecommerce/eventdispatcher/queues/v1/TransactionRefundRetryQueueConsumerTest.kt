@@ -3,8 +3,8 @@ package it.pagopa.ecommerce.eventdispatcher.queues.v1
 import com.azure.core.util.BinaryData
 import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.checkpoint.Checkpointer
-import com.azure.storage.queue.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v1.*
+import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.v1.TransactionEventCode
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
@@ -12,15 +12,15 @@ import it.pagopa.ecommerce.commons.queues.TracingInfoTest.MOCK_TRACING_INFO
 import it.pagopa.ecommerce.commons.queues.TracingUtilsTests
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
+import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v1.RefundRetryService
-import it.pagopa.ecommerce.eventdispatcher.utils.DEAD_LETTER_QUEUE_TTL_SECONDS
-import it.pagopa.ecommerce.eventdispatcher.utils.queueSuccessfulResponse
+import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
-import java.time.Duration
 import java.time.ZonedDateTime
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.reactor.mono
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -59,7 +59,7 @@ class TransactionRefundRetryQueueConsumerTest {
 
   @Captor private lateinit var retryCountCaptor: ArgumentCaptor<Int>
 
-  private val deadLetterQueueAsyncClient: QueueAsyncClient = mock()
+  private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient = mock()
 
   private val transactionRefundRetryQueueConsumer =
     TransactionRefundRetryQueueConsumer(
@@ -68,8 +68,7 @@ class TransactionRefundRetryQueueConsumerTest {
       transactionsRefundedEventStoreRepository = transactionsRefundedEventStoreRepository,
       transactionsViewRepository = transactionsViewRepository,
       refundRetryService = refundRetryService,
-      deadLetterQueueAsyncClient = deadLetterQueueAsyncClient,
-      deadLetterTTLSeconds = DEAD_LETTER_QUEUE_TTL_SECONDS,
+      deadLetterTracedQueueAsyncClient = deadLetterTracedQueueAsyncClient,
       tracingUtils = tracingUtils)
 
   @Test
@@ -471,8 +470,9 @@ class TransactionRefundRetryQueueConsumerTest {
       given(refundRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture(), any()))
         .willReturn(Mono.empty())
       given(
-          deadLetterQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), anyOrNull()))
-        .willReturn(queueSuccessfulResponse())
+          deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(
+            any<BinaryData>(), any()))
+        .willReturn(mono {})
 
       /* test */
       StepVerifier.create(
@@ -487,15 +487,105 @@ class TransactionRefundRetryQueueConsumerTest {
       verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
       verify(transactionsViewRepository, times(0)).save(any())
       verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
-      verify(deadLetterQueueAsyncClient, times(1))
-        .sendMessageWithResponse(
+      verify(deadLetterTracedQueueAsyncClient, times(1))
+        .sendAndTraceDeadLetterQueueEvent(
           argThat<BinaryData> {
             TransactionEventCode.valueOf(
               this.toObject(object : TypeReference<QueueEvent<TransactionRefundRetriedEvent>>() {})
                 .event
                 .eventCode) == TransactionEventCode.TRANSACTION_REFUND_RETRIED_EVENT
           },
-          eq(Duration.ZERO),
-          eq(Duration.ofSeconds(DEAD_LETTER_QUEUE_TTL_SECONDS.toLong())))
+          eq(
+            DeadLetterTracedQueueAsyncClient.ErrorContext(
+              transactionId = TransactionId(TransactionTestUtils.TRANSACTION_ID),
+              transactionEventCode =
+                TransactionEventCode.TRANSACTION_REFUND_RETRIED_EVENT.toString(),
+              errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)))
+    }
+
+  @Test
+  fun `messageReceiver consume event writing event to dead letter queue because of no more attempt left for retry`() =
+    runTest {
+      val retryCount = 3
+      val activatedEvent = TransactionTestUtils.transactionActivateEvent()
+
+      val authorizationRequestedEvent =
+        TransactionTestUtils.transactionAuthorizationRequestedEvent()
+
+      val expiredEvent =
+        TransactionTestUtils.transactionExpiredEvent(
+          TransactionTestUtils.reduceEvents(activatedEvent, authorizationRequestedEvent))
+      val refundRequestedEvent =
+        TransactionTestUtils.transactionRefundRequestedEvent(
+          TransactionTestUtils.reduceEvents(
+            activatedEvent, authorizationRequestedEvent, expiredEvent))
+      val refundErrorEvent =
+        TransactionTestUtils.transactionRefundErrorEvent(
+          TransactionTestUtils.reduceEvents(
+            activatedEvent, authorizationRequestedEvent, expiredEvent, refundRequestedEvent))
+      val refundRetriedEvent = TransactionTestUtils.transactionRefundRetriedEvent(retryCount)
+
+      val gatewayClientResponse =
+        VposDeleteResponseDto().apply { status = VposDeleteResponseDto.StatusEnum.AUTHORIZED }
+
+      /* preconditions */
+      given(checkpointer.success()).willReturn(Mono.empty())
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            any(),
+          ))
+        .willReturn(
+          Flux.just(
+            activatedEvent as TransactionEvent<Any>,
+            authorizationRequestedEvent as TransactionEvent<Any>,
+            expiredEvent as TransactionEvent<Any>,
+            refundRequestedEvent as TransactionEvent<Any>,
+            refundRetriedEvent as TransactionEvent<Any>,
+            refundErrorEvent as TransactionEvent<Any>))
+
+      given(
+          transactionsRefundedEventStoreRepository.save(
+            transactionRefundEventStoreCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
+      given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
+        Mono.just(it.arguments[0])
+      }
+      given(paymentGatewayClient.requestVPosRefund(any()))
+        .willReturn(Mono.just(gatewayClientResponse))
+      given(refundRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture(), any()))
+        .willReturn(Mono.error(NoRetryAttemptsLeftException("No retry attempt left")))
+      given(
+          deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(
+            any<BinaryData>(), any()))
+        .willReturn(mono {})
+      /* test */
+      StepVerifier.create(
+          transactionRefundRetryQueueConsumer.messageReceiver(
+            refundRetriedEvent to MOCK_TRACING_INFO, checkpointer))
+        .expectNext(Unit)
+        .verifyComplete()
+
+      /* Asserts */
+      verify(checkpointer, times(1)).success()
+      verify(paymentGatewayClient, times(1)).requestVPosRefund(any())
+      verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
+      verify(transactionsViewRepository, times(0)).save(any())
+      verify(refundRetryService, times(1)).enqueueRetryEvent(any(), any(), any())
+      assertEquals(retryCount, retryCountCaptor.value)
+      verify(deadLetterTracedQueueAsyncClient, times(1))
+        .sendAndTraceDeadLetterQueueEvent(
+          argThat<BinaryData> {
+            TransactionEventCode.valueOf(
+              this.toObject(object : TypeReference<QueueEvent<TransactionRefundRetriedEvent>>() {})
+                .event
+                .eventCode) == TransactionEventCode.TRANSACTION_REFUND_RETRIED_EVENT
+          },
+          eq(
+            DeadLetterTracedQueueAsyncClient.ErrorContext(
+              transactionId = TransactionId(TransactionTestUtils.TRANSACTION_ID),
+              transactionEventCode =
+                TransactionEventCode.TRANSACTION_REFUND_RETRIED_EVENT.toString(),
+              errorCategory =
+                DeadLetterTracedQueueAsyncClient.ErrorCategory.RETRY_EVENT_NO_ATTEMPTS_LEFT)))
     }
 }
