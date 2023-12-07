@@ -17,6 +17,7 @@ import it.pagopa.ecommerce.eventdispatcher.queues.v1.reduceEvents
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.generated.ecommerce.nodo.v2.dto.*
 import java.time.OffsetDateTime
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import kotlinx.coroutines.reactor.awaitSingle
@@ -197,6 +198,7 @@ class NodeService(
               OffsetDateTime.parse(
                   authCompleted.transactionAuthorizationCompletedData.timestampOperation,
                   DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                .atZoneSameInstant(ZoneId.of("Europe/Paris"))
                 .truncatedTo(ChronoUnit.SECONDS)
                 .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
             this.rrn = authCompleted.transactionAuthorizationCompletedData.rrn
