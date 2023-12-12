@@ -158,7 +158,8 @@ class TransactionExpirationQueueConsumer(
                 DeadLetterTracedQueueAsyncClient.ErrorContext(
                   transactionId = TransactionId(event.transactionId),
                   transactionEventCode = event.eventCode,
-                  errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR),
+                  errorCategory =
+                    DeadLetterTracedQueueAsyncClient.ErrorCategory.REFUND_MANUAL_CHECK_REQUIRED),
               )
               .thenReturn(true)
           }

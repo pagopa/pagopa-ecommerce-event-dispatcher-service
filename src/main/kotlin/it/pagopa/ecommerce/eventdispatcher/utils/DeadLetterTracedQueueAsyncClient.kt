@@ -95,7 +95,10 @@ class DeadLetterTracedQueueAsyncClient(
     EVENT_PARSING_ERROR,
 
     /** Event processing error caused by generic processing error */
-    PROCESSING_ERROR
+    PROCESSING_ERROR,
+
+    /** Event processing error caused by manual refundable check required */
+    REFUND_MANUAL_CHECK_REQUIRED
   }
 
   /**

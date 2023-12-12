@@ -2375,7 +2375,8 @@ class TransactionExpirationQueueConsumerTests {
             DeadLetterTracedQueueAsyncClient.ErrorContext(
               transactionId = TransactionId(TRANSACTION_ID),
               transactionEventCode = TransactionEventCode.TRANSACTION_ACTIVATED_EVENT.toString(),
-              errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)))
+              errorCategory =
+                DeadLetterTracedQueueAsyncClient.ErrorCategory.REFUND_MANUAL_CHECK_REQUIRED)))
       /*
        * check view update statuses and events stored into event store
        */
