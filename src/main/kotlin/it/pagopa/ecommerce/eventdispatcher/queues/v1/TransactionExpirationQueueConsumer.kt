@@ -139,10 +139,31 @@ class TransactionExpirationQueueConsumer(
           }
         }
         .filter {
+          val refundableCheckRequired = isRefundableCheckRequired(it)
           val refundable = isTransactionRefundable(it)
+          val refundableWithoutCheck = refundable && !refundableCheckRequired
           logger.info(
-            "Transaction ${it.transactionId.value()} in status ${it.status}, refundable: $refundable")
-          refundable
+            "Transaction ${it.transactionId.value()} in status ${it.status}, refundable : $refundable, without check : $refundableWithoutCheck")
+          if (refundableCheckRequired) {
+            val tracingInfo = queueEvent.second
+            val binaryData =
+              if (tracingInfo == null) {
+                BinaryData.fromObject(event)
+              } else {
+                BinaryData.fromObject(QueueEvent(event, tracingInfo))
+              }
+            deadLetterTracedQueueAsyncClient
+              .sendAndTraceDeadLetterQueueEvent(
+                binaryData,
+                DeadLetterTracedQueueAsyncClient.ErrorContext(
+                  transactionId = TransactionId(event.transactionId),
+                  transactionEventCode = event.eventCode,
+                  errorCategory =
+                    DeadLetterTracedQueueAsyncClient.ErrorCategory.REFUND_MANUAL_CHECK_REQUIRED),
+              )
+              .thenReturn(true)
+          }
+          refundableWithoutCheck
         }
         .flatMap {
           updateTransactionToRefundRequested(

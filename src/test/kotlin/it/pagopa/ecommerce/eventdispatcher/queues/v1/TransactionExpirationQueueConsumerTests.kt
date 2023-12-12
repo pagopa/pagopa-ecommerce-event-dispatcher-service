@@ -2300,7 +2300,7 @@ class TransactionExpirationQueueConsumerTests {
     }
 
   @Test
-  fun `messageReceiver should perform refund for a transaction in AUTHORIZATION_COMPLETED status with auth outcome OK`() =
+  fun `messageReceiver should not perform refund for a transaction in AUTHORIZATION_COMPLETED status with auth outcome OK`() =
     runTest {
       val activatedEvent = transactionActivateEvent()
       val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
@@ -2342,8 +2342,10 @@ class TransactionExpirationQueueConsumerTests {
       given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
         Mono.just(it.arguments[0])
       }
-      given(paymentGatewayClient.requestVPosRefund(any()))
-        .willReturn(Mono.just(gatewayClientResponse))
+      given(
+          deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(
+            capture(binaryDataCaptor), any()))
+        .willReturn(mono {})
 
       Hooks.onOperatorDebug()
       /* test */
@@ -2360,21 +2362,25 @@ class TransactionExpirationQueueConsumerTests {
       /* Asserts */
       verify(checkpointer, times(1)).success()
       verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
-      verify(paymentGatewayClient, times(1)).requestVPosRefund(any())
-      verify(transactionsRefundedEventStoreRepository, times(2)).save(any())
-      verify(transactionsViewRepository, times(3)).save(any())
+      verify(transactionsViewRepository, times(1)).save(any())
+      verify(deadLetterTracedQueueAsyncClient, times(1))
+        .sendAndTraceDeadLetterQueueEvent(
+          argThat<BinaryData> {
+            TransactionEventCode.valueOf(
+              this.toObject(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {})
+                .event
+                .eventCode) == TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
+          },
+          eq(
+            DeadLetterTracedQueueAsyncClient.ErrorContext(
+              transactionId = TransactionId(TRANSACTION_ID),
+              transactionEventCode = TransactionEventCode.TRANSACTION_ACTIVATED_EVENT.toString(),
+              errorCategory =
+                DeadLetterTracedQueueAsyncClient.ErrorCategory.REFUND_MANUAL_CHECK_REQUIRED)))
       /*
        * check view update statuses and events stored into event store
        */
-      val expectedRefundEventStatuses =
-        listOf(
-          TransactionEventCode.TRANSACTION_REFUND_REQUESTED_EVENT,
-          TransactionEventCode.TRANSACTION_REFUNDED_EVENT)
-      val viewExpectedStatuses =
-        listOf(
-          TransactionStatusDto.EXPIRED,
-          TransactionStatusDto.REFUND_REQUESTED,
-          TransactionStatusDto.REFUNDED)
+      val viewExpectedStatuses = listOf(TransactionStatusDto.EXPIRED)
       viewExpectedStatuses.forEachIndexed { idx, expectedStatus ->
         assertEquals(
           expectedStatus,
@@ -2382,12 +2388,6 @@ class TransactionExpirationQueueConsumerTests {
           "Unexpected view status on idx: $idx")
       }
 
-      expectedRefundEventStatuses.forEachIndexed { idx, expectedStatus ->
-        assertEquals(
-          expectedStatus,
-          TransactionEventCode.valueOf(transactionRefundEventStoreCaptor.allValues[idx].eventCode),
-          "Unexpected event code on idx: $idx")
-      }
       val expiredEvent = transactionExpiredEventStoreCaptor.value
       assertEquals(
         TransactionEventCode.TRANSACTION_EXPIRED_EVENT,
