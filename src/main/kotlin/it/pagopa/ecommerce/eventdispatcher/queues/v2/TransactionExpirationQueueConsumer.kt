@@ -129,11 +129,28 @@ class TransactionExpirationQueueConsumer(
             Mono.just(tx)
           }
         }
-        .filter {
+        .filterWhen {
+          val refundableCheckRequired = isRefundableCheckRequired(it)
           val refundable = isTransactionRefundable(it)
+          val refundableWithoutCheck = refundable && !refundableCheckRequired
           logger.info(
-            "Transaction ${it.transactionId.value()} in status ${it.status}, refundable: $refundable")
-          refundable
+            "Transaction ${it.transactionId.value()} in status ${it.status}, refundable : $refundable, without check : $refundableWithoutCheck")
+          if (refundableCheckRequired) {
+            val binaryData =
+              BinaryData.fromObject(event, strictSerializerProviderV2.createInstance())
+            deadLetterTracedQueueAsyncClient
+              .sendAndTraceDeadLetterQueueEvent(
+                binaryData,
+                DeadLetterTracedQueueAsyncClient.ErrorContext(
+                  transactionId = TransactionId(event.event.transactionId),
+                  transactionEventCode = event.event.eventCode,
+                  errorCategory =
+                    DeadLetterTracedQueueAsyncClient.ErrorCategory.REFUND_MANUAL_CHECK_REQUIRED),
+              )
+              .map { false }
+          } else {
+            Mono.just(refundableWithoutCheck)
+          }
         }
         .flatMap {
           updateTransactionToRefundRequested(

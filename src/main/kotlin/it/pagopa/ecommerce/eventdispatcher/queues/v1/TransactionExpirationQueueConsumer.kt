@@ -138,7 +138,7 @@ class TransactionExpirationQueueConsumer(
             Mono.just(tx)
           }
         }
-        .filter {
+        .filterWhen {
           val refundableCheckRequired = isRefundableCheckRequired(it)
           val refundable = isTransactionRefundable(it)
           val refundableWithoutCheck = refundable && !refundableCheckRequired
@@ -161,9 +161,10 @@ class TransactionExpirationQueueConsumer(
                   errorCategory =
                     DeadLetterTracedQueueAsyncClient.ErrorCategory.REFUND_MANUAL_CHECK_REQUIRED),
               )
-              .thenReturn(true)
+              .map { false }
+          } else {
+            Mono.just(refundableWithoutCheck)
           }
-          refundableWithoutCheck
         }
         .flatMap {
           updateTransactionToRefundRequested(

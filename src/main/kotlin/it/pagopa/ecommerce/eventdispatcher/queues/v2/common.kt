@@ -609,3 +609,12 @@ fun <T> timeLeftForSendPaymentResult(
     Mono.empty()
   }
 }
+
+fun isRefundableCheckRequired(tx: BaseTransaction): Boolean =
+  when (tx) {
+    is BaseTransactionExpired ->
+      tx.transactionExpiredData.statusBeforeExpiration ==
+        TransactionStatusDto.AUTHORIZATION_COMPLETED &&
+        isRefundableCheckRequired(tx.transactionAtPreviousState)
+    else -> tx.status == TransactionStatusDto.AUTHORIZATION_COMPLETED && !wasAuthorizationDenied(tx)
+  }
