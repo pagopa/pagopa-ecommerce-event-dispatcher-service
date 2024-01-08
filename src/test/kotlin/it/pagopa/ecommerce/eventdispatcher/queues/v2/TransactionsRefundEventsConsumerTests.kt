@@ -614,7 +614,7 @@ class TransactionsRefundEventsConsumerTests {
   @MethodSource("vposStatusesToEnqueueRetryEventMapping")
   fun `consumer should handle response from PGS status correctly (vpos)`(
     pgsStatus: VposDeleteResponseDto.StatusEnum,
-    shouldWriteErrorEvent: Boolean,
+    shouldWriteRetryEvent: Boolean,
     expectedWrittenEventStatus: TransactionEventCode
   ) = runTest {
     val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
@@ -679,7 +679,7 @@ class TransactionsRefundEventsConsumerTests {
     verify(
         refundRetryService,
         times(
-          if (shouldWriteErrorEvent) {
+          if (shouldWriteRetryEvent) {
             1
           } else {
             0
@@ -695,7 +695,7 @@ class TransactionsRefundEventsConsumerTests {
   @MethodSource("xpayStatusesToEnqueueRetryEventMapping")
   fun `consumer should handle response from PGS status correctly (xpay)`(
     pgsStatus: XPayRefundResponse200Dto.StatusEnum,
-    shouldWriteErrorEvent: Boolean,
+    shouldWriteRetryEvent: Boolean,
     expectedWrittenEventStatus: TransactionEventCode
   ) = runTest {
     val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
@@ -761,7 +761,7 @@ class TransactionsRefundEventsConsumerTests {
     verify(
         refundRetryService,
         times(
-          if (shouldWriteErrorEvent) {
+          if (shouldWriteRetryEvent) {
             1
           } else {
             0
