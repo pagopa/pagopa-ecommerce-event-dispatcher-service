@@ -40,6 +40,7 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import org.mockito.ArgumentCaptor
 import org.mockito.Captor
@@ -97,13 +98,46 @@ class TransactionsRefundEventsConsumerTests {
 
   companion object {
     @JvmStatic
-    private fun vposStatusToRefundError() =
-      Stream.of(VposDeleteResponseDto.StatusEnum.DENIED, VposDeleteResponseDto.StatusEnum.CREATED)
+    private fun vposStatusesToEnqueueRetryEventMapping() =
+      Stream.of(
+        Arguments.of(
+          VposDeleteResponseDto.StatusEnum.AUTHORIZED,
+          true,
+          TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT),
+        Arguments.of(
+          VposDeleteResponseDto.StatusEnum.CREATED,
+          true,
+          TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT),
+        Arguments.of(
+          VposDeleteResponseDto.StatusEnum.CANCELLED,
+          false,
+          TransactionEventCode.TRANSACTION_REFUNDED_EVENT),
+        Arguments.of(
+          VposDeleteResponseDto.StatusEnum.DENIED,
+          false,
+          TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT),
+      )
 
     @JvmStatic
-    private fun xpayStatusToRefundError() =
+    private fun xpayStatusesToEnqueueRetryEventMapping() =
       Stream.of(
-        XPayRefundResponse200Dto.StatusEnum.DENIED, XPayRefundResponse200Dto.StatusEnum.CREATED)
+        Arguments.of(
+          XPayRefundResponse200Dto.StatusEnum.AUTHORIZED,
+          true,
+          TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT),
+        Arguments.of(
+          XPayRefundResponse200Dto.StatusEnum.CREATED,
+          true,
+          TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT),
+        Arguments.of(
+          XPayRefundResponse200Dto.StatusEnum.CANCELLED,
+          false,
+          TransactionEventCode.TRANSACTION_REFUNDED_EVENT),
+        Arguments.of(
+          XPayRefundResponse200Dto.StatusEnum.DENIED,
+          false,
+          TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT),
+      )
   }
 
   @Test
@@ -577,9 +611,11 @@ class TransactionsRefundEventsConsumerTests {
   }
 
   @ParameterizedTest
-  @MethodSource("vposStatusToRefundError")
-  fun `consumer does not enqueue refund retry event for DENIED or CREATED response from PGS (vpos)`(
-    errorStatus: VposDeleteResponseDto.StatusEnum
+  @MethodSource("vposStatusesToEnqueueRetryEventMapping")
+  fun `consumer should handle response from PGS status correctly (vpos)`(
+    pgsStatus: VposDeleteResponseDto.StatusEnum,
+    shouldWriteRetryEvent: Boolean,
+    expectedWrittenEventStatus: TransactionEventCode
   ) = runTest {
     val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
     val authorizationRequestEvent =
@@ -595,7 +631,7 @@ class TransactionsRefundEventsConsumerTests {
         TRANSACTION_ID, TransactionRefundedData(TransactionStatusDto.REFUND_REQUESTED))
         as TransactionEvent<Any>
 
-    val gatewayClientResponse = VposDeleteResponseDto().apply { status = errorStatus }
+    val gatewayClientResponse = VposDeleteResponseDto().apply { status = pgsStatus }
 
     val events =
       listOf(
@@ -640,19 +676,27 @@ class TransactionsRefundEventsConsumerTests {
       .requestVPosRefund(
         UUID.fromString(transaction.transactionAuthorizationRequestData.authorizationRequestId))
     verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
-    verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
+    verify(
+        refundRetryService,
+        times(
+          if (shouldWriteRetryEvent) {
+            1
+          } else {
+            0
+          }))
+      .enqueueRetryEvent(any(), any(), any())
 
     val storedEvent = refundEventStoreCaptor.value
-    assertEquals(
-      TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT,
-      TransactionEventCode.valueOf(storedEvent.eventCode))
+    assertEquals(expectedWrittenEventStatus, TransactionEventCode.valueOf(storedEvent.eventCode))
     assertEquals(TransactionStatusDto.REFUND_REQUESTED, storedEvent.data.statusBeforeRefunded)
   }
 
   @ParameterizedTest
-  @MethodSource("xpayStatusToRefundError")
-  fun `consumer does not enqueue refund retry event for DENIED or CREATED response from PGS (xpay)`(
-    errorStatus: XPayRefundResponse200Dto.StatusEnum
+  @MethodSource("xpayStatusesToEnqueueRetryEventMapping")
+  fun `consumer should handle response from PGS status correctly (xpay)`(
+    pgsStatus: XPayRefundResponse200Dto.StatusEnum,
+    shouldWriteRetryEvent: Boolean,
+    expectedWrittenEventStatus: TransactionEventCode
   ) = runTest {
     val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
     val authorizationRequestEvent =
@@ -670,7 +714,7 @@ class TransactionsRefundEventsConsumerTests {
         TRANSACTION_ID, TransactionRefundedData(TransactionStatusDto.REFUND_REQUESTED))
         as TransactionEvent<Any>
 
-    val gatewayClientResponse = XPayRefundResponse200Dto().apply { status = errorStatus }
+    val gatewayClientResponse = XPayRefundResponse200Dto().apply { status = pgsStatus }
 
     val events =
       listOf(
@@ -714,12 +758,18 @@ class TransactionsRefundEventsConsumerTests {
       .requestXPayRefund(
         UUID.fromString(transaction.transactionAuthorizationRequestData.authorizationRequestId))
     verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
-    verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
+    verify(
+        refundRetryService,
+        times(
+          if (shouldWriteRetryEvent) {
+            1
+          } else {
+            0
+          }))
+      .enqueueRetryEvent(any(), any(), any())
 
     val storedEvent = refundEventStoreCaptor.value
-    assertEquals(
-      TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT,
-      TransactionEventCode.valueOf(storedEvent.eventCode))
+    assertEquals(expectedWrittenEventStatus, TransactionEventCode.valueOf(storedEvent.eventCode))
     assertEquals(TransactionStatusDto.REFUND_REQUESTED, storedEvent.data.statusBeforeRefunded)
   }
 
