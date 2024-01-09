@@ -11,6 +11,7 @@ import org.springframework.messaging.MessageHeaders
 import org.springframework.messaging.support.GenericMessage
 import org.springframework.messaging.support.MessageBuilder
 import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RestController
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -22,7 +23,7 @@ class CommandController(
   @Autowired @Qualifier("controlBusOutCH") private val controlBusOutput: QueueChannel
 ) {
 
-  @GetMapping("getActiveChannels")
+  @GetMapping("channels")
   fun getAllInboundChannels(): Mono<ResponseEntity<ChannelsStatusResponse>> {
     return Flux.fromIterable(
         applicationContext.getBeansWithAnnotation(InboundChannelAdapter::class.java).keys)
@@ -31,19 +32,28 @@ class CommandController(
       .map { ResponseEntity.ok().body(ChannelsStatusResponse(it)) }
   }
 
-  @GetMapping("shutdownAll")
+  @PostMapping("channels/stop")
   fun shutdownAll(): Mono<ResponseEntity<Unit>> {
     return Flux.fromIterable(
         applicationContext.getBeansWithAnnotation(InboundChannelAdapter::class.java).keys)
       .collectList()
-      .map { stopAllChannels(it) }
+      .map { invokeCommandsForAllEndpoints(it, "stop") }
       .map { ResponseEntity.ok(Unit) }
   }
 
-  fun stopAllChannels(channels: List<String>) {
+  @PostMapping("channels/start")
+  fun startAll(): Mono<ResponseEntity<Unit>> {
+    return Flux.fromIterable(
+        applicationContext.getBeansWithAnnotation(InboundChannelAdapter::class.java).keys)
+      .collectList()
+      .map { invokeCommandsForAllEndpoints(it, "start") }
+      .map { ResponseEntity.ok(Unit) }
+  }
+
+  fun invokeCommandsForAllEndpoints(channels: List<String>, command: String) {
     channels.forEach {
       val controllerBusMessage =
-        MessageBuilder.createMessage("@${it}Endpoint.stop()", MessageHeaders(mapOf()))
+        MessageBuilder.createMessage("@${it}Endpoint.$command()", MessageHeaders(mapOf()))
       controlBusInput.send(controllerBusMessage)
     }
   }
