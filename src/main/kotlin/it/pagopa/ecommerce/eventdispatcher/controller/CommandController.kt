@@ -37,7 +37,7 @@ class CommandController(
     return Flux.fromIterable(
         applicationContext.getBeansWithAnnotation(InboundChannelAdapter::class.java).keys)
       .collectList()
-      .map { invokeCommandsForAllEndpoints(it, "stop") }
+      .map { invokeCommandForAllEndpoints(it, "stop") }
       .map { ResponseEntity.ok(Unit) }
   }
 
@@ -46,11 +46,11 @@ class CommandController(
     return Flux.fromIterable(
         applicationContext.getBeansWithAnnotation(InboundChannelAdapter::class.java).keys)
       .collectList()
-      .map { invokeCommandsForAllEndpoints(it, "start") }
+      .map { invokeCommandForAllEndpoints(it, "start") }
       .map { ResponseEntity.ok(Unit) }
   }
 
-  fun invokeCommandsForAllEndpoints(channels: List<String>, command: String) {
+  fun invokeCommandForAllEndpoints(channels: List<String>, command: String) {
     channels.forEach {
       val controllerBusMessage =
         MessageBuilder.createMessage("@${it}Endpoint.$command()", MessageHeaders(mapOf()))
