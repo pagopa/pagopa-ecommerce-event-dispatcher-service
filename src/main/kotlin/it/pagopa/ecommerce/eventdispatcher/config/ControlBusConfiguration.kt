@@ -16,7 +16,7 @@ class ControlBusConfiguration {
   @Bean
   @Qualifier("controlBusOutCH")
   fun controlBusOutputChannel(): QueueChannel {
-    return QueueChannel()
+    return QueueChannel(10)
   }
 
   @Bean

@@ -89,6 +89,7 @@ class QueuesConsumerConfig {
     @Value("\${azurestorage.queues.transactionnotificationretry.name}")
     queueNameClosureEvents: String
   ): StorageQueueMessageSource {
+
     return StorageQueueMessageSource(queueNameClosureEvents, storageQueueTemplate)
   }
 
