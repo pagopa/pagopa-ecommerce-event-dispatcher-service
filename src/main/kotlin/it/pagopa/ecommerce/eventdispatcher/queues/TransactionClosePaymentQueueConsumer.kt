@@ -4,6 +4,7 @@ import com.azure.core.util.BinaryData
 import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
+import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.documents.BaseTransactionEvent
 import it.pagopa.ecommerce.commons.documents.v1.TransactionUserCanceledEvent as TransactionUserCanceledEventV1
 import it.pagopa.ecommerce.commons.documents.v2.TransactionUserCanceledEvent as TransactionUserCanceledEventV2
@@ -85,7 +86,7 @@ class TransactionClosePaymentQueueConsumer(
           }
           is TransactionUserCanceledEventV2 -> {
             logger.debug("Event {} with tracing info {} dispatched to V2 handler", e, tracingInfo)
-            queueConsumerV2.messageReceiver(QueueEvent(e, tracingInfo), checkPointer)
+            queueConsumerV2.messageReceiver(Either.left(QueueEvent(e, tracingInfo)), checkPointer)
           }
           else -> {
             logger.error(
