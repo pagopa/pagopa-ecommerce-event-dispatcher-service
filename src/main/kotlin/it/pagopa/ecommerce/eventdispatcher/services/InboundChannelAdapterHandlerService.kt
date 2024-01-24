@@ -1,5 +1,7 @@
 package it.pagopa.ecommerce.eventdispatcher.services
 
+import it.pagopa.ecommerce.eventdispatcher.config.redis.bean.ReceiverStatus
+import it.pagopa.ecommerce.eventdispatcher.config.redis.bean.Status
 import it.pagopa.ecommerce.eventdispatcher.config.redis.stream.RedisStreamMessageSource
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Qualifier
@@ -40,7 +42,7 @@ class InboundChannelAdapterHandlerService(
    * Retrieve channel status querying the isRunning() method result sending a message to the SpEL
    * control bus input channel
    */
-  fun getChannelStatus(channelName: String): ChannelStatus {
+  fun getChannelStatus(channelName: String): ReceiverStatus {
     val controllerBusMessage =
       GenericMessage("@${channelName}Endpoint.isRunning()", MessageHeaders(mapOf()))
     controlBusInput.send(controllerBusMessage)
@@ -55,7 +57,7 @@ class InboundChannelAdapterHandlerService(
       } else {
         Status.UNKNOWN
       }
-    return ChannelStatus(channelName = channelName, status = status)
+    return ReceiverStatus(name = channelName, status = status)
   }
 
   /** Retrieve all InboundChannelAdapter on which perform commands */
@@ -64,14 +66,4 @@ class InboundChannelAdapterHandlerService(
       .getBeansWithAnnotation(InboundChannelAdapter::class.java)
       .filterNot { it.value is RedisStreamMessageSource }
       .keys
-
-  /** Data class representing channel status */
-  data class ChannelStatus(val channelName: String, val status: Status)
-
-  /** Enumeration of all possible channel statuses */
-  enum class Status {
-    UP,
-    DOWN,
-    UNKNOWN
-  }
 }

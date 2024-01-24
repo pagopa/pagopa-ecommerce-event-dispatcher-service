@@ -5,6 +5,7 @@ import com.azure.spring.messaging.checkpoint.Checkpointer
 import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.PgsTransactionGatewayAuthorizationData
+import it.pagopa.ecommerce.commons.documents.v2.authorization.RedirectTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.TransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
@@ -387,6 +388,7 @@ fun getGatewayAuthorizationOutcome(
       }
     }
     is PgsTransactionGatewayAuthorizationData -> gatewayAuthorizationData.authorizationResultDto
+    is RedirectTransactionGatewayAuthorizationData -> TODO()
   }
 }
 

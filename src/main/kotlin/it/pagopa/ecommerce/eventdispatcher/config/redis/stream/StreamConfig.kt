@@ -1,6 +1,8 @@
 package it.pagopa.ecommerce.eventdispatcher.config.redis.stream
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import it.pagopa.ecommerce.eventdispatcher.config.RedisStreamEventControllerConfig
+import it.pagopa.ecommerce.eventdispatcher.config.redis.EventDispatcherCommandsTemplateWrapper
 import it.pagopa.ecommerce.eventdispatcher.redis.streams.commands.EventDispatcherCommandMixin
 import it.pagopa.ecommerce.eventdispatcher.redis.streams.commands.EventDispatcherGenericCommand
 import java.time.Duration
@@ -50,6 +52,12 @@ class StreamConfig {
     channel = "eventDispatcherReceiverCommandChannel",
     poller = [Poller(fixedDelay = "1000", maxMessagesPerPoll = "1")])
   fun eventDispatcherReceiverCommandMessageSource(
-    redisStreamMessageSource: RedisStreamMessageSource
-  ): RedisStreamMessageSource = redisStreamMessageSource
+    redisStreamReceiver: StreamReceiver<String, ObjectRecord<String, LinkedHashMap<*, *>>>,
+    eventDispatcherCommandsTemplateWrapper: EventDispatcherCommandsTemplateWrapper,
+    redisStreamConf: RedisStreamEventControllerConfig
+  ): RedisStreamMessageSource =
+    RedisStreamMessageSource(
+      redisStreamReceiver = redisStreamReceiver,
+      eventDispatcherCommandsTemplateWrapper = eventDispatcherCommandsTemplateWrapper,
+      redisStreamConf = redisStreamConf)
 }

@@ -3,7 +3,7 @@ package it.pagopa.ecommerce.eventdispatcher.config.redis
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import it.pagopa.ecommerce.commons.redis.templatewrappers.PaymentRequestInfoRedisTemplateWrapper
 import it.pagopa.ecommerce.commons.redis.templatewrappers.RedisTemplateWrapperBuilder
-import it.pagopa.ecommerce.eventdispatcher.config.redis.bean.ReceiverStatus
+import it.pagopa.ecommerce.eventdispatcher.config.redis.bean.ReceiversStatus
 import it.pagopa.ecommerce.eventdispatcher.redis.streams.commands.EventDispatcherReceiverCommand
 import java.time.Duration
 import org.springframework.context.annotation.Bean
@@ -41,9 +41,9 @@ class RedisConfig {
   fun eventDispatcherReceiverStatusTemplateWrapper(
     redisConnectionFactory: RedisConnectionFactory
   ): EventDispatcherReceiverStatusTemplateWrapper {
-    val jacksonSerializer = Jackson2JsonRedisSerializer(ReceiverStatus::class.java)
+    val jacksonSerializer = Jackson2JsonRedisSerializer(ReceiversStatus::class.java)
     jacksonSerializer.setObjectMapper(jacksonObjectMapper())
-    val redisTemplate = RedisTemplate<String, ReceiverStatus>()
+    val redisTemplate = RedisTemplate<String, ReceiversStatus>()
     redisTemplate.setConnectionFactory(redisConnectionFactory)
     redisTemplate.keySerializer = StringRedisSerializer()
     redisTemplate.valueSerializer = jacksonSerializer
