@@ -8,6 +8,10 @@ import org.springframework.messaging.Message
 import org.springframework.messaging.handler.annotation.Payload
 import org.springframework.stereotype.Service
 
+/**
+ * Redis Stream event consumer. This class handles all Redis Stream events performing requested
+ * operation based on input event type
+ */
 @Service
 class RedisStreamConsumer() {
 

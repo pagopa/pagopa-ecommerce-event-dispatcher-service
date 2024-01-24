@@ -15,6 +15,10 @@ import org.springframework.data.redis.stream.StreamReceiver
 import org.springframework.integration.annotation.InboundChannelAdapter
 import org.springframework.integration.annotation.Poller
 
+/**
+ * Redis stream configuration class. This class contains all Redis Stream integration specific
+ * configurations
+ */
 @Configuration
 class StreamConfig {
 
@@ -37,6 +41,10 @@ class StreamConfig {
     return StreamReceiver.create(reactiveRedisConnectionFactory, streamReceiverOptions)
   }
 
+  /**
+   * InboundChannelAdapter has only method scope, used this producer method to bound custom
+   * RedisStreamMessageSource to inbound channel adapter
+   */
   @Bean
   @InboundChannelAdapter(
     channel = "eventDispatcherReceiverCommandChannel",

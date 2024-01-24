@@ -5,6 +5,7 @@ import it.pagopa.ecommerce.eventdispatcher.redis.streams.commands.EventDispatche
 import java.time.Duration
 import org.springframework.data.redis.core.RedisTemplate
 
+/** Redis command template wrapper, used to write events to Redis stream */
 class EventDispatcherCommandsTemplateWrapper(
   redisTemplateWrapper: RedisTemplate<String, EventDispatcherReceiverCommand>,
   keyspace: String,

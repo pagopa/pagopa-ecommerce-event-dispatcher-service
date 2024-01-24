@@ -18,6 +18,19 @@ import org.springframework.messaging.MessageHeaders
 import org.springframework.messaging.support.GenericMessage
 import org.springframework.stereotype.Component
 
+/**
+ * Redis Stream message source implementation. This class serves as message source for
+ * InboundChannelAdapter integration: one event per time is retrieved from Redis Stream and acked
+ * automatically. This class generate also a unique consumer group using input consumer group and
+ * name prefixes adding a random string, generating a unique consumer group each time this class is
+ * created. Finally this class takes into account also consumer group deletion before destroy, in
+ * order to clear allocated consumer group. Each parsed Redis Stream event is packaged into a
+ * Message where payload is the parsed event adding some custom headers to the message:
+ * - REDIS_EVENT_ID: valued with the read Redis event unique event identifier
+ * - REDIS_EVENT_TIMESTAMP: valued with the Redis event write timestamp
+ * - REDIS_EVENT_STREAM_KEY: values with the Redis event stream key from which this event have been
+ * retrieved
+ */
 @Component
 class RedisStreamMessageSource(
   @Autowired
