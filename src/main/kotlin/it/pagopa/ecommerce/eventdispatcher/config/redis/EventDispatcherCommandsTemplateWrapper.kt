@@ -1,4 +1,4 @@
-package it.pagopa.ecommerce.eventdispatcher.config.redis.stream
+package it.pagopa.ecommerce.eventdispatcher.config.redis
 
 import it.pagopa.ecommerce.commons.redis.templatewrappers.RedisTemplateWrapper
 import it.pagopa.ecommerce.eventdispatcher.redis.streams.commands.EventDispatcherReceiverCommand

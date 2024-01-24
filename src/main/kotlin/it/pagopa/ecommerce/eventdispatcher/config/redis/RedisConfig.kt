@@ -1,14 +1,16 @@
 package it.pagopa.ecommerce.eventdispatcher.config.redis
 
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import it.pagopa.ecommerce.commons.redis.templatewrappers.PaymentRequestInfoRedisTemplateWrapper
 import it.pagopa.ecommerce.commons.redis.templatewrappers.RedisTemplateWrapperBuilder
-import it.pagopa.ecommerce.eventdispatcher.config.redis.stream.EventDispatcherCommandsTemplateWrapper
+import it.pagopa.ecommerce.eventdispatcher.config.redis.bean.ReceiverStatus
 import it.pagopa.ecommerce.eventdispatcher.redis.streams.commands.EventDispatcherReceiverCommand
 import java.time.Duration
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.data.redis.connection.RedisConnectionFactory
 import org.springframework.data.redis.core.RedisTemplate
+import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer
 import org.springframework.data.redis.serializer.StringRedisSerializer
 
 /** Redis templates wrapper configuration */
@@ -33,5 +35,19 @@ class RedisConfig {
     redisTemplate.setDefaultSerializer(StringRedisSerializer())
     redisTemplate.afterPropertiesSet()
     return EventDispatcherCommandsTemplateWrapper(redisTemplate, "eventDispatcher", Duration.ZERO)
+  }
+
+  @Bean
+  fun eventDispatcherReceiverStatusTemplateWrapper(
+    redisConnectionFactory: RedisConnectionFactory
+  ): EventDispatcherReceiverStatusTemplateWrapper {
+    val jacksonSerializer = Jackson2JsonRedisSerializer(ReceiverStatus::class.java)
+    jacksonSerializer.setObjectMapper(jacksonObjectMapper())
+    val redisTemplate = RedisTemplate<String, ReceiverStatus>()
+    redisTemplate.setConnectionFactory(redisConnectionFactory)
+    redisTemplate.keySerializer = StringRedisSerializer()
+    redisTemplate.valueSerializer = jacksonSerializer
+    redisTemplate.afterPropertiesSet()
+    return EventDispatcherReceiverStatusTemplateWrapper(redisTemplate, Duration.ZERO)
   }
 }
