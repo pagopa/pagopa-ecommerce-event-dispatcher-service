@@ -41,8 +41,17 @@ class RedisStreamMessageSource(
       .addMixIn(EventDispatcherGenericCommand::class.java, EventDispatcherCommandMixin::class.java)
 
   init {
-    eventDispatcherCommandsTemplateWrapper.createGroup(
-      redisStreamConf.streamKey, redisStreamConf.consumerGroup)
+    runCatching {
+        eventDispatcherCommandsTemplateWrapper.createGroup(
+          redisStreamConf.streamKey, redisStreamConf.consumerGroup)
+      }
+      .onFailure {
+        RedisStreamMessageSourceLogger.logger.error("Error creating consumer group", it)
+      }
+      .onSuccess {
+        RedisStreamMessageSourceLogger.logger.info(
+          "Consumer group created successfully for stream [${redisStreamConf.streamKey}] and group id: [${redisStreamConf.consumerGroup}]")
+      }
   }
 
   override fun getComponentType(): String = "redis-stream:message-source"
