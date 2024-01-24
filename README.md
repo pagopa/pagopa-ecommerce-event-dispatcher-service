@@ -65,6 +65,10 @@ These are all environment variables needed by the application:
 | NPG_API_KEY                                                  | NPG service api-key                                                                                                                                                                                                                                                | string  |               |
 | NPG_CARDS_PSP_KEYS                                           | Secret structure that holds psp - api keys association for authorization request                                                                                                                                                                                   | string  |               |
 | NPG_CARDS_PSP_LIST                                           | List of all psp ids that are expected to be found into the NPG_CARDS_PSP_KEYS configuration (used for configuration cross validation)                                                                                                                              | string  |               |
+| REDIS_STREAM_EVENT_CONTROLLER_STREAM_KEY                     | Redis stream streaming key where event receiver controller commands will be write/read                                                                                                                                                                             | string  |               |
+| REDIS_STREAM_EVENT_CONTROLLER_CONSUMER_GROUP_PREFIX          | Redis event receiver controller commands stream consumer group                                                                                                                                                                                                     | string  |               |
+| REDIS_STREAM_EVENT_CONTROLLER_CONSUMER_NAME_PREFIX           | Redis event receiver controller commands stream consumer name                                                                                                                                                                                                      | string  |               |
+| EVENT_CONTROLLER__STATUS_POLLING_CHRON                       | Chron used to scheduler event receivers status polling                                                                                                                                                                                                             | string  |               |
 
 An example configuration of these environment variables is in the `.env.example` file.
 
@@ -155,8 +159,8 @@ This span has the following fields:
 |--------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------|-----------|
 | deadLetterEvent.serviceName          | Constant value `pagopa-ecommerce-event-dispatcher-service`, used to uniquely identify this microservice as event writer                | ✅         |
 | deadLetterEvent.category             | Enumeration of all possible errors that can make an event to be written to dead letter (see [Error category section](#Error-category)) | ✅         |
-| deadLetterEvent.transactionId        | Transaction id of the input event (if the input event is parsable)                                                                               | ❌         |
-| deadLetterEvent.transactionEventCode | Transaction event code of the input event (if the input event is parsable)                                                                       | ❌         |
+| deadLetterEvent.transactionId        | Transaction id of the input event (if the input event is parsable)                                                                     | ❌         |
+| deadLetterEvent.transactionEventCode | Transaction event code of the input event (if the input event is parsable)                                                             | ❌         |
 
 #### Error category
 

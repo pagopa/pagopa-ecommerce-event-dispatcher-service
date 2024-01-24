@@ -116,10 +116,10 @@ microservice-chart:
     ECS_SERVICE_NAME: pagopa-ecommerce-event-dispatcher-service
     ECS_SERVICE_ENVIRONMENT: dev
     NPG_CARDS_PSP_LIST: "BCITITMM,CIPBITMM,BIC36019,UNCRITMM"
-    REDIS_STREAM_STREAM_KEY: "event-dispatcher-commands"
-    REDIS_STREAM_CONSUMER_GROUP_PREFIX: "event-dispatcher"
-    REDIS_STREAM_CONSUMER_NAME_PREFIX: "event-dispatcher"
-    EVENT_RECEIVER_STATUS_POLLING_CHRON: "*/10 * * * * *"
+    REDIS_STREAM_EVENT_CONTROLLER_STREAM_KEY: "event-dispatcher-commands"
+    REDIS_STREAM_EVENT_CONTROLLER_CONSUMER_GROUP_PREFIX: "event-dispatcher"
+    REDIS_STREAM_EVENT_CONTROLLER_CONSUMER_NAME_PREFIX: "event-dispatcher"
+    EVENT_CONTROLLER__STATUS_POLLING_CHRON: "*/10 * * * * *"
   envSecret:
     ECOMMERCE_STORAGE_TRANSIENT_QUEUE_KEY: ecommerce-storage-transient-account-key
     MONGO_PASSWORD: mongo-ecommerce-password
