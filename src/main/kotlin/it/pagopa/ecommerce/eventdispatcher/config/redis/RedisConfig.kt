@@ -48,6 +48,6 @@ class RedisConfig {
     redisTemplate.keySerializer = StringRedisSerializer()
     redisTemplate.valueSerializer = jacksonSerializer
     redisTemplate.afterPropertiesSet()
-    return EventDispatcherReceiverStatusTemplateWrapper(redisTemplate, Duration.ZERO)
+    return EventDispatcherReceiverStatusTemplateWrapper(redisTemplate, Duration.ofMinutes(1))
   }
 }

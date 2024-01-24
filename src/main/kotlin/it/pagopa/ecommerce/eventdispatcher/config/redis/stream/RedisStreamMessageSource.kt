@@ -6,6 +6,7 @@ import it.pagopa.ecommerce.eventdispatcher.config.RedisStreamEventControllerConf
 import it.pagopa.ecommerce.eventdispatcher.config.redis.EventDispatcherCommandsTemplateWrapper
 import it.pagopa.ecommerce.eventdispatcher.redis.streams.commands.EventDispatcherCommandMixin
 import it.pagopa.ecommerce.eventdispatcher.redis.streams.commands.EventDispatcherGenericCommand
+import java.time.Duration
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.data.redis.connection.stream.Consumer
@@ -67,10 +68,23 @@ class RedisStreamMessageSource(
                     REDIS_EVENT_STREAM_KEY to it.stream))
               GenericMessage(parsedEvent, messageHeaders)
             }
-            .blockFirst()
+            /*
+             * block at most 500 millis to retrieve events from event stream.
+             * this timeout is to be intended for a single stream read operation
+             * and has been set in order to
+             */
+            .blockFirst(Duration.ofMillis(500))
         }
         .onFailure {
-          RedisStreamMessageSourceLogger.logger.error("Exception receiving Redis Stream event", it)
+          /*
+           * this exception is thrown when no event can be retrieved before timeout expiration
+           * and has been skipped from logged exceptions since this will happen at each event retrieval
+           * polling execution
+           */
+          if (it !is IllegalStateException) {
+            RedisStreamMessageSourceLogger.logger.error(
+              "Exception receiving Redis Stream event", it)
+          }
         }
     return message.getOrNull()
   }

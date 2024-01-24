@@ -2,7 +2,9 @@ package it.pagopa.ecommerce.eventdispatcher.redis.streams
 
 import it.pagopa.ecommerce.eventdispatcher.redis.streams.commands.EventDispatcherGenericCommand
 import it.pagopa.ecommerce.eventdispatcher.redis.streams.commands.EventDispatcherReceiverCommand
+import it.pagopa.ecommerce.eventdispatcher.services.InboundChannelAdapterHandlerService
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.integration.annotation.ServiceActivator
 import org.springframework.messaging.Message
 import org.springframework.messaging.handler.annotation.Payload
@@ -13,7 +15,9 @@ import org.springframework.stereotype.Service
  * operation based on input event type
  */
 @Service
-class RedisStreamConsumer() {
+class RedisStreamConsumer(
+  @Autowired private val inboundChannelAdapterHandlerService: InboundChannelAdapterHandlerService
+) {
 
   private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -21,10 +25,15 @@ class RedisStreamConsumer() {
     inputChannel = "eventDispatcherReceiverCommandChannel", outputChannel = "nullChannel")
   fun readStreamEvent(@Payload message: Message<EventDispatcherGenericCommand>) {
     logger.info("Received event: {}", message)
-    when (val command = message.payload) {
-      is EventDispatcherReceiverCommand ->
-        println("RECEIVED receiver command with input command ${command.receiverCommand}")
-      else -> println("Unmanaged command of type: ${command.javaClass}")
-    }
+    val commandToSend =
+      when (val command = message.payload) {
+        is EventDispatcherReceiverCommand ->
+          when (command.receiverCommand) {
+            EventDispatcherReceiverCommand.ReceiverCommand.START -> "start"
+            EventDispatcherReceiverCommand.ReceiverCommand.STOP -> "stop"
+          }
+        else -> throw RuntimeException("Unhandled command received: $command")
+      }
+    inboundChannelAdapterHandlerService.invokeCommandForAllEndpoints(commandToSend)
   }
 }

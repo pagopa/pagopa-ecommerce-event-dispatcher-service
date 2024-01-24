@@ -4,16 +4,13 @@ import it.pagopa.ecommerce.eventdispatcher.config.RedisStreamEventControllerConf
 import it.pagopa.ecommerce.eventdispatcher.config.redis.EventDispatcherReceiverStatusTemplateWrapper
 import it.pagopa.ecommerce.eventdispatcher.config.redis.bean.ReceiversStatus
 import java.time.OffsetDateTime
+import javax.annotation.PostConstruct
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.scheduling.annotation.Scheduled
-import org.springframework.stereotype.Service
+import org.springframework.stereotype.Component
 
-/**
- * Event receiver status poller class. This class queries receiver statuses and update receiver
- * status
- */
-@Service
+@Component
 class EventReceiverStatusPoller(
   @Autowired
   private val eventDispatcherReceiverStatusTemplateWrapper:
@@ -23,6 +20,11 @@ class EventReceiverStatusPoller(
 ) {
 
   private val logger = LoggerFactory.getLogger(javaClass)
+
+  @PostConstruct
+  fun postConstruct() {
+    logger.info("POLLER INITIALIZED")
+  }
 
   @Scheduled(cron = "\${eventController.status.pollingChron}")
   fun eventReceiverStatusPoller() {

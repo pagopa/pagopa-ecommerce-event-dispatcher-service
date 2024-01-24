@@ -69,7 +69,7 @@ microservice-chart:
       REDIS_STREAM_EVENT_CONTROLLER_STREAM_KEY: "event-dispatcher-commands"
       REDIS_STREAM_EVENT_CONTROLLER_CONSUMER_GROUP_PREFIX: "event-dispatcher"
       REDIS_STREAM_EVENT_CONTROLLER_CONSUMER_NAME_PREFIX: "event-dispatcher"
-      EVENT_CONTROLLER__STATUS_POLLING_CHRON: "*/10 * * * * *"
+      EVENT_CONTROLLER_STATUS_POLLING_CHRON: "*/10 * * * * *"
     envSecret:
       ECOMMERCE_STORAGE_TRANSIENT_QUEUE_KEY: ecommerce-storage-transient-account-key
       MONGO_PASSWORD: mongo-ecommerce-password
@@ -193,7 +193,7 @@ microservice-chart:
     REDIS_STREAM_EVENT_CONTROLLER_STREAM_KEY: "event-dispatcher-commands"
     REDIS_STREAM_EVENT_CONTROLLER_CONSUMER_GROUP_PREFIX: "event-dispatcher"
     REDIS_STREAM_EVENT_CONTROLLER_CONSUMER_NAME_PREFIX: "event-dispatcher"
-    EVENT_CONTROLLER__STATUS_POLLING_CHRON: "*/10 * * * * *"
+    EVENT_CONTROLLER_STATUS_POLLING_CHRON: "*/10 * * * * *"
   envSecret:
     ECOMMERCE_STORAGE_TRANSIENT_QUEUE_KEY: ecommerce-storage-transient-account-key
     MONGO_PASSWORD: mongo-ecommerce-password
