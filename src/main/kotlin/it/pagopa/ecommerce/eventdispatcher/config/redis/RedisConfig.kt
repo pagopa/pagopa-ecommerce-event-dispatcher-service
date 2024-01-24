@@ -34,7 +34,7 @@ class RedisConfig {
     redisTemplate.setConnectionFactory(redisConnectionFactory)
     redisTemplate.setDefaultSerializer(StringRedisSerializer())
     redisTemplate.afterPropertiesSet()
-    return EventDispatcherCommandsTemplateWrapper(redisTemplate, "eventDispatcher", Duration.ZERO)
+    return EventDispatcherCommandsTemplateWrapper(redisTemplate, Duration.ZERO)
   }
 
   @Bean

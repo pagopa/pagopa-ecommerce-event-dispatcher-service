@@ -7,12 +7,11 @@ import org.springframework.data.redis.core.RedisTemplate
 
 /** Redis command template wrapper, used to write events to Redis stream */
 class EventDispatcherCommandsTemplateWrapper(
-  redisTemplateWrapper: RedisTemplate<String, EventDispatcherReceiverCommand>,
-  keyspace: String,
+  redisTemplate: RedisTemplate<String, EventDispatcherReceiverCommand>,
   defaultEntitiesTTL: Duration
 ) :
   RedisTemplateWrapper<EventDispatcherReceiverCommand>(
-    redisTemplateWrapper, keyspace, defaultEntitiesTTL) {
+    redisTemplate, "eventDispatcher", defaultEntitiesTTL) {
   override fun getKeyFromEntity(value: EventDispatcherReceiverCommand): String =
     value.commandId.toString()
 }

@@ -21,7 +21,8 @@
 		<jacoco.version>0.8.8</jacoco.version>
 		<pagopa-ecommerce-commons.version>1.4.1</pagopa-ecommerce-commons.version>
 		<sonar.coverage.exclusions> <!-- the members of the following list should be in the same line -->
-			**/it/pagopa/transactions/**
+			**/it/pagopa/transactions/**,
+			**/it/pagopa/ecommerce/eventdispatcher/validation/**
 		</sonar.coverage.exclusions>
 		<spotless.version>2.28.0</spotless.version>
 		<mock-web-server.version>4.11.0</mock-web-server.version>

@@ -7,10 +7,8 @@ import org.springframework.data.redis.core.RedisTemplate
 
 /** Redis template wrapper used to handle event receiver statuses */
 class EventDispatcherReceiverStatusTemplateWrapper(
-  redisTemplateWrapper: RedisTemplate<String, ReceiversStatus>,
+  redisTemplate: RedisTemplate<String, ReceiversStatus>,
   defaultEntitiesTTL: Duration
-) :
-  RedisTemplateWrapper<ReceiversStatus>(
-    redisTemplateWrapper, "receiver-status", defaultEntitiesTTL) {
+) : RedisTemplateWrapper<ReceiversStatus>(redisTemplate, "receiver-status", defaultEntitiesTTL) {
   override fun getKeyFromEntity(value: ReceiversStatus): String = value.consumerInstanceId
 }
