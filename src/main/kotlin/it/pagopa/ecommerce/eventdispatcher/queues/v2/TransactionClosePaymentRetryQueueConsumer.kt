@@ -8,10 +8,7 @@ import it.pagopa.ecommerce.commons.documents.v2.authorization.PgsTransactionGate
 import it.pagopa.ecommerce.commons.documents.v2.authorization.RedirectTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v2.TransactionWithClosureError
-import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransaction
-import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithCancellationRequested
-import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithClosureError
-import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithCompletedAuthorization
+import it.pagopa.ecommerce.commons.domain.v2.pojos.*
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
@@ -241,13 +238,13 @@ class TransactionClosePaymentRetryQueueConsumer(
   private fun wasTransactionCanceledByUser(
     transactionAtPreviousState:
       Optional<
-        Either<BaseTransactionWithCancellationRequested, BaseTransactionWithCompletedAuthorization>>
+        Either<BaseTransactionWithCancellationRequested, BaseTransactionWithClosureRequested>>
   ): Boolean = transactionAtPreviousState.map { it.isLeft }.orElse(false)
 
   private fun wasTransactionAuthorized(
     transactionAtPreviousState:
       Optional<
-        Either<BaseTransactionWithCancellationRequested, BaseTransactionWithCompletedAuthorization>>
+        Either<BaseTransactionWithCancellationRequested, BaseTransactionWithClosureRequested>>
   ): Boolean =
     transactionAtPreviousState
       .map {
@@ -270,7 +267,7 @@ class TransactionClosePaymentRetryQueueConsumer(
   private fun getBaseTransactionWithCompletedAuthorization(
     transactionAtPreviousState:
       Optional<
-        Either<BaseTransactionWithCancellationRequested, BaseTransactionWithCompletedAuthorization>>
+        Either<BaseTransactionWithCancellationRequested, BaseTransactionWithClosureRequested>>
   ): Optional<BaseTransactionWithCompletedAuthorization> =
     transactionAtPreviousState.flatMap { either ->
       either.fold({ Optional.empty() }, { Optional.of(it) })
