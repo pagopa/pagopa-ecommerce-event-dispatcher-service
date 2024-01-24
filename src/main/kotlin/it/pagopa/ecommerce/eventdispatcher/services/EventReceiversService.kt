@@ -4,6 +4,7 @@ import it.pagopa.ecommerce.eventdispatcher.config.RedisStreamEventControllerConf
 import it.pagopa.ecommerce.eventdispatcher.config.redis.EventDispatcherCommandsTemplateWrapper
 import it.pagopa.ecommerce.eventdispatcher.config.redis.EventDispatcherReceiverStatusTemplateWrapper
 import it.pagopa.ecommerce.eventdispatcher.config.redis.stream.RedisStreamMessageSource
+import it.pagopa.ecommerce.eventdispatcher.exceptions.NoEventReceiverStatusFound
 import it.pagopa.ecommerce.eventdispatcher.redis.streams.commands.EventDispatcherReceiverCommand
 import it.pagopa.generated.eventdispatcher.server.model.EventReceiverCommandRequestDto
 import it.pagopa.generated.eventdispatcher.server.model.EventReceiverStatusDto
@@ -59,6 +60,9 @@ class EventReceiversService(
             },
           instanceId = receiverStatuses.consumerInstanceId)
       }
+    if (lastStatuses.isEmpty()) {
+      throw NoEventReceiverStatusFound()
+    }
     return EventReceiverStatusResponseDto(status = lastStatuses)
   }
 
