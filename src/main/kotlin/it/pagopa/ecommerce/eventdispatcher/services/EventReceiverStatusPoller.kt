@@ -9,6 +9,11 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 
+/**
+ * Poller class that taken into account receiver status polling. Statuses are polled as per
+ * eventController.status.pollingChron parameter value and results updated into Redis document
+ * uniquely identified by this module instance
+ */
 @Component
 class EventReceiverStatusPoller(
   @Autowired

@@ -8,11 +8,13 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.RestController
 
+/** Event receivers commands api controller implementation */
 @RestController
 class EventReceiversApiController(
   @Autowired private val eventReceiverService: EventReceiverService,
 ) : EventReceiversApi {
 
+  /** Handle new receiver command */
   override suspend fun newReceiverCommand(
     eventReceiverCommandRequestDto: EventReceiverCommandRequestDto
   ): ResponseEntity<Unit> {
@@ -21,6 +23,7 @@ class EventReceiversApiController(
     }
   }
 
+  /** Returns receiver statuses */
   override suspend fun retrieveReceiverStatus(): ResponseEntity<EventReceiverStatusResponseDto> {
     return eventReceiverService.getReceiversStatus().let { ResponseEntity.ok(it) }
   }

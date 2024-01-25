@@ -24,6 +24,10 @@ class ExceptionHandler {
 
   val invalidRequestDefaultMessage = "Input request is invalid."
 
+  /**
+   * Handle NoEventReceiverStatusFound custom exception mapping to a 404 Not Found ProblemJson error
+   * response
+   */
   @ExceptionHandler(NoEventReceiverStatusFound::class)
   fun handleNoEventReceiverDataFound(
     e: NoEventReceiverStatusFound
@@ -37,6 +41,9 @@ class ExceptionHandler {
           detail = "No data found for receiver statuses"))
   }
 
+  /**
+   * Handle generic uncaught exception mapping to a 500 Internal Server Error ProblemJson response
+   */
   @ExceptionHandler(RuntimeException::class)
   fun handleGenericException(e: RuntimeException): ResponseEntity<ProblemJsonDto> {
     logger.error("Exception processing request", e)
@@ -48,7 +55,9 @@ class ExceptionHandler {
           detail = "An unexpected error occurred processing the request"))
   }
 
-  /** Validation request exception handler */
+  /**
+   * Handle input request validation exceptions mapping to a 400 Bad Request ProblemJson response
+   */
   @ExceptionHandler(
     MethodArgumentNotValidException::class,
     MethodArgumentTypeMismatchException::class,

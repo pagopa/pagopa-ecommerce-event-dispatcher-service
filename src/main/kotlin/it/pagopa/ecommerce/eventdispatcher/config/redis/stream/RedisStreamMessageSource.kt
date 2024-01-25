@@ -19,6 +19,12 @@ import org.springframework.messaging.Message
 import org.springframework.messaging.MessageHeaders
 import org.springframework.messaging.support.GenericMessage
 
+/**
+ * Redis stream AbstractMessageSource implementation. This class create a consumer group (given the
+ * input redis configuration) and listen to Redis stream messages. This class serves as
+ * InboundChannelAdapter implementation in order to handle Redis Stream events with a ServiceLocator
+ * annotated bean
+ */
 class RedisStreamMessageSource(
   private val redisStreamReceiver:
     StreamReceiver<String, ObjectRecord<String, LinkedHashMap<*, *>>>,
@@ -42,6 +48,7 @@ class RedisStreamMessageSource(
 
   init {
     runCatching {
+        // Redis Stream group initialization
         eventDispatcherCommandsTemplateWrapper.createGroup(
           redisStreamConf.streamKey, redisStreamConf.consumerGroup, ReadOffset.from("0"))
       }
@@ -59,6 +66,7 @@ class RedisStreamMessageSource(
 
   override fun getComponentType(): String = "redis-stream:message-source"
 
+  /** This method retrieve a Redis Stream event, parse it and package it as a Message */
   public override fun doReceive(): Message<EventDispatcherGenericCommand>? {
     val message =
       runCatching {
