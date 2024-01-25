@@ -1,7 +1,7 @@
 package it.pagopa.ecommerce.eventdispatcher.config.redis.stream
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import it.pagopa.ecommerce.eventdispatcher.config.RedisStreamEventControllerConfig
+import it.pagopa.ecommerce.eventdispatcher.config.RedisStreamEventControllerConfigs
 import it.pagopa.ecommerce.eventdispatcher.config.redis.EventDispatcherCommandsTemplateWrapper
 import it.pagopa.ecommerce.eventdispatcher.redis.streams.commands.EventDispatcherCommandMixin
 import it.pagopa.ecommerce.eventdispatcher.redis.streams.commands.EventDispatcherGenericCommand
@@ -27,7 +27,7 @@ class StreamConfig {
   @Bean
   fun redisStreamReceiver(
     reactiveRedisConnectionFactory: ReactiveRedisConnectionFactory,
-  ): StreamReceiver<String, ObjectRecord<String, java.util.LinkedHashMap<*, *>>>? {
+  ): StreamReceiver<String, ObjectRecord<String, LinkedHashMap<*, *>>>? {
     val objectMapper =
       jacksonObjectMapper()
         .addMixIn(
@@ -35,6 +35,7 @@ class StreamConfig {
     val streamReceiverOptions =
       StreamReceiver.StreamReceiverOptions.builder()
         .pollTimeout(Duration.ofMillis(100))
+        .batchSize(1) // read one item per poll
         .keySerializer(
           RedisSerializationContext.SerializationPair.fromSerializer(StringRedisSerializer()))
         .objectMapper(Jackson2HashMapper(objectMapper, false))
@@ -54,7 +55,7 @@ class StreamConfig {
   fun eventDispatcherReceiverCommandMessageSource(
     redisStreamReceiver: StreamReceiver<String, ObjectRecord<String, LinkedHashMap<*, *>>>,
     eventDispatcherCommandsTemplateWrapper: EventDispatcherCommandsTemplateWrapper,
-    redisStreamConf: RedisStreamEventControllerConfig
+    redisStreamConf: RedisStreamEventControllerConfigs
   ): RedisStreamMessageSource =
     RedisStreamMessageSource(
       redisStreamReceiver = redisStreamReceiver,

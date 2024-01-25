@@ -10,7 +10,6 @@ import org.springframework.integration.annotation.InboundChannelAdapter
 import org.springframework.integration.channel.DirectChannel
 import org.springframework.integration.channel.QueueChannel
 import org.springframework.messaging.MessageHeaders
-import org.springframework.messaging.support.GenericMessage
 import org.springframework.messaging.support.MessageBuilder
 import org.springframework.stereotype.Service
 
@@ -44,7 +43,7 @@ class InboundChannelAdapterHandlerService(
    */
   fun getChannelStatus(channelName: String): ReceiverStatus {
     val controllerBusMessage =
-      GenericMessage("@${channelName}Endpoint.isRunning()", MessageHeaders(mapOf()))
+      MessageBuilder.createMessage("@${channelName}Endpoint.isRunning()", MessageHeaders(mapOf()))
     controlBusInput.send(controllerBusMessage)
     val responseMessage = controlBusOutput.receive(1000)
     val status =

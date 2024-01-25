@@ -1,6 +1,6 @@
 package it.pagopa.ecommerce.eventdispatcher.services
 
-import it.pagopa.ecommerce.eventdispatcher.config.RedisStreamEventControllerConfig
+import it.pagopa.ecommerce.eventdispatcher.config.RedisStreamEventControllerConfigs
 import it.pagopa.ecommerce.eventdispatcher.config.redis.EventDispatcherReceiverStatusTemplateWrapper
 import it.pagopa.ecommerce.eventdispatcher.config.redis.bean.ReceiversStatus
 import java.time.OffsetDateTime
@@ -15,7 +15,7 @@ class EventReceiverStatusPoller(
   private val eventDispatcherReceiverStatusTemplateWrapper:
     EventDispatcherReceiverStatusTemplateWrapper,
   @Autowired private val inboundChannelAdapterHandlerService: InboundChannelAdapterHandlerService,
-  @Autowired private val redisStreamEventControllerConfig: RedisStreamEventControllerConfig
+  @Autowired private val redisStreamEventControllerConfigs: RedisStreamEventControllerConfigs
 ) {
 
   private val logger = LoggerFactory.getLogger(javaClass)
@@ -24,7 +24,7 @@ class EventReceiverStatusPoller(
   fun eventReceiverStatusPoller() {
     logger.info("Polling event receiver statuses")
     val statuses = inboundChannelAdapterHandlerService.getAllChannelStatus()
-    val consumerName = redisStreamEventControllerConfig.consumerName
+    val consumerName = redisStreamEventControllerConfigs.consumerName
     val queriedAt = OffsetDateTime.now().toString()
     val receiversStatus =
       ReceiversStatus(

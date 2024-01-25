@@ -1,6 +1,6 @@
 package it.pagopa.ecommerce.eventdispatcher.services
 
-import it.pagopa.ecommerce.eventdispatcher.config.RedisStreamEventControllerConfig
+import it.pagopa.ecommerce.eventdispatcher.config.RedisStreamEventControllerConfigs
 import it.pagopa.ecommerce.eventdispatcher.config.redis.EventDispatcherCommandsTemplateWrapper
 import it.pagopa.ecommerce.eventdispatcher.config.redis.EventDispatcherReceiverStatusTemplateWrapper
 import it.pagopa.ecommerce.eventdispatcher.config.redis.stream.RedisStreamMessageSource
@@ -17,13 +17,13 @@ import org.springframework.stereotype.Service
 
 /** This class handles all InboundChannelsAdapters events receivers */
 @Service
-class EventReceiversService(
+class EventReceiverService(
   @Autowired
   private val eventDispatcherCommandsTemplateWrapper: EventDispatcherCommandsTemplateWrapper,
   @Autowired
   private val eventDispatcherReceiverStatusTemplateWrapper:
     EventDispatcherReceiverStatusTemplateWrapper,
-  @Autowired private val redisStreamConf: RedisStreamEventControllerConfig
+  @Autowired private val redisStreamConf: RedisStreamEventControllerConfigs
 ) {
 
   private val logger = LoggerFactory.getLogger(javaClass)

@@ -1,7 +1,7 @@
 package it.pagopa.ecommerce.eventdispatcher.controller
 
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoEventReceiverStatusFound
-import it.pagopa.ecommerce.eventdispatcher.services.EventReceiversService
+import it.pagopa.ecommerce.eventdispatcher.services.EventReceiverService
 import it.pagopa.ecommerce.eventdispatcher.validation.BeanValidationConfiguration
 import it.pagopa.generated.eventdispatcher.server.model.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -24,12 +24,12 @@ class EventReceiversApiControllerTest {
 
   @Autowired lateinit var webClient: WebTestClient
 
-  @MockBean lateinit var eventReceiversService: EventReceiversService
+  @MockBean lateinit var eventReceiverService: EventReceiverService
 
   @Test
   fun `Should handle command creation successfully`() = runTest {
     val request = EventReceiverCommandRequestDto(EventReceiverCommandRequestDto.Command.START)
-    given(eventReceiversService.handleCommand(request)).willReturn(Unit)
+    given(eventReceiverService.handleCommand(request)).willReturn(Unit)
     webClient
       .post()
       .uri("/event-dispatcher/event-receivers/commands")
@@ -69,7 +69,7 @@ class EventReceiversApiControllerTest {
         status = 500,
         detail = "An unexpected error occurred processing the request")
     val request = EventReceiverCommandRequestDto(EventReceiverCommandRequestDto.Command.START)
-    given(eventReceiversService.handleCommand(request))
+    given(eventReceiverService.handleCommand(request))
       .willThrow(RuntimeException("Uncaught exception"))
     webClient
       .post()
@@ -92,7 +92,7 @@ class EventReceiversApiControllerTest {
             instanceId = "instanceId",
             receiverStatuses =
               listOf(ReceiverStatusDto(status = ReceiverStatusDto.Status.DOWN, name = "name")))))
-    given(eventReceiversService.getReceiversStatus()).willReturn(response)
+    given(eventReceiverService.getReceiversStatus()).willReturn(response)
     webClient
       .get()
       .uri("/event-dispatcher/event-receivers/status")
@@ -108,7 +108,7 @@ class EventReceiversApiControllerTest {
     val expectedProblemJsonDto =
       ProblemJsonDto(
         title = "Not found", status = 404, detail = "No data found for receiver statuses")
-    given(eventReceiversService.getReceiversStatus()).willThrow(NoEventReceiverStatusFound())
+    given(eventReceiverService.getReceiversStatus()).willThrow(NoEventReceiverStatusFound())
     webClient
       .get()
       .uri("/event-dispatcher/event-receivers/status")

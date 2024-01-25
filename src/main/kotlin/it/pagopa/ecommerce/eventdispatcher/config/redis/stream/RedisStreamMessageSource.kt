@@ -2,7 +2,7 @@ package it.pagopa.ecommerce.eventdispatcher.config.redis.stream
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import it.pagopa.ecommerce.eventdispatcher.config.RedisStreamEventControllerConfig
+import it.pagopa.ecommerce.eventdispatcher.config.RedisStreamEventControllerConfigs
 import it.pagopa.ecommerce.eventdispatcher.config.redis.EventDispatcherCommandsTemplateWrapper
 import it.pagopa.ecommerce.eventdispatcher.redis.streams.commands.EventDispatcherCommandMixin
 import it.pagopa.ecommerce.eventdispatcher.redis.streams.commands.EventDispatcherGenericCommand
@@ -23,7 +23,7 @@ class RedisStreamMessageSource(
   private val redisStreamReceiver:
     StreamReceiver<String, ObjectRecord<String, LinkedHashMap<*, *>>>,
   private val eventDispatcherCommandsTemplateWrapper: EventDispatcherCommandsTemplateWrapper,
-  private val redisStreamConf: RedisStreamEventControllerConfig
+  private val redisStreamConf: RedisStreamEventControllerConfigs
 ) : AbstractMessageSource<Message<Any>>() {
 
   companion object {
@@ -47,6 +47,9 @@ class RedisStreamMessageSource(
       }
       .onFailure {
         RedisStreamMessageSourceLogger.logger.error("Error creating consumer group", it)
+        if (redisStreamConf.faiOnErrorCreatingConsumerGroup) {
+          throw IllegalStateException("Error creating consumer group for stream event receiver", it)
+        }
       }
       .onSuccess {
         RedisStreamMessageSourceLogger.logger.info(
@@ -56,7 +59,7 @@ class RedisStreamMessageSource(
 
   override fun getComponentType(): String = "redis-stream:message-source"
 
-  override fun doReceive(): Message<EventDispatcherGenericCommand>? {
+  public override fun doReceive(): Message<EventDispatcherGenericCommand>? {
     val message =
       runCatching {
           redisStreamReceiver
