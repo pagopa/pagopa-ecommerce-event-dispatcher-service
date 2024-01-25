@@ -5,6 +5,7 @@ import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.PgsTransactionGatewayAuthorizationData
+import it.pagopa.ecommerce.commons.documents.v2.authorization.RedirectTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v2.TransactionWithClosureError
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransaction
@@ -143,6 +144,7 @@ class TransactionClosePaymentRetryQueueConsumer(
                           OperationResultDto.EXECUTED -> ClosePaymentRequestV2Dto.OutcomeEnum.OK
                           else -> ClosePaymentRequestV2Dto.OutcomeEnum.KO
                         }
+                      is RedirectTransactionGatewayAuthorizationData -> TODO()
                     }
                   })
               }
@@ -259,6 +261,7 @@ class TransactionClosePaymentRetryQueueConsumer(
                 transactionGatewayData.authorizationResultDto == AuthorizationResultDto.OK
               is NpgTransactionGatewayAuthorizationData ->
                 transactionGatewayData.operationResult == OperationResultDto.EXECUTED
+              is RedirectTransactionGatewayAuthorizationData -> TODO()
             }
           })
       }
