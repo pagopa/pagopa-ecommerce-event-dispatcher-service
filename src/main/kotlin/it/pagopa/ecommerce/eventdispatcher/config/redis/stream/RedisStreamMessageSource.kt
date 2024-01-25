@@ -43,7 +43,7 @@ class RedisStreamMessageSource(
   init {
     runCatching {
         eventDispatcherCommandsTemplateWrapper.createGroup(
-          redisStreamConf.streamKey, redisStreamConf.consumerGroup)
+          redisStreamConf.streamKey, redisStreamConf.consumerGroup, ReadOffset.from("0"))
       }
       .onFailure {
         RedisStreamMessageSourceLogger.logger.error("Error creating consumer group", it)

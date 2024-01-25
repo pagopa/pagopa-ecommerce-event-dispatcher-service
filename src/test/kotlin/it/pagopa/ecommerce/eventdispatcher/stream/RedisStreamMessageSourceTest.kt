@@ -61,7 +61,8 @@ class RedisStreamMessageSourceTest {
         redisStreamConf = redisStreamConf,
         redisStreamReceiver = streamReceiver,
         eventDispatcherCommandsTemplateWrapper = eventDispatcherCommandsTemplateWrapper)
-    verify(eventDispatcherCommandsTemplateWrapper, times(1)).createGroup(streamKey, consumerGroup)
+    verify(eventDispatcherCommandsTemplateWrapper, times(1))
+      .createGroup(streamKey, consumerGroup, ReadOffset.from("0"))
     assertEquals("redis-stream:message-source", localInstance.componentType)
   }
 
@@ -77,7 +78,8 @@ class RedisStreamMessageSourceTest {
       redisStreamConf = redisStreamConf,
       redisStreamReceiver = streamReceiver,
       eventDispatcherCommandsTemplateWrapper = eventDispatcherCommandsTemplateWrapper)
-    verify(eventDispatcherCommandsTemplateWrapper, times(1)).createGroup(streamKey, consumerGroup)
+    verify(eventDispatcherCommandsTemplateWrapper, times(1))
+      .createGroup(streamKey, consumerGroup, ReadOffset.from("0"))
   }
 
   @Test
@@ -85,7 +87,7 @@ class RedisStreamMessageSourceTest {
     // assertions
     // reset is needed since this test class is already initialized before test execution
     Mockito.reset(eventDispatcherCommandsTemplateWrapper)
-    given(eventDispatcherCommandsTemplateWrapper.createGroup(any(), any()))
+    given(eventDispatcherCommandsTemplateWrapper.createGroup(any(), any(), any()))
       .willThrow(RuntimeException("Error creating consumer group"))
     // test
     assertThrows<IllegalStateException> {
@@ -100,7 +102,7 @@ class RedisStreamMessageSourceTest {
         eventDispatcherCommandsTemplateWrapper = eventDispatcherCommandsTemplateWrapper)
     }
 
-    verify(eventDispatcherCommandsTemplateWrapper, times(1)).createGroup(any(), any())
+    verify(eventDispatcherCommandsTemplateWrapper, times(1)).createGroup(any(), any(), any())
   }
 
   @Test
