@@ -170,3 +170,41 @@ This span has the following fields:
 | RETRY_EVENT_NO_ATTEMPT_LEFT           | All retry for perform a retry event have been exhausted                                                                                      |
 | EVENT_PARSING_ERROR                   | Input event is not formally valid                                                                                                            |
 | PROCESSING_ERROR                      | Unhandled error processing the event                                                                                                         |
+
+### Event receiver controller
+
+This module is essentially an asynchronous event processor.
+
+Many processed events have a visibility timeout set to make transactions event to be process after a certain delay (such
+as retry event, transaction expiration event and so on).
+
+This makes difficult to predict when an event will be visible on the queue to be processed.
+
+One other important aspect to take into account is the fact that module undeploy will not consider in-flight event:
+
+module shutdown can happen when the module is in the middle of an event processing, with the possible consequence of a
+broken transaction history (transaction locked in a middle event)
+
+In order to avoid such situations an event receiver locker mechanism has been implemented using Redis Stream as fun-out
+mechanism:
+a group of api are directly exposed by this module and, based on request input, can initiate an event receiver orderly
+shutdown.
+
+All event receivers will then complete their processing but no new event will be taken from the queues.
+
+After all pending event processing have been completed, the deployment can be executed with the assurance that no event
+processing will be stopped in the middle of its execution.
+
+After new version have been deployed successfully, event receiver can be start again with the same api used to stop
+them.
+
+WATCH OUT!!!! Event receivers will not be restarted automatically once module have been deployed but has to be restarted
+manually.
+
+This has been done on purpose to handle deployment rollout and avoid restarting event consumers for an old POD for which
+rollout phase has not been taken into account yet.
+
+There is a postman with api request pre-configured to start/stop consumers and to query their statuses (UP, DOWN,
+UNKNOWN)
+
+The collection is stored into this repo at -> command-postman-collection/commands.postman_collection.json
