@@ -6,7 +6,6 @@ import it.pagopa.ecommerce.eventdispatcher.config.RedisStreamEventControllerConf
 import it.pagopa.ecommerce.eventdispatcher.config.redis.EventDispatcherCommandsTemplateWrapper
 import it.pagopa.ecommerce.eventdispatcher.redis.streams.commands.EventDispatcherCommandMixin
 import it.pagopa.ecommerce.eventdispatcher.redis.streams.commands.EventDispatcherGenericCommand
-import java.time.Duration
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.data.redis.connection.stream.Consumer
@@ -88,12 +87,7 @@ class RedisStreamMessageSource(
                     REDIS_EVENT_STREAM_KEY to it.stream))
               GenericMessage(parsedEvent, messageHeaders)
             }
-            /*
-             * block at most 500 millis to retrieve events from event stream.
-             * this timeout is to be intended for a single stream read operation
-             * and has been set in order to
-             */
-            .blockFirst(Duration.ofMillis(500))
+            .blockFirst()
         }
         .onFailure {
           /*
