@@ -65,6 +65,10 @@ These are all environment variables needed by the application:
 | NPG_API_KEY                                                  | NPG service api-key                                                                                                                                                                                                                                                | string  |               |
 | NPG_CARDS_PSP_KEYS                                           | Secret structure that holds psp - api keys association for authorization request                                                                                                                                                                                   | string  |               |
 | NPG_CARDS_PSP_LIST                                           | List of all psp ids that are expected to be found into the NPG_CARDS_PSP_KEYS configuration (used for configuration cross validation)                                                                                                                              | string  |               |
+| REDIS_STREAM_EVENT_CONTROLLER_STREAM_KEY                     | Redis stream streaming key where event receiver controller commands will be write/read                                                                                                                                                                             | string  |               |
+| REDIS_STREAM_EVENT_CONTROLLER_CONSUMER_GROUP_PREFIX          | Redis event receiver controller commands stream consumer group                                                                                                                                                                                                     | string  |               |
+| REDIS_STREAM_EVENT_CONTROLLER_CONSUMER_NAME_PREFIX           | Redis event receiver controller commands stream consumer name                                                                                                                                                                                                      | string  |               |
+| EVENT_CONTROLLER_STATUS_POLLING_CHRON                        | Chron used to scheduler event receivers status polling                                                                                                                                                                                                             | string  |               |
 
 An example configuration of these environment variables is in the `.env.example` file.
 
@@ -155,8 +159,8 @@ This span has the following fields:
 |--------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------|-----------|
 | deadLetterEvent.serviceName          | Constant value `pagopa-ecommerce-event-dispatcher-service`, used to uniquely identify this microservice as event writer                | ✅         |
 | deadLetterEvent.category             | Enumeration of all possible errors that can make an event to be written to dead letter (see [Error category section](#Error-category)) | ✅         |
-| deadLetterEvent.transactionId        | Transaction id of the input event (if the input event is parsable)                                                                               | ❌         |
-| deadLetterEvent.transactionEventCode | Transaction event code of the input event (if the input event is parsable)                                                                       | ❌         |
+| deadLetterEvent.transactionId        | Transaction id of the input event (if the input event is parsable)                                                                     | ❌         |
+| deadLetterEvent.transactionEventCode | Transaction event code of the input event (if the input event is parsable)                                                             | ❌         |
 
 #### Error category
 
@@ -166,3 +170,41 @@ This span has the following fields:
 | RETRY_EVENT_NO_ATTEMPT_LEFT           | All retry for perform a retry event have been exhausted                                                                                      |
 | EVENT_PARSING_ERROR                   | Input event is not formally valid                                                                                                            |
 | PROCESSING_ERROR                      | Unhandled error processing the event                                                                                                         |
+
+### Event receiver controller
+
+This module is essentially an asynchronous event processor.
+
+Many processed events have a visibility timeout set to make transactions event to be process after a certain delay (such
+as retry event, transaction expiration event and so on).
+
+This makes difficult to predict when an event will be visible on the queue to be processed.
+
+One other important aspect to take into account is the fact that module undeploy will not consider in-flight event:
+
+module shutdown can happen when the module is in the middle of an event processing, with the possible consequence of a
+broken transaction history (transaction locked in a middle event)
+
+In order to avoid such situations an event receiver locker mechanism has been implemented using Redis Stream as fun-out
+mechanism:
+a group of api are directly exposed by this module and, based on request input, can initiate an event receiver orderly
+shutdown.
+
+All event receivers will then complete their processing but no new event will be taken from the queues.
+
+After all pending event processing have been completed, the deployment can be executed with the assurance that no event
+processing will be stopped in the middle of its execution.
+
+After new version have been deployed successfully, event receiver can be start again with the same api used to stop
+them.
+
+WATCH OUT!!!! Event receivers will not be restarted automatically once module have been deployed but has to be restarted
+manually.
+
+This has been done on purpose to handle deployment rollout and avoid restarting event consumers for an old POD for which
+rollout phase has not been taken into account yet.
+
+There is a postman with api request pre-configured to start/stop consumers and to query their statuses (UP, DOWN,
+UNKNOWN)
+
+The collection is stored into this repo at -> command-postman-collection/commands.postman_collection.json
