@@ -137,6 +137,12 @@ class ClosePaymentHelper(
 ) {
   val logger: Logger = LoggerFactory.getLogger(ClosePaymentHelper::class.java)
 
+  val closureRequestedValidStatuses =
+    setOf(
+      TransactionStatusDto.CANCELLATION_REQUESTED,
+      TransactionStatusDto.CLOSURE_REQUESTED,
+      TransactionStatusDto.CLOSURE_ERROR)
+
   fun closePayment(
     queueEvent: ClosePaymentEvent,
     checkPointer: Checkpointer,
@@ -152,17 +158,11 @@ class ClosePaymentHelper(
         .flatMap {
           logger.info("Status for transaction ${it.transactionId.value()}: ${it.status}")
 
-          if (it.status != TransactionStatusDto.CANCELLATION_REQUESTED ||
-            it.status != TransactionStatusDto.CLOSURE_REQUESTED ||
-            it.status != TransactionStatusDto.CLOSURE_ERROR) {
+          if (!closureRequestedValidStatuses.contains(it.status)) {
             Mono.error(
               BadTransactionStatusException(
                 transactionId = it.transactionId,
-                expected =
-                  listOf(
-                    TransactionStatusDto.CANCELLATION_REQUESTED,
-                    TransactionStatusDto.CLOSURE_REQUESTED,
-                    TransactionStatusDto.CLOSURE_ERROR),
+                expected = closureRequestedValidStatuses.toList(),
                 actual = it.status))
           } else {
             Mono.just(it)
