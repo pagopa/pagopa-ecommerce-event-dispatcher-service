@@ -57,8 +57,10 @@ class UserReceiptMailBuilderTest {
             NpgTransactionGatewayAuthorizationData(
               OperationResultDto.EXECUTED, "operationId", "paymentEndToEndId"))
             as TransactionEvent<*>,
+          TransactionTestUtils.transactionClosureRequestedEvent() as TransactionEvent<*>,
           TransactionTestUtils.transactionClosedEvent(TransactionClosureData.Outcome.OK)
             as TransactionEvent<*>,
+          TransactionTestUtils.transactionClosureRequestedEvent() as TransactionEvent<*>,
           TransactionTestUtils.transactionUserReceiptRequestedEvent(
             TransactionTestUtils.transactionUserReceiptData(TransactionUserReceiptData.Outcome.OK)),
         )
@@ -151,6 +153,7 @@ class UserReceiptMailBuilderTest {
           TransactionTestUtils.transactionAuthorizationCompletedEvent(
             PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
             as TransactionEvent<*>,
+          TransactionTestUtils.transactionClosureRequestedEvent() as TransactionEvent<*>,
           TransactionTestUtils.transactionClosedEvent(TransactionClosureData.Outcome.OK)
             as TransactionEvent<*>,
           TransactionTestUtils.transactionUserReceiptRequestedEvent(
@@ -245,6 +248,7 @@ class UserReceiptMailBuilderTest {
           TransactionTestUtils.transactionAuthorizationCompletedEvent(
             PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
             as TransactionEvent<*>,
+          TransactionTestUtils.transactionClosureRequestedEvent() as TransactionEvent<*>,
           TransactionTestUtils.transactionClosedEvent(TransactionClosureData.Outcome.OK)
             as TransactionEvent<*>,
           TransactionTestUtils.transactionUserReceiptRequestedEvent(
@@ -337,6 +341,7 @@ class UserReceiptMailBuilderTest {
           TransactionTestUtils.transactionAuthorizationCompletedEvent(
             PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
             as TransactionEvent<*>,
+          TransactionTestUtils.transactionClosureRequestedEvent() as TransactionEvent<*>,
           TransactionTestUtils.transactionClosedEvent(TransactionClosureData.Outcome.OK)
             as TransactionEvent<*>,
           TransactionTestUtils.transactionUserReceiptRequestedEvent(
@@ -397,6 +402,7 @@ class UserReceiptMailBuilderTest {
           TransactionTestUtils.transactionAuthorizationCompletedEvent(
             PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
             as TransactionEvent<*>,
+          TransactionTestUtils.transactionClosureRequestedEvent() as TransactionEvent<*>,
           TransactionTestUtils.transactionClosedEvent(TransactionClosureData.Outcome.OK)
             as TransactionEvent<*>,
           TransactionTestUtils.transactionUserReceiptRequestedEvent(
