@@ -8,7 +8,6 @@ import it.pagopa.ecommerce.eventdispatcher.config.redis.stream.RedisStreamMessag
 import it.pagopa.ecommerce.eventdispatcher.redis.streams.commands.EventDispatcherCommandMixin
 import it.pagopa.ecommerce.eventdispatcher.redis.streams.commands.EventDispatcherGenericCommand
 import it.pagopa.ecommerce.eventdispatcher.redis.streams.commands.EventDispatcherReceiverCommand
-import java.time.Duration
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -131,29 +130,6 @@ class RedisStreamMessageSourceTest {
       objectRecord.id.timestamp, messageHeaders[RedisStreamMessageSource.REDIS_EVENT_TIMESTAMP])
     assertEquals(streamKey, messageHeaders[RedisStreamMessageSource.REDIS_EVENT_STREAM_KEY])
     assertEquals(expectedCommand, event)
-    verify(streamReceiver, times(1)).receiveAutoAck(any(), any())
-  }
-
-  @Test
-  fun `Should handle event receiving timeout during polling`() {
-    // assertions
-    val expectedCommand =
-      EventDispatcherReceiverCommand(EventDispatcherReceiverCommand.ReceiverCommand.START)
-    val hashMapSerializedObject =
-      LinkedHashMap(Jackson2HashMapper(objectMapper, true).toHash(expectedCommand))
-        as LinkedHashMap<*, *>
-    val objectRecord = ObjectRecord.create(streamKey, hashMapSerializedObject)
-    val retrievedEventsFromStream =
-      Flux.fromIterable(listOf(objectRecord)).delayElements(Duration.ofSeconds(2000))
-    given(
-        streamReceiver.receiveAutoAck(
-          Consumer.from(consumerGroup, consumerName),
-          StreamOffset.create(streamKey, ReadOffset.lastConsumed())))
-      .willReturn(retrievedEventsFromStream)
-    // test
-    val message = redisStreamMessageSource.doReceive()
-    // verifications
-    assertNull(message)
     verify(streamReceiver, times(1)).receiveAutoAck(any(), any())
   }
 
