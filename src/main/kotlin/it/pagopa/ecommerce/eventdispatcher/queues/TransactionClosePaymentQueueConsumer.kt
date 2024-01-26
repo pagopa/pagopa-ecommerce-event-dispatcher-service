@@ -7,6 +7,7 @@ import com.azure.spring.messaging.checkpoint.Checkpointer
 import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.documents.BaseTransactionEvent
 import it.pagopa.ecommerce.commons.documents.v1.TransactionUserCanceledEvent as TransactionUserCanceledEventV1
+import it.pagopa.ecommerce.commons.documents.v2.TransactionClosureRequestedEvent as TransactionClosureRequestedEventV2
 import it.pagopa.ecommerce.commons.documents.v2.TransactionUserCanceledEvent as TransactionUserCanceledEventV2
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
@@ -56,7 +57,7 @@ class TransactionClosePaymentQueueConsumer(
           logger.debug(ERROR_PARSING_EVENT_ERROR, it)
           Mono.empty()
         }
-    val queueEventV2 =
+    val transactionUserCanceledEventV2 =
       binaryData
         .toObjectAsync(
           object : TypeReference<QueueEvent<TransactionUserCanceledEventV2>>() {}, jsonSerializerV2)
@@ -66,9 +67,23 @@ class TransactionClosePaymentQueueConsumer(
           Mono.empty()
         }
 
-    return Mono.firstWithValue(queueEventV1, untracedEventV1, queueEventV2).onErrorMap {
-      InvalidEventException(binaryData.toBytes(), it)
-    }
+    val transactionClosureRequestedEventV2 =
+      binaryData
+        .toObjectAsync(
+          object : TypeReference<QueueEvent<TransactionClosureRequestedEventV2>>() {},
+          jsonSerializerV2)
+        .map { Pair(it.event, it.tracingInfo) }
+        .onErrorResume {
+          logger.debug(ERROR_PARSING_EVENT_ERROR, it)
+          Mono.empty()
+        }
+
+    return Mono.firstWithValue(
+        queueEventV1,
+        untracedEventV1,
+        transactionUserCanceledEventV2,
+        transactionClosureRequestedEventV2)
+      .onErrorMap { InvalidEventException(binaryData.toBytes(), it) }
   }
 
   @ServiceActivator(inputChannel = "transactionclosureschannel", outputChannel = "nullChannel")
@@ -87,6 +102,10 @@ class TransactionClosePaymentQueueConsumer(
           is TransactionUserCanceledEventV2 -> {
             logger.debug("Event {} with tracing info {} dispatched to V2 handler", e, tracingInfo)
             queueConsumerV2.messageReceiver(Either.left(QueueEvent(e, tracingInfo)), checkPointer)
+          }
+          is TransactionClosureRequestedEventV2 -> {
+            logger.debug("Event {} with tracing info {} dispatched to V2 handler", e, tracingInfo)
+            queueConsumerV2.messageReceiver(Either.right(QueueEvent(e, tracingInfo)), checkPointer)
           }
           else -> {
             logger.error(
