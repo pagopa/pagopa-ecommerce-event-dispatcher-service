@@ -149,6 +149,7 @@ class TransactionsRefundEventsConsumerTests {
       transactionAuthorizationCompletedEvent(
         PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
         as TransactionEvent<Any>
+    val closureRequestedEvent = transactionClosureRequestedEvent() as TransactionEvent<Any>
     val closedEvent =
       transactionClosedEvent(TransactionClosureData.Outcome.KO) as TransactionEvent<Any>
     val refundRequestedEvent =
@@ -164,6 +165,7 @@ class TransactionsRefundEventsConsumerTests {
         activationEvent,
         authorizationRequestEvent,
         authorizationCompleteEvent,
+        closureRequestedEvent,
         closedEvent,
         refundRequestedEvent)
 
@@ -217,6 +219,7 @@ class TransactionsRefundEventsConsumerTests {
         transactionAuthorizationCompletedEvent(
           PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
           as TransactionEvent<Any>
+      val closureRequestedEvent = transactionClosureRequestedEvent() as TransactionEvent<Any>
       val closedEvent =
         transactionClosedEvent(TransactionClosureData.Outcome.KO) as TransactionEvent<Any>
       val refundRequestedEvent =
@@ -232,6 +235,7 @@ class TransactionsRefundEventsConsumerTests {
           activationEvent,
           authorizationRequestEvent,
           authorizationCompleteEvent,
+          closureRequestedEvent,
           closedEvent,
           refundRequestedEvent)
 
@@ -286,6 +290,7 @@ class TransactionsRefundEventsConsumerTests {
       transactionAuthorizationCompletedEvent(
         PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
         as TransactionEvent<Any>
+    val closureRequestedEvent = transactionClosureRequestedEvent() as TransactionEvent<Any>
     val closedEvent =
       transactionClosedEvent(TransactionClosureData.Outcome.KO) as TransactionEvent<Any>
     val refundRequestedEvent =
@@ -301,6 +306,7 @@ class TransactionsRefundEventsConsumerTests {
         activationEvent,
         authorizationRequestEvent,
         authorizationCompleteEvent,
+        closureRequestedEvent,
         closedEvent,
         refundRequestedEvent)
 
@@ -405,6 +411,7 @@ class TransactionsRefundEventsConsumerTests {
       transactionAuthorizationCompletedEvent(
         PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
         as TransactionEvent<Any>
+    val closureRequestedEvent = transactionClosureRequestedEvent() as TransactionEvent<Any>
     val closedEvent =
       transactionClosedEvent(TransactionClosureData.Outcome.KO) as TransactionEvent<Any>
     val refundRequestedEvent =
@@ -420,6 +427,7 @@ class TransactionsRefundEventsConsumerTests {
         activationEvent,
         authorizationRequestEvent,
         authorizationCompleteEvent,
+        closureRequestedEvent,
         closedEvent,
         refundRequestedEvent)
 
@@ -476,6 +484,7 @@ class TransactionsRefundEventsConsumerTests {
         transactionAuthorizationCompletedEvent(
           PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
           as TransactionEvent<Any>
+      val closureRequestedEvent = transactionClosureRequestedEvent() as TransactionEvent<Any>
       val closedEvent =
         transactionClosedEvent(TransactionClosureData.Outcome.KO) as TransactionEvent<Any>
       val refundRequestedEvent =
@@ -491,6 +500,7 @@ class TransactionsRefundEventsConsumerTests {
           activationEvent,
           authorizationRequestEvent,
           authorizationCompleteEvent,
+          closureRequestedEvent,
           closedEvent,
           refundRequestedEvent)
 
@@ -549,6 +559,7 @@ class TransactionsRefundEventsConsumerTests {
         as TransactionEvent<Any>
     (authorizationRequestEvent.data as TransactionAuthorizationRequestData).paymentGateway =
       TransactionAuthorizationRequestData.PaymentGateway.XPAY
+    val closureRequestedEvent = transactionClosureRequestedEvent() as TransactionEvent<Any>
     val closedEvent =
       transactionClosedEvent(TransactionClosureData.Outcome.KO) as TransactionEvent<Any>
     val refundRequestedEvent =
@@ -564,6 +575,7 @@ class TransactionsRefundEventsConsumerTests {
         activationEvent,
         authorizationRequestEvent,
         authorizationCompleteEvent,
+        closureRequestedEvent,
         closedEvent,
         refundRequestedEvent)
 
@@ -624,6 +636,7 @@ class TransactionsRefundEventsConsumerTests {
       transactionAuthorizationCompletedEvent(
         PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
         as TransactionEvent<Any>
+    val closureRequestedEvent = transactionClosureRequestedEvent() as TransactionEvent<Any>
     val closedEvent =
       transactionClosedEvent(TransactionClosureData.Outcome.KO) as TransactionEvent<Any>
     val refundRequestedEvent =
@@ -638,6 +651,7 @@ class TransactionsRefundEventsConsumerTests {
         activationEvent,
         authorizationRequestEvent,
         authorizationCompleteEvent,
+        closureRequestedEvent,
         closedEvent,
         refundRequestedEvent)
 
@@ -707,6 +721,7 @@ class TransactionsRefundEventsConsumerTests {
         as TransactionEvent<Any>
     (authorizationRequestEvent.data as TransactionAuthorizationRequestData).paymentGateway =
       TransactionAuthorizationRequestData.PaymentGateway.XPAY
+    val closureRequestedEvent = transactionClosureRequestedEvent() as TransactionEvent<Any>
     val closedEvent =
       transactionClosedEvent(TransactionClosureData.Outcome.KO) as TransactionEvent<Any>
     val refundRequestedEvent =
@@ -721,6 +736,7 @@ class TransactionsRefundEventsConsumerTests {
         activationEvent,
         authorizationRequestEvent,
         authorizationCompleteEvent,
+        closureRequestedEvent,
         closedEvent,
         refundRequestedEvent)
 
@@ -784,6 +800,7 @@ class TransactionsRefundEventsConsumerTests {
         as TransactionEvent<Any>
     (authorizationRequestEvent.data as TransactionAuthorizationRequestData).paymentGateway =
       TransactionAuthorizationRequestData.PaymentGateway.XPAY
+    val closureRequestedEvent = transactionClosureRequestedEvent() as TransactionEvent<Any>
     val closedEvent =
       transactionClosedEvent(TransactionClosureData.Outcome.KO) as TransactionEvent<Any>
     val refundRequestedEvent =
@@ -796,6 +813,7 @@ class TransactionsRefundEventsConsumerTests {
         activationEvent,
         authorizationRequestEvent,
         authorizationCompleteEvent,
+        closureRequestedEvent,
         closedEvent,
         refundRequestedEvent)
 
@@ -870,6 +888,8 @@ class TransactionsRefundEventsConsumerTests {
         transactionAuthorizationCompletedEvent(
           PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
           as TransactionEvent<Any>
+      val closureRequestedEvent =
+        transactionClosureRequestedEvent() as TransactionEvent<Any> as TransactionEvent<Any>
       val closedEvent =
         transactionClosedEvent(TransactionClosureData.Outcome.KO) as TransactionEvent<Any>
       val refundRequestedEvent =
@@ -882,6 +902,7 @@ class TransactionsRefundEventsConsumerTests {
           activationEvent,
           authorizationRequestEvent,
           authorizationCompleteEvent,
+          closureRequestedEvent,
           closedEvent,
           refundRequestedEvent)
 
@@ -963,6 +984,7 @@ class TransactionsRefundEventsConsumerTests {
         transactionAuthorizationCompletedEvent(
           npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED))
           as TransactionEvent<Any>
+      val closureRequestedEvent = transactionClosureRequestedEvent() as TransactionEvent<Any>
       val closedEvent =
         transactionClosedEvent(TransactionClosureData.Outcome.KO) as TransactionEvent<Any>
       val refundRequestedEvent =
@@ -975,6 +997,7 @@ class TransactionsRefundEventsConsumerTests {
           activationEvent,
           authorizationRequestEvent,
           authorizationCompleteEvent,
+          closureRequestedEvent,
           closedEvent,
           refundRequestedEvent)
 
@@ -1041,6 +1064,7 @@ class TransactionsRefundEventsConsumerTests {
       transactionAuthorizationCompletedEvent(
         npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED))
         as TransactionEvent<Any>
+    val closureRequestedEvent = transactionClosureRequestedEvent() as TransactionEvent<Any>
     val closedEvent =
       transactionClosedEvent(TransactionClosureData.Outcome.KO) as TransactionEvent<Any>
     val refundRequestedEvent =
@@ -1059,6 +1083,7 @@ class TransactionsRefundEventsConsumerTests {
         activationEvent,
         authorizationRequestEvent,
         authorizationCompleteEvent,
+        closureRequestedEvent,
         closedEvent,
         refundRequestedEvent)
 
@@ -1129,6 +1154,7 @@ class TransactionsRefundEventsConsumerTests {
         TransactionAuthorizationRequestData.PaymentGateway.NPG
       (authorizationRequestEvent.data as TransactionAuthorizationRequestData).paymentMethodName =
         NpgClient.PaymentMethod.CARDS.serviceName
+      val closureRequestedEvent = transactionClosureRequestedEvent() as TransactionEvent<Any>
       val closedEvent =
         transactionClosedEvent(TransactionClosureData.Outcome.KO) as TransactionEvent<Any>
       val refundRequestedEvent =
@@ -1141,6 +1167,7 @@ class TransactionsRefundEventsConsumerTests {
           activationEvent,
           authorizationRequestEvent,
           authorizationCompleteEvent,
+          closureRequestedEvent,
           closedEvent,
           refundRequestedEvent)
 
@@ -1236,6 +1263,7 @@ class TransactionsRefundEventsConsumerTests {
     val authorizationCompleteEvent =
       transactionAuthorizationCompletedEvent(transactionGatewayAuthorizationData)
         as TransactionEvent<Any>
+    val closureRequestedEvent = transactionClosureRequestedEvent() as TransactionEvent<Any>
     val closedEvent =
       transactionClosedEvent(TransactionClosureData.Outcome.KO) as TransactionEvent<Any>
     val refundRequestedEvent =
@@ -1248,6 +1276,7 @@ class TransactionsRefundEventsConsumerTests {
         activationEvent,
         authorizationRequestEvent,
         authorizationCompleteEvent,
+        closureRequestedEvent,
         closedEvent,
         refundRequestedEvent)
 
@@ -1294,10 +1323,16 @@ class TransactionsRefundEventsConsumerTests {
     val authorizationCompleteEvent =
       transactionAuthorizationCompletedEvent(transactionGatewayAuthorizationData)
         as TransactionEvent<Any>
+    val closureRequestedEvent = transactionClosureRequestedEvent()
     val closureError = transactionClosureErrorEvent() as TransactionEvent<Any>
 
     val events =
-      listOf(activationEvent, authorizationRequestEvent, authorizationCompleteEvent, closureError)
+      listOf(
+        activationEvent,
+        authorizationRequestEvent,
+        authorizationCompleteEvent,
+        closureRequestedEvent,
+        closureError)
 
     val transaction = reduceEvents(*events.toTypedArray()) as BaseTransactionWithClosureError
 

@@ -119,6 +119,7 @@ class TransactionNotificationsQueueConsumerTest {
         transactionAuthorizationRequestedEvent(),
         transactionAuthorizationCompletedEvent(
           PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+        transactionClosureRequestedEvent(),
         transactionClosedEvent(TransactionClosureData.Outcome.OK),
         notificationRequested)
         as List<TransactionEvent<Any>>
@@ -180,6 +181,7 @@ class TransactionNotificationsQueueConsumerTest {
           transactionAuthorizationRequestedEvent(),
           transactionAuthorizationCompletedEvent(
             PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+          transactionClosureRequestedEvent(),
           transactionClosedEvent(TransactionClosureData.Outcome.OK),
           notificationRequested)
           as List<TransactionEvent<Any>>
@@ -271,6 +273,7 @@ class TransactionNotificationsQueueConsumerTest {
           transactionAuthorizationRequestedEvent(),
           transactionAuthorizationCompletedEvent(
             PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+          transactionClosureRequestedEvent(),
           transactionClosedEvent(TransactionClosureData.Outcome.OK),
           notificationRequested)
           as List<TransactionEvent<Any>>
@@ -332,6 +335,7 @@ class TransactionNotificationsQueueConsumerTest {
           transactionAuthorizationRequestedEvent(),
           transactionAuthorizationCompletedEvent(
             PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+          transactionClosureRequestedEvent(),
           transactionClosedEvent(TransactionClosureData.Outcome.OK),
           notificationRequested)
           as List<TransactionEvent<Any>>
@@ -423,6 +427,7 @@ class TransactionNotificationsQueueConsumerTest {
           transactionAuthorizationRequestedEvent(),
           transactionAuthorizationCompletedEvent(
             PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+          transactionClosureRequestedEvent(),
           transactionClosedEvent(TransactionClosureData.Outcome.OK),
           notificationRequested)
           as List<TransactionEvent<Any>>
@@ -514,6 +519,7 @@ class TransactionNotificationsQueueConsumerTest {
           transactionAuthorizationRequestedEvent(),
           transactionAuthorizationCompletedEvent(
             PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+          transactionClosureRequestedEvent(),
           transactionClosedEvent(TransactionClosureData.Outcome.OK),
           notificationRequested)
           as List<TransactionEvent<Any>>
@@ -579,6 +585,7 @@ class TransactionNotificationsQueueConsumerTest {
           transactionAuthorizationRequestedEvent(),
           transactionAuthorizationCompletedEvent(
             PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+          transactionClosureRequestedEvent(),
           transactionClosedEvent(TransactionClosureData.Outcome.OK),
           notificationRequested)
           as List<TransactionEvent<Any>>
@@ -649,6 +656,7 @@ class TransactionNotificationsQueueConsumerTest {
           transactionAuthorizationRequestedEvent(),
           transactionAuthorizationCompletedEvent(
             PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+          transactionClosureRequestedEvent(),
           transactionClosedEvent(TransactionClosureData.Outcome.OK),
           notificationRequested)
           as List<TransactionEvent<Any>>
@@ -797,6 +805,7 @@ class TransactionNotificationsQueueConsumerTest {
           transactionAuthorizationRequestedEvent(),
           transactionAuthorizationCompletedEvent(
             PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+          transactionClosureRequestedEvent(),
           transactionClosedEvent(TransactionClosureData.Outcome.OK),
           notificationRequested)
           as List<TransactionEvent<Any>>
@@ -837,6 +846,7 @@ class TransactionNotificationsQueueConsumerTest {
           transactionAuthorizationRequestedEvent(),
           transactionAuthorizationCompletedEvent(
             PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+          transactionClosureRequestedEvent(),
           transactionClosedEvent(TransactionClosureData.Outcome.OK),
           notificationRequested)
           as List<TransactionEvent<Any>>
@@ -873,6 +883,7 @@ class TransactionNotificationsQueueConsumerTest {
           transactionAuthorizationRequestedEvent(),
           transactionAuthorizationCompletedEvent(
             PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+          transactionClosureRequestedEvent(),
           transactionClosedEvent(TransactionClosureData.Outcome.OK),
           notificationRequested)
           as List<TransactionEvent<Any>>

@@ -40,13 +40,13 @@ import it.pagopa.ecommerce.eventdispatcher.services.v2.NodeService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto.OutcomeEnum
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
+import java.util.*
 import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 import reactor.core.publisher.Mono
-import java.util.*
 
 data class ClosePaymentTransactionData(
   val closureOutcome: OutcomeEnum,
@@ -547,8 +547,7 @@ class ClosePaymentHelper(
       { it.event.transactionId },
       { it.event.transactionId },
       { it.event.transactionId },
-      { it.event.transactionId }
-    )
+      { it.event.transactionId })
   }
 
   private fun getRetryCount(event: ClosePaymentEvent): Int {

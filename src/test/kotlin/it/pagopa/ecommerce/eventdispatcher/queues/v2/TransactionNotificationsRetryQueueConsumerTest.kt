@@ -123,6 +123,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
         transactionAuthorizationRequestedEvent(),
         transactionAuthorizationCompletedEvent(
           PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+        transactionClosureRequestedEvent(),
         transactionClosedEvent(TransactionClosureData.Outcome.OK),
         transactionUserReceiptRequestedEvent(transactionUserReceiptData),
         notificationErrorEvent)
@@ -183,6 +184,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
         transactionAuthorizationRequestedEvent(),
         transactionAuthorizationCompletedEvent(
           PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+        transactionClosureRequestedEvent(),
         transactionClosedEvent(TransactionClosureData.Outcome.OK),
         transactionUserReceiptRequestedEvent(transactionUserReceiptData),
         notificationErrorEvent)
@@ -277,6 +279,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
           transactionAuthorizationRequestedEvent(),
           transactionAuthorizationCompletedEvent(
             PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+          transactionClosureRequestedEvent(),
           transactionClosedEvent(TransactionClosureData.Outcome.OK),
           transactionUserReceiptRequestedEvent(transactionUserReceiptData),
           notificationErrorEvent)
@@ -339,6 +342,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
           transactionAuthorizationRequestedEvent(),
           transactionAuthorizationCompletedEvent(
             PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+          transactionClosureRequestedEvent(),
           transactionClosedEvent(TransactionClosureData.Outcome.OK),
           transactionUserReceiptRequestedEvent(transactionUserReceiptData),
           notificationErrorEvent)
@@ -434,6 +438,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
           transactionAuthorizationRequestedEvent(),
           transactionAuthorizationCompletedEvent(
             PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+          transactionClosureRequestedEvent(),
           transactionClosedEvent(TransactionClosureData.Outcome.OK),
           transactionUserReceiptRequestedEvent(transactionUserReceiptData),
           notificationErrorEvent)
@@ -494,6 +499,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
           transactionAuthorizationRequestedEvent(),
           transactionAuthorizationCompletedEvent(
             PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+          transactionClosureRequestedEvent(),
           transactionClosedEvent(TransactionClosureData.Outcome.OK),
           transactionUserReceiptRequestedEvent(transactionUserReceiptData),
           notificationErrorEvent)
@@ -555,6 +561,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
           transactionAuthorizationRequestedEvent(),
           transactionAuthorizationCompletedEvent(
             PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+          transactionClosureRequestedEvent(),
           transactionClosedEvent(TransactionClosureData.Outcome.OK),
           transactionUserReceiptRequestedEvent(transactionUserReceiptData),
           notificationErrorEvent,
@@ -617,6 +624,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
           transactionAuthorizationRequestedEvent(),
           transactionAuthorizationCompletedEvent(
             PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+          transactionClosureRequestedEvent(),
           transactionClosedEvent(TransactionClosureData.Outcome.OK),
           transactionUserReceiptRequestedEvent(transactionUserReceiptData),
           notificationErrorEvent,
@@ -679,6 +687,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
           transactionAuthorizationRequestedEvent(),
           transactionAuthorizationCompletedEvent(
             PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+          transactionClosureRequestedEvent(),
           transactionClosedEvent(TransactionClosureData.Outcome.OK),
           transactionUserReceiptRequestedEvent(transactionUserReceiptData),
           notificationErrorEvent,
@@ -750,6 +759,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
           transactionAuthorizationRequestedEvent(),
           transactionAuthorizationCompletedEvent(
             PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+          transactionClosureRequestedEvent(),
           transactionClosedEvent(TransactionClosureData.Outcome.OK),
           transactionUserReceiptRequestedEvent(transactionUserReceiptData),
           notificationErrorEvent,
@@ -846,6 +856,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
           transactionAuthorizationRequestedEvent(),
           transactionAuthorizationCompletedEvent(
             PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+          transactionClosureRequestedEvent(),
           transactionClosedEvent(TransactionClosureData.Outcome.OK),
           transactionUserReceiptRequestedEvent(transactionUserReceiptData),
           notificationErrorEvent,
@@ -1014,6 +1025,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
           transactionAuthorizationRequestedEvent(),
           transactionAuthorizationCompletedEvent(
             PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+          transactionClosureRequestedEvent(),
           transactionClosedEvent(TransactionClosureData.Outcome.OK),
           transactionUserReceiptRequestedEvent(transactionUserReceiptData),
           notificationErrorEvent,

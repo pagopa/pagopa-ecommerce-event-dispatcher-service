@@ -8,12 +8,12 @@ import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.eventdispatcher.exceptions.*
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.ClosePaymentEvent
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.ClosePaymentHelper
+import java.util.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
-import java.util.*
 
 @Service("TransactionClosePaymentQueueConsumerV2")
 class TransactionClosePaymentQueueConsumer(
