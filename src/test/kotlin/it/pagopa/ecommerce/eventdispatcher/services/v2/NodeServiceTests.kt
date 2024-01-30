@@ -245,6 +245,7 @@ class NodeServiceTests {
             } else {
               OutcomePaymentGatewayEnum.KO
             }
+          is RedirectTransactionGatewayAuthorizationData -> TODO()
         }
       }
     // Check Transaction Details
@@ -378,6 +379,7 @@ class NodeServiceTests {
               } else {
                 OutcomePaymentGatewayEnum.KO
               }
+            is RedirectTransactionGatewayAuthorizationData -> TODO()
           }
         }
       // Check Transaction Details
@@ -507,6 +509,7 @@ class NodeServiceTests {
               } else {
                 OutcomePaymentGatewayEnum.KO
               }
+            is RedirectTransactionGatewayAuthorizationData -> TODO()
           }
         }
       // Check Transaction Details
@@ -643,6 +646,7 @@ class NodeServiceTests {
               } else {
                 OutcomePaymentGatewayEnum.KO
               }
+            is RedirectTransactionGatewayAuthorizationData -> TODO()
           }
         }
       // Check Transaction Details
