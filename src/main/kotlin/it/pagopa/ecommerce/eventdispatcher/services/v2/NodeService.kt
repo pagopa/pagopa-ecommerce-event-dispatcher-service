@@ -289,6 +289,7 @@ class NodeService(
         } else {
           AdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.KO
         }
+      is RedirectTransactionGatewayAuthorizationData -> TODO()
     }
 
   private fun getAuthorizationErrorCode(
@@ -298,5 +299,6 @@ class NodeService(
       is PgsTransactionGatewayAuthorizationData -> transactionGatewayAuthData.errorCode
       // TODO handle error code into Close Payment for NPG flow
       is NpgTransactionGatewayAuthorizationData -> null
+      is RedirectTransactionGatewayAuthorizationData -> TODO()
     }
 }
