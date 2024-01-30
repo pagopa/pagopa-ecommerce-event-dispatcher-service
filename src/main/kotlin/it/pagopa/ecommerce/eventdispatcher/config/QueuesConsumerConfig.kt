@@ -11,6 +11,7 @@ import it.pagopa.ecommerce.commons.queues.mixin.serialization.v2.QueueEventMixIn
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.integration.annotation.EndpointId
 import org.springframework.integration.annotation.InboundChannelAdapter
 import org.springframework.integration.annotation.Poller
 
@@ -21,6 +22,7 @@ class QueuesConsumerConfig {
   @InboundChannelAdapter(
     channel = "transactionclosureschannel",
     poller = [Poller(fixedDelay = "1000", maxMessagesPerPoll = "10")])
+  @EndpointId("storageQueueClosuresMessageSourceEndpoint")
   fun storageQueueClosuresMessageSource(
     storageQueueTemplate: StorageQueueTemplate,
     @Value("\${azurestorage.queues.transactionclosepayment.name}") queueNameClosureEvents: String
@@ -32,6 +34,7 @@ class QueuesConsumerConfig {
   @InboundChannelAdapter(
     channel = "transactionretryclosureschannel",
     poller = [Poller(fixedDelay = "1000", maxMessagesPerPoll = "10")])
+  @EndpointId("storageQueueRetryClosuresMessageSourceEndpoint")
   fun storageQueueRetryClosuresMessageSource(
     storageQueueTemplate: StorageQueueTemplate,
     @Value("\${azurestorage.queues.transactionclosepaymentretry.name}")
@@ -44,6 +47,7 @@ class QueuesConsumerConfig {
   @InboundChannelAdapter(
     channel = "transactionexpiredchannel",
     poller = [Poller(fixedDelay = "1000", maxMessagesPerPoll = "10")])
+  @EndpointId("storageQueueExpirationsMessageSourceEndpoint")
   fun storageQueueExpirationsMessageSource(
     storageQueueTemplate: StorageQueueTemplate,
     @Value("\${azurestorage.queues.transactionexpiration.name}") queueNameClosureEvents: String
@@ -55,6 +59,7 @@ class QueuesConsumerConfig {
   @InboundChannelAdapter(
     channel = "transactionrefundretrychannel",
     poller = [Poller(fixedDelay = "1000", maxMessagesPerPoll = "10")])
+  @EndpointId("storageQueueRefundRetryMessageSourceEndpoint")
   fun storageQueueRefundRetryMessageSource(
     storageQueueTemplate: StorageQueueTemplate,
     @Value("\${azurestorage.queues.transactionrefundretry.name}") queueNameRefundRetryEvents: String
@@ -66,6 +71,7 @@ class QueuesConsumerConfig {
   @InboundChannelAdapter(
     channel = "transactionsrefundchannel",
     poller = [Poller(fixedDelay = "1000", maxMessagesPerPoll = "10")])
+  @EndpointId("storageQueueRefundMessageSourceEndpoint")
   fun storageQueueRefundMessageSource(
     storageQueueTemplate: StorageQueueTemplate,
     @Value("\${azurestorage.queues.transactionsrefund.name}") queueNameRefundRetryEvents: String
@@ -77,11 +83,13 @@ class QueuesConsumerConfig {
   @InboundChannelAdapter(
     channel = "transactionretrynotificationschannel",
     poller = [Poller(fixedDelay = "1000", maxMessagesPerPoll = "10")])
+  @EndpointId("storageQueueRetryNotificationsMessageSourceEndpoint")
   fun storageQueueRetryNotificationsMessageSource(
     storageQueueTemplate: StorageQueueTemplate,
     @Value("\${azurestorage.queues.transactionnotificationretry.name}")
     queueNameClosureEvents: String
   ): StorageQueueMessageSource {
+
     return StorageQueueMessageSource(queueNameClosureEvents, storageQueueTemplate)
   }
 
@@ -89,6 +97,7 @@ class QueuesConsumerConfig {
   @InboundChannelAdapter(
     channel = "transactionnotificationschannel",
     poller = [Poller(fixedDelay = "1000", maxMessagesPerPoll = "10")])
+  @EndpointId("storageQueueNotificationsMessageSourceEndpoint")
   fun storageQueueNotificationsMessageSource(
     storageQueueTemplate: StorageQueueTemplate,
     @Value("\${azurestorage.queues.transactionnotification.name}") queueNameClosureEvents: String

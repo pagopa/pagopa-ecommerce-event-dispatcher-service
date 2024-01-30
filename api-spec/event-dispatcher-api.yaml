@@ -1,0 +1,194 @@
+openapi: 3.0.0
+info:
+  version: 0.0.1
+  title: Pagopa eCommerce event dispatcher service
+  description: This microservice handles transaction's lifecycle and workflow processing async events.
+  contact:
+    name: pagoPA - Touchpoints team
+tags:
+  - name: event-receiver-controller
+    description: Api's for handle events receivers status
+    externalDocs:
+      url: https://pagopa.atlassian.net/wiki/spaces/I/pages/664076771/-servizio+event+dispatcher
+      description: Technical specifications
+externalDocs:
+  url: https://pagopa.atlassian.net/wiki/spaces/I/pages/492339720/pagoPA+eCommerce+Design+Review
+  description: Design review
+servers:
+  - url: https://api.platform.pagopa.it/event-dispatcher
+paths:
+  /event-receivers/commands:
+    post:
+      operationId: newReceiverCommand
+      tags:
+        - event-receiver-controller
+      description: Create a new command to handle event receivers lifecycle
+      summary: Create a new event receiver command
+      requestBody:
+        $ref: "#/components/requestBodies/EventReceiverCommandRequest"
+      responses:
+        '202':
+          description: Command accepted
+        '400':
+          description: Formally invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemJson'
+              example:
+                title: Bad request
+                status: 400
+                detail: Invalid input request
+
+        '500':
+          description: Internal Server Error handling command
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemJson'
+              example:
+                title: Internal Server Error
+                status: 500
+                detail: There was an error processing the request
+  /event-receivers/status:
+    get:
+      operationId: retrieveReceiverStatus
+      tags:
+        - event-receiver-controller
+      description: Retrieve receiver status for all module deployed instances
+      summary: Retrieve event receiver status
+      responses:
+        '200':
+          description: The event receivers statuses
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventReceiverStatusResponse'
+        '404':
+          description: No receiver status information found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemJson'
+              example:
+                title: Not found
+                status: 404
+                detail: No receiver status information could be found
+
+        '500':
+          description: Internal Server Error handling command
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemJson'
+              example:
+                title: Internal Server Error
+                status: 500
+                detail: There was an error processing the request
+components:
+  schemas:
+    EventReceiverCommandRequest:
+      type: object
+      description: Request that handle command information to be performed on receivers
+      properties:
+        command:
+          type: string
+          description: The effective command to be performed
+          enum: [START,STOP]
+      required:
+        - command
+    EventReceiverStatusResponse:
+      type: object
+      description: Overall receiver statuses for all instances
+      properties:
+        status:
+          type: array
+          items:
+            $ref: '#/components/schemas/EventReceiverStatus'
+      required:
+        - status
+    EventReceiverStatus:
+      type: object
+      description: Specific instance receiver status
+      properties:
+        instanceId:
+          type: string
+          description: Module instance unique identifier
+        receiverStatuses:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReceiverStatus'
+      required:
+        - instanceId
+        - receiverStatuses
+
+    ReceiverStatus:
+      type: object
+      description: Single event receiver status
+      properties:
+        name:
+          type: string
+          description: Event receiver name
+        status:
+          type: string
+          enum: [UP, DOWN, UNKNOWN]
+          description: Event receiver status
+      required:
+        - name
+        - status
+    ProblemJson:
+      description: Body definition for error responses containing failure details
+      type: object
+      properties:
+        type:
+          type: string
+          format: uri
+          description: |-
+            An absolute URI that identifies the problem type. When dereferenced,
+            it SHOULD provide human-readable documentation for the problem type
+            (e.g., using HTML).
+          default: about:blank
+          example: https://example.com/problem/constraint-violation
+        title:
+          type: string
+          description: |-
+            A short, summary of the problem type. Written in english and readable
+            for engineers (usually not suited for non technical stakeholders and
+            not localized); example: Service Unavailable
+        status:
+          $ref: "#/components/schemas/HttpStatusCode"
+        detail:
+          type: string
+          description: |-
+            A human readable explanation specific to this occurrence of the
+            problem.
+          example: There was an error processing the request
+        instance:
+          type: string
+          format: uri
+          description: |-
+            An absolute URI that identifies the specific occurrence of the problem.
+            It may or may not yield further information if dereferenced.
+    HttpStatusCode:
+      type: integer
+      format: int32
+      description: |-
+        The HTTP status code generated by the origin server for this occurrence
+        of the problem.
+      minimum: 100
+      maximum: 600
+      exclusiveMaximum: true
+      example: 200
+  requestBodies:
+    EventReceiverCommandRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/EventReceiverCommandRequest"
+    EventReceiverStatusResponse:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/EventReceiverStatusResponse"
