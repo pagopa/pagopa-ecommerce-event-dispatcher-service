@@ -2,7 +2,7 @@ package it.pagopa.ecommerce.eventdispatcher.redis.streams
 
 import it.pagopa.ecommerce.eventdispatcher.redis.streams.commands.EventDispatcherGenericCommand
 import it.pagopa.ecommerce.eventdispatcher.redis.streams.commands.EventDispatcherReceiverCommand
-import it.pagopa.ecommerce.eventdispatcher.services.InboundChannelAdapterHandlerService
+import it.pagopa.ecommerce.eventdispatcher.services.InboundChannelAdapterLifecycleHandlerService
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.integration.annotation.ServiceActivator
@@ -16,7 +16,9 @@ import org.springframework.stereotype.Service
  */
 @Service
 class RedisStreamConsumer(
-  @Autowired private val inboundChannelAdapterHandlerService: InboundChannelAdapterHandlerService
+  @Autowired
+  private val inboundChannelAdapterLifecycleHandlerService:
+    InboundChannelAdapterLifecycleHandlerService
 ) {
 
   private val logger = LoggerFactory.getLogger(javaClass)
@@ -34,6 +36,6 @@ class RedisStreamConsumer(
           }
         else -> throw RuntimeException("Unhandled command received: $command")
       }
-    inboundChannelAdapterHandlerService.invokeCommandForAllEndpoints(commandToSend)
+    inboundChannelAdapterLifecycleHandlerService.invokeCommandForAllEndpoints(commandToSend)
   }
 }

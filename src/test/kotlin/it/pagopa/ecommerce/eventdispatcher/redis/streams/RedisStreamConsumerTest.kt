@@ -2,7 +2,7 @@ package it.pagopa.ecommerce.eventdispatcher.redis.streams
 
 import it.pagopa.ecommerce.eventdispatcher.redis.streams.commands.EventDispatcherGenericCommand
 import it.pagopa.ecommerce.eventdispatcher.redis.streams.commands.EventDispatcherReceiverCommand
-import it.pagopa.ecommerce.eventdispatcher.services.InboundChannelAdapterHandlerService
+import it.pagopa.ecommerce.eventdispatcher.services.InboundChannelAdapterLifecycleHandlerService
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -17,10 +17,13 @@ import org.springframework.messaging.support.GenericMessage
 
 class RedisStreamConsumerTest {
 
-  private val inboundChannelAdapterHandlerService: InboundChannelAdapterHandlerService = mock()
+  private val inboundChannelAdapterLifecycleHandlerService:
+    InboundChannelAdapterLifecycleHandlerService =
+    mock()
 
   private val redisStreamConsumer =
-    RedisStreamConsumer(inboundChannelAdapterHandlerService = inboundChannelAdapterHandlerService)
+    RedisStreamConsumer(
+      inboundChannelAdapterLifecycleHandlerService = inboundChannelAdapterLifecycleHandlerService)
 
   @ParameterizedTest
   @EnumSource(EventDispatcherReceiverCommand.ReceiverCommand::class)
@@ -34,7 +37,7 @@ class RedisStreamConsumerTest {
     // test
     redisStreamConsumer.readStreamEvent(eventMessage)
     // assertions
-    verify(inboundChannelAdapterHandlerService, times(1))
+    verify(inboundChannelAdapterLifecycleHandlerService, times(1))
       .invokeCommandForAllEndpoints(command.toString().lowercase())
   }
 
@@ -47,6 +50,7 @@ class RedisStreamConsumerTest {
     assertThrows<RuntimeException> { redisStreamConsumer.readStreamEvent(eventMessage) }
 
     // assertions
-    verify(inboundChannelAdapterHandlerService, times(0)).invokeCommandForAllEndpoints(any())
+    verify(inboundChannelAdapterLifecycleHandlerService, times(0))
+      .invokeCommandForAllEndpoints(any())
   }
 }

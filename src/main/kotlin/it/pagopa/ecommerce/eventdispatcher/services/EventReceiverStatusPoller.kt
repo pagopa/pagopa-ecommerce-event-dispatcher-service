@@ -19,7 +19,9 @@ class EventReceiverStatusPoller(
   @Autowired
   private val eventDispatcherReceiverStatusTemplateWrapper:
     EventDispatcherReceiverStatusTemplateWrapper,
-  @Autowired private val inboundChannelAdapterHandlerService: InboundChannelAdapterHandlerService,
+  @Autowired
+  private val inboundChannelAdapterLifecycleHandlerService:
+    InboundChannelAdapterLifecycleHandlerService,
   @Autowired private val redisStreamEventControllerConfigs: RedisStreamEventControllerConfigs
 ) {
 
@@ -28,7 +30,7 @@ class EventReceiverStatusPoller(
   @Scheduled(cron = "\${eventController.status.pollingChron}")
   fun eventReceiverStatusPoller() {
     logger.info("Polling event receiver statuses")
-    val statuses = inboundChannelAdapterHandlerService.getAllChannelStatus()
+    val statuses = inboundChannelAdapterLifecycleHandlerService.getAllChannelStatus()
     val consumerName = redisStreamEventControllerConfigs.consumerName
     val queriedAt = OffsetDateTime.now().toString()
     val receiversStatus =

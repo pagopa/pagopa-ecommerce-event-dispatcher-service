@@ -15,7 +15,7 @@ import org.springframework.stereotype.Service
 
 /** This class handles InboundChannelAdapter lifecycle through SpEL ControlBus implementation */
 @Service
-class InboundChannelAdapterHandlerService(
+class InboundChannelAdapterLifecycleHandlerService(
   @Autowired private val applicationContext: ApplicationContext,
   @Autowired @Qualifier("controlBusInCH") private val controlBusInput: DirectChannel,
   @Autowired @Qualifier("controlBusOutCH") private val controlBusOutput: QueueChannel

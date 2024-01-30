@@ -10,7 +10,9 @@ import org.mockito.kotlin.*
 
 class EventReceiverStatusPollerTest {
 
-  private val inboundChannelAdapterHandlerService: InboundChannelAdapterHandlerService = mock()
+  private val inboundChannelAdapterLifecycleHandlerService:
+    InboundChannelAdapterLifecycleHandlerService =
+    mock()
 
   private val eventDispatcherReceiverStatusTemplateWrapper:
     EventDispatcherReceiverStatusTemplateWrapper =
@@ -25,7 +27,7 @@ class EventReceiverStatusPollerTest {
 
   private val eventReceiverStatusPoller =
     EventReceiverStatusPoller(
-      inboundChannelAdapterHandlerService = inboundChannelAdapterHandlerService,
+      inboundChannelAdapterLifecycleHandlerService = inboundChannelAdapterLifecycleHandlerService,
       redisStreamEventControllerConfigs = redisStreamEventControllerConfigs,
       eventDispatcherReceiverStatusTemplateWrapper = eventDispatcherReceiverStatusTemplateWrapper)
 
@@ -36,7 +38,8 @@ class EventReceiverStatusPollerTest {
       listOf(
         ReceiverStatus(name = "receiver1", status = Status.UP),
         ReceiverStatus(name = "receiver2", status = Status.DOWN))
-    given(inboundChannelAdapterHandlerService.getAllChannelStatus()).willReturn(receiverStatuses)
+    given(inboundChannelAdapterLifecycleHandlerService.getAllChannelStatus())
+      .willReturn(receiverStatuses)
     doNothing().`when`(eventDispatcherReceiverStatusTemplateWrapper).save(any())
     // test
     eventReceiverStatusPoller.eventReceiverStatusPoller()

@@ -20,7 +20,7 @@ import org.springframework.messaging.Message
 import org.springframework.messaging.MessageHeaders
 import org.springframework.messaging.support.MessageBuilder
 
-class InboundChannelAdapterHandlerServiceTest {
+class InboundChannelAdapterLifecycleHandlerServiceTest {
 
   private val applicationContext: ApplicationContext = mock()
   private val controlBusInput: DirectChannel = mock()
@@ -32,8 +32,8 @@ class InboundChannelAdapterHandlerServiceTest {
 
   private val messageArgumentMatcher: KArgumentCaptor<Message<Any>> = argumentCaptor()
 
-  private val inboundChannelAdapterHandlerService =
-    InboundChannelAdapterHandlerService(
+  private val inboundChannelAdapterLifecycleHandlerService =
+    InboundChannelAdapterLifecycleHandlerService(
       applicationContext = applicationContext,
       controlBusInput = controlBusInput,
       controlBusOutput = controlBusOutput)
@@ -50,7 +50,7 @@ class InboundChannelAdapterHandlerServiceTest {
           storageChannelAdapterBeanName to storageMessageQueueMock))
     given(controlBusInput.send(messageArgumentMatcher.capture())).willReturn(true)
     // test
-    inboundChannelAdapterHandlerService.invokeCommandForAllEndpoints(command)
+    inboundChannelAdapterLifecycleHandlerService.invokeCommandForAllEndpoints(command)
     // assertions
     val capturedMessages = messageArgumentMatcher.allValues
     assertTrue(capturedMessages.size == 1)
@@ -85,7 +85,7 @@ class InboundChannelAdapterHandlerServiceTest {
     val expectedReceiverStatus =
       ReceiverStatus(name = storageChannelAdapterBeanName, status = expectedStatus)
     // test
-    val receiverStatusResponse = inboundChannelAdapterHandlerService.getAllChannelStatus()
+    val receiverStatusResponse = inboundChannelAdapterLifecycleHandlerService.getAllChannelStatus()
     // assertions
     val capturedMessages = messageArgumentMatcher.allValues
     assertTrue(capturedMessages.size == 1)
