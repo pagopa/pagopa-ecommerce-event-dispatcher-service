@@ -69,7 +69,7 @@ class EventReceiverService(
   @PreDestroy
   fun close() {
     RedisStreamMessageSource.RedisStreamMessageSourceLogger.logger.info(
-      "Deleting consumer group with id $redisStreamConf.consumerGroup")
+      "Deleting consumer group with id ${redisStreamConf.consumerGroup}")
     eventDispatcherCommandsTemplateWrapper.destroyGroup(
       redisStreamConf.streamKey, redisStreamConf.consumerGroup)
   }
