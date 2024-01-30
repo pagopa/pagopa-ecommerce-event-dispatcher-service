@@ -34,6 +34,12 @@ class RedisConfig {
     redisTemplate.setConnectionFactory(redisConnectionFactory)
     redisTemplate.setDefaultSerializer(StringRedisSerializer())
     redisTemplate.afterPropertiesSet()
+    /*
+     * This redis template instance is to write events to Redis Stream through opsForStreams apis.
+     * No document is written into cache.
+     * Set TTL to 0 here will throw an error during writing operation to cache to enforce the fact that this
+     * wrapper has to be used only to write to Redis Streams
+     */
     return EventDispatcherCommandsTemplateWrapper(redisTemplate, Duration.ZERO)
   }
 
