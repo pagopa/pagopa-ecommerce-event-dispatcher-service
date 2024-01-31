@@ -47,6 +47,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 import reactor.core.publisher.Mono
+import reactor.core.scheduler.Schedulers
 
 data class ClosePaymentTransactionData(
   val closureOutcome: OutcomeEnum,
@@ -201,24 +202,13 @@ class ClosePaymentHelper(
               closePaymentOutcomeEvent.fold(
                 { Mono.empty() },
                 { transactionClosedEvent ->
-                  when (tx) {
-                    is TransactionWithClosureRequested ->
-                      refundTransactionPipeline(
-                        Either.right(tx), transactionClosedEvent.data.responseOutcome, tracingInfo)
-                    is TransactionWithClosureError ->
-                      refundTransactionPipeline(
-                        Either.left(tx), transactionClosedEvent.data.responseOutcome, tracingInfo)
-                    is TransactionWithCancellationRequested -> Mono.empty()
-                    else ->
-                      Mono.error(
-                        IllegalArgumentException(
-                          "Invalid transaction type! Decoded type is ${tx.javaClass}"))
-                  }
+                  refundTransactionPipeline(
+                    tx, transactionClosedEvent.data.responseOutcome, tracingInfo)
                 })
             }
             .then()
             .onErrorResume { exception ->
-              baseTransaction.flatMap { baseTransaction ->
+              baseTransaction.publishOn(Schedulers.boundedElastic()).flatMap { baseTransaction ->
                 when (exception) {
                   is BadClosePaymentRequest ->
                     mono { baseTransaction }
@@ -264,12 +254,17 @@ class ClosePaymentHelper(
                           transactionsEventStoreRepository,
                           emptyTransaction)
                       }
-                      .flatMap { transactionUpdated ->
-                        closureRetryService
-                          .enqueueRetryEvent(transactionUpdated, retryCount, tracingInfo)
-                          .doOnError(NoRetryAttemptsLeftException::class.java) { exception ->
-                            logger.error("No more attempts left for closure retry", exception)
-                          }
+                      .then()
+                      .subscribe()
+
+                    closureRetryService
+                      .enqueueRetryEvent(tx, retryCount, tracingInfo)
+                      .publishOn(Schedulers.boundedElastic())
+                      .doOnError(NoRetryAttemptsLeftException::class.java) { exception ->
+                        logger.error("No more attempts left for closure retry", exception)
+                        refundTransactionPipeline(
+                            tx, TransactionClosureData.Outcome.KO, tracingInfo)
+                          .subscribe()
                       }
                   }
                 }
@@ -493,6 +488,19 @@ class ClosePaymentHelper(
      */
     return OutcomeEnum.KO
   }
+
+  private fun refundTransactionPipeline(
+    transaction: BaseTransaction,
+    closureOutcome: TransactionClosureData.Outcome,
+    tracingInfo: TracingInfo
+  ): Mono<BaseTransaction> =
+    when (transaction) {
+      is TransactionWithClosureRequested ->
+        refundTransactionPipeline(Either.right(transaction), closureOutcome, tracingInfo)
+      is TransactionWithClosureError ->
+        refundTransactionPipeline(Either.left(transaction), closureOutcome, tracingInfo)
+      else -> Mono.empty()
+    }
 
   private fun refundTransactionPipeline(
     transaction: Either<TransactionWithClosureError, TransactionWithClosureRequested>,
