@@ -2,6 +2,7 @@ package it.pagopa.ecommerce.eventdispatcher.queues
 
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
+import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.documents.BaseTransactionEvent
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.TracingInfo
@@ -43,9 +44,13 @@ class TransactionClosePaymentQueueConsumerTest {
 
   private val queueConsumerV2Captor:
     KArgumentCaptor<
-      QueueEvent<it.pagopa.ecommerce.commons.documents.v2.TransactionUserCanceledEvent>> =
+      Either<
+        QueueEvent<it.pagopa.ecommerce.commons.documents.v2.TransactionUserCanceledEvent>,
+        QueueEvent<it.pagopa.ecommerce.commons.documents.v2.TransactionClosureRequestedEvent>>> =
     argumentCaptor<
-      QueueEvent<it.pagopa.ecommerce.commons.documents.v2.TransactionUserCanceledEvent>>()
+      Either<
+        QueueEvent<it.pagopa.ecommerce.commons.documents.v2.TransactionUserCanceledEvent>,
+        QueueEvent<it.pagopa.ecommerce.commons.documents.v2.TransactionClosureRequestedEvent>>>()
 
   private val checkpointer: Checkpointer = mock()
 
@@ -68,6 +73,8 @@ class TransactionClosePaymentQueueConsumerTest {
       it.pagopa.ecommerce.commons.v1.TransactionTestUtils.transactionUserCanceledEvent()
     private val transactionUserCanceledEventV2 =
       it.pagopa.ecommerce.commons.v2.TransactionTestUtils.transactionUserCanceledEvent()
+    private val transactionClosureRequestedEvent =
+      it.pagopa.ecommerce.commons.v2.TransactionTestUtils.transactionClosureRequestedEvent()
     private val tracingInfo = TracingInfoTest.MOCK_TRACING_INFO
 
     @JvmStatic
@@ -106,6 +113,14 @@ class TransactionClosePaymentQueueConsumerTest {
               .toBytes(),
             StandardCharsets.UTF_8),
           transactionUserCanceledEventV2),
+        Arguments.of(
+          String(
+            BinaryData.fromObject(
+                QueueEvent(transactionClosureRequestedEvent, tracingInfo),
+                strictSerializerProviderV2.createInstance())
+              .toBytes(),
+            StandardCharsets.UTF_8),
+          transactionClosureRequestedEvent),
       )
     }
   }
@@ -163,8 +178,8 @@ class TransactionClosePaymentQueueConsumerTest {
     verify(deadLetterTracedQueueAsyncClient, times(0))
       .sendAndTraceDeadLetterQueueEvent(any<BinaryData>(), any())
     val queueEvent = queueConsumerV2Captor.firstValue
-    assertEquals(originalEvent, queueEvent.event)
-    assertNotNull(queueEvent.tracingInfo)
+    assertEquals(originalEvent, queueEvent.fold({ it }, { it }).event)
+    assertNotNull(queueEvent.fold({ it }, { it }).tracingInfo)
   }
 
   @Test

@@ -206,12 +206,13 @@ class NodeServiceTests {
     val authCompletedEvent =
       transactionAuthorizationCompletedEvent(
         pgsTransactionGatewayAuthorizationData(AuthorizationResultDto.OK))
+    val closureRequestedEvent = transactionClosureRequestedEvent()
     val closureError = transactionClosureErrorEvent()
     val transactionId = activatedEvent.transactionId
     val nodoTimestampOperation = OffsetDateTime.parse(timestampOperation)
     authCompletedEvent.data.timestampOperation = nodoTimestampOperation.toString()
     val events =
-      listOf(activatedEvent, authEvent, authCompletedEvent, closureError)
+      listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent, closureError)
         as List<TransactionEvent<Any>>
 
     val closePaymentResponse =
@@ -342,10 +343,11 @@ class NodeServiceTests {
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(
           npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED))
+      val closureRequestedEvent = transactionClosureRequestedEvent()
       val closureError = transactionClosureErrorEvent()
       val transactionId = activatedEvent.transactionId
       val events =
-        listOf(activatedEvent, authEvent, authCompletedEvent, closureError)
+        listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent, closureError)
           as List<TransactionEvent<Any>>
 
       val closePaymentResponse =
@@ -477,10 +479,11 @@ class NodeServiceTests {
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(
           pgsTransactionGatewayAuthorizationData(AuthorizationResultDto.KO))
+      val closureRequestedEvent = transactionClosureRequestedEvent()
       val closureError = transactionClosureErrorEvent()
       val transactionId = activatedEvent.transactionId
       val events =
-        listOf(activatedEvent, authEvent, authCompletedEvent, closureError)
+        listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent, closureError)
           as List<TransactionEvent<Any>>
 
       val closePaymentResponse =
@@ -619,10 +622,11 @@ class NodeServiceTests {
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(
           npgTransactionGatewayAuthorizationData(OperationResultDto.DECLINED))
+      val closureRequestedEvent = transactionClosureRequestedEvent()
       val closureError = transactionClosureErrorEvent()
       val transactionId = activatedEvent.transactionId
       val events =
-        listOf(activatedEvent, authEvent, authCompletedEvent, closureError)
+        listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent, closureError)
           as List<TransactionEvent<Any>>
 
       val closePaymentResponse =
@@ -757,10 +761,11 @@ class NodeServiceTests {
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(
           PgsTransactionGatewayAuthorizationData(errorCode, authKO))
+      val closureRequestedEvent = transactionClosureRequestedEvent()
       val closureError = transactionClosureErrorEvent()
       val transactionId = activatedEvent.transactionId
       val events =
-        listOf(activatedEvent, authEvent, authCompletedEvent, closureError)
+        listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent, closureError)
           as List<TransactionEvent<Any>>
 
       val closePaymentResponse =
@@ -870,10 +875,11 @@ class NodeServiceTests {
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(
           npgTransactionGatewayAuthorizationData(OperationResultDto.DECLINED))
+      val closureRequestedEvent = transactionClosureRequestedEvent()
       val closureError = transactionClosureErrorEvent()
       val transactionId = activatedEvent.transactionId
       val events =
-        listOf(activatedEvent, authEvent, authCompletedEvent, closureError)
+        listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent, closureError)
           as List<TransactionEvent<Any>>
 
       val closePaymentResponse =
@@ -977,10 +983,11 @@ class NodeServiceTests {
         transactionAuthorizationCompletedEvent(
           NpgTransactionGatewayAuthorizationData(
             OperationResultDto.EXECUTED, "operationId", "paymentEndTOEndId"))
+      val closureRequestedEvent = transactionClosureRequestedEvent()
       val closureError = transactionClosureErrorEvent()
       val transactionId = activatedEvent.transactionId
       val events =
-        listOf(activatedEvent, authEvent, authCompletedEvent, closureError)
+        listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent, closureError)
           as List<TransactionEvent<Any>>
 
       val pgsOutCome = OutcomeEnum.KO

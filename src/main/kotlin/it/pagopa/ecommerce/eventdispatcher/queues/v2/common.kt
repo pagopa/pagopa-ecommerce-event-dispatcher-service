@@ -554,7 +554,7 @@ fun <T> runTracedPipelineWithDeadLetterQueue(
       .doOnSuccess { logger.info("Checkpoint performed successfully for event $eventLogString") }
       .doOnError { logger.error("Error performing checkpoint for event $eventLogString", it) }
       .then(pipeline)
-      .then(mono {})
+      .then(Mono.just(Unit))
       .onErrorResume { pipelineException ->
         val errorCategory: DeadLetterTracedQueueAsyncClient.ErrorCategory =
           if (pipelineException is NoRetryAttemptsLeftException) {
@@ -575,7 +575,7 @@ fun <T> runTracedPipelineWithDeadLetterQueue(
 
   return tracingUtils
     .traceMonoWithRemoteSpan(queueEvent.tracingInfo, spanName, deadLetterPipeline)
-    .then(mono {})
+    .then(Mono.just(Unit))
 }
 
 fun getClosePaymentOutcome(tx: BaseTransaction): TransactionClosureData.Outcome? =
