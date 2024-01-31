@@ -87,17 +87,14 @@ data class ClosePaymentEvent(
     onRetried: (QueueEvent<TransactionClosureRetriedEvent>) -> T,
     onErrored: (QueueEvent<TransactionClosureErrorEvent>) -> T
   ): T {
-    return if (requested != null) {
-      onClosureRequested(requested)
-    } else if (canceled != null) {
-      onCanceled(canceled)
-    } else if (retried != null) {
-      onRetried(retried)
-    } else if (errored != null) {
-      onErrored(errored)
-    } else {
-      throw IllegalStateException("No variant of `ClosePaymentEvent` is non-null!")
-    }
+    return checkNotNull(
+      when {
+        requested != null -> onClosureRequested(requested)
+        canceled != null -> onCanceled(canceled)
+        retried != null -> onRetried(retried)
+        errored != null -> onErrored(errored)
+        else -> null
+      }) { "No variant of `ClosePaymentEvent` is non-null!" }
   }
 }
 
@@ -174,7 +171,9 @@ class ClosePaymentHelper(
             when (tx) {
               is TransactionWithClosureError -> Mono.just(getClosePaymentTransactionData(tx))
               is TransactionWithCancellationRequested ->
-                Mono.just(getClosePaymentTransactionData(tx))
+                Mono.just(
+                  ClosePaymentTransactionData(
+                    closureOutcome = OutcomeEnum.KO, canceledByUser = true, wasAuthorized = false))
               is TransactionWithClosureRequested -> Mono.just(getClosePaymentTransactionData(tx))
               else ->
                 Mono.error(
@@ -412,15 +411,6 @@ class ClosePaymentHelper(
   }
 
   private fun getClosePaymentTransactionData(
-    transaction: BaseTransactionWithCancellationRequested
-  ): ClosePaymentTransactionData {
-    return ClosePaymentTransactionData(
-      closureOutcome = getClosePaymentOutcome(transaction),
-      canceledByUser = true,
-      wasAuthorized = false)
-  }
-
-  private fun getClosePaymentTransactionData(
     transaction: TransactionWithClosureRequested
   ): ClosePaymentTransactionData {
     return ClosePaymentTransactionData(
@@ -436,9 +426,7 @@ class ClosePaymentHelper(
       transactionAtPreviousState
         .map {
           it.fold(
-            { transactionWithCancellationRequested ->
-              getClosePaymentOutcome(transactionWithCancellationRequested)
-            },
+            { _ -> OutcomeEnum.KO },
             { trxWithAuthorizationCompleted ->
               getClosePaymentOutcome(trxWithAuthorizationCompleted)
             })
@@ -482,16 +470,6 @@ class ClosePaymentHelper(
       }
 
     return closureOutcome
-  }
-
-  private fun getClosePaymentOutcome(
-    ignored: BaseTransactionWithCancellationRequested
-  ): OutcomeEnum {
-    /*
-     * retrying a closure for a transaction canceled by the user (not authorized) so here
-     * we have to perform a closePayment KO request to Nodo
-     */
-    return OutcomeEnum.KO
   }
 
   private fun refundTransactionPipeline(
