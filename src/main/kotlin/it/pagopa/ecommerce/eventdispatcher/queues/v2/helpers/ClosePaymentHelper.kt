@@ -388,7 +388,8 @@ class ClosePaymentHelper(
         transactionGatewayData.authorizationResultDto == AuthorizationResultDto.OK
       is NpgTransactionGatewayAuthorizationData ->
         transactionGatewayData.operationResult == OperationResultDto.EXECUTED
-      is RedirectTransactionGatewayAuthorizationData -> TODO()
+      is RedirectTransactionGatewayAuthorizationData ->
+        transactionGatewayData.outcome == RedirectTransactionGatewayAuthorizationData.Outcome.OK
     }
   }
 
@@ -473,7 +474,11 @@ class ClosePaymentHelper(
             OperationResultDto.EXECUTED -> OutcomeEnum.OK
             else -> OutcomeEnum.KO
           }
-        is RedirectTransactionGatewayAuthorizationData -> TODO()
+        is RedirectTransactionGatewayAuthorizationData ->
+          when (transactionAuthGatewayData.outcome) {
+            RedirectTransactionGatewayAuthorizationData.Outcome.OK -> OutcomeEnum.OK
+            else -> OutcomeEnum.KO
+          }
       }
 
     return closureOutcome

@@ -5,6 +5,7 @@ import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.documents.v2.authorization.PgsTransactionGatewayAuthorizationData
+import it.pagopa.ecommerce.commons.documents.v2.authorization.RedirectTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v2.TransactionEventCode
@@ -105,7 +106,7 @@ class ClosePaymentHelperTests {
   private val strictJsonSerializerProviderV2 = QueuesConsumerConfig().strictSerializerProviderV2()
   private val jsonSerializerV2 = strictJsonSerializerProviderV2.createInstance()
 
-  val closePaymentHelper =
+  private val closePaymentHelper =
     ClosePaymentHelper(
       transactionsEventStoreRepository = transactionsEventStoreRepository,
       transactionClosureSentEventRepository = transactionClosedEventRepository,
@@ -1405,5 +1406,165 @@ class ClosePaymentHelperTests {
       // mocking
       verify(transactionsViewRepository, Mockito.times(0)).save(expectedUpdatedTransactionCanceled)
       verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), eq(MOCK_TRACING_INFO))
+    }
+
+  @Test
+  fun `consumer processes closure error message correctly with OK closure outcome for authorization completed transaction with REDIRECT gateway`() =
+    runTest {
+      val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
+      val authorizationRequestEvent =
+        transactionAuthorizationRequestedEvent(
+          TransactionAuthorizationRequestData.PaymentGateway.REDIRECT,
+          redirectTransactionGatewayAuthorizationRequestedData())
+          as TransactionEvent<Any>
+      val authorizationCompleteEvent =
+        transactionAuthorizationCompletedEvent(
+          redirectTransactionGatewayAuthorizationData(
+            RedirectTransactionGatewayAuthorizationData.Outcome.OK, null))
+          as TransactionEvent<Any>
+      val closureRequestedEvent = transactionClosureRequestedEvent() as TransactionEvent<Any>
+      val closureErrorEvent = transactionClosureErrorEvent() as TransactionEvent<Any>
+
+      val events =
+        listOf(
+          activationEvent,
+          authorizationRequestEvent,
+          authorizationCompleteEvent,
+          closureRequestedEvent,
+          closureErrorEvent)
+
+      val expectedUpdatedTransaction =
+        transactionDocument(
+          TransactionStatusDto.CLOSED, ZonedDateTime.parse(activationEvent.creationDate))
+
+      val transactionDocument =
+        transactionDocument(
+          TransactionStatusDto.CLOSURE_ERROR, ZonedDateTime.parse(activationEvent.creationDate))
+
+      /* preconditions */
+      given(checkpointer.success()).willReturn(Mono.empty())
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
+        .willReturn(events.toFlux())
+      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturn(Mono.just(transactionDocument))
+      given(transactionsViewRepository.save(viewArgumentCaptor.capture())).willAnswer {
+        Mono.just(it.arguments[0])
+      }
+      given(transactionClosedEventRepository.save(closedEventStoreRepositoryCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
+      given(
+          nodeService.closePayment(
+            TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.OK))
+        .willReturn(
+          ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK })
+
+      /* test */
+      Hooks.onOperatorDebug()
+      StepVerifier.create(
+          closePaymentHelper.closePayment(
+            ClosePaymentEvent.errored(
+              QueueEvent(closureErrorEvent as TransactionClosureErrorEvent, MOCK_TRACING_INFO)),
+            checkpointer,
+            EmptyTransaction()))
+        .expectNext(Unit)
+        .verifyComplete()
+
+      /* Asserts */
+      verify(checkpointer, Mockito.times(1)).success()
+      verify(nodeService, Mockito.times(1))
+        .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.OK)
+      verify(transactionClosedEventRepository, Mockito.times(1)).save(any())
+      verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransaction)
+      verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
+      verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
+      assertEquals(TransactionStatusDto.CLOSED, viewArgumentCaptor.value.status)
+      assertEquals(
+        TransactionEventCode.TRANSACTION_CLOSED_EVENT,
+        TransactionEventCode.valueOf(closedEventStoreRepositoryCaptor.value.eventCode))
+      assertEquals(
+        TransactionClosureData.Outcome.OK,
+        closedEventStoreRepositoryCaptor.value.data.responseOutcome)
+    }
+
+  @Test
+  fun `consumer processes closure error message correctly with KO closure outcome for unauthorized transaction with REDIRECT gateway`() =
+    runTest {
+      val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
+      val authorizationRequestEvent =
+        transactionAuthorizationRequestedEvent(
+          TransactionAuthorizationRequestData.PaymentGateway.REDIRECT,
+          redirectTransactionGatewayAuthorizationRequestedData())
+          as TransactionEvent<Any>
+      val authorizationCompletedEvent =
+        transactionAuthorizationCompletedEvent(
+          redirectTransactionGatewayAuthorizationData(
+            RedirectTransactionGatewayAuthorizationData.Outcome.KO, "errorCode"))
+          as TransactionEvent<Any>
+      val closureRequestedEvent = transactionClosureRequestedEvent() as TransactionEvent<Any>
+      val closureErrorEvent = transactionClosureErrorEvent() as TransactionEvent<Any>
+
+      val events =
+        listOf(
+          activationEvent,
+          authorizationRequestEvent,
+          authorizationCompletedEvent,
+          closureRequestedEvent,
+          closureErrorEvent)
+
+      val expectedUpdatedTransaction =
+        transactionDocument(
+          TransactionStatusDto.UNAUTHORIZED, ZonedDateTime.parse(activationEvent.creationDate))
+
+      val transactionDocument =
+        transactionDocument(
+          TransactionStatusDto.CLOSURE_ERROR, ZonedDateTime.parse(activationEvent.creationDate))
+
+      /* preconditions */
+      given(checkpointer.success()).willReturn(Mono.empty())
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
+        .willReturn(events.toFlux())
+      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturn(Mono.just(transactionDocument))
+      given(transactionsViewRepository.save(viewArgumentCaptor.capture())).willAnswer {
+        Mono.just(it.arguments[0])
+      }
+      given(transactionClosedEventRepository.save(closedEventStoreRepositoryCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
+      given(
+          nodeService.closePayment(
+            TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.KO))
+        .willReturn(
+          ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.KO })
+
+      /* test */
+      Hooks.onOperatorDebug()
+      StepVerifier.create(
+          closePaymentHelper.closePayment(
+            ClosePaymentEvent.errored(
+              QueueEvent(closureErrorEvent as TransactionClosureErrorEvent, MOCK_TRACING_INFO)),
+            checkpointer,
+            EmptyTransaction()))
+        .expectNext(Unit)
+        .verifyComplete()
+
+      /* Asserts */
+      verify(checkpointer, Mockito.times(1)).success()
+      verify(nodeService, Mockito.times(1))
+        .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.KO)
+      verify(transactionClosedEventRepository, Mockito.times(1)).save(any())
+      verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransaction)
+      verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
+      verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
+      assertEquals(TransactionStatusDto.UNAUTHORIZED, viewArgumentCaptor.value.status)
+      assertEquals(
+        TransactionEventCode.TRANSACTION_CLOSURE_FAILED_EVENT,
+        TransactionEventCode.valueOf(closedEventStoreRepositoryCaptor.value.eventCode))
+      assertEquals(
+        TransactionClosureData.Outcome.KO,
+        closedEventStoreRepositoryCaptor.value.data.responseOutcome)
     }
 }

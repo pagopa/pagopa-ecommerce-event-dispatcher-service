@@ -1049,10 +1049,11 @@ class NodeServiceTests {
         transactionAuthorizationCompletedEvent(
           redirectTransactionGatewayAuthorizationData(
             RedirectTransactionGatewayAuthorizationData.Outcome.OK, null))
+      val closureRequestedEvent = transactionClosureRequestedEvent()
       val closureError = transactionClosureErrorEvent()
       val transactionId = activatedEvent.transactionId
       val events =
-        listOf(activatedEvent, authEvent, authCompletedEvent, closureError)
+        listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent, closureError)
           as List<TransactionEvent<Any>>
 
       val closePaymentResponse =
@@ -1189,10 +1190,11 @@ class NodeServiceTests {
         transactionAuthorizationCompletedEvent(
           redirectTransactionGatewayAuthorizationData(
             RedirectTransactionGatewayAuthorizationData.Outcome.KO, "errorCode"))
+      val closureRequestedEvent = transactionClosureRequestedEvent()
       val closureError = transactionClosureErrorEvent()
       val transactionId = activatedEvent.transactionId
       val events =
-        listOf(activatedEvent, authEvent, authCompletedEvent, closureError)
+        listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent, closureError)
           as List<TransactionEvent<Any>>
 
       val closePaymentResponse =
