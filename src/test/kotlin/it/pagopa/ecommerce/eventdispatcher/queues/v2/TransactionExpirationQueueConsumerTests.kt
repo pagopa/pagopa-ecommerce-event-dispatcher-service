@@ -830,6 +830,7 @@ class TransactionExpirationQueueConsumerTests {
     val authorizationCompletedEvent =
       transactionAuthorizationCompletedEvent(
         PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
+    val closureRequestedEvent = transactionClosureRequestedEvent()
     val closedEvent = transactionClosedEvent(TransactionClosureData.Outcome.OK)
     val userReceiptRequestedEvent = transactionUserReceiptRequestedEvent(transactionUserReceiptData)
     val addUserReceiptEvent = transactionUserReceiptAddedEvent(transactionUserReceiptData)
@@ -839,6 +840,7 @@ class TransactionExpirationQueueConsumerTests {
           activatedEvent,
           authorizationRequestedEvent,
           authorizationCompletedEvent,
+          closureRequestedEvent,
           closedEvent,
           userReceiptRequestedEvent,
           addUserReceiptEvent))
@@ -932,6 +934,7 @@ class TransactionExpirationQueueConsumerTests {
       val authorizationCompletedEvent =
         transactionAuthorizationCompletedEvent(
           PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
+      val closureRequestedEvent = transactionClosureRequestedEvent()
       val closedEvent = transactionClosedEvent(TransactionClosureData.Outcome.OK)
       val userReceiptRequestedEvent =
         transactionUserReceiptRequestedEvent(transactionUserReceiptData)
@@ -951,6 +954,7 @@ class TransactionExpirationQueueConsumerTests {
             activatedEvent as TransactionEvent<Any>,
             authorizationRequestedEvent as TransactionEvent<Any>,
             authorizationCompletedEvent as TransactionEvent<Any>,
+            closureRequestedEvent as TransactionEvent<Any>,
             closedEvent as TransactionEvent<Any>,
             userReceiptRequestedEvent as TransactionEvent<Any>,
             userReceiptErrorEvent as TransactionEvent<Any>))
@@ -1045,6 +1049,7 @@ class TransactionExpirationQueueConsumerTests {
       val authorizationCompletedEvent =
         transactionAuthorizationCompletedEvent(
           PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
+      val closureRequestedEvent = transactionClosureRequestedEvent()
       val closedEvent = transactionClosedEvent(TransactionClosureData.Outcome.OK)
       val userReceiptRequestedEvent =
         transactionUserReceiptRequestedEvent(transactionUserReceiptData)
@@ -1064,7 +1069,9 @@ class TransactionExpirationQueueConsumerTests {
             activatedEvent as TransactionEvent<Any>,
             authorizationRequestedEvent as TransactionEvent<Any>,
             authorizationCompletedEvent as TransactionEvent<Any>,
+            closureRequestedEvent as TransactionEvent<Any>,
             closedEvent as TransactionEvent<Any>,
+            closureRequestedEvent as TransactionEvent<Any>,
             userReceiptRequestedEvent as TransactionEvent<Any>,
             userReceiptErrorEvent as TransactionEvent<Any>))
 
@@ -1130,6 +1137,7 @@ class TransactionExpirationQueueConsumerTests {
       val authorizationCompletedEvent =
         transactionAuthorizationCompletedEvent(
           PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
+      val closureRequestedEvent = transactionClosureRequestedEvent()
       val closedEvent = transactionClosedEvent(TransactionClosureData.Outcome.OK)
       val userReceiptRequestedEvent =
         transactionUserReceiptRequestedEvent(transactionUserReceiptData)
@@ -1140,6 +1148,7 @@ class TransactionExpirationQueueConsumerTests {
             activatedEvent,
             authorizationRequestedEvent,
             authorizationCompletedEvent,
+            closureRequestedEvent,
             closedEvent,
             userReceiptRequestedEvent,
             userReceiptErrorEvent))
@@ -1157,6 +1166,7 @@ class TransactionExpirationQueueConsumerTests {
             activatedEvent as TransactionEvent<Any>,
             authorizationRequestedEvent as TransactionEvent<Any>,
             authorizationCompletedEvent as TransactionEvent<Any>,
+            closureRequestedEvent as TransactionEvent<Any>,
             closedEvent as TransactionEvent<Any>,
             userReceiptRequestedEvent as TransactionEvent<Any>,
             userReceiptErrorEvent as TransactionEvent<Any>,
@@ -1243,6 +1253,7 @@ class TransactionExpirationQueueConsumerTests {
       val authorizationCompletedEvent =
         transactionAuthorizationCompletedEvent(
           PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
+      val closureRequestedEvent = transactionClosureRequestedEvent()
       val closedEvent = transactionClosedEvent(TransactionClosureData.Outcome.OK)
       val userReceiptRequestedEvent =
         transactionUserReceiptRequestedEvent(transactionUserReceiptData)
@@ -1253,6 +1264,7 @@ class TransactionExpirationQueueConsumerTests {
             activatedEvent,
             authorizationRequestedEvent,
             authorizationCompletedEvent,
+            closureRequestedEvent,
             closedEvent,
             userReceiptRequestedEvent,
             userReceiptErrorEvent,
@@ -1271,6 +1283,7 @@ class TransactionExpirationQueueConsumerTests {
             activatedEvent as TransactionEvent<Any>,
             authorizationRequestedEvent as TransactionEvent<Any>,
             authorizationCompletedEvent as TransactionEvent<Any>,
+            closureRequestedEvent as TransactionEvent<Any>,
             closedEvent as TransactionEvent<Any>,
             userReceiptRequestedEvent as TransactionEvent<Any>,
             userReceiptErrorEvent as TransactionEvent<Any>,
@@ -1326,6 +1339,7 @@ class TransactionExpirationQueueConsumerTests {
     val authorizationCompletedEvent =
       transactionAuthorizationCompletedEvent(
         PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
+    val closureRequestedEvent = transactionClosureRequestedEvent()
     val closedEvent = transactionClosedEvent(TransactionClosureData.Outcome.OK)
     val userReceiptRequestedEvent = transactionUserReceiptRequestedEvent(transactionUserReceiptData)
     val userReceiptErrorEvent = transactionUserReceiptAddErrorEvent(transactionUserReceiptData)
@@ -1335,6 +1349,7 @@ class TransactionExpirationQueueConsumerTests {
           activatedEvent,
           authorizationRequestedEvent,
           authorizationCompletedEvent,
+          closureRequestedEvent,
           closedEvent,
           userReceiptRequestedEvent,
           userReceiptErrorEvent))
@@ -1352,6 +1367,7 @@ class TransactionExpirationQueueConsumerTests {
           activatedEvent as TransactionEvent<Any>,
           authorizationRequestedEvent as TransactionEvent<Any>,
           authorizationCompletedEvent as TransactionEvent<Any>,
+          closureRequestedEvent as TransactionEvent<Any>,
           closedEvent as TransactionEvent<Any>,
           userReceiptRequestedEvent as TransactionEvent<Any>,
           userReceiptErrorEvent as TransactionEvent<Any>,
@@ -1396,6 +1412,7 @@ class TransactionExpirationQueueConsumerTests {
     val authorizationCompletedEvent =
       transactionAuthorizationCompletedEvent(
         PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
+    val closureRequestedEvent = transactionClosureRequestedEvent()
     val closedEvent = transactionClosedEvent(TransactionClosureData.Outcome.OK)
     val userReceiptRequestedEvent = transactionUserReceiptRequestedEvent(transactionUserReceiptData)
     val userReceiptErrorEvent = transactionUserReceiptAddErrorEvent(transactionUserReceiptData)
@@ -1405,6 +1422,7 @@ class TransactionExpirationQueueConsumerTests {
           activatedEvent,
           authorizationRequestedEvent,
           authorizationCompletedEvent,
+          closureRequestedEvent,
           closedEvent,
           userReceiptRequestedEvent,
           userReceiptErrorEvent))
@@ -1414,6 +1432,7 @@ class TransactionExpirationQueueConsumerTests {
           activatedEvent,
           authorizationRequestedEvent,
           authorizationCompletedEvent,
+          closureRequestedEvent,
           closedEvent,
           userReceiptRequestedEvent,
           userReceiptErrorEvent,
@@ -1432,6 +1451,7 @@ class TransactionExpirationQueueConsumerTests {
           activatedEvent as TransactionEvent<Any>,
           authorizationRequestedEvent as TransactionEvent<Any>,
           authorizationCompletedEvent as TransactionEvent<Any>,
+          closureRequestedEvent as TransactionEvent<Any>,
           closedEvent as TransactionEvent<Any>,
           userReceiptRequestedEvent as TransactionEvent<Any>,
           userReceiptErrorEvent as TransactionEvent<Any>,
@@ -1650,6 +1670,7 @@ class TransactionExpirationQueueConsumerTests {
       val authorizationCompletedEvent =
         transactionAuthorizationCompletedEvent(
           PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
+      val closureRequestedEvent = transactionClosureRequestedEvent()
       val closureErrorEvent = transactionClosureErrorEvent()
 
       val gatewayClientResponse = VposDeleteResponseDto()
@@ -1666,6 +1687,7 @@ class TransactionExpirationQueueConsumerTests {
             activatedEvent as TransactionEvent<Any>,
             authorizationRequestedEvent as TransactionEvent<Any>,
             authorizationCompletedEvent as TransactionEvent<Any>,
+            closureRequestedEvent as TransactionEvent<Any>,
             closureErrorEvent as TransactionEvent<Any>))
 
       given(
@@ -1747,6 +1769,7 @@ class TransactionExpirationQueueConsumerTests {
       val authorizationCompletedEvent =
         transactionAuthorizationCompletedEvent(
           PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
+      val closureRequestedEvent = transactionClosureRequestedEvent()
       val closureErrorEvent = transactionClosureErrorEvent()
       val expiredEvent =
         transactionExpiredEvent(
@@ -1770,6 +1793,7 @@ class TransactionExpirationQueueConsumerTests {
             activatedEvent as TransactionEvent<Any>,
             authorizationRequestedEvent as TransactionEvent<Any>,
             authorizationCompletedEvent as TransactionEvent<Any>,
+            closureRequestedEvent as TransactionEvent<Any>,
             closureErrorEvent as TransactionEvent<Any>,
             expiredEvent as TransactionEvent<Any>))
 
@@ -1919,6 +1943,7 @@ class TransactionExpirationQueueConsumerTests {
       val authorizationCompletedEvent =
         transactionAuthorizationCompletedEvent(
           PgsTransactionGatewayAuthorizationData("errorCode", AuthorizationResultDto.KO))
+      val closureRequestedEvent = transactionClosureRequestedEvent()
       val closureErrorEvent = transactionClosureErrorEvent()
 
       val gatewayClientResponse = VposDeleteResponseDto()
@@ -1935,6 +1960,7 @@ class TransactionExpirationQueueConsumerTests {
             activatedEvent as TransactionEvent<Any>,
             authorizationRequestedEvent as TransactionEvent<Any>,
             authorizationCompletedEvent as TransactionEvent<Any>,
+            closureRequestedEvent as TransactionEvent<Any>,
             closureErrorEvent as TransactionEvent<Any>))
 
       given(
@@ -2000,6 +2026,7 @@ class TransactionExpirationQueueConsumerTests {
       val authorizationCompletedEvent =
         transactionAuthorizationCompletedEvent(
           PgsTransactionGatewayAuthorizationData("errorCode", AuthorizationResultDto.KO))
+      val closureRequestedEvent = transactionClosureRequestedEvent()
       val closureErrorEvent = transactionClosureErrorEvent()
       val expiredEvent =
         transactionExpiredEvent(
@@ -2023,6 +2050,7 @@ class TransactionExpirationQueueConsumerTests {
             activatedEvent as TransactionEvent<Any>,
             authorizationRequestedEvent as TransactionEvent<Any>,
             authorizationCompletedEvent as TransactionEvent<Any>,
+            closureRequestedEvent as TransactionEvent<Any>,
             closureErrorEvent as TransactionEvent<Any>,
             expiredEvent as TransactionEvent<Any>))
 
@@ -2495,6 +2523,7 @@ class TransactionExpirationQueueConsumerTests {
       val authorizationCompletedEvent =
         transactionAuthorizationCompletedEvent(
           PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
+      val closureRequestedEvent = transactionClosureRequestedEvent()
       val closedEvent = transactionClosedEvent(TransactionClosureData.Outcome.KO)
       val gatewayClientResponse = VposDeleteResponseDto()
       gatewayClientResponse.status(VposDeleteResponseDto.StatusEnum.CANCELLED)
@@ -2510,6 +2539,7 @@ class TransactionExpirationQueueConsumerTests {
             activatedEvent as TransactionEvent<Any>,
             authorizationRequestedEvent as TransactionEvent<Any>,
             authorizationCompletedEvent as TransactionEvent<Any>,
+            closureRequestedEvent as TransactionEvent<Any>,
             closedEvent as TransactionEvent<Any>))
 
       given(
@@ -2590,6 +2620,7 @@ class TransactionExpirationQueueConsumerTests {
       val authorizationCompletedEvent =
         transactionAuthorizationCompletedEvent(
           PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
+      val closureRequestedEvent = transactionClosureRequestedEvent()
       val closedEvent = transactionClosedEvent(TransactionClosureData.Outcome.KO)
       val expiredEvent =
         transactionExpiredEvent(
@@ -2609,6 +2640,7 @@ class TransactionExpirationQueueConsumerTests {
             activatedEvent as TransactionEvent<Any>,
             authorizationRequestedEvent as TransactionEvent<Any>,
             authorizationCompletedEvent as TransactionEvent<Any>,
+            closureRequestedEvent as TransactionEvent<Any>,
             closedEvent as TransactionEvent<Any>,
             expiredEvent as TransactionEvent<Any>))
 
@@ -2681,6 +2713,7 @@ class TransactionExpirationQueueConsumerTests {
       val authorizationCompletedEvent =
         transactionAuthorizationCompletedEvent(
           PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
+      val closureRequestedEvent = transactionClosureRequestedEvent()
       val closedEvent = transactionClosedEvent(TransactionClosureData.Outcome.OK)
       closedEvent.creationDate =
         ZonedDateTime.now().minus(Duration.ofSeconds(sendPaymentResultTimeout.toLong())).toString()
@@ -2695,6 +2728,7 @@ class TransactionExpirationQueueConsumerTests {
             activatedEvent as TransactionEvent<Any>,
             authorizationRequestedEvent as TransactionEvent<Any>,
             authorizationCompletedEvent as TransactionEvent<Any>,
+            closureRequestedEvent as TransactionEvent<Any>,
             closedEvent as TransactionEvent<Any>))
 
       given(
@@ -2776,6 +2810,7 @@ class TransactionExpirationQueueConsumerTests {
       val authorizationCompletedEvent =
         transactionAuthorizationCompletedEvent(
           PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
+      val closureRequestedEvent = transactionClosureRequestedEvent()
       val closedEvent = transactionClosedEvent(TransactionClosureData.Outcome.OK)
       val expiredEvent =
         transactionExpiredEvent(
@@ -2793,6 +2828,7 @@ class TransactionExpirationQueueConsumerTests {
             activatedEvent as TransactionEvent<Any>,
             authorizationRequestedEvent as TransactionEvent<Any>,
             authorizationCompletedEvent as TransactionEvent<Any>,
+            closureRequestedEvent as TransactionEvent<Any>,
             closedEvent as TransactionEvent<Any>,
             expiredEvent as TransactionEvent<Any>))
 
@@ -2838,6 +2874,7 @@ class TransactionExpirationQueueConsumerTests {
       val authorizationCompletedEvent =
         transactionAuthorizationCompletedEvent(
           PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
+      val closureRequestedEvent = transactionClosureRequestedEvent()
       val closePaymentDate = ZonedDateTime.now()
       val closedEvent = transactionClosedEvent(TransactionClosureData.Outcome.OK)
       closedEvent.creationDate = closePaymentDate.toString()
@@ -2857,6 +2894,7 @@ class TransactionExpirationQueueConsumerTests {
             activatedEvent as TransactionEvent<Any>,
             authorizationRequestedEvent as TransactionEvent<Any>,
             authorizationCompletedEvent as TransactionEvent<Any>,
+            closureRequestedEvent as TransactionEvent<Any>,
             closedEvent as TransactionEvent<Any>))
 
       given(
@@ -2903,6 +2941,7 @@ class TransactionExpirationQueueConsumerTests {
       val authorizationCompletedEvent =
         transactionAuthorizationCompletedEvent(
           PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
+      val closureRequestedEvent = transactionClosureRequestedEvent()
       val closedEvent = transactionClosedEvent(TransactionClosureData.Outcome.OK)
       closedEvent.creationDate =
         ZonedDateTime.now()
@@ -2920,6 +2959,7 @@ class TransactionExpirationQueueConsumerTests {
             activatedEvent as TransactionEvent<Any>,
             authorizationRequestedEvent as TransactionEvent<Any>,
             authorizationCompletedEvent as TransactionEvent<Any>,
+            closureRequestedEvent as TransactionEvent<Any>,
             closedEvent as TransactionEvent<Any>))
 
       given(
