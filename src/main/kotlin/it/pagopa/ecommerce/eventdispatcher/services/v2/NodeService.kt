@@ -262,6 +262,8 @@ class NodeService(
                   is NpgTransactionGatewayAuthorizationRequestedData -> authRequestedData.brand
                   is PgsTransactionGatewayAuthorizationRequestedData ->
                     authRequestedData.brand?.toString()
+                  is RedirectTransactionGatewayAuthorizationRequestedData ->
+                    authRequestedData.paymentMethodType.toString()
                   else -> null
                 }
               paymentMethodName =
