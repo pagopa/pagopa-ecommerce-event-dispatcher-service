@@ -245,7 +245,12 @@ class NodeServiceTests {
             } else {
               OutcomePaymentGatewayEnum.KO
             }
-          is RedirectTransactionGatewayAuthorizationData -> TODO()
+          is RedirectTransactionGatewayAuthorizationData ->
+            if (it.outcome == RedirectTransactionGatewayAuthorizationData.Outcome.OK) {
+              OutcomePaymentGatewayEnum.OK
+            } else {
+              OutcomePaymentGatewayEnum.KO
+            }
         }
       }
     // Check Transaction Details
@@ -379,7 +384,12 @@ class NodeServiceTests {
               } else {
                 OutcomePaymentGatewayEnum.KO
               }
-            is RedirectTransactionGatewayAuthorizationData -> TODO()
+            is RedirectTransactionGatewayAuthorizationData ->
+              if (it.outcome == RedirectTransactionGatewayAuthorizationData.Outcome.OK) {
+                OutcomePaymentGatewayEnum.OK
+              } else {
+                OutcomePaymentGatewayEnum.KO
+              }
           }
         }
       // Check Transaction Details
@@ -509,7 +519,12 @@ class NodeServiceTests {
               } else {
                 OutcomePaymentGatewayEnum.KO
               }
-            is RedirectTransactionGatewayAuthorizationData -> TODO()
+            is RedirectTransactionGatewayAuthorizationData ->
+              if (it.outcome == RedirectTransactionGatewayAuthorizationData.Outcome.OK) {
+                OutcomePaymentGatewayEnum.OK
+              } else {
+                OutcomePaymentGatewayEnum.KO
+              }
           }
         }
       // Check Transaction Details
@@ -646,7 +661,12 @@ class NodeServiceTests {
               } else {
                 OutcomePaymentGatewayEnum.KO
               }
-            is RedirectTransactionGatewayAuthorizationData -> TODO()
+            is RedirectTransactionGatewayAuthorizationData ->
+              if (it.outcome == RedirectTransactionGatewayAuthorizationData.Outcome.OK) {
+                OutcomePaymentGatewayEnum.OK
+              } else {
+                OutcomePaymentGatewayEnum.KO
+              }
           }
         }
       // Check Transaction Details

@@ -144,7 +144,12 @@ class TransactionClosePaymentRetryQueueConsumer(
                           OperationResultDto.EXECUTED -> ClosePaymentRequestV2Dto.OutcomeEnum.OK
                           else -> ClosePaymentRequestV2Dto.OutcomeEnum.KO
                         }
-                      is RedirectTransactionGatewayAuthorizationData -> TODO()
+                      is RedirectTransactionGatewayAuthorizationData ->
+                        when (transactionAuthGatewayData.outcome) {
+                          RedirectTransactionGatewayAuthorizationData.Outcome.OK ->
+                            ClosePaymentRequestV2Dto.OutcomeEnum.OK
+                          else -> ClosePaymentRequestV2Dto.OutcomeEnum.KO
+                        }
                     }
                   })
               }
@@ -261,7 +266,9 @@ class TransactionClosePaymentRetryQueueConsumer(
                 transactionGatewayData.authorizationResultDto == AuthorizationResultDto.OK
               is NpgTransactionGatewayAuthorizationData ->
                 transactionGatewayData.operationResult == OperationResultDto.EXECUTED
-              is RedirectTransactionGatewayAuthorizationData -> TODO()
+              is RedirectTransactionGatewayAuthorizationData ->
+                transactionGatewayData.outcome ==
+                  RedirectTransactionGatewayAuthorizationData.Outcome.OK
             }
           })
       }

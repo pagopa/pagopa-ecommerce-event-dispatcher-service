@@ -380,15 +380,20 @@ fun getGatewayAuthorizationOutcome(
   gatewayAuthorizationData: TransactionGatewayAuthorizationData
 ): AuthorizationResultDto {
   return when (gatewayAuthorizationData) {
-    is NpgTransactionGatewayAuthorizationData -> {
+    is NpgTransactionGatewayAuthorizationData ->
       if (gatewayAuthorizationData.operationResult == OperationResultDto.EXECUTED) {
         AuthorizationResultDto.OK
       } else {
         AuthorizationResultDto.KO
       }
-    }
     is PgsTransactionGatewayAuthorizationData -> gatewayAuthorizationData.authorizationResultDto
-    is RedirectTransactionGatewayAuthorizationData -> TODO()
+    is RedirectTransactionGatewayAuthorizationData ->
+      if (gatewayAuthorizationData.outcome ==
+        RedirectTransactionGatewayAuthorizationData.Outcome.OK) {
+        AuthorizationResultDto.OK
+      } else {
+        AuthorizationResultDto.KO
+      }
   }
 }
 
