@@ -171,9 +171,7 @@ class ClosePaymentHelper(
             when (tx) {
               is TransactionWithClosureError -> Mono.just(getClosePaymentTransactionData(tx))
               is TransactionWithCancellationRequested ->
-                Mono.just(
-                  ClosePaymentTransactionData(
-                    closureOutcome = OutcomeEnum.KO, canceledByUser = true, wasAuthorized = false))
+                Mono.just(closePaymentTransactionDataForTransactionCanceledByUser)
               is TransactionWithClosureRequested -> Mono.just(getClosePaymentTransactionData(tx))
               else ->
                 Mono.error(
@@ -419,6 +417,10 @@ class ClosePaymentHelper(
       wasAuthorized = wasTransactionAuthorized(transaction))
   }
 
+  val closePaymentTransactionDataForTransactionCanceledByUser =
+    ClosePaymentTransactionData(
+      closureOutcome = OutcomeEnum.KO, canceledByUser = true, wasAuthorized = false)
+
   private fun getClosePaymentOutcome(transaction: TransactionWithClosureError): OutcomeEnum {
     val transactionAtPreviousState = transaction.transactionAtPreviousState()
 
@@ -426,7 +428,13 @@ class ClosePaymentHelper(
       transactionAtPreviousState
         .map {
           it.fold(
-            { _ -> OutcomeEnum.KO },
+            { _ ->
+              /*
+               * retrying a closure for a transaction canceled by the user (not authorized) so here
+               * we have to perform a closePayment KO request to Nodo
+               */
+              OutcomeEnum.KO
+            },
             { trxWithAuthorizationCompleted ->
               getClosePaymentOutcome(trxWithAuthorizationCompleted)
             })
