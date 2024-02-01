@@ -1131,9 +1131,19 @@ class NodeServiceTests {
             authCompletedEvent.data.timestampOperation, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
           .truncatedTo(ChronoUnit.SECONDS)
           .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
-      val expectedFee = EuroUtils.euroCentsToEuro(authEvent.data.fee).toString()
-      val expectedTotalAmount =
-        EuroUtils.euroCentsToEuro(authEvent.data.amount + authEvent.data.fee).toString()
+      val fee = authEvent.data.fee
+      val amount = authEvent.data.amount
+      val totalAmount = amount + fee
+
+      val feeEuro = EuroUtils.euroCentsToEuro(fee)
+      val totalAmountEuro = EuroUtils.euroCentsToEuro(totalAmount)
+
+      val feeEuroCents = BigDecimal(fee)
+      val amountEuroCents = BigDecimal(amount)
+      val totalAmountEuroCents = BigDecimal(totalAmount)
+
+      val expectedFee = feeEuro.toString()
+      val expectedTotalAmount = totalAmountEuro.toString()
       val expectedOutcome =
         authCompletedEvent.data.transactionGatewayAuthorizationData.let {
           when (it) {
@@ -1159,14 +1169,11 @@ class NodeServiceTests {
         closePaymentRequestCaptor.value.transactionDetails.transaction.transactionStatus)
       assertEquals(
         transactionId, closePaymentRequestCaptor.value.transactionDetails.transaction.transactionId)
+      assertEquals(feeEuroCents, closePaymentRequestCaptor.value.transactionDetails.transaction.fee)
       assertEquals(
-        EuroUtils.euroCentsToEuro(authEvent.data.fee),
-        closePaymentRequestCaptor.value.transactionDetails.transaction.fee)
+        amountEuroCents, closePaymentRequestCaptor.value.transactionDetails.transaction.amount)
       assertEquals(
-        EuroUtils.euroCentsToEuro(authEvent.data.amount),
-        closePaymentRequestCaptor.value.transactionDetails.transaction.amount)
-      assertEquals(
-        EuroUtils.euroCentsToEuro(authEvent.data.fee.plus(authEvent.data.amount)),
+        totalAmountEuroCents,
         closePaymentRequestCaptor.value.transactionDetails.transaction.grandTotal)
       assertEquals(
         authCompletedEvent.data.authorizationCode,
@@ -1227,6 +1234,8 @@ class NodeServiceTests {
       assertEquals(
         authCompletedEvent.data.authorizationCode, additionalPaymentInfo.authorizationCode)
       assertEquals(expectedOutcome, additionalPaymentInfo.outcomePaymentGateway)
+      assertEquals(feeEuro, closePaymentRequestCaptor.value.fee)
+      assertEquals(totalAmountEuro, closePaymentRequestCaptor.value.totalAmount)
     }
 
   @Test
@@ -1262,6 +1271,20 @@ class NodeServiceTests {
       given(nodeClient.closePayment(capture(closePaymentRequestCaptor)))
         .willReturn(Mono.just(closePaymentResponse))
 
+      val fee = authEvent.data.fee
+      val amount = authEvent.data.amount
+      val totalAmount = amount + fee
+
+      val feeEuro = EuroUtils.euroCentsToEuro(fee)
+      val totalAmountEuro = EuroUtils.euroCentsToEuro(totalAmount)
+
+      val feeEuroCents = BigDecimal(fee)
+      val amountEuroCents = BigDecimal(amount)
+      val totalAmountEuroCents = BigDecimal(totalAmount)
+
+      val expectedFee = feeEuro.toString()
+      val expectedTotalAmount = totalAmountEuro.toString()
+
       /* test */
       assertEquals(
         closePaymentResponse,
@@ -1272,9 +1295,6 @@ class NodeServiceTests {
             authCompletedEvent.data.timestampOperation, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
           .truncatedTo(ChronoUnit.SECONDS)
           .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
-      val expectedFee = EuroUtils.euroCentsToEuro(authEvent.data.fee).toString()
-      val expectedTotalAmount =
-        EuroUtils.euroCentsToEuro(authEvent.data.amount + authEvent.data.fee).toString()
       val expectedOutcome =
         authCompletedEvent.data.transactionGatewayAuthorizationData.let {
           when (it) {
@@ -1300,14 +1320,11 @@ class NodeServiceTests {
         closePaymentRequestCaptor.value.transactionDetails.transaction.transactionStatus)
       assertEquals(
         transactionId, closePaymentRequestCaptor.value.transactionDetails.transaction.transactionId)
+      assertEquals(feeEuroCents, closePaymentRequestCaptor.value.transactionDetails.transaction.fee)
       assertEquals(
-        EuroUtils.euroCentsToEuro(authEvent.data.fee),
-        closePaymentRequestCaptor.value.transactionDetails.transaction.fee)
+        amountEuroCents, closePaymentRequestCaptor.value.transactionDetails.transaction.amount)
       assertEquals(
-        EuroUtils.euroCentsToEuro(authEvent.data.amount),
-        closePaymentRequestCaptor.value.transactionDetails.transaction.amount)
-      assertEquals(
-        EuroUtils.euroCentsToEuro(authEvent.data.fee.plus(authEvent.data.amount)),
+        totalAmountEuroCents,
         closePaymentRequestCaptor.value.transactionDetails.transaction.grandTotal)
       assertEquals(
         authCompletedEvent.data.authorizationCode,
@@ -1368,5 +1385,7 @@ class NodeServiceTests {
       assertEquals(
         authCompletedEvent.data.authorizationCode, additionalPaymentInfo.authorizationCode)
       assertEquals(expectedOutcome, additionalPaymentInfo.outcomePaymentGateway)
+      assertEquals(feeEuro, closePaymentRequestCaptor.value.fee)
+      assertEquals(totalAmountEuro, closePaymentRequestCaptor.value.totalAmount)
     }
 }
