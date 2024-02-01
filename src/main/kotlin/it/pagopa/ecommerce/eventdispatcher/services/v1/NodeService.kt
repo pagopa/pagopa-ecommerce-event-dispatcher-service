@@ -16,6 +16,7 @@ import it.pagopa.ecommerce.eventdispatcher.queues.v1.getAuthorizationOutcome
 import it.pagopa.ecommerce.eventdispatcher.queues.v1.reduceEvents
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.generated.ecommerce.nodo.v2.dto.*
+import java.math.BigDecimal
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -127,8 +128,8 @@ class NodeService(
     transactionWithCancellation: BaseTransactionWithCancellationRequested,
     transactionId: TransactionId
   ): ClosePaymentRequestV2Dto {
-    val amount =
-      EuroUtils.euroCentsToEuro(
+    val amountEuroCents =
+      BigDecimal(
         transactionWithCancellation.paymentNotices
           .stream()
           .mapToInt { el -> el.transactionAmount.value }
@@ -144,8 +145,8 @@ class NodeService(
               this.transactionId = transactionId.value()
               this.transactionStatus = getTransactionDetailsStatus(transactionWithCancellation)
               this.creationDate = transactionWithCancellation.creationDate.toOffsetDateTime()
-              this.amount = amount
-              this.grandTotal = amount
+              this.amount = amountEuroCents
+              this.grandTotal = amountEuroCents
             }
           info =
             InfoDto().apply {
@@ -161,8 +162,20 @@ class NodeService(
     authCompleted: BaseTransactionWithCompletedAuthorization,
     transactionOutcome: ClosePaymentRequestV2Dto.OutcomeEnum,
     transactionId: TransactionId
-  ): ClosePaymentRequestV2Dto =
-    ClosePaymentRequestV2Dto().apply {
+  ): ClosePaymentRequestV2Dto {
+
+    val fee = authCompleted.transactionAuthorizationRequestData.fee
+    val amount = authCompleted.transactionAuthorizationRequestData.amount
+    val totalAmount = amount.plus(fee)
+
+    val feeEuroCents = BigDecimal(fee)
+    val amountEuroCents = BigDecimal(amount)
+    val totalAmountEuroCents = BigDecimal(totalAmount)
+
+    val feeEuro = EuroUtils.euroCentsToEuro(fee)
+    val totalAmountEuro = EuroUtils.euroCentsToEuro(totalAmount)
+
+    return ClosePaymentRequestV2Dto().apply {
       paymentTokens =
         authCompleted.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken.value }
       outcome = transactionOutcome
@@ -171,11 +184,8 @@ class NodeService(
         paymentMethod = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
         idBrokerPSP = authCompleted.transactionAuthorizationRequestData.brokerName
         idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
-        totalAmount =
-          EuroUtils.euroCentsToEuro(
-            (authCompleted.transactionAuthorizationRequestData.amount.plus(
-              authCompleted.transactionAuthorizationRequestData.fee)))
-        fee = EuroUtils.euroCentsToEuro(authCompleted.transactionAuthorizationRequestData.fee)
+        this.totalAmount = totalAmountEuro
+        this.fee = feeEuro
         this.timestampOperation =
           OffsetDateTime.parse(
             authCompleted.transactionAuthorizationCompletedData.timestampOperation,
@@ -191,9 +201,7 @@ class NodeService(
                   .toString())
             this.authorizationCode =
               authCompleted.transactionAuthorizationCompletedData.authorizationCode
-            fee =
-              EuroUtils.euroCentsToEuro(authCompleted.transactionAuthorizationRequestData.fee)
-                .toString()
+            this.fee = feeEuro.toString()
             this.timestampOperation =
               OffsetDateTime.parse(
                   authCompleted.transactionAuthorizationCompletedData.timestampOperation,
@@ -202,11 +210,7 @@ class NodeService(
                 .truncatedTo(ChronoUnit.SECONDS)
                 .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
             this.rrn = authCompleted.transactionAuthorizationCompletedData.rrn
-            this.totalAmount =
-              EuroUtils.euroCentsToEuro(
-                  (authCompleted.transactionAuthorizationRequestData.amount.plus(
-                    authCompleted.transactionAuthorizationRequestData.fee)))
-                .toString()
+            this.totalAmount = totalAmountEuro.toString()
           }
         else null
       transactionDetails =
@@ -216,13 +220,9 @@ class NodeService(
               this.transactionId = transactionId.value()
               transactionStatus = getTransactionDetailsStatus(authCompleted)
               paymentGateway = authCompleted.transactionAuthorizationRequestData.paymentGateway.name
-              fee = EuroUtils.euroCentsToEuro(authCompleted.transactionAuthorizationRequestData.fee)
-              amount =
-                EuroUtils.euroCentsToEuro(authCompleted.transactionAuthorizationRequestData.amount)
-              grandTotal =
-                EuroUtils.euroCentsToEuro(
-                  (authCompleted.transactionAuthorizationRequestData.amount.plus(
-                    authCompleted.transactionAuthorizationRequestData.fee)))
+              this.fee = feeEuroCents
+              this.amount = amountEuroCents
+              this.grandTotal = totalAmountEuroCents
               rrn = authCompleted.transactionAuthorizationCompletedData.rrn
               errorCode =
                 if (transactionOutcome == ClosePaymentRequestV2Dto.OutcomeEnum.KO)
@@ -256,4 +256,5 @@ class NodeService(
           user = UserDto().apply { type = UserDto.TypeEnum.GUEST }
         }
     }
+  }
 }
