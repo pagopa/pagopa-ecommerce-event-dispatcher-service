@@ -267,6 +267,8 @@ class NodeService(
                   is NpgTransactionGatewayAuthorizationRequestedData -> authRequestedData.brand
                   is PgsTransactionGatewayAuthorizationRequestedData ->
                     authRequestedData.brand?.toString()
+                  is RedirectTransactionGatewayAuthorizationRequestedData ->
+                    authRequestedData.paymentMethodType.toString()
                   else -> null
                 }
               paymentMethodName =
@@ -294,7 +296,13 @@ class NodeService(
         } else {
           AdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.KO
         }
-      is RedirectTransactionGatewayAuthorizationData -> TODO()
+      is RedirectTransactionGatewayAuthorizationData ->
+        if (transactionGatewayAuthData.outcome ==
+          RedirectTransactionGatewayAuthorizationData.Outcome.OK) {
+          AdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.OK
+        } else {
+          AdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.KO
+        }
     }
 
   private fun getAuthorizationErrorCode(
@@ -304,6 +312,6 @@ class NodeService(
       is PgsTransactionGatewayAuthorizationData -> transactionGatewayAuthData.errorCode
       // TODO handle error code into Close Payment for NPG flow
       is NpgTransactionGatewayAuthorizationData -> null
-      is RedirectTransactionGatewayAuthorizationData -> TODO()
+      is RedirectTransactionGatewayAuthorizationData -> transactionGatewayAuthData.errorCode
     }
 }
