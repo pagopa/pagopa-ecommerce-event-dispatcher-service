@@ -128,6 +128,14 @@ microservice-chart:
     limits:
       memory: "512Mi"
       cpu: "500m"
+  deployment:
+    create: true
+    replicas: 3
+  strategy:
+    type: "RollingUpdate"
+    rollingUpdate:
+      maxSurge: "100%"
+      maxUnavailable: "100%"
   autoscaling:
     enable: true
     minReplica: 3
