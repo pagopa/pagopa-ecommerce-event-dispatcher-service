@@ -90,6 +90,7 @@ class RefundServiceTests {
   fun requestRefund_200_npg() {
     val operationId = "operationID"
     val idempotenceKey = UUID.randomUUID()
+    val correlationId = UUID.randomUUID().toString()
     val amount = BigDecimal.valueOf(1000)
     val pspId = "pspId1"
     // Precondition
@@ -109,7 +110,8 @@ class RefundServiceTests {
         .setHeader("Content-type", "application/json")
         .setResponseCode(200))
     // Test
-    StepVerifier.create(refundService.requestNpgRefund(operationId, idempotenceKey, amount, pspId))
+    StepVerifier.create(
+        refundService.requestNpgRefund(operationId, idempotenceKey, amount, pspId, correlationId))
       .assertNext { assertEquals(operationId, it.operationId) }
       .verifyComplete()
     verify(npgClient, times(1))
@@ -124,6 +126,7 @@ class RefundServiceTests {
   ) {
     val operationId = "operationID"
     val idempotenceKey = UUID.randomUUID()
+    val correlationId = UUID.randomUUID().toString()
     val amount = BigDecimal.valueOf(1000)
     val pspId = "pspId1"
     // Precondition
@@ -142,7 +145,8 @@ class RefundServiceTests {
     given(spanBuilder.startSpan()).willReturn(span)
 
     // Test
-    StepVerifier.create(refundService.requestNpgRefund(operationId, idempotenceKey, amount, pspId))
+    StepVerifier.create(
+        refundService.requestNpgRefund(operationId, idempotenceKey, amount, pspId, correlationId))
       .expectError(expectedException)
       .verify()
     verify(npgClient, times(1))
@@ -157,6 +161,7 @@ class RefundServiceTests {
   ) {
     val operationId = "operationID"
     val idempotenceKey = UUID.randomUUID()
+    val correlationId = UUID.randomUUID().toString()
     val amount = BigDecimal.valueOf(1000)
     val pspId = "pspId1"
     // Precondition
@@ -167,7 +172,8 @@ class RefundServiceTests {
     given(spanBuilder.startSpan()).willReturn(span)
 
     // Test
-    StepVerifier.create(refundService.requestNpgRefund(operationId, idempotenceKey, amount, pspId))
+    StepVerifier.create(
+        refundService.requestNpgRefund(operationId, idempotenceKey, amount, pspId, correlationId))
       .expectError(expectedException)
       .verify()
     verify(npgClient, times(1))
@@ -180,6 +186,7 @@ class RefundServiceTests {
     val refundService = RefundService(paymentGatewayClient, npgClient, npgPspApiKeys)
     val operationId = "operationID"
     val idempotenceKey = UUID.randomUUID()
+    val correlationId = UUID.randomUUID().toString()
     val amount = BigDecimal.valueOf(1000)
     val pspId = "pspId1"
     // Precondition
@@ -190,7 +197,8 @@ class RefundServiceTests {
             "NPG error", listOf(), Optional.empty(), RuntimeException("NPG error"))))
 
     // Test
-    StepVerifier.create(refundService.requestNpgRefund(operationId, idempotenceKey, amount, pspId))
+    StepVerifier.create(
+        refundService.requestNpgRefund(operationId, idempotenceKey, amount, pspId, correlationId))
       .expectError(RefundNotAllowedException::class.java)
       .verify()
     verify(npgClient, times(1))
@@ -203,12 +211,14 @@ class RefundServiceTests {
     val refundService = RefundService(paymentGatewayClient, npgClient, npgPspApiKeys)
     val operationId = "operationID"
     val idempotenceKey = UUID.randomUUID()
+    val correlationId = UUID.randomUUID().toString()
     val amount = BigDecimal.valueOf(1000)
     val pspId = "unknown"
     // Precondition
 
     // Test
-    StepVerifier.create(refundService.requestNpgRefund(operationId, idempotenceKey, amount, pspId))
+    StepVerifier.create(
+        refundService.requestNpgRefund(operationId, idempotenceKey, amount, pspId, correlationId))
       .expectError(NpgApiKeyMissingPspRequestedException::class.java)
       .verify()
     verify(npgClient, times(0)).refundPayment(any(), any(), any(), any(), any(), any())
