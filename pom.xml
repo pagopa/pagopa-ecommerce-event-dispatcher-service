@@ -213,6 +213,7 @@
 			<artifactId>netty-resolver-dns-native-macos</artifactId>
 			<version>4.1.82.Final</version>
 			<classifier>osx-aarch_64</classifier>
+			<scope>test</scope>
 		</dependency>
 		<dependency>
 			<groupId>io.opentelemetry</groupId>
