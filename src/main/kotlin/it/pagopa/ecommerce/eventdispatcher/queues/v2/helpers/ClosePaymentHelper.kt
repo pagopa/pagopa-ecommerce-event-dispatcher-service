@@ -280,7 +280,7 @@ class ClosePaymentHelper(
     retryCount: Int,
     tracingInfo: TracingInfo
   ) =
-    if (baseTransaction.status == TransactionStatusDto.CLOSURE_REQUESTED) {
+    if (baseTransaction.status != TransactionStatusDto.CLOSURE_ERROR) {
         mono { TransactionClosureErrorEvent(baseTransaction.transactionId.value()) }
           .flatMap { transactionClosureErrorEvent ->
             transactionClosureErrorEventStoreRepository.save(transactionClosureErrorEvent)

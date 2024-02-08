@@ -1200,7 +1200,7 @@ class TransactionClosePaymentRetryQueueConsumerTests {
   }
 
   @Test
-  fun `consumer perform refund transaction with no left attempts `() = runTest {
+  fun `consumer does not perform refund for transaction with no left attempts `() = runTest {
     val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
     val authorizationRequestEvent =
       transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
@@ -1244,6 +1244,10 @@ class TransactionClosePaymentRetryQueueConsumerTests {
           TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.OK))
       .willThrow(RuntimeException("Nodo error"))
 
+    given(
+        deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(any<BinaryData>(), any()))
+      .willReturn(mono {})
+
     given(closureRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture(), any()))
       .willReturn(
         Mono.error(
@@ -1264,31 +1268,25 @@ class TransactionClosePaymentRetryQueueConsumerTests {
     verify(checkpointer, Mockito.times(1)).success()
     verify(nodeService, Mockito.times(1))
       .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.OK)
-    verify(paymentGatewayClient, times(1)).requestVPosRefund(any())
+    verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
     verify(transactionClosedEventRepository, Mockito.times(0)).save(any())
-    verify(transactionsRefundedEventStoreRepository, Mockito.times(2)).save(any())
-    verify(transactionsViewRepository, Mockito.times(2)).save(any())
+    verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).save(any())
+    verify(transactionsViewRepository, Mockito.times(0)).save(any())
     verify(closureRetryService, times(1)).enqueueRetryEvent(any(), any(), any())
-
-    val expectedViewUpdateStatuses =
-      listOf(TransactionStatusDto.REFUND_REQUESTED, TransactionStatusDto.REFUNDED)
-    val expectedEventsCodes =
-      listOf(
-        TransactionEventCode.TRANSACTION_REFUND_REQUESTED_EVENT,
-        TransactionEventCode.TRANSACTION_REFUNDED_EVENT)
-    expectedViewUpdateStatuses.forEachIndexed { idx, transactionStatusDto ->
-      assertEquals(
-        transactionStatusDto,
-        viewArgumentCaptor.allValues[idx].status,
-        "Unexpected view status update at idx: $idx")
-    }
-
-    expectedEventsCodes.forEachIndexed { idx, transactionEventCode ->
-      assertEquals(
-        transactionEventCode,
-        TransactionEventCode.valueOf(refundedEventStoreRepositoryCaptor.allValues[idx].eventCode),
-        "Unexpected event at idx: $idx")
-    }
+    verify(deadLetterTracedQueueAsyncClient, times(1))
+      .sendAndTraceDeadLetterQueueEvent(
+        argThat<BinaryData> {
+          TransactionEventCode.valueOf(
+            this.toObject(object : TypeReference<QueueEvent<TransactionClosureErrorEvent>>() {})
+              .event
+              .eventCode) == TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT
+        },
+        eq(
+          DeadLetterTracedQueueAsyncClient.ErrorContext(
+            transactionId = TransactionId(TRANSACTION_ID),
+            transactionEventCode = TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT.toString(),
+            errorCategory =
+              DeadLetterTracedQueueAsyncClient.ErrorCategory.RETRY_EVENT_NO_ATTEMPTS_LEFT)))
   }
 
   @Test

@@ -20,8 +20,8 @@ import it.pagopa.ecommerce.commons.redis.templatewrappers.PaymentRequestInfoRedi
 import it.pagopa.ecommerce.commons.v2.TransactionTestUtils.*
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.config.QueuesConsumerConfig
+import it.pagopa.ecommerce.eventdispatcher.exceptions.ClosePaymentErrorResponseException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
-import it.pagopa.ecommerce.eventdispatcher.exceptions.TransactionNotFound
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.RefundService
@@ -32,6 +32,7 @@ import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClien
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
+import it.pagopa.generated.ecommerce.nodo.v2.dto.ErrorDto
 import java.time.ZonedDateTime
 import java.util.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -46,6 +47,7 @@ import org.mockito.Captor
 import org.mockito.Mockito
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.*
+import org.springframework.http.HttpStatus
 import reactor.core.publisher.Hooks
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toFlux
@@ -843,12 +845,12 @@ class ClosePaymentHelperTests {
     verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
     verify(transactionClosedEventRepository, Mockito.times(1)).save(any())
     verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).save(any())
-    verify(transactionsViewRepository, Mockito.times(2)).save(any())
+    verify(transactionsViewRepository, Mockito.times(1)).save(any())
     verify(closureRetryService, times(1)).enqueueRetryEvent(any(), any(), any())
 
     val expectedViewUpdateStatuses =
       listOf(
-        TransactionStatusDto.CLOSURE_ERROR,
+        TransactionStatusDto.CLOSED,
       )
 
     expectedViewUpdateStatuses.forEachIndexed { idx, transactionStatusDto ->
@@ -867,7 +869,7 @@ class ClosePaymentHelperTests {
   }
 
   @Test
-  fun `consumer perform refund transaction with no attempts left`() = runTest {
+  fun `consumer should not perform refund transaction with no attempts left`() = runTest {
     Hooks.onOperatorDebug()
 
     val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
@@ -951,39 +953,12 @@ class ClosePaymentHelperTests {
     verify(checkpointer, Mockito.times(1)).success()
     verify(nodeService, Mockito.times(1))
       .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.OK)
-    verify(paymentGatewayClient, times(1)).requestVPosRefund(any())
+    verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
     verify(transactionClosedEventRepository, Mockito.times(0)).save(any())
-    verify(transactionClosureErrorEventStoreRepository, Mockito.times(1)).save(any())
-    verify(transactionsRefundedEventStoreRepository, Mockito.times(2)).save(any())
-    verify(transactionsViewRepository, Mockito.times(3)).save(any())
+    verify(transactionClosureErrorEventStoreRepository, Mockito.times(0)).save(any())
+    verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).save(any())
+    verify(transactionsViewRepository, Mockito.times(0)).save(any())
     verify(closureRetryService, times(1)).enqueueRetryEvent(any(), any(), any())
-
-    val expectedViewUpdateStatuses =
-      listOf(
-        TransactionStatusDto.CLOSURE_ERROR,
-        TransactionStatusDto.REFUND_REQUESTED,
-        TransactionStatusDto.REFUNDED)
-    val expectedRefundEventsCodes =
-      listOf(
-        TransactionEventCode.TRANSACTION_REFUND_REQUESTED_EVENT,
-        TransactionEventCode.TRANSACTION_REFUNDED_EVENT)
-    expectedViewUpdateStatuses.forEachIndexed { idx, transactionStatusDto ->
-      assertEquals(
-        transactionStatusDto,
-        viewArgumentCaptor.allValues[idx].status,
-        "Unexpected view status update at idx: $idx")
-    }
-
-    expectedRefundEventsCodes.forEachIndexed { idx, transactionEventCode ->
-      assertEquals(
-        transactionEventCode,
-        TransactionEventCode.valueOf(refundedEventStoreRepositoryCaptor.allValues[idx].eventCode),
-        "Unexpected event at idx: $idx")
-    }
-
-    assertEquals(
-      TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT,
-      TransactionEventCode.valueOf(closureErrorEventStoreRepositoryCaptor.value.eventCode))
   }
 
   @Test
@@ -1065,7 +1040,7 @@ class ClosePaymentHelperTests {
       verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
       verify(transactionClosedEventRepository, Mockito.times(0)).save(any())
       verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).save(any())
-      verify(transactionsViewRepository, Mockito.times(1))
+      verify(transactionsViewRepository, Mockito.times(0))
         .save(argThat { it -> (it as Transaction).status == TransactionStatusDto.CLOSURE_ERROR })
       verify(closureRetryService, times(1)).enqueueRetryEvent(any(), any(), any())
       verify(deadLetterTracedQueueAsyncClient, times(1))
@@ -1309,7 +1284,7 @@ class ClosePaymentHelperTests {
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(Mono.just(transactionDocument))
       given(nodeService.closePayment(transactionId, ClosePaymentRequestV2Dto.OutcomeEnum.KO))
-        .willThrow(RuntimeException("Bad request"))
+        .willThrow(ClosePaymentErrorResponseException(HttpStatus.BAD_REQUEST, ErrorDto()))
 
       given(
           transactionClosureErrorEventStoreRepository.save(
@@ -1372,7 +1347,7 @@ class ClosePaymentHelperTests {
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(Mono.just(transactionDocument))
       given(nodeService.closePayment(transactionId, ClosePaymentRequestV2Dto.OutcomeEnum.KO))
-        .willThrow(TransactionNotFound(transactionId.uuid))
+        .willThrow(ClosePaymentErrorResponseException(HttpStatus.BAD_REQUEST, ErrorDto()))
 
       given(
           transactionClosureErrorEventStoreRepository.save(

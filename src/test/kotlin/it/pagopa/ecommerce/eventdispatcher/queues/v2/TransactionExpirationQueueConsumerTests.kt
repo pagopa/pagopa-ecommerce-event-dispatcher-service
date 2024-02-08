@@ -859,6 +859,7 @@ class TransactionExpirationQueueConsumerTests {
           activatedEvent as TransactionEvent<Any>,
           authorizationRequestedEvent as TransactionEvent<Any>,
           authorizationCompletedEvent as TransactionEvent<Any>,
+          closureRequestedEvent as TransactionEvent<Any>,
           closedEvent as TransactionEvent<Any>,
           addUserReceiptEvent as TransactionEvent<Any>,
           userReceiptRequestedEvent as TransactionEvent<Any>,
@@ -1777,6 +1778,7 @@ class TransactionExpirationQueueConsumerTests {
             activatedEvent,
             authorizationRequestedEvent,
             authorizationCompletedEvent,
+            closureRequestedEvent,
             closureErrorEvent))
 
       val gatewayClientResponse = VposDeleteResponseDto()
@@ -2034,6 +2036,7 @@ class TransactionExpirationQueueConsumerTests {
             activatedEvent,
             authorizationRequestedEvent,
             authorizationCompletedEvent,
+            closureRequestedEvent,
             closureErrorEvent))
 
       val gatewayClientResponse = VposDeleteResponseDto()
@@ -2625,7 +2628,11 @@ class TransactionExpirationQueueConsumerTests {
       val expiredEvent =
         transactionExpiredEvent(
           reduceEvents(
-            activatedEvent, authorizationRequestedEvent, authorizationCompletedEvent, closedEvent))
+            activatedEvent,
+            authorizationRequestedEvent,
+            authorizationCompletedEvent,
+            closureRequestedEvent,
+            closedEvent))
       val gatewayClientResponse = VposDeleteResponseDto()
       gatewayClientResponse.status(VposDeleteResponseDto.StatusEnum.CANCELLED)
 
@@ -2815,7 +2822,11 @@ class TransactionExpirationQueueConsumerTests {
       val expiredEvent =
         transactionExpiredEvent(
           reduceEvents(
-            activatedEvent, authorizationRequestedEvent, authorizationCompletedEvent, closedEvent))
+            activatedEvent,
+            authorizationRequestedEvent,
+            authorizationCompletedEvent,
+            closureRequestedEvent,
+            closedEvent))
 
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())

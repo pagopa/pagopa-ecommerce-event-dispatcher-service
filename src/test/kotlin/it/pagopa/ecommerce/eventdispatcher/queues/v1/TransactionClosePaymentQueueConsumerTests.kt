@@ -13,7 +13,7 @@ import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.commons.queues.TracingUtilsTests
 import it.pagopa.ecommerce.commons.redis.templatewrappers.PaymentRequestInfoRedisTemplateWrapper
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils.*
-import it.pagopa.ecommerce.eventdispatcher.exceptions.TransactionNotFound
+import it.pagopa.ecommerce.eventdispatcher.exceptions.ClosePaymentErrorResponseException
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v1.ClosureRetryService
@@ -21,6 +21,7 @@ import it.pagopa.ecommerce.eventdispatcher.services.v1.NodeService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
+import it.pagopa.generated.ecommerce.nodo.v2.dto.ErrorDto
 import java.time.ZonedDateTime
 import java.util.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -34,6 +35,7 @@ import org.mockito.Captor
 import org.mockito.Mockito
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.*
+import org.springframework.http.HttpStatus
 import reactor.core.publisher.Hooks
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toFlux
@@ -475,7 +477,7 @@ class TransactionClosePaymentQueueConsumerTests {
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(Mono.just(transactionDocument))
       given(nodeService.closePayment(transactionId, ClosePaymentRequestV2Dto.OutcomeEnum.KO))
-        .willThrow(RuntimeException("Bad request"))
+        .willThrow(ClosePaymentErrorResponseException(HttpStatus.BAD_REQUEST, ErrorDto()))
 
       given(
           transactionClosureErrorEventStoreRepository.save(
@@ -535,7 +537,7 @@ class TransactionClosePaymentQueueConsumerTests {
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(Mono.just(transactionDocument))
       given(nodeService.closePayment(transactionId, ClosePaymentRequestV2Dto.OutcomeEnum.KO))
-        .willThrow(TransactionNotFound(transactionId.uuid))
+        .willThrow(ClosePaymentErrorResponseException(HttpStatus.NOT_FOUND, ErrorDto()))
 
       given(
           transactionClosureErrorEventStoreRepository.save(

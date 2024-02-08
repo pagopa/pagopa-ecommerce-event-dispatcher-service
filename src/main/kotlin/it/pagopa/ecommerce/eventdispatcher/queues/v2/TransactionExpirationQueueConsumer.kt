@@ -135,7 +135,7 @@ class TransactionExpirationQueueConsumer(
           val refundableWithoutCheck = refundable && !refundableCheckRequired
           logger.info(
             "Transaction ${it.transactionId.value()} in status ${it.status}, refundable : $refundable, without check : $refundableWithoutCheck")
-          if (refundableCheckRequired) {
+          if (refundable && refundableCheckRequired) {
             val binaryData =
               BinaryData.fromObject(event, strictSerializerProviderV2.createInstance())
             deadLetterTracedQueueAsyncClient
