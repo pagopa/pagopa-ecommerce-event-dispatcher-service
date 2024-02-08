@@ -4,6 +4,7 @@ import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationData
+import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationRequestedData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.PgsTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.RedirectTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.TransactionGatewayAuthorizationData
@@ -14,6 +15,7 @@ import it.pagopa.ecommerce.commons.domain.v2.TransactionWithClosureError
 import it.pagopa.ecommerce.commons.domain.v2.pojos.*
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.RefundResponseDto
+import it.pagopa.ecommerce.commons.generated.npg.v1.dto.StateResponseDto
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
@@ -21,6 +23,7 @@ import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
+import it.pagopa.ecommerce.eventdispatcher.exceptions.GetStateException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.RefundNotAllowedException
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.QueueCommonsLogger.logger
@@ -28,6 +31,7 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRe
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.RefundService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
+import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgStateService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto.StatusEnum
@@ -156,6 +160,59 @@ fun updateTransactionWithRefundEvent(
         "Updated event for transaction with id ${transaction.transactionId.value()} to status $status")
     }
     .thenReturn(transaction)
+}
+
+fun handleGetState(
+  tx: BaseTransaction,
+  npgStateService: NpgStateService,
+  retryCount: Int = 0
+) : Mono<BaseTransaction> {
+ return Mono.just(tx)
+   .cast(BaseTransactionWithRequestedAuthorization::class.java)
+   .filter { transactions -> transactions.transactionAuthorizationRequestData.paymentGateway == TransactionAuthorizationRequestData.PaymentGateway.NPG }
+   .flatMap { transaction ->
+     npgStateService.getStateNpg(
+     transaction.transactionId.uuid,
+     (transaction.transactionAuthorizationRequestData.transactionGatewayAuthorizationRequestedData as NpgTransactionGatewayAuthorizationRequestedData).confirmPaymentSessionId,
+     transaction.transactionAuthorizationRequestData.pspId
+   )}.flatMap {
+     stateReponseDto -> handleStateResponse(stateReponseDto)
+   }.onErrorResume {  exception ->
+     logger.error(
+       "Transaction requestRefund error for transaction ${tx.transactionId.value()}", exception)
+     if (retryCount == 0) {
+       // refund error event written only the first time
+       //updateTransactionToRefundError(tx, transactionsEventStoreRepository, transactionsViewRepository)
+       handleNoRetryGetState(tx)
+     } else {
+       Mono.just(tx)
+     }
+       .flatMap {
+         when (exception) {
+           // Enqueue retry event only if refund is allowed
+           !is GetStateException -> handleRetryGetState()
+             //refundRetryService.enqueueRetryEvent(it, retryCount, tracingInfo)
+           else -> Mono.error(exception)
+         }
+       }
+       .thenReturn(tx)
+
+   }
+}
+
+fun handleNoRetryGetState(tx: BaseTransaction): Mono<BaseTransaction> {
+  //TODO implements!
+  return Mono.empty()
+}
+
+fun handleRetryGetState(): Mono<BaseTransaction> {
+  //TODO implements!
+  return Mono.empty()
+}
+
+fun handleStateResponse(stateResponseDto: StateResponseDto, tx: BaseTransaction) : Mono<BaseTransaction>  {
+  //invoke transaction service patch
+  return Mono.just(tx)
 }
 
 fun refundTransaction(
