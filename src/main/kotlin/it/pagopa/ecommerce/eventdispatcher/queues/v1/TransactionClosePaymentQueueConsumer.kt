@@ -98,12 +98,11 @@ class TransactionClosePaymentQueueConsumer(
                       true
                     }
                   }
-                mono { baseTransaction }
-                  .doOnNext {
-                    logger.error(
-                      "Got error while calling closePaymentV2 for transaction with id ${it.transactionId}! Enqueue retry event: $enqueueRetryEvent",
-                      exception)
-                  }
+
+                logger.error(
+                  "Got error while calling closePaymentV2 for transaction with id ${tx.transactionId}! Enqueue retry event: $enqueueRetryEvent",
+                  exception)
+
                 if (enqueueRetryEvent) {
                   mono { baseTransaction }
                     .map { tx -> TransactionClosureErrorEvent(tx.transactionId.value().toString()) }

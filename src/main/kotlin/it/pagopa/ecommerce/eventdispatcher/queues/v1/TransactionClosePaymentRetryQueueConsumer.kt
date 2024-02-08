@@ -167,13 +167,7 @@ class TransactionClosePaymentRetryQueueConsumer(
               logger.error(
                 "Got exception while retrying closePaymentV2 for transaction with id ${tx.transactionId}!",
                 exception)
-              val enqueueRetryEventPipeline =
-                closureRetryService.enqueueRetryEvent(tx, retryCount, tracingInfo).doOnError(
-                  NoRetryAttemptsLeftException::class.java) { retryException ->
-                  logger.error(
-                    "No more attempts left for closure retry, refunding transaction",
-                    retryException)
-                }
+
               val (statusCode, errorDescription) =
                 if (exception is ClosePaymentErrorResponseException) {
                   Pair(exception.statusCode, exception.errorResponse?.description)
@@ -201,7 +195,12 @@ class TransactionClosePaymentRetryQueueConsumer(
               } else {
                 // otherwise check if another attempt has to be performed for close payment
                 if (enqueueRetryEvent) {
-                  enqueueRetryEventPipeline
+                  closureRetryService.enqueueRetryEvent(tx, retryCount, tracingInfo).doOnError(
+                    NoRetryAttemptsLeftException::class.java) { retryException ->
+                    logger.error(
+                      "No more attempts left for closure retry, refunding transaction",
+                      retryException)
+                  }
                 } else {
                   // or skip more attempts for unhandled 4xx cases for which no more attempts have
                   // to be done

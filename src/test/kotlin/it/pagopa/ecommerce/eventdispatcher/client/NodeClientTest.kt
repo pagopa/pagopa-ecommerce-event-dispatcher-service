@@ -3,6 +3,7 @@ package it.pagopa.ecommerce.eventdispatcher.client
 import com.fasterxml.jackson.databind.ObjectMapper
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils
+import it.pagopa.ecommerce.eventdispatcher.config.WebClientConfig
 import it.pagopa.ecommerce.eventdispatcher.exceptions.ClosePaymentErrorResponseException
 import it.pagopa.ecommerce.eventdispatcher.utils.getMockedClosePaymentRequest
 import it.pagopa.generated.ecommerce.nodo.v2.ApiClient
@@ -17,6 +18,7 @@ import kotlinx.coroutines.reactor.awaitSingle
 import kotlinx.coroutines.test.runTest
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.SocketPolicy
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -194,6 +196,55 @@ class NodeClientTest {
           assertEquals(
             expectedNodeErrorDescription,
             (it as ClosePaymentErrorResponseException).errorResponse!!.description)
+          assertEquals(HttpStatus.BAD_REQUEST, it.statusCode)
+          true
+        }
+        .verify()
+    }
+  }
+
+  @Test
+  fun `Should handle connection timeout`() = runTest {
+    val mockServer = MockWebServer()
+    val expectedNodeErrorDescription = "NODE ERROR DESCRIPTION"
+    mockServer.use {
+      // pre-requisites
+      mockServer.start(8080)
+      mockServer.enqueue(MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE))
+      val nodeApi =
+        WebClientConfig()
+          .nodoApi(
+            nodoUri = "http://localhost:8080", nodoConnectionTimeout = 1000, nodoReadTimeout = 1000)
+      val nodeClient = NodeClient(nodeApi, "clientId")
+      // test
+      StepVerifier.create(nodeClient.closePayment(ClosePaymentRequestV2Dto()))
+        .expectErrorMatches {
+          assertTrue(it is ClosePaymentErrorResponseException)
+          assertNull((it as ClosePaymentErrorResponseException).errorResponse)
+          assertNull((it).statusCode)
+          true
+        }
+        .verify()
+    }
+  }
+
+  @Test
+  fun `Should handle invalid Nodo response body`() = runTest {
+    val mockServer = MockWebServer()
+
+    mockServer.use {
+      // pre-requisites
+      mockServer.start(8080)
+      mockServer.enqueue(
+        MockResponse().setStatus("ERROR").setResponseCode(400).setBody("INVALID RESPONSE BODY"))
+
+      val nodeClient =
+        NodeClient(NodoApi(ApiClient().setBasePath("http://localhost:8080")), "clientId")
+      // test
+      StepVerifier.create(nodeClient.closePayment(ClosePaymentRequestV2Dto()))
+        .expectErrorMatches {
+          assertTrue(it is ClosePaymentErrorResponseException)
+          assertNull((it as ClosePaymentErrorResponseException).errorResponse)
           assertEquals(HttpStatus.BAD_REQUEST, it.statusCode)
           true
         }

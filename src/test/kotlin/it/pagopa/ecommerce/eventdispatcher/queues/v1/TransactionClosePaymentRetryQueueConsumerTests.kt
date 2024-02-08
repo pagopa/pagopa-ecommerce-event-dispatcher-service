@@ -16,6 +16,7 @@ import it.pagopa.ecommerce.commons.queues.TracingInfoTest.MOCK_TRACING_INFO
 import it.pagopa.ecommerce.commons.queues.TracingUtilsTests
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils.*
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
+import it.pagopa.ecommerce.eventdispatcher.exceptions.ClosePaymentErrorResponseException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
@@ -26,19 +27,25 @@ import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClien
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
+import it.pagopa.generated.ecommerce.nodo.v2.dto.ErrorDto
 import java.time.ZonedDateTime
 import java.util.*
+import java.util.stream.Stream
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.reactor.mono
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.MethodSource
 import org.mockito.ArgumentCaptor
 import org.mockito.Captor
 import org.mockito.Mockito
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.*
+import org.springframework.http.HttpStatus
+import reactor.core.publisher.Hooks
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toFlux
 import reactor.test.StepVerifier
@@ -1374,4 +1381,187 @@ class TransactionClosePaymentRetryQueueConsumerTests {
                 TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT.toString(),
               errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)))
     }
+
+  @Test
+  fun `consumer perform refund for authorized transaction and close payment response response code 422 and description No rpt received yet`() =
+    runTest {
+      val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
+      val authorizationRequestEvent =
+        transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
+      val authorizationCompleteEvent =
+        transactionAuthorizationCompletedEvent() as TransactionEvent<Any>
+      val closureErrorEvent = transactionClosureErrorEvent() as TransactionEvent<Any>
+
+      val events =
+        listOf(
+          activationEvent, authorizationRequestEvent, authorizationCompleteEvent, closureErrorEvent)
+
+      /* preconditions */
+      given(checkpointer.success()).willReturn(Mono.empty())
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
+        .willReturn(events.toFlux())
+      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturnConsecutively(
+          listOf(
+            Mono.just(
+              transactionDocument(
+                TransactionStatusDto.CLOSURE_ERROR,
+                ZonedDateTime.parse(activationEvent.creationDate))),
+            Mono.just(
+              transactionDocument(
+                TransactionStatusDto.CLOSED, ZonedDateTime.parse(activationEvent.creationDate))),
+            Mono.just(
+              transactionDocument(
+                TransactionStatusDto.REFUND_REQUESTED,
+                ZonedDateTime.parse(activationEvent.creationDate)))))
+      given(transactionsViewRepository.save(viewArgumentCaptor.capture())).willAnswer {
+        Mono.just(it.arguments[0])
+      }
+      given(transactionClosedEventRepository.save(closedEventStoreRepositoryCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
+      given(
+          transactionsRefundedEventStoreRepository.save(
+            refundedEventStoreRepositoryCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
+      given(paymentGatewayClient.requestVPosRefund(any()))
+        .willReturn(
+          Mono.just(VposDeleteResponseDto().status(VposDeleteResponseDto.StatusEnum.CANCELLED)))
+      given(
+          nodeService.closePayment(
+            TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.OK))
+        .willThrow(
+          ClosePaymentErrorResponseException(
+            statusCode = HttpStatus.UNPROCESSABLE_ENTITY,
+            errorResponse = ErrorDto().description("Node did not receive RPT yet").outcome("KO")))
+      given(closureRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture(), any()))
+        .willReturn(Mono.empty())
+
+      /* test */
+      Hooks.onOperatorDebug()
+      StepVerifier.create(
+          transactionClosureErrorEventsConsumer.messageReceiver(
+            Either.left<TransactionClosureErrorEvent, TransactionClosureRetriedEvent>(
+              closureErrorEvent as TransactionClosureErrorEvent) to MOCK_TRACING_INFO,
+            checkpointer))
+        .expectNext(Unit)
+        .verifyComplete()
+
+      /* Asserts */
+      verify(checkpointer, Mockito.times(1)).success()
+      verify(nodeService, Mockito.times(1))
+        .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.OK)
+      verify(paymentGatewayClient, times(1)).requestVPosRefund(any())
+      verify(transactionClosedEventRepository, Mockito.times(0)).save(any())
+      verify(transactionsRefundedEventStoreRepository, Mockito.times(2)).save(any())
+      verify(transactionsViewRepository, Mockito.times(2)).save(any())
+      verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
+
+      val expectedViewUpdateStatuses =
+        listOf(TransactionStatusDto.REFUND_REQUESTED, TransactionStatusDto.REFUNDED)
+      val expectedEventsCodes =
+        listOf(
+          TransactionEventCode.TRANSACTION_REFUND_REQUESTED_EVENT,
+          TransactionEventCode.TRANSACTION_REFUNDED_EVENT)
+      expectedViewUpdateStatuses.forEachIndexed { idx, transactionStatusDto ->
+        assertEquals(
+          transactionStatusDto,
+          viewArgumentCaptor.allValues[idx].status,
+          "Unexpected view status update at idx: $idx")
+      }
+
+      expectedEventsCodes.forEachIndexed { idx, transactionEventCode ->
+        assertEquals(
+          transactionEventCode,
+          TransactionEventCode.valueOf(refundedEventStoreRepositoryCaptor.allValues[idx].eventCode),
+          "Unexpected event at idx: $idx")
+      }
+    }
+
+  companion object {
+
+    @JvmStatic
+    fun nodeErrorResponsesForEnqueueRetryTest(): Stream<Throwable> =
+      Stream.of(
+        ClosePaymentErrorResponseException(
+          statusCode = HttpStatus.INTERNAL_SERVER_ERROR,
+          errorResponse = ErrorDto().outcome("KO").description("Internal Server error")),
+        ClosePaymentErrorResponseException(statusCode = null, errorResponse = null),
+        RuntimeException("Unexpected error while communicating with Nodo"))
+  }
+
+  @ParameterizedTest
+  @MethodSource("nodeErrorResponsesForEnqueueRetryTest")
+  fun `consumer enqueue retry event in case of Node close payment response http error code 5xx`(
+    throwable: Throwable
+  ) = runTest {
+    val retryCount = 1
+    val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
+    val authorizationRequestEvent =
+      transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
+    val authorizationCompleteEvent =
+      transactionAuthorizationCompletedEvent() as TransactionEvent<Any>
+    val closureErrorEvent = transactionClosureErrorEvent() as TransactionEvent<Any>
+    val closureRetriedEvent = transactionClosureRetriedEvent(retryCount) as TransactionEvent<Any>
+    val events =
+      listOf(
+        activationEvent,
+        authorizationRequestEvent,
+        authorizationCompleteEvent,
+        closureErrorEvent,
+        closureRetriedEvent)
+
+    val transactionDocument =
+      transactionDocument(
+        TransactionStatusDto.CLOSURE_ERROR, ZonedDateTime.parse(activationEvent.creationDate))
+
+    /* preconditions */
+    given(checkpointer.success()).willReturn(Mono.empty())
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
+      .willReturn(events.toFlux())
+    given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+      .willReturn(Mono.just(transactionDocument))
+    given(transactionsViewRepository.save(viewArgumentCaptor.capture())).willReturn {
+      Mono.error(RuntimeException("Error updating view"))
+    }
+    given(transactionClosedEventRepository.save(closedEventStoreRepositoryCaptor.capture()))
+      .willAnswer { Mono.just(it.arguments[0]) }
+    given(
+        transactionsRefundedEventStoreRepository.save(refundedEventStoreRepositoryCaptor.capture()))
+      .willAnswer { Mono.just(it.arguments[0]) }
+    given(paymentGatewayClient.requestVPosRefund(any()))
+      .willReturn(
+        Mono.just(VposDeleteResponseDto().status(VposDeleteResponseDto.StatusEnum.CANCELLED)))
+    given(
+        nodeService.closePayment(
+          TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.OK))
+      .willThrow(throwable)
+    given(closureRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture(), any()))
+      .willReturn(Mono.empty())
+
+    /* test */
+
+    StepVerifier.create(
+        transactionClosureErrorEventsConsumer.messageReceiver(
+          Either.right<TransactionClosureErrorEvent, TransactionClosureRetriedEvent>(
+            closureRetriedEvent as TransactionClosureRetriedEvent) to MOCK_TRACING_INFO,
+          checkpointer))
+      .expectNext(Unit)
+      .verifyComplete()
+
+    /* Asserts */
+    verify(checkpointer, Mockito.times(1)).success()
+    verify(nodeService, Mockito.times(1))
+      .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.OK)
+    verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
+    verify(transactionClosedEventRepository, Mockito.times(0)).save(any())
+    verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).save(any())
+    verify(transactionsViewRepository, Mockito.times(0)).save(any())
+
+    verify(closureRetryService, times(1)).enqueueRetryEvent(any(), any(), any())
+
+    assertEquals(1, retryCountCaptor.value)
+  }
 }

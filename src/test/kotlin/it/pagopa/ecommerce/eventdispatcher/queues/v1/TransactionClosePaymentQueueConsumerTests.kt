@@ -24,12 +24,15 @@ import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ErrorDto
 import java.time.ZonedDateTime
 import java.util.*
+import java.util.stream.Stream
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.reactor.mono
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.MethodSource
 import org.mockito.ArgumentCaptor
 import org.mockito.Captor
 import org.mockito.Mockito
@@ -568,4 +571,79 @@ class TransactionClosePaymentQueueConsumerTests {
       verify(transactionsViewRepository, Mockito.times(0)).save(expectedUpdatedTransactionCanceled)
       verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), eq(MOCK_TRACING_INFO))
     }
+
+  companion object {
+
+    @JvmStatic
+    fun nodeErrorResponsesForEnqueueRetryTest(): Stream<Throwable> =
+      Stream.of(
+        ClosePaymentErrorResponseException(
+          statusCode = HttpStatus.INTERNAL_SERVER_ERROR,
+          errorResponse = ErrorDto().outcome("KO").description("Internal Server error")),
+        ClosePaymentErrorResponseException(statusCode = null, errorResponse = null))
+  }
+
+  @ParameterizedTest
+  @MethodSource("nodeErrorResponsesForEnqueueRetryTest")
+  fun `consumer receive handle error from Node during close payment enqueueing retry event`(
+    throwable: Throwable
+  ) = runTest {
+    val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
+    val cancelRequestEvent = transactionUserCanceledEvent() as TransactionEvent<Any>
+
+    val events = listOf(activationEvent, cancelRequestEvent)
+
+    val transactionDocument =
+      transactionDocument(
+        TransactionStatusDto.CANCELLATION_REQUESTED,
+        ZonedDateTime.parse(activationEvent.creationDate))
+
+    val expectedUpdatedTransactionCanceled =
+      transactionDocument(
+        TransactionStatusDto.CANCELED, ZonedDateTime.parse(activationEvent.creationDate))
+
+    val transactionId = TransactionId(TRANSACTION_ID)
+
+    /* preconditions */
+    given(checkpointer.success()).willReturn(Mono.empty())
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
+      .willReturn(events.toFlux())
+    given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+      .willReturn(Mono.just(transactionDocument))
+    given(nodeService.closePayment(transactionId, ClosePaymentRequestV2Dto.OutcomeEnum.KO))
+      .willThrow(throwable)
+
+    given(
+        transactionClosureErrorEventStoreRepository.save(
+          closureErrorEventStoreRepositoryCaptor.capture()))
+      .willAnswer { Mono.just(it.arguments[0]) }
+
+    given(transactionsViewRepository.save(viewArgumentCaptor.capture())).willAnswer {
+      Mono.just(it.arguments[0])
+    }
+
+    given(closureRetryService.enqueueRetryEvent(any(), any(), any())).willReturn(Mono.empty())
+    /* test */
+
+    StepVerifier.create(
+        transactionClosureEventsConsumer.messageReceiver(
+          cancelRequestEvent as TransactionUserCanceledEvent to MOCK_TRACING_INFO, checkpointer))
+      .expectNext(Unit)
+      .verifyComplete()
+
+    /* Asserts */
+    verify(checkpointer, Mockito.times(1)).success()
+    verify(nodeService, Mockito.times(1)).closePayment(any(), any())
+    verify(transactionClosedEventRepository, Mockito.times(0))
+      .save(any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
+    verify(paymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).times(1)).deleteById(any())
+    // mocking
+    verify(transactionsViewRepository, Mockito.times(0)).save(expectedUpdatedTransactionCanceled)
+    verify(closureRetryService, times(1)).enqueueRetryEvent(any(), any(), any())
+    assertEquals(TransactionStatusDto.CLOSURE_ERROR, viewArgumentCaptor.value.status)
+    assertEquals(
+      TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT,
+      TransactionEventCode.valueOf(closureErrorEventStoreRepositoryCaptor.value.eventCode))
+  }
 }
