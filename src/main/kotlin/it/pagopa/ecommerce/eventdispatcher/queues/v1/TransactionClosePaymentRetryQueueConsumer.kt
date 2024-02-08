@@ -15,8 +15,10 @@ import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.commons.queues.TracingUtils
+import it.pagopa.ecommerce.eventdispatcher.client.NodeClient
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
+import it.pagopa.ecommerce.eventdispatcher.exceptions.ClosePaymentErrorResponseException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
 import it.pagopa.ecommerce.eventdispatcher.queues.*
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
@@ -32,6 +34,7 @@ import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
 
@@ -161,22 +164,49 @@ class TransactionClosePaymentRetryQueueConsumer(
             }
             .then()
             .onErrorResume { exception ->
-              baseTransaction.flatMap { baseTransaction ->
-                logger.error(
-                  "Got exception while retrying closePaymentV2 for transaction with id ${baseTransaction.transactionId}!",
-                  exception)
-                /*
-                 * The refund process is started only iff the previous transaction was authorized
-                 * and the Nodo returned closePaymentV2 response outcome KO
-                 */
-                closureRetryService
-                  .enqueueRetryEvent(baseTransaction, retryCount, tracingInfo)
-                  .onErrorResume(NoRetryAttemptsLeftException::class.java) { exception ->
-                    logger.error(
-                      "No more attempts left for closure retry, refunding transaction", exception)
-                    refundTransactionPipeline(tx, null, tracingInfo).then()
-                  }
-                  .then()
+              logger.error(
+                "Got exception while retrying closePaymentV2 for transaction with id ${tx.transactionId}!",
+                exception)
+              val enqueueRetryEventPipeline =
+                closureRetryService.enqueueRetryEvent(tx, retryCount, tracingInfo).doOnError(
+                  NoRetryAttemptsLeftException::class.java) { retryException ->
+                  logger.error(
+                    "No more attempts left for closure retry, refunding transaction",
+                    retryException)
+                }
+              val (statusCode, errorDescription) =
+                if (exception is ClosePaymentErrorResponseException) {
+                  Pair(exception.statusCode, exception.errorResponse?.description)
+                } else {
+                  Pair(null, null)
+                }
+              // transaction can be refund only for HTTP status code 422 and error response
+              // description equals to "Node did not receive RPT yet"
+              val refundTransaction =
+                statusCode == HttpStatus.UNPROCESSABLE_ENTITY &&
+                  errorDescription == NodeClient.NODE_DID_NOT_RECEIVE_RPT_YET_ERROR
+              // retry event enqueued only for 5xx error responses or for other exceptions that
+              // might happen during communication such as read timeout
+              val enqueueRetryEvent =
+                !refundTransaction && (statusCode == null || statusCode.is5xxServerError)
+              logger.info(
+                "Handling Nodo close payment error response. Status code: [{}], error description: [{}] -> refund transaction: [{}], enqueue retry event: [{}]",
+                statusCode,
+                errorDescription,
+                refundTransaction,
+                enqueueRetryEvent)
+              if (refundTransaction) {
+                // if transaction has to be refund perform refund
+                refundTransactionPipeline(tx, TransactionClosureData.Outcome.KO, tracingInfo).then()
+              } else {
+                // otherwise check if another attempt has to be performed for close payment
+                if (enqueueRetryEvent) {
+                  enqueueRetryEventPipeline
+                } else {
+                  // or skip more attempts for unhandled 4xx cases for which no more attempts have
+                  // to be done
+                  Mono.empty()
+                }
               }
             }
         }
@@ -200,15 +230,14 @@ class TransactionClosePaymentRetryQueueConsumer(
 
   private fun refundTransactionPipeline(
     transaction: TransactionWithClosureError,
-    closureOutcome: TransactionClosureData.Outcome?,
+    closureOutcome: TransactionClosureData.Outcome,
     tracingInfo: TracingInfo?
   ): Mono<BaseTransaction> {
     val transactionAtPreviousState = transaction.transactionAtPreviousState()
     val wasAuthorized = wasTransactionAuthorized(transactionAtPreviousState)
-    val nodoOutcome = closureOutcome ?: TransactionClosureData.Outcome.KO
-    val toBeRefunded = wasAuthorized && nodoOutcome == TransactionClosureData.Outcome.KO
+    val toBeRefunded = wasAuthorized && closureOutcome == TransactionClosureData.Outcome.KO
     logger.info(
-      "Transaction Nodo ClosePaymentV2 response outcome: ${nodoOutcome}, was authorized: $wasAuthorized --> to be refunded: $toBeRefunded")
+      "Transaction Nodo ClosePaymentV2 response outcome: ${closureOutcome}, was authorized: $wasAuthorized --> to be refunded: $toBeRefunded")
     val transactionWithCompletedAuthorization =
       getBaseTransactionWithCompletedAuthorization(transactionAtPreviousState)
 
