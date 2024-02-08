@@ -20,6 +20,7 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRe
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.RefundService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
+import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgStateService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -40,8 +41,8 @@ class TransactionsAuthRequestQueueConsumer(
   private val transactionsRefundedEventStoreRepository:
     TransactionsEventStoreRepository<TransactionRefundedData>,
   @Autowired private val transactionsViewRepository: TransactionsViewRepository,
-  @Autowired private val refundService: RefundService,
-  @Autowired private val refundRetryService: RefundRetryService,
+  @Autowired private val npgStateService: NpgStateService,
+  @Autowired private val npgStateRetryService: NpgStateService,
   @Autowired private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient,
   @Autowired private val tracingUtils: TracingUtils,
   @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider,
@@ -78,14 +79,11 @@ class TransactionsAuthRequestQueueConsumer(
         }
         .cast(BaseTransactionWithRequestedAuthorization::class.java)
         .flatMap { tx ->
-          refundTransaction(
+          handleGetState(
             tx,
-            transactionsRefundedEventStoreRepository,
-            transactionsViewRepository,
-            paymentGatewayClient,
-            refundService,
-            refundRetryService,
-            tracingInfo)
+            npgStateService,
+            3
+            )
         }
     val e = QueueEvent(event, tracingInfo)
     return runTracedPipelineWithDeadLetterQueue( //CHECK THIS METHOD

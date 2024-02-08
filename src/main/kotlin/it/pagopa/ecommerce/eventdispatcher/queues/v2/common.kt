@@ -176,7 +176,7 @@ fun handleGetState(
      (transaction.transactionAuthorizationRequestData.transactionGatewayAuthorizationRequestedData as NpgTransactionGatewayAuthorizationRequestedData).confirmPaymentSessionId,
      transaction.transactionAuthorizationRequestData.pspId
    )}.flatMap {
-     stateReponseDto -> handleStateResponse(stateReponseDto, tx)
+     stateResponseDto -> handleStateResponse(stateResponseDto, tx)
    }.onErrorResume {  exception ->
      logger.error(
        "Transaction requestRefund error for transaction ${tx.transactionId.value()}", exception)
