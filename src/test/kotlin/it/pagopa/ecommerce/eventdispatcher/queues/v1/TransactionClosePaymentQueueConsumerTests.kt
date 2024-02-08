@@ -14,12 +14,12 @@ import it.pagopa.ecommerce.commons.queues.TracingUtilsTests
 import it.pagopa.ecommerce.commons.redis.templatewrappers.PaymentRequestInfoRedisTemplateWrapper
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils.*
 import it.pagopa.ecommerce.eventdispatcher.exceptions.ClosePaymentErrorResponseException
+import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.ClosePaymentOutcome
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v1.ClosureRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.v1.NodeService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
-import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ErrorDto
 import java.time.ZonedDateTime
@@ -124,7 +124,7 @@ class TransactionClosePaymentQueueConsumerTests {
     }
     given(transactionClosedEventRepository.save(closedEventStoreRepositoryCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
-    given(nodeService.closePayment(transactionId, ClosePaymentRequestV2Dto.OutcomeEnum.KO))
+    given(nodeService.closePayment(transactionId, ClosePaymentOutcome.KO))
       .willReturn(
         ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK })
 
@@ -138,8 +138,7 @@ class TransactionClosePaymentQueueConsumerTests {
 
     /* Asserts */
     verify(checkpointer, Mockito.times(1)).success()
-    verify(nodeService, Mockito.times(1))
-      .closePayment(transactionId, ClosePaymentRequestV2Dto.OutcomeEnum.KO)
+    verify(nodeService, Mockito.times(1)).closePayment(transactionId, ClosePaymentOutcome.KO)
     verify(transactionClosedEventRepository, Mockito.times(1))
       .save(any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
     // mocking
@@ -185,7 +184,7 @@ class TransactionClosePaymentQueueConsumerTests {
     }
     given(transactionClosedEventRepository.save(closedEventStoreRepositoryCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
-    given(nodeService.closePayment(transactionId, ClosePaymentRequestV2Dto.OutcomeEnum.KO))
+    given(nodeService.closePayment(transactionId, ClosePaymentOutcome.KO))
       .willReturn(
         ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK })
 
@@ -199,8 +198,7 @@ class TransactionClosePaymentQueueConsumerTests {
 
     /* Asserts */
     verify(checkpointer, Mockito.times(1)).success()
-    verify(nodeService, Mockito.times(1))
-      .closePayment(transactionId, ClosePaymentRequestV2Dto.OutcomeEnum.KO)
+    verify(nodeService, Mockito.times(1)).closePayment(transactionId, ClosePaymentOutcome.KO)
     verify(transactionClosedEventRepository, Mockito.times(1))
       .save(any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
     // mocking
@@ -246,7 +244,7 @@ class TransactionClosePaymentQueueConsumerTests {
     }
     given(transactionClosedEventRepository.save(closedEventStoreRepositoryCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
-    given(nodeService.closePayment(transactionId, ClosePaymentRequestV2Dto.OutcomeEnum.KO))
+    given(nodeService.closePayment(transactionId, ClosePaymentOutcome.KO))
       .willReturn(
         ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.KO })
 
@@ -260,8 +258,7 @@ class TransactionClosePaymentQueueConsumerTests {
 
     /* Asserts */
     verify(checkpointer, Mockito.times(1)).success()
-    verify(nodeService, Mockito.times(1))
-      .closePayment(transactionId, ClosePaymentRequestV2Dto.OutcomeEnum.KO)
+    verify(nodeService, Mockito.times(1)).closePayment(transactionId, ClosePaymentOutcome.KO)
     verify(transactionClosedEventRepository, Mockito.times(1))
       .save(any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
     // mocking
@@ -308,7 +305,7 @@ class TransactionClosePaymentQueueConsumerTests {
     }
     given(transactionClosedEventRepository.save(closedEventStoreRepositoryCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
-    given(nodeService.closePayment(transactionId, ClosePaymentRequestV2Dto.OutcomeEnum.KO))
+    given(nodeService.closePayment(transactionId, ClosePaymentOutcome.KO))
       .willReturn(
         ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.KO })
 
@@ -322,8 +319,7 @@ class TransactionClosePaymentQueueConsumerTests {
 
     /* Asserts */
     verify(checkpointer, Mockito.times(1)).success()
-    verify(nodeService, Mockito.times(1))
-      .closePayment(transactionId, ClosePaymentRequestV2Dto.OutcomeEnum.KO)
+    verify(nodeService, Mockito.times(1)).closePayment(transactionId, ClosePaymentOutcome.KO)
     verify(transactionClosedEventRepository, Mockito.times(1))
       .save(any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
     // mocking
@@ -364,7 +360,7 @@ class TransactionClosePaymentQueueConsumerTests {
       .willReturn(events.toFlux())
     given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
       .willReturn(Mono.just(transactionDocument))
-    given(nodeService.closePayment(transactionId, ClosePaymentRequestV2Dto.OutcomeEnum.KO))
+    given(nodeService.closePayment(transactionId, ClosePaymentOutcome.KO))
       .willThrow(RuntimeException("Nodo error"))
 
     given(
@@ -479,7 +475,7 @@ class TransactionClosePaymentQueueConsumerTests {
         .willReturn(events.toFlux())
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(Mono.just(transactionDocument))
-      given(nodeService.closePayment(transactionId, ClosePaymentRequestV2Dto.OutcomeEnum.KO))
+      given(nodeService.closePayment(transactionId, ClosePaymentOutcome.KO))
         .willThrow(ClosePaymentErrorResponseException(HttpStatus.BAD_REQUEST, ErrorDto()))
 
       given(
@@ -539,7 +535,7 @@ class TransactionClosePaymentQueueConsumerTests {
         .willReturn(events.toFlux())
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(Mono.just(transactionDocument))
-      given(nodeService.closePayment(transactionId, ClosePaymentRequestV2Dto.OutcomeEnum.KO))
+      given(nodeService.closePayment(transactionId, ClosePaymentOutcome.KO))
         .willThrow(ClosePaymentErrorResponseException(HttpStatus.NOT_FOUND, ErrorDto()))
 
       given(
@@ -611,8 +607,7 @@ class TransactionClosePaymentQueueConsumerTests {
       .willReturn(events.toFlux())
     given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
       .willReturn(Mono.just(transactionDocument))
-    given(nodeService.closePayment(transactionId, ClosePaymentRequestV2Dto.OutcomeEnum.KO))
-      .willThrow(throwable)
+    given(nodeService.closePayment(transactionId, ClosePaymentOutcome.KO)).willThrow(throwable)
 
     given(
         transactionClosureErrorEventStoreRepository.save(

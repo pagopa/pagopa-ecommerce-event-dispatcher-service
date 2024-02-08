@@ -8,10 +8,10 @@ import it.pagopa.ecommerce.commons.utils.EuroUtils
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils.*
 import it.pagopa.ecommerce.eventdispatcher.client.NodeClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
+import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.ClosePaymentOutcome
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
-import it.pagopa.generated.ecommerce.nodo.v2.dto.AdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum
-import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
-import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto.OutcomeEnum
+import it.pagopa.generated.ecommerce.nodo.v2.dto.CardAdditionalPaymentInformationsDto
+import it.pagopa.generated.ecommerce.nodo.v2.dto.CardClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.UserDto
 import java.math.BigDecimal
@@ -45,12 +45,13 @@ class NodeServiceTests {
 
   @Mock lateinit var transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>
 
-  @Captor private lateinit var closePaymentRequestCaptor: ArgumentCaptor<ClosePaymentRequestV2Dto>
+  @Captor
+  private lateinit var closePaymentRequestCaptor: ArgumentCaptor<CardClosePaymentRequestV2Dto>
 
   @Test
   fun `closePayment returns successfully for close payment on user cancel request transaction`() =
     runTest {
-      val transactionOutcome = OutcomeEnum.KO
+      val transactionOutcome = ClosePaymentOutcome.KO
 
       val activatedEvent = transactionActivateEvent()
       val canceledEvent = transactionUserCanceledEvent()
@@ -76,7 +77,8 @@ class NodeServiceTests {
         nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
 
       assertEquals(transactionId, closePaymentRequestCaptor.value.transactionId)
-      assertEquals(OutcomeEnum.KO, closePaymentRequestCaptor.value.outcome)
+      assertEquals(
+        CardClosePaymentRequestV2Dto.OutcomeEnum.KO, closePaymentRequestCaptor.value.outcome)
       // check additionalPaymentInformations
       assertNull(closePaymentRequestCaptor.value.additionalPaymentInformations)
       // check transactionDetails
@@ -104,7 +106,7 @@ class NodeServiceTests {
   @Test
   fun `closePayment returns successfully for retry close payment on user cancel request transaction`() =
     runTest {
-      val transactionOutcome = OutcomeEnum.KO
+      val transactionOutcome = ClosePaymentOutcome.KO
 
       val activatedEvent = transactionActivateEvent()
       val canceledEvent = transactionUserCanceledEvent()
@@ -134,7 +136,8 @@ class NodeServiceTests {
         nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
 
       assertEquals(transactionId, closePaymentRequestCaptor.value.transactionId)
-      assertEquals(OutcomeEnum.KO, closePaymentRequestCaptor.value.outcome)
+      assertEquals(
+        CardClosePaymentRequestV2Dto.OutcomeEnum.KO, closePaymentRequestCaptor.value.outcome)
       // check additionalPaymentInformations
       assertNull(closePaymentRequestCaptor.value.additionalPaymentInformations)
       // check transactionDetails
@@ -163,7 +166,7 @@ class NodeServiceTests {
   fun `closePayment throws BadTransactionStatusException for only transaction activated event `() =
     runTest {
       val transactionId = TRANSACTION_ID
-      val transactionOutcome = OutcomeEnum.OK
+      val transactionOutcome = ClosePaymentOutcome.OK
 
       val activatedEvent = transactionActivateEvent() as TransactionEvent<Any>
       val events = listOf(activatedEvent)
@@ -194,7 +197,7 @@ class NodeServiceTests {
     timestampOperation: String,
     expectedLocalDate: String
   ) = runTest {
-    val transactionOutcome = OutcomeEnum.OK
+    val transactionOutcome = ClosePaymentOutcome.OK
 
     val activatedEvent = transactionActivateEvent()
     val authEvent = transactionAuthorizationRequestedEvent()
@@ -239,7 +242,7 @@ class NodeServiceTests {
     val expectedTotalAmount = totalAmountEuro.toString()
     val expectedOutcome =
       authCompletedEvent.data.authorizationResultDto.let {
-        OutcomePaymentGatewayEnum.valueOf(it.toString())
+        CardAdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.valueOf(it.toString())
       }
     // Check Transaction Details
     assertEquals(
@@ -310,7 +313,7 @@ class NodeServiceTests {
   @Test
   fun `ClosePaymentRequestV2Dto for close payment KO for authorization KO has not additional properties and transaction details valued correctly`() =
     runTest {
-      val transactionOutcome = OutcomeEnum.KO
+      val transactionOutcome = ClosePaymentOutcome.KO
 
       val authKO = AuthorizationResultDto.KO
 
@@ -429,7 +432,7 @@ class NodeServiceTests {
         listOf(activatedEvent, authEvent, authCompletedEvent, closureError)
           as List<TransactionEvent<Any>>
 
-      val pgsOutCome = OutcomeEnum.KO
+      val pgsOutCome = ClosePaymentOutcome.KO
 
       val closePaymentResponse =
         ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
@@ -455,7 +458,7 @@ class NodeServiceTests {
 
       val transactionId = activatedEvent.transactionId
       val events = listOf(activatedEvent, authEvent) as List<TransactionEvent<Any>>
-      val transactionOutcome = OutcomeEnum.OK
+      val transactionOutcome = ClosePaymentOutcome.OK
 
       val closePaymentResponse =
         ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }

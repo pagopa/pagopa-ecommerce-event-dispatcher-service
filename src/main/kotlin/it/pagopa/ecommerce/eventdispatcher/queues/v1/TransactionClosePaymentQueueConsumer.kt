@@ -12,12 +12,12 @@ import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.commons.redis.templatewrappers.PaymentRequestInfoRedisTemplateWrapper
 import it.pagopa.ecommerce.eventdispatcher.exceptions.*
+import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.ClosePaymentOutcome
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v1.ClosureRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.v1.NodeService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
-import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
 import java.util.*
 import kotlinx.coroutines.reactor.mono
@@ -77,9 +77,7 @@ class TransactionClosePaymentQueueConsumer(
         }
         .cast(TransactionWithCancellationRequested::class.java)
         .flatMap { tx ->
-          mono {
-              nodeService.closePayment(tx.transactionId, ClosePaymentRequestV2Dto.OutcomeEnum.KO)
-            }
+          mono { nodeService.closePayment(tx.transactionId, ClosePaymentOutcome.KO) }
             .flatMap { closePaymentResponse ->
               updateTransactionStatus(
                 transaction = tx, closePaymentResponseDto = closePaymentResponse)

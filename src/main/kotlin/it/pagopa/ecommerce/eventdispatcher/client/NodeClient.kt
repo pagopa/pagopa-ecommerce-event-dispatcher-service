@@ -1,26 +1,24 @@
 package it.pagopa.ecommerce.eventdispatcher.client
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import it.pagopa.ecommerce.eventdispatcher.exceptions.ClosePaymentErrorResponseException
-import it.pagopa.generated.ecommerce.nodo.v2.api.NodoApi
-import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
-import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
-import it.pagopa.generated.ecommerce.nodo.v2.dto.ErrorDto
-import kotlinx.coroutines.reactor.mono
+import it.pagopa.generated.ecommerce.nodo.v2.dto.*
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.beans.factory.annotation.Value
-import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
-import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.reactive.function.client.ClientResponse
+import org.springframework.web.reactive.function.client.WebClient
 import org.springframework.web.server.ResponseStatusException
 import reactor.core.publisher.Mono
 
 @Component
 class NodeClient(
-  @Autowired private val nodeApi: NodoApi,
-  @Value("\${nodo.ecommerce.clientId}") private val ecommerceClientId: String
+  @Qualifier("nodoApiClient") private val nodoApiClient: WebClient,
+  @Value("\${nodo.ecommerce.clientId}") private val ecommerceClientId: String,
+  @Autowired private val objectMapper: ObjectMapper
 ) {
 
   companion object {
@@ -29,19 +27,31 @@ class NodeClient(
 
   private val logger = LoggerFactory.getLogger(javaClass)
 
-  suspend fun closePayment(
-    closePaymentRequest: ClosePaymentRequestV2Dto
-  ): Mono<ClosePaymentResponseDto> {
-    logger.info(
-      "Requested closePaymentV2 for transactionId [{}]: paymentTokens {} - outcome: {}",
-      closePaymentRequest.transactionId,
-      closePaymentRequest.paymentTokens,
-      closePaymentRequest.outcome.value)
-    return nodeApi.apiClient.webClient
+  fun closePayment(closePaymentRequest: ClosePaymentRequestV2Dto): Mono<ClosePaymentResponseDto> {
+    val transactionId =
+      when (closePaymentRequest) {
+        is CardClosePaymentRequestV2Dto -> closePaymentRequest.transactionId
+        is RedirectClosePaymentRequestV2Dto -> closePaymentRequest.transactionId
+        else ->
+          throw IllegalArgumentException(
+            "Unhandled `ClosePaymentRequestV2Dto` implementation: ${closePaymentRequest.javaClass}")
+      }
+
+    val paymentTokens =
+      when (closePaymentRequest) {
+        is CardClosePaymentRequestV2Dto -> closePaymentRequest.paymentTokens
+        is RedirectClosePaymentRequestV2Dto -> closePaymentRequest.paymentTokens
+        else ->
+          throw IllegalArgumentException(
+            "Unhandled `ClosePaymentRequestV2Dto` implementation: ${closePaymentRequest.javaClass}")
+      }
+
+    return nodoApiClient
       .post()
-      .uri { it.path("/closepayment").queryParam("clientId", ecommerceClientId).build() }
-      .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-      .body(mono { closePaymentRequest }, ClosePaymentRequestV2Dto::class.java)
+      .uri { builder ->
+        builder.pathSegment("closepayment").queryParam("clientId", ecommerceClientId).build()
+      }
+      .body(Mono.just(closePaymentRequest), ClosePaymentRequestV2Dto::class.java)
       .retrieve()
       .onStatus(
         { obj: HttpStatus -> obj.isError },
@@ -56,20 +66,18 @@ class NodeClient(
       .doOnSuccess { closePaymentResponse: ClosePaymentResponseDto ->
         logger.info(
           "Received closePaymentV2 response for transactionId [{}]: paymentTokens {} - outcome: {}",
-          closePaymentRequest.transactionId,
-          closePaymentRequest.paymentTokens,
+          transactionId,
+          paymentTokens,
           closePaymentResponse.outcome)
       }
       .onErrorMap { exception ->
         logger.error(
-          "Received closePaymentV2 Response Status Error for transactionId [${closePaymentRequest.transactionId}]",
+          "Received closePaymentV2 Response Status Error for transactionId [$transactionId]",
           exception)
         if (exception is ResponseStatusException) {
           throw ClosePaymentErrorResponseException(
             exception.status,
-            runCatching {
-                nodeApi.apiClient.objectMapper.readValue(exception.reason, ErrorDto::class.java)
-              }
+            runCatching { objectMapper.readValue(exception.reason, ErrorDto::class.java) }
               .onFailure {
                 logger.error("Error parsing Nodo close payment error response body", it)
               }

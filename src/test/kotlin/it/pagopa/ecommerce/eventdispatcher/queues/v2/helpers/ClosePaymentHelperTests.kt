@@ -30,7 +30,6 @@ import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetrySer
 import it.pagopa.ecommerce.eventdispatcher.services.v2.NodeService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
-import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ErrorDto
 import java.time.ZonedDateTime
@@ -168,9 +167,7 @@ class ClosePaymentHelperTests {
       }
       given(transactionClosedEventRepository.save(closedEventStoreRepositoryCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
-      given(
-          nodeService.closePayment(
-            TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.OK))
+      given(nodeService.closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK))
         .willReturn(
           ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK })
 
@@ -190,7 +187,7 @@ class ClosePaymentHelperTests {
       /* Asserts */
       verify(checkpointer, Mockito.times(1)).success()
       verify(nodeService, Mockito.times(1))
-        .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.OK)
+        .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK)
       verify(transactionClosedEventRepository, Mockito.times(1))
         .save(
           any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
@@ -250,9 +247,7 @@ class ClosePaymentHelperTests {
       }
       given(transactionClosedEventRepository.save(closedEventStoreRepositoryCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
-      given(
-          nodeService.closePayment(
-            TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.KO))
+      given(nodeService.closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.KO))
         .willReturn(
           ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.KO })
 
@@ -270,7 +265,7 @@ class ClosePaymentHelperTests {
       /* Asserts */
       verify(checkpointer, Mockito.times(1)).success()
       verify(nodeService, Mockito.times(1))
-        .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.KO)
+        .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.KO)
       verify(transactionClosedEventRepository, Mockito.times(1))
         .save(
           any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
@@ -328,9 +323,7 @@ class ClosePaymentHelperTests {
       given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
       given(transactionClosedEventRepository.save(any()))
         .willReturn(Mono.just(expectedClosureEvent))
-      given(
-          nodeService.closePayment(
-            TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.KO))
+      given(nodeService.closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.KO))
         .willReturn(
           ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.KO })
       given(
@@ -351,7 +344,7 @@ class ClosePaymentHelperTests {
       /* Asserts */
       verify(checkpointer, Mockito.times(1)).success()
       verify(nodeService, Mockito.times(0))
-        .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.KO)
+        .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.KO)
       verify(transactionClosedEventRepository, Mockito.times(0))
         .save(
           any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
@@ -420,7 +413,7 @@ class ClosePaymentHelperTests {
       /* Asserts */
       verify(checkpointer, Mockito.times(1)).success()
       verify(nodeService, Mockito.times(0))
-        .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.KO)
+        .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.KO)
       verify(transactionClosedEventRepository, Mockito.times(0)).save(any())
       verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
       verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
@@ -485,9 +478,7 @@ class ClosePaymentHelperTests {
       .willReturn(Mono.just(transactionDocument))
     given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
     given(transactionClosedEventRepository.save(any())).willReturn(Mono.just(expectedClosureEvent))
-    given(
-        nodeService.closePayment(
-          TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.OK))
+    given(nodeService.closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK))
       .willReturn(
         ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK })
 
@@ -504,7 +495,7 @@ class ClosePaymentHelperTests {
     /* Asserts */
     verify(checkpointer, Mockito.times(1)).success()
     verify(nodeService, Mockito.times(1))
-      .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.OK)
+      .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK)
     verify(paymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never()).deleteById(any())
     verify(transactionClosedEventRepository, Mockito.times(1))
       .save(any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
@@ -633,9 +624,7 @@ class ClosePaymentHelperTests {
       given(paymentGatewayClient.requestVPosRefund(any()))
         .willReturn(
           Mono.just(VposDeleteResponseDto().status(VposDeleteResponseDto.StatusEnum.CANCELLED)))
-      given(
-          nodeService.closePayment(
-            TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.OK))
+      given(nodeService.closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK))
         .willReturn(
           ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.KO })
 
@@ -653,7 +642,7 @@ class ClosePaymentHelperTests {
       /* Asserts */
       verify(checkpointer, Mockito.times(1)).success()
       verify(nodeService, Mockito.times(1))
-        .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.OK)
+        .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK)
       verify(paymentGatewayClient, times(1)).requestVPosRefund(any())
       verify(transactionClosedEventRepository, Mockito.times(1)).save(any())
       verify(paymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never()).deleteById(any())
@@ -731,9 +720,7 @@ class ClosePaymentHelperTests {
     given(paymentGatewayClient.requestVPosRefund(any()))
       .willReturn(
         Mono.just(VposDeleteResponseDto().status(VposDeleteResponseDto.StatusEnum.CANCELLED)))
-    given(
-        nodeService.closePayment(
-          TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.OK))
+    given(nodeService.closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK))
       .willReturn(
         ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.KO })
     given(closureRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture(), any()))
@@ -753,7 +740,7 @@ class ClosePaymentHelperTests {
     /* Asserts */
     verify(checkpointer, Mockito.times(1)).success()
     verify(nodeService, Mockito.times(1))
-      .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.OK)
+      .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK)
     verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
     verify(transactionClosedEventRepository, Mockito.times(1)).save(any())
     verify(paymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never()).deleteById(any())
@@ -829,9 +816,7 @@ class ClosePaymentHelperTests {
     given(paymentGatewayClient.requestVPosRefund(any()))
       .willReturn(
         Mono.just(VposDeleteResponseDto().status(VposDeleteResponseDto.StatusEnum.CANCELLED)))
-    given(
-        nodeService.closePayment(
-          TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.OK))
+    given(nodeService.closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK))
       .willReturn(
         ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.KO })
     given(closureRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture(), any()))
@@ -851,7 +836,7 @@ class ClosePaymentHelperTests {
     /* Asserts */
     verify(checkpointer, Mockito.times(1)).success()
     verify(nodeService, Mockito.times(1))
-      .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.OK)
+      .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK)
     verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
     verify(transactionClosedEventRepository, Mockito.times(1)).save(any())
     verify(paymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never()).deleteById(any())
@@ -936,9 +921,7 @@ class ClosePaymentHelperTests {
     given(paymentGatewayClient.requestVPosRefund(any()))
       .willReturn(
         Mono.just(VposDeleteResponseDto().status(VposDeleteResponseDto.StatusEnum.CANCELLED)))
-    given(
-        nodeService.closePayment(
-          TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.OK))
+    given(nodeService.closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK))
       .willThrow(RuntimeException("Nodo error"))
     given(deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(any(), any()))
       .willReturn(mono {})
@@ -963,7 +946,7 @@ class ClosePaymentHelperTests {
     /* Asserts */
     verify(checkpointer, Mockito.times(1)).success()
     verify(nodeService, Mockito.times(1))
-      .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.OK)
+      .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK)
     verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
     verify(paymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never()).deleteById(any())
     verify(transactionClosedEventRepository, Mockito.times(0)).save(any())
@@ -1021,9 +1004,7 @@ class ClosePaymentHelperTests {
       given(paymentGatewayClient.requestVPosRefund(any()))
         .willReturn(
           Mono.just(VposDeleteResponseDto().status(VposDeleteResponseDto.StatusEnum.CANCELLED)))
-      given(
-          nodeService.closePayment(
-            TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.OK))
+      given(nodeService.closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK))
         .willThrow(RuntimeException("Nodo error"))
 
       given(closureRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture(), any()))
@@ -1048,7 +1029,7 @@ class ClosePaymentHelperTests {
       /* Asserts */
       verify(checkpointer, Mockito.times(1)).success()
       verify(nodeService, Mockito.times(1))
-        .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.OK)
+        .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK)
       verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
       verify(paymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never()).deleteById(any())
       verify(transactionClosedEventRepository, Mockito.times(0)).save(any())
@@ -1107,7 +1088,7 @@ class ClosePaymentHelperTests {
     }
     given(transactionClosedEventRepository.save(closedEventStoreRepositoryCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
-    given(nodeService.closePayment(transactionId, ClosePaymentRequestV2Dto.OutcomeEnum.KO))
+    given(nodeService.closePayment(transactionId, ClosePaymentOutcome.KO))
       .willReturn(
         ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK })
 
@@ -1124,8 +1105,7 @@ class ClosePaymentHelperTests {
 
     /* Asserts */
     verify(checkpointer, Mockito.times(1)).success()
-    verify(nodeService, Mockito.times(1))
-      .closePayment(transactionId, ClosePaymentRequestV2Dto.OutcomeEnum.KO)
+    verify(nodeService, Mockito.times(1)).closePayment(transactionId, ClosePaymentOutcome.KO)
     verify(transactionClosedEventRepository, Mockito.times(1))
       .save(any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
     // mocking
@@ -1171,7 +1151,7 @@ class ClosePaymentHelperTests {
     }
     given(transactionClosedEventRepository.save(closedEventStoreRepositoryCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
-    given(nodeService.closePayment(transactionId, ClosePaymentRequestV2Dto.OutcomeEnum.KO))
+    given(nodeService.closePayment(transactionId, ClosePaymentOutcome.KO))
       .willReturn(
         ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.KO })
 
@@ -1188,8 +1168,7 @@ class ClosePaymentHelperTests {
 
     /* Asserts */
     verify(checkpointer, Mockito.times(1)).success()
-    verify(nodeService, Mockito.times(1))
-      .closePayment(transactionId, ClosePaymentRequestV2Dto.OutcomeEnum.KO)
+    verify(nodeService, Mockito.times(1)).closePayment(transactionId, ClosePaymentOutcome.KO)
     verify(transactionClosedEventRepository, Mockito.times(1))
       .save(any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
     // mocking
@@ -1230,7 +1209,7 @@ class ClosePaymentHelperTests {
       .willReturn(events.toFlux())
     given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
       .willReturn(Mono.just(transactionDocument))
-    given(nodeService.closePayment(transactionId, ClosePaymentRequestV2Dto.OutcomeEnum.KO))
+    given(nodeService.closePayment(transactionId, ClosePaymentOutcome.KO))
       .willThrow(RuntimeException("Nodo error"))
 
     given(
@@ -1296,7 +1275,7 @@ class ClosePaymentHelperTests {
         .willReturn(events.toFlux())
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(Mono.just(transactionDocument))
-      given(nodeService.closePayment(transactionId, ClosePaymentRequestV2Dto.OutcomeEnum.KO))
+      given(nodeService.closePayment(transactionId, ClosePaymentOutcome.KO))
         .willThrow(ClosePaymentErrorResponseException(HttpStatus.BAD_REQUEST, ErrorDto()))
 
       given(
@@ -1359,7 +1338,7 @@ class ClosePaymentHelperTests {
         .willReturn(events.toFlux())
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(Mono.just(transactionDocument))
-      given(nodeService.closePayment(transactionId, ClosePaymentRequestV2Dto.OutcomeEnum.KO))
+      given(nodeService.closePayment(transactionId, ClosePaymentOutcome.KO))
         .willThrow(ClosePaymentErrorResponseException(HttpStatus.BAD_REQUEST, ErrorDto()))
 
       given(
@@ -1441,9 +1420,7 @@ class ClosePaymentHelperTests {
       }
       given(transactionClosedEventRepository.save(closedEventStoreRepositoryCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
-      given(
-          nodeService.closePayment(
-            TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.OK))
+      given(nodeService.closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK))
         .willReturn(
           ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK })
 
@@ -1461,7 +1438,7 @@ class ClosePaymentHelperTests {
       /* Asserts */
       verify(checkpointer, Mockito.times(1)).success()
       verify(nodeService, Mockito.times(1))
-        .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.OK)
+        .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK)
       verify(transactionClosedEventRepository, Mockito.times(1)).save(any())
       verify(paymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never()).deleteById(any())
       verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransaction)
@@ -1522,9 +1499,7 @@ class ClosePaymentHelperTests {
       }
       given(transactionClosedEventRepository.save(closedEventStoreRepositoryCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
-      given(
-          nodeService.closePayment(
-            TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.KO))
+      given(nodeService.closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.KO))
         .willReturn(
           ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.KO })
 
@@ -1542,7 +1517,7 @@ class ClosePaymentHelperTests {
       /* Asserts */
       verify(checkpointer, Mockito.times(1)).success()
       verify(nodeService, Mockito.times(1))
-        .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.KO)
+        .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.KO)
       verify(paymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never()).deleteById(any())
       verify(transactionClosedEventRepository, Mockito.times(1)).save(any())
       verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransaction)
@@ -1610,9 +1585,7 @@ class ClosePaymentHelperTests {
       given(paymentGatewayClient.requestVPosRefund(any()))
         .willReturn(
           Mono.just(VposDeleteResponseDto().status(VposDeleteResponseDto.StatusEnum.CANCELLED)))
-      given(
-          nodeService.closePayment(
-            TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.OK))
+      given(nodeService.closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK))
         .willThrow(
           ClosePaymentErrorResponseException(
             statusCode = HttpStatus.UNPROCESSABLE_ENTITY,
@@ -1632,7 +1605,7 @@ class ClosePaymentHelperTests {
       /* Asserts */
       verify(checkpointer, Mockito.times(1)).success()
       verify(nodeService, Mockito.times(1))
-        .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.OK)
+        .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK)
       verify(paymentGatewayClient, times(1)).requestVPosRefund(any())
       verify(paymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never()).deleteById(any())
       verify(transactionClosedEventRepository, Mockito.times(0)).save(any())
@@ -1714,9 +1687,7 @@ class ClosePaymentHelperTests {
       given(paymentGatewayClient.requestVPosRefund(any()))
         .willReturn(
           Mono.just(VposDeleteResponseDto().status(VposDeleteResponseDto.StatusEnum.CANCELLED)))
-      given(
-          nodeService.closePayment(
-            TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.OK))
+      given(nodeService.closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK))
         .willThrow(
           ClosePaymentErrorResponseException(
             statusCode = HttpStatus.UNPROCESSABLE_ENTITY,
@@ -1736,7 +1707,7 @@ class ClosePaymentHelperTests {
       /* Asserts */
       verify(checkpointer, Mockito.times(1)).success()
       verify(nodeService, Mockito.times(1))
-        .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.OK)
+        .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK)
       verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
       verify(paymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never()).deleteById(any())
       verify(transactionClosedEventRepository, Mockito.times(0)).save(any())
@@ -1798,9 +1769,7 @@ class ClosePaymentHelperTests {
       given(paymentGatewayClient.requestVPosRefund(any()))
         .willReturn(
           Mono.just(VposDeleteResponseDto().status(VposDeleteResponseDto.StatusEnum.CANCELLED)))
-      given(
-          nodeService.closePayment(
-            TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.OK))
+      given(nodeService.closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK))
         .willThrow(
           ClosePaymentErrorResponseException(
             statusCode = HttpStatus.BAD_REQUEST,
@@ -1820,7 +1789,7 @@ class ClosePaymentHelperTests {
       /* Asserts */
       verify(checkpointer, Mockito.times(1)).success()
       verify(nodeService, Mockito.times(1))
-        .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.OK)
+        .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK)
       verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
       verify(paymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never()).deleteById(any())
       verify(transactionClosedEventRepository, Mockito.times(0)).save(any())
@@ -1885,9 +1854,7 @@ class ClosePaymentHelperTests {
     given(paymentGatewayClient.requestVPosRefund(any()))
       .willReturn(
         Mono.just(VposDeleteResponseDto().status(VposDeleteResponseDto.StatusEnum.CANCELLED)))
-    given(
-        nodeService.closePayment(
-          TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.OK))
+    given(nodeService.closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK))
       .willThrow(throwable)
 
     given(closureRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture(), any()))
@@ -1907,7 +1874,7 @@ class ClosePaymentHelperTests {
     /* Asserts */
     verify(checkpointer, Mockito.times(1)).success()
     verify(nodeService, Mockito.times(1))
-      .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentRequestV2Dto.OutcomeEnum.OK)
+      .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK)
     verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
     verify(paymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never()).deleteById(any())
     verify(transactionClosedEventRepository, Mockito.times(0)).save(any())

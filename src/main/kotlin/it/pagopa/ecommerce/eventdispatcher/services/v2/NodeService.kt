@@ -14,6 +14,7 @@ import it.pagopa.ecommerce.commons.utils.EuroUtils
 import it.pagopa.ecommerce.eventdispatcher.client.NodeClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.getAuthorizationOutcome
+import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.ClosePaymentOutcome
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.reduceEvents
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.generated.ecommerce.nodo.v2.dto.*
@@ -47,7 +48,7 @@ class NodeService(
 
   suspend fun closePayment(
     transactionId: TransactionId,
-    transactionOutcome: ClosePaymentRequestV2Dto.OutcomeEnum
+    transactionOutcome: ClosePaymentOutcome
   ): ClosePaymentResponseDto {
 
     val baseTransaction =
@@ -74,7 +75,7 @@ class NodeService(
             transactionAtPreviousState
               .map { trxPreviousStatus ->
                 when (transactionOutcome) {
-                  ClosePaymentRequestV2Dto.OutcomeEnum.KO -> {
+                  ClosePaymentOutcome.KO -> {
                     trxPreviousStatus.fold(
                       { transactionWithCancellation ->
                         buildClosePaymentForCancellationRequest(
@@ -85,7 +86,7 @@ class NodeService(
                           transactionWithCompletedAuthorization, transactionOutcome, transactionId)
                       })
                   }
-                  ClosePaymentRequestV2Dto.OutcomeEnum.OK -> {
+                  ClosePaymentOutcome.OK -> {
                     val authCompleted = trxPreviousStatus.get()
                     buildAuthorizationCompletedClosePaymentRequest(
                       authCompleted, transactionOutcome, transactionId)
@@ -140,9 +141,13 @@ class NodeService(
           .stream()
           .mapToInt { el -> el.transactionAmount.value }
           .sum())
-    return ClosePaymentRequestV2Dto().apply {
+    // In case of cancellation we only populate the fields shared by both
+    // `CardClosePaymentRequestV2Dto` and `RedirectClosePaymentRequestV2Dto`,
+    // so either implementation is fine.
+    // TODO: Fix upstream openapi-generator to better handle `allOf` and `oneOf` composition
+    return CardClosePaymentRequestV2Dto().apply {
       paymentTokens = transactionWithCancellation.paymentNotices.map { el -> el.paymentToken.value }
-      outcome = ClosePaymentRequestV2Dto.OutcomeEnum.KO
+      outcome = CardClosePaymentRequestV2Dto.OutcomeEnum.KO
       this.transactionId = transactionId.value()
       transactionDetails =
         TransactionDetailsDto().apply {
@@ -166,7 +171,7 @@ class NodeService(
 
   private fun buildAuthorizationCompletedClosePaymentRequest(
     authCompleted: BaseTransactionWithCompletedAuthorization,
-    transactionOutcome: ClosePaymentRequestV2Dto.OutcomeEnum,
+    transactionOutcome: ClosePaymentOutcome,
     transactionId: TransactionId
   ): ClosePaymentRequestV2Dto {
     val authRequestedData =
@@ -183,125 +188,166 @@ class NodeService(
     val feeEuro = EuroUtils.euroCentsToEuro(fee)
     val totalAmountEuro = EuroUtils.euroCentsToEuro(totalAmount)
 
-    return ClosePaymentRequestV2Dto().apply {
-      paymentTokens =
-        authCompleted.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken.value }
-      outcome = transactionOutcome
-      if (transactionOutcome == ClosePaymentRequestV2Dto.OutcomeEnum.OK) {
-        idPSP = authCompleted.transactionAuthorizationRequestData.pspId
-        paymentMethod = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
-        idBrokerPSP = authCompleted.transactionAuthorizationRequestData.brokerName
-        idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
-        this.totalAmount = totalAmountEuro
-        this.fee = feeEuro
-        this.timestampOperation =
-          OffsetDateTime.parse(
-            authCompleted.transactionAuthorizationCompletedData.timestampOperation,
-            DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+    val closePaymentTransactionDetails =
+      TransactionDetailsDto().apply {
+        transaction =
+          TransactionDto().apply {
+            this.transactionId = transactionId.value()
+            transactionStatus = getTransactionDetailsStatus(authCompleted)
+            paymentGateway = authCompleted.transactionAuthorizationRequestData.paymentGateway.name
+            this.fee = feeEuroCents
+            this.amount = amountEuroCents
+            grandTotal = totalAmountEuroCents
+            rrn = authCompleted.transactionAuthorizationCompletedData.rrn
+            errorCode =
+              if (transactionOutcome == ClosePaymentOutcome.KO)
+                getAuthorizationErrorCode(
+                  authCompleted.transactionAuthorizationCompletedData
+                    .transactionGatewayAuthorizationData)
+              else null
+            authorizationCode =
+              if (transactionOutcome == ClosePaymentOutcome.OK)
+                authCompleted.transactionAuthorizationCompletedData.authorizationCode
+              else null
+            creationDate = authCompleted.creationDate.toOffsetDateTime()
+            timestampOperation =
+              authCompleted.transactionAuthorizationCompletedData.timestampOperation
+            psp =
+              PspDto().apply {
+                idPsp = authCompleted.transactionAuthorizationRequestData.pspId
+                idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
+                businessName = authCompleted.transactionAuthorizationRequestData.pspBusinessName
+                brokerName = authCompleted.transactionAuthorizationRequestData.brokerName
+                pspOnUs = authCompleted.transactionAuthorizationRequestData.isPspOnUs
+              }
+          }
+        info =
+          InfoDto().apply {
+            type = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
+            brandLogo =
+              authCompleted.transactionAuthorizationRequestData
+                .transactionGatewayAuthorizationRequestedData
+                .logo
+                .toString()
+            brand =
+              when (authRequestedData) {
+                is NpgTransactionGatewayAuthorizationRequestedData -> authRequestedData.brand
+                is PgsTransactionGatewayAuthorizationRequestedData ->
+                  authRequestedData.brand?.toString()
+                is RedirectTransactionGatewayAuthorizationRequestedData ->
+                  authRequestedData.paymentMethodType.toString()
+                else -> null
+              }
+            paymentMethodName = authCompleted.transactionAuthorizationRequestData.paymentMethodName
+            clientId = authCompleted.transactionActivatedData.clientId.name
+          }
+        user = UserDto().apply { type = UserDto.TypeEnum.GUEST }
       }
-      this.transactionId = transactionId.value()
-      additionalPaymentInformations =
-        if (transactionOutcome == ClosePaymentRequestV2Dto.OutcomeEnum.OK)
-          AdditionalPaymentInformationsDto().apply {
-            outcomePaymentGateway =
-              getOutcomePaymentGateway(
-                authCompleted.transactionAuthorizationCompletedData
-                  .transactionGatewayAuthorizationData)
-            this.authorizationCode =
-              authCompleted.transactionAuthorizationCompletedData.authorizationCode
-            this.fee = feeEuro.toString()
+
+    return when (authRequestedData.type!!) {
+      TransactionGatewayAuthorizationRequestedData.AuthorizationDataType.PGS,
+      TransactionGatewayAuthorizationRequestedData.AuthorizationDataType.NPG ->
+        CardClosePaymentRequestV2Dto().apply {
+          paymentTokens =
+            authCompleted.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken.value }
+          outcome = CardClosePaymentRequestV2Dto.OutcomeEnum.valueOf(transactionOutcome.name)
+          if (transactionOutcome == ClosePaymentOutcome.OK) {
+            idPSP = authCompleted.transactionAuthorizationRequestData.pspId
+            paymentMethod = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
+            idBrokerPSP = authCompleted.transactionAuthorizationRequestData.brokerName
+            idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
+            this.totalAmount = totalAmountEuro
+            this.fee = feeEuro
             this.timestampOperation =
               OffsetDateTime.parse(
-                  authCompleted.transactionAuthorizationCompletedData.timestampOperation,
-                  DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-                .atZoneSameInstant(ZoneId.of("Europe/Paris"))
-                .truncatedTo(ChronoUnit.SECONDS)
-                .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
-            this.rrn = authCompleted.transactionAuthorizationCompletedData.rrn
-            this.totalAmount = totalAmountEuro.toString()
+                authCompleted.transactionAuthorizationCompletedData.timestampOperation,
+                DateTimeFormatter.ISO_OFFSET_DATE_TIME)
           }
-        else null
-      transactionDetails =
-        TransactionDetailsDto().apply {
-          transaction =
-            TransactionDto().apply {
-              this.transactionId = transactionId.value()
-              transactionStatus = getTransactionDetailsStatus(authCompleted)
-              paymentGateway = authCompleted.transactionAuthorizationRequestData.paymentGateway.name
-              this.fee = feeEuroCents
-              this.amount = amountEuroCents
-              grandTotal = totalAmountEuroCents
-              rrn = authCompleted.transactionAuthorizationCompletedData.rrn
-              errorCode =
-                if (transactionOutcome == ClosePaymentRequestV2Dto.OutcomeEnum.KO)
-                  getAuthorizationErrorCode(
+          this.transactionId = transactionId.value()
+          additionalPaymentInformations =
+            if (transactionOutcome == ClosePaymentOutcome.OK)
+              CardAdditionalPaymentInformationsDto().apply {
+                outcomePaymentGateway =
+                  getOutcomePaymentGateway(
                     authCompleted.transactionAuthorizationCompletedData
                       .transactionGatewayAuthorizationData)
-                else null
-              authorizationCode =
-                if (transactionOutcome == ClosePaymentRequestV2Dto.OutcomeEnum.OK)
+                this.authorizationCode =
                   authCompleted.transactionAuthorizationCompletedData.authorizationCode
-                else null
-              creationDate = authCompleted.creationDate.toOffsetDateTime()
-              timestampOperation =
-                authCompleted.transactionAuthorizationCompletedData.timestampOperation
-              psp =
-                PspDto().apply {
-                  idPsp = authCompleted.transactionAuthorizationRequestData.pspId
-                  idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
-                  businessName = authCompleted.transactionAuthorizationRequestData.pspBusinessName
-                  brokerName = authCompleted.transactionAuthorizationRequestData.brokerName
-                  pspOnUs = authCompleted.transactionAuthorizationRequestData.isPspOnUs
-                }
-            }
-          info =
-            InfoDto().apply {
-              type = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
-              brandLogo =
-                authCompleted.transactionAuthorizationRequestData
-                  .transactionGatewayAuthorizationRequestedData
-                  .logo
-                  .toString()
-              brand =
-                when (authRequestedData) {
-                  is NpgTransactionGatewayAuthorizationRequestedData -> authRequestedData.brand
-                  is PgsTransactionGatewayAuthorizationRequestedData ->
-                    authRequestedData.brand?.toString()
-                  is RedirectTransactionGatewayAuthorizationRequestedData ->
-                    authRequestedData.paymentMethodType.toString()
-                  else -> null
-                }
-              paymentMethodName =
-                authCompleted.transactionAuthorizationRequestData.paymentMethodName
-              clientId = authCompleted.transactionActivatedData.clientId.name
-            }
-          user = UserDto().apply { type = UserDto.TypeEnum.GUEST }
+                this.fee = feeEuro.toString()
+                this.timestampOperation =
+                  OffsetDateTime.parse(
+                      authCompleted.transactionAuthorizationCompletedData.timestampOperation,
+                      DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                    .atZoneSameInstant(ZoneId.of("Europe/Paris"))
+                    .truncatedTo(ChronoUnit.SECONDS)
+                    .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                    .toString()
+                this.rrn = authCompleted.transactionAuthorizationCompletedData.rrn
+                this.totalAmount = totalAmountEuro.toString()
+              }
+            else null
+          transactionDetails = closePaymentTransactionDetails
+        }
+      TransactionGatewayAuthorizationRequestedData.AuthorizationDataType.REDIRECT ->
+        RedirectClosePaymentRequestV2Dto().apply {
+          paymentTokens =
+            authCompleted.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken.value }
+          outcome = RedirectClosePaymentRequestV2Dto.OutcomeEnum.valueOf(transactionOutcome.name)
+          if (transactionOutcome == ClosePaymentOutcome.OK) {
+            idPSP = authCompleted.transactionAuthorizationRequestData.pspId
+            paymentMethod = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
+            idBrokerPSP = authCompleted.transactionAuthorizationRequestData.brokerName
+            idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
+            this.totalAmount = totalAmountEuro
+            this.fee = feeEuro
+            this.timestampOperation =
+              OffsetDateTime.parse(
+                authCompleted.transactionAuthorizationCompletedData.timestampOperation,
+                DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+          }
+          this.transactionId = transactionId.value()
+          additionalPaymentInformations =
+            if (transactionOutcome == ClosePaymentOutcome.OK) {
+              RedirectAdditionalPaymentInformationsDto().apply {
+                idTransaction = transactionId.value()
+                idPSPTransaction = authCompleted.transactionAuthorizationCompletedData.rrn
+                this.totalAmount = totalAmountEuro
+                this.authorizationCode =
+                  authCompleted.transactionAuthorizationCompletedData.authorizationCode
+                // this.fee = feeEuro
+                timestampOperation =
+                  OffsetDateTime.parse(
+                    authCompleted.transactionAuthorizationCompletedData.timestampOperation,
+                    DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+              }
+            } else null
+          transactionDetails = closePaymentTransactionDetails
         }
     }
   }
 
   private fun getOutcomePaymentGateway(
     transactionGatewayAuthData: TransactionGatewayAuthorizationData
-  ): AdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum =
+  ): CardAdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum =
     when (transactionGatewayAuthData) {
       is PgsTransactionGatewayAuthorizationData ->
         if (transactionGatewayAuthData.authorizationResultDto == AuthorizationResultDto.OK) {
-          AdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.OK
+          CardAdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.OK
         } else {
-          AdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.KO
+          CardAdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.KO
         }
       is NpgTransactionGatewayAuthorizationData ->
         if (transactionGatewayAuthData.operationResult == OperationResultDto.EXECUTED) {
-          AdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.OK
+          CardAdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.OK
         } else {
-          AdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.KO
+          CardAdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.KO
         }
       is RedirectTransactionGatewayAuthorizationData ->
         if (transactionGatewayAuthData.outcome ==
           RedirectTransactionGatewayAuthorizationData.Outcome.OK) {
-          AdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.OK
+          CardAdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.OK
         } else {
-          AdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.KO
+          CardAdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.KO
         }
     }
 

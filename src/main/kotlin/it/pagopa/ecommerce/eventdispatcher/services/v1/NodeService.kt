@@ -14,6 +14,7 @@ import it.pagopa.ecommerce.eventdispatcher.client.NodeClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
 import it.pagopa.ecommerce.eventdispatcher.queues.v1.getAuthorizationOutcome
 import it.pagopa.ecommerce.eventdispatcher.queues.v1.reduceEvents
+import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.ClosePaymentOutcome
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.generated.ecommerce.nodo.v2.dto.*
 import java.math.BigDecimal
@@ -46,7 +47,7 @@ class NodeService(
 
   suspend fun closePayment(
     transactionId: TransactionId,
-    transactionOutcome: ClosePaymentRequestV2Dto.OutcomeEnum
+    transactionOutcome: ClosePaymentOutcome
   ): ClosePaymentResponseDto {
 
     val baseTransaction =
@@ -62,7 +63,7 @@ class NodeService(
               transactionAtPreviousState
                 .map { trxPreviousStatus ->
                   when (transactionOutcome) {
-                    ClosePaymentRequestV2Dto.OutcomeEnum.KO -> {
+                    ClosePaymentOutcome.KO -> {
                       trxPreviousStatus.fold(
                         { transactionWithCancellation ->
                           buildClosePaymentForCancellationRequest(
@@ -75,7 +76,7 @@ class NodeService(
                             transactionId)
                         })
                     }
-                    ClosePaymentRequestV2Dto.OutcomeEnum.OK -> {
+                    ClosePaymentOutcome.OK -> {
                       val authCompleted = trxPreviousStatus.get()
                       buildAuthorizationCompletedClosePaymentRequest(
                         authCompleted, transactionOutcome, transactionId)
@@ -134,9 +135,9 @@ class NodeService(
           .stream()
           .mapToInt { el -> el.transactionAmount.value }
           .sum())
-    return ClosePaymentRequestV2Dto().apply {
+    return CardClosePaymentRequestV2Dto().apply {
       paymentTokens = transactionWithCancellation.paymentNotices.map { el -> el.paymentToken.value }
-      outcome = ClosePaymentRequestV2Dto.OutcomeEnum.KO
+      outcome = CardClosePaymentRequestV2Dto.OutcomeEnum.KO
       this.transactionId = transactionId.value()
       transactionDetails =
         TransactionDetailsDto().apply {
@@ -160,7 +161,7 @@ class NodeService(
 
   private fun buildAuthorizationCompletedClosePaymentRequest(
     authCompleted: BaseTransactionWithCompletedAuthorization,
-    transactionOutcome: ClosePaymentRequestV2Dto.OutcomeEnum,
+    transactionOutcome: ClosePaymentOutcome,
     transactionId: TransactionId
   ): ClosePaymentRequestV2Dto {
 
@@ -175,11 +176,11 @@ class NodeService(
     val feeEuro = EuroUtils.euroCentsToEuro(fee)
     val totalAmountEuro = EuroUtils.euroCentsToEuro(totalAmount)
 
-    return ClosePaymentRequestV2Dto().apply {
+    return CardClosePaymentRequestV2Dto().apply {
       paymentTokens =
         authCompleted.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken.value }
-      outcome = transactionOutcome
-      if (transactionOutcome == ClosePaymentRequestV2Dto.OutcomeEnum.OK) {
+      outcome = CardClosePaymentRequestV2Dto.OutcomeEnum.valueOf(transactionOutcome.name)
+      if (transactionOutcome == ClosePaymentOutcome.OK) {
         idPSP = authCompleted.transactionAuthorizationRequestData.pspId
         paymentMethod = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
         idBrokerPSP = authCompleted.transactionAuthorizationRequestData.brokerName
@@ -193,10 +194,10 @@ class NodeService(
       }
       this.transactionId = transactionId.value()
       additionalPaymentInformations =
-        if (transactionOutcome == ClosePaymentRequestV2Dto.OutcomeEnum.OK)
-          AdditionalPaymentInformationsDto().apply {
+        if (transactionOutcome == ClosePaymentOutcome.OK)
+          CardAdditionalPaymentInformationsDto().apply {
             outcomePaymentGateway =
-              AdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.valueOf(
+              CardAdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.valueOf(
                 authCompleted.transactionAuthorizationCompletedData.authorizationResultDto
                   .toString())
             this.authorizationCode =
@@ -225,11 +226,11 @@ class NodeService(
               this.grandTotal = totalAmountEuroCents
               rrn = authCompleted.transactionAuthorizationCompletedData.rrn
               errorCode =
-                if (transactionOutcome == ClosePaymentRequestV2Dto.OutcomeEnum.KO)
+                if (transactionOutcome == ClosePaymentOutcome.KO)
                   authCompleted.transactionAuthorizationCompletedData.errorCode
                 else null
               authorizationCode =
-                if (transactionOutcome == ClosePaymentRequestV2Dto.OutcomeEnum.OK)
+                if (transactionOutcome == ClosePaymentOutcome.OK)
                   authCompleted.transactionAuthorizationCompletedData.authorizationCode
                 else null
               creationDate = authCompleted.creationDate.toOffsetDateTime()

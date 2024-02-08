@@ -1,12 +1,13 @@
 package it.pagopa.ecommerce.eventdispatcher.client
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils
 import it.pagopa.ecommerce.eventdispatcher.config.WebClientConfig
 import it.pagopa.ecommerce.eventdispatcher.exceptions.ClosePaymentErrorResponseException
-import it.pagopa.ecommerce.eventdispatcher.utils.getMockedClosePaymentRequest
-import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
-import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto.OutcomeEnum
+import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.ClosePaymentOutcome
+import it.pagopa.ecommerce.eventdispatcher.utils.getMockedCardClosePaymentRequest
+import it.pagopa.generated.ecommerce.nodo.v2.dto.CardClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.reactor.awaitSingle
@@ -50,19 +51,21 @@ class NodeClientTest {
       WebClientConfig()
         .nodoApi(
           nodoUri = "http://localhost:8080", nodoConnectionTimeout = 1000, nodoReadTimeout = 1000),
-      "ecomm")
+      "ecomm",
+      ObjectMapper())
 
   private val closePaymentRequest =
-    ClosePaymentRequestV2Dto()
+    CardClosePaymentRequestV2Dto()
       .transactionId(TransactionTestUtils.TRANSACTION_ID)
       .paymentTokens(listOf(TransactionTestUtils.PAYMENT_TOKEN))
-      .outcome(OutcomeEnum.OK)
+      .outcome(CardClosePaymentRequestV2Dto.OutcomeEnum.OK)
 
   @Test
   fun `closePayment returns successfully`() = runTest {
     val transactionId = TransactionId(TransactionTestUtils.TRANSACTION_ID)
 
-    val closePaymentRequest = getMockedClosePaymentRequest(transactionId, OutcomeEnum.OK)
+    val closePaymentRequest =
+      getMockedCardClosePaymentRequest(transactionId, ClosePaymentOutcome.OK)
     val expected =
       ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
 
@@ -97,7 +100,8 @@ class NodeClientTest {
   fun `closePayment throws TransactionEventNotFoundException on Node 404`() = runTest {
     val transactionId = TransactionId(TransactionTestUtils.TRANSACTION_ID)
 
-    val closePaymentRequest = getMockedClosePaymentRequest(transactionId, OutcomeEnum.OK)
+    val closePaymentRequest =
+      getMockedCardClosePaymentRequest(transactionId, ClosePaymentOutcome.OK)
 
     /* preconditions */
     val dispatcher: Dispatcher =
@@ -138,7 +142,8 @@ class NodeClientTest {
   fun `closePayment handle error on Node 500`() = runTest {
     val transactionId = TransactionId(TransactionTestUtils.TRANSACTION_ID)
 
-    val closePaymentRequest = getMockedClosePaymentRequest(transactionId, OutcomeEnum.OK)
+    val closePaymentRequest =
+      getMockedCardClosePaymentRequest(transactionId, ClosePaymentOutcome.OK)
 
     /* preconditions */
     val dispatcher: Dispatcher =
@@ -179,7 +184,8 @@ class NodeClientTest {
   fun `closePayment handle Node 400`() = runTest {
     val transactionId = TransactionId(TransactionTestUtils.TRANSACTION_ID)
 
-    val closePaymentRequest = getMockedClosePaymentRequest(transactionId, OutcomeEnum.OK)
+    val closePaymentRequest =
+      getMockedCardClosePaymentRequest(transactionId, ClosePaymentOutcome.OK)
 
     /* preconditions */
     val dispatcher: Dispatcher =

@@ -38,7 +38,6 @@ import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.ClosureRetrySe
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.NodeService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
-import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto.OutcomeEnum
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
 import java.util.*
 import kotlinx.coroutines.reactor.mono
@@ -51,7 +50,7 @@ import reactor.core.publisher.Mono
 import reactor.core.scheduler.Schedulers
 
 data class ClosePaymentTransactionData(
-  val closureOutcome: OutcomeEnum,
+  val closureOutcome: ClosePaymentOutcome,
   val wasAuthorized: Boolean,
   val canceledByUser: Boolean
 )
@@ -342,8 +341,8 @@ class ClosePaymentHelper(
         TransactionStatusDto.CANCELED
       } else {
         when (closePaymentTransactionData.closureOutcome) {
-          OutcomeEnum.OK -> TransactionStatusDto.CLOSED
-          OutcomeEnum.KO -> TransactionStatusDto.UNAUTHORIZED
+          ClosePaymentOutcome.OK -> TransactionStatusDto.CLOSED
+          ClosePaymentOutcome.KO -> TransactionStatusDto.UNAUTHORIZED
         }
       }
 
@@ -440,9 +439,11 @@ class ClosePaymentHelper(
 
   val closePaymentTransactionDataForTransactionCanceledByUser =
     ClosePaymentTransactionData(
-      closureOutcome = OutcomeEnum.KO, canceledByUser = true, wasAuthorized = false)
+      closureOutcome = ClosePaymentOutcome.KO, canceledByUser = true, wasAuthorized = false)
 
-  private fun getClosePaymentOutcome(transaction: TransactionWithClosureError): OutcomeEnum {
+  private fun getClosePaymentOutcome(
+    transaction: TransactionWithClosureError
+  ): ClosePaymentOutcome {
     val transactionAtPreviousState = transaction.transactionAtPreviousState()
 
     val closureOutcome =
@@ -454,7 +455,7 @@ class ClosePaymentHelper(
                * retrying a closure for a transaction canceled by the user (not authorized) so here
                * we have to perform a closePayment KO request to Nodo
                */
-              OutcomeEnum.KO
+              ClosePaymentOutcome.KO
             },
             { trxWithAuthorizationCompleted ->
               getClosePaymentOutcome(trxWithAuthorizationCompleted)
@@ -470,7 +471,7 @@ class ClosePaymentHelper(
 
   private fun getClosePaymentOutcome(
     transaction: BaseTransactionWithClosureRequested
-  ): OutcomeEnum {
+  ): ClosePaymentOutcome {
     /*
      * retrying a close payment for an authorized transaction.
      * Will be performed a close payment OK/KO based on the authorization outcome
@@ -483,18 +484,18 @@ class ClosePaymentHelper(
       when (transactionAuthGatewayData) {
         is PgsTransactionGatewayAuthorizationData ->
           when (transactionAuthGatewayData.authorizationResultDto) {
-            AuthorizationResultDto.OK -> OutcomeEnum.OK
-            else -> OutcomeEnum.KO
+            AuthorizationResultDto.OK -> ClosePaymentOutcome.OK
+            else -> ClosePaymentOutcome.KO
           }
         is NpgTransactionGatewayAuthorizationData ->
           when (transactionAuthGatewayData.operationResult) {
-            OperationResultDto.EXECUTED -> OutcomeEnum.OK
-            else -> OutcomeEnum.KO
+            OperationResultDto.EXECUTED -> ClosePaymentOutcome.OK
+            else -> ClosePaymentOutcome.KO
           }
         is RedirectTransactionGatewayAuthorizationData ->
           when (transactionAuthGatewayData.outcome) {
-            RedirectTransactionGatewayAuthorizationData.Outcome.OK -> OutcomeEnum.OK
-            else -> OutcomeEnum.KO
+            RedirectTransactionGatewayAuthorizationData.Outcome.OK -> ClosePaymentOutcome.OK
+            else -> ClosePaymentOutcome.KO
           }
       }
 
