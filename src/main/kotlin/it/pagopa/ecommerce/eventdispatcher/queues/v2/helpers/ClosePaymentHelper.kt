@@ -21,7 +21,6 @@ import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.commons.queues.TracingUtils
-import it.pagopa.ecommerce.commons.redis.templatewrappers.PaymentRequestInfoRedisTemplateWrapper
 import it.pagopa.ecommerce.eventdispatcher.client.NodeClient
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
@@ -130,8 +129,6 @@ class ClosePaymentHelper(
   @Autowired private val refundRetryService: RefundRetryService,
   @Autowired private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient,
   @Autowired private val tracingUtils: TracingUtils,
-  @Autowired
-  private val paymentRequestInfoRedisTemplateWrapper: PaymentRequestInfoRedisTemplateWrapper,
   @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider,
 ) {
   val logger: Logger = LoggerFactory.getLogger(ClosePaymentHelper::class.java)
@@ -211,12 +208,6 @@ class ClosePaymentHelper(
                 baseTransaction = baseTransaction,
                 retryCount = retryCount,
                 tracingInfo = tracingInfo)
-            }
-            .doFinally {
-              tx.paymentNotices.forEach { el ->
-                logger.info("Invalidate cache for RptId : {}", el.rptId().value())
-                paymentRequestInfoRedisTemplateWrapper.deleteById(el.rptId().value())
-              }
             }
         }
         .then()

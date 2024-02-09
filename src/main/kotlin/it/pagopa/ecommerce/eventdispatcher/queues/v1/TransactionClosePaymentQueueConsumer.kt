@@ -10,7 +10,6 @@ import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.commons.queues.TracingUtils
-import it.pagopa.ecommerce.commons.redis.templatewrappers.PaymentRequestInfoRedisTemplateWrapper
 import it.pagopa.ecommerce.eventdispatcher.exceptions.*
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
@@ -41,8 +40,6 @@ class TransactionClosePaymentQueueConsumer(
   @Autowired private val closureRetryService: ClosureRetryService,
   @Autowired private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient,
   @Autowired private val tracingUtils: TracingUtils,
-  @Autowired
-  private val paymentRequestInfoRedisTemplateWrapper: PaymentRequestInfoRedisTemplateWrapper,
 ) {
   var logger: Logger = LoggerFactory.getLogger(TransactionClosePaymentQueueConsumer::class.java)
 
@@ -132,12 +129,6 @@ class TransactionClosePaymentQueueConsumer(
                 } else {
                   Mono.empty()
                 }
-              }
-            }
-            .doFinally {
-              tx.paymentNotices.forEach { el ->
-                logger.info("Invalidate cache for RptId : {}", el.rptId().value())
-                paymentRequestInfoRedisTemplateWrapper.deleteById(el.rptId().value())
               }
             }
         }
