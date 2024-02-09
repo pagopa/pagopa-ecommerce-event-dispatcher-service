@@ -112,7 +112,8 @@ class QueuesConsumerConfig {
   @EndpointId("storageQueueAuthRequestedMessageSourceEndpoint")
   fun storageQueueAuthRequestedMessageSource(
     storageQueueTemplate: StorageQueueTemplate,
-    @Value("\${azurestorage.queues.transactionauthrequested.name}") queueNameRefundRetryEvents: String
+    @Value("\${azurestorage.queues.transactionauthrequested.name}")
+    queueNameRefundRetryEvents: String
   ): StorageQueueMessageSource {
     return StorageQueueMessageSource(queueNameRefundRetryEvents, storageQueueTemplate)
   }
@@ -124,11 +125,11 @@ class QueuesConsumerConfig {
   @EndpointId("storageQueueAuthRequestedRetryMessageSourceEndpoint")
   fun storageQueueAuthRequestedRetryMessageSource(
     storageQueueTemplate: StorageQueueTemplate,
-    @Value("\${azurestorage.queues.transactionauthrequestedretry.name}") queueNameRefundRetryEvents: String
+    @Value("\${azurestorage.queues.transactionauthrequestedretry.name}")
+    queueNameRefundRetryEvents: String
   ): StorageQueueMessageSource {
     return StorageQueueMessageSource(queueNameRefundRetryEvents, storageQueueTemplate)
   }
-
 
   @Bean
   fun strictSerializerProviderV1(): StrictJsonSerializerProvider =

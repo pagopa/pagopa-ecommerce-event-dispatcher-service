@@ -3,11 +3,7 @@ package it.pagopa.ecommerce.eventdispatcher.queues.v2
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import it.pagopa.ecommerce.commons.documents.v2.*
-import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationData
-import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationRequestedData
-import it.pagopa.ecommerce.commons.documents.v2.authorization.PgsTransactionGatewayAuthorizationData
-import it.pagopa.ecommerce.commons.documents.v2.authorization.RedirectTransactionGatewayAuthorizationData
-import it.pagopa.ecommerce.commons.documents.v2.authorization.TransactionGatewayAuthorizationData
+import it.pagopa.ecommerce.commons.documents.v2.authorization.*
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v2.TransactionEventCode
@@ -23,6 +19,7 @@ import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
+import it.pagopa.ecommerce.eventdispatcher.client.TransactionsServiceClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.GetStateException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.RefundNotAllowedException
@@ -36,9 +33,11 @@ import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClien
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto.StatusEnum
 import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
+import it.pagopa.generated.transactionauthrequests.v1.dto.TransactionInfoDto
+import it.pagopa.generated.transactionauthrequests.v1.dto.UpdateAuthorizationRequestDto
+import it.pagopa.generated.transactionauthrequests.v1.dto.UpdateAuthorizationRequestOutcomeGatewayDto
 import java.math.BigDecimal
-import java.time.Duration
-import java.time.ZonedDateTime
+import java.time.*
 import java.util.*
 import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
@@ -165,54 +164,93 @@ fun updateTransactionWithRefundEvent(
 fun handleGetState(
   tx: BaseTransaction,
   npgStateService: NpgStateService,
+  transactionsServiceClient: TransactionsServiceClient,
   retryCount: Int = 0
-) : Mono<BaseTransaction> {
- return Mono.just(tx)
-   .cast(BaseTransactionWithRequestedAuthorization::class.java)
-   .filter { transactions -> transactions.transactionAuthorizationRequestData.paymentGateway == TransactionAuthorizationRequestData.PaymentGateway.NPG }
-   .flatMap { transaction ->
-     npgStateService.getStateNpg(
-     transaction.transactionId.uuid,
-     (transaction.transactionAuthorizationRequestData.transactionGatewayAuthorizationRequestedData as NpgTransactionGatewayAuthorizationRequestedData).confirmPaymentSessionId,
-     transaction.transactionAuthorizationRequestData.pspId
-   )}.flatMap {
-     stateResponseDto -> handleStateResponse(stateResponseDto, tx)
-   }.onErrorResume {  exception ->
-     logger.error(
-       "Transaction requestRefund error for transaction ${tx.transactionId.value()}", exception)
-     if (retryCount == 0) {
-       // refund error event written only the first time
-       //updateTransactionToRefundError(tx, transactionsEventStoreRepository, transactionsViewRepository)
-       handleNoRetryGetState(tx)
-     } else {
-       Mono.just(tx)
-     }
-       .flatMap {
-         when (exception) {
-           // Enqueue retry event only if refund is allowed
-           !is GetStateException -> handleRetryGetState()
-             //refundRetryService.enqueueRetryEvent(it, retryCount, tracingInfo)
-           else -> Mono.error(exception)
-         }
-       }
-       .thenReturn(tx)
-
-   }
+): Mono<BaseTransaction> {
+  return Mono.just(tx)
+    .cast(BaseTransactionWithRequestedAuthorization::class.java)
+    .filter { transactions ->
+      transactions.transactionAuthorizationRequestData.paymentGateway ==
+        TransactionAuthorizationRequestData.PaymentGateway.NPG
+    }
+    .flatMap { transaction ->
+      npgStateService.getStateNpg(
+        transaction.transactionId.uuid,
+        (transaction.transactionAuthorizationRequestData
+            .transactionGatewayAuthorizationRequestedData
+            as NpgTransactionGatewayAuthorizationRequestedData)
+          .confirmPaymentSessionId,
+        transaction.transactionAuthorizationRequestData.pspId)
+    }
+    .flatMap { stateResponseDto ->
+      handleStateResponse(stateResponseDto, tx, transactionsServiceClient).thenReturn(tx)
+    }
+    .onErrorResume { exception ->
+      logger.error(
+        "Transaction requestRefund error for transaction ${tx.transactionId.value()}", exception)
+      if (retryCount == 0) {
+          // refund error event written only the first time
+          // updateTransactionToRefundError(tx, transactionsEventStoreRepository,
+          // transactionsViewRepository)
+          handleNoRetryGetState(tx)
+        } else {
+          Mono.just(tx)
+        }
+        .flatMap {
+          when (exception) {
+            // Enqueue retry event only if refund is allowed
+            !is GetStateException -> handleRetryGetState()
+            // refundRetryService.enqueueRetryEvent(it, retryCount, tracingInfo)
+            else -> Mono.error(exception)
+          }
+        }
+        .thenReturn(tx)
+    }
 }
 
 fun handleNoRetryGetState(tx: BaseTransaction): Mono<BaseTransaction> {
-  //TODO implements!
+  // TODO implements!
   return Mono.empty()
 }
 
 fun handleRetryGetState(): Mono<BaseTransaction> {
-  //TODO implements!
+  // TODO implements!
   return Mono.empty()
 }
 
-fun handleStateResponse(stateResponseDto: StateResponseDto, tx: BaseTransaction) : Mono<BaseTransaction>  {
-  //invoke transaction service patch
-  return Mono.just(tx)
+fun handleStateResponse(
+  stateResponseDto: StateResponseDto,
+  tx: BaseTransaction,
+  transactionsServiceClient: TransactionsServiceClient,
+): Mono<TransactionInfoDto> {
+  // invoke transaction service patch
+  return Mono.just(tx).flatMap { t ->
+    transactionsServiceClient.patchAuthRequest(
+      t.transactionId.uuid,
+      UpdateAuthorizationRequestDto().apply {
+        outcomeGateway =
+          UpdateAuthorizationRequestOutcomeGatewayDto().apply {
+            paymentGatewayType = "NPG"
+            operationResult =
+              UpdateAuthorizationRequestOutcomeGatewayDto.OperationResultEnum.valueOf(
+                stateResponseDto.operation!!.operationResult!!.value)
+            orderId = stateResponseDto.operation!!.orderId
+            operationId = stateResponseDto.operation!!.operationId
+            authorizationCode =
+              stateResponseDto.operation!!.additionalData!!.get("authorizationCode") as String
+            paymentEndToEndId = stateResponseDto.operation!!.paymentEndToEndId
+            rrn = stateResponseDto.operation!!.additionalData!!.get("rrn") as String
+          }
+        timestampOperation = getTimeStampOperation(stateResponseDto.operation!!.operationTime!!)
+      })
+  }
+}
+
+fun getTimeStampOperation(operationTime: String): OffsetDateTime {
+  val operationTimeT: String = operationTime.replace(" ", "T")
+  val localDateTime = LocalDateTime.parse(operationTimeT)
+  val zonedDateTime = localDateTime.atZone(ZoneId.of("CET"))
+  return zonedDateTime.toOffsetDateTime()
 }
 
 fun refundTransaction(

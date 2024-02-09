@@ -17,29 +17,24 @@ class NpgStateService(
   @Autowired private val npgCardsPspApiKey: NpgPspApiKeysConfig
 ) {
 
-  fun getStateNpg(
-    transactionId: UUID,
-    sessionId: String,
-    pspId: String
-  ): Mono<StateResponseDto> {
+  fun getStateNpg(transactionId: UUID, sessionId: String, pspId: String): Mono<StateResponseDto> {
     return npgCardsPspApiKey[pspId].fold(
       { ex -> Mono.error(ex) },
-      { apiKey -> npgClient.getState(
-        UUID.randomUUID(),
-        sessionId,
-        apiKey
-      ).onErrorMap(NpgResponseException::class.java) { exception: NpgResponseException ->
-        val responseStatusCode = exception.statusCode
-        responseStatusCode
-          .map {
-            val errorCodeReason = "Received HTTP error code from NPG: $it"
-            if (it.is5xxServerError) {
-              BadGatewayException(errorCodeReason)
-            } else {
-              GetStateException(transactionId, errorCodeReason)
+      { apiKey ->
+        npgClient.getState(UUID.randomUUID(), sessionId, apiKey).onErrorMap(
+          NpgResponseException::class.java) { exception: NpgResponseException ->
+          val responseStatusCode = exception.statusCode
+          responseStatusCode
+            .map {
+              val errorCodeReason = "Received HTTP error code from NPG: $it"
+              if (it.is5xxServerError) {
+                BadGatewayException(errorCodeReason)
+              } else {
+                GetStateException(transactionId, errorCodeReason)
+              }
             }
-          }
-          .orElse(GetStateException(transactionId, "Unknown NPG HTTP response code"))
-      }});
+            .orElse(GetStateException(transactionId, "Unknown NPG HTTP response code"))
+        }
+      })
   }
 }

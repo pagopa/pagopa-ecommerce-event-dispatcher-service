@@ -1,25 +1,20 @@
 package it.pagopa.ecommerce.eventdispatcher.queues.v2
 
 import com.azure.spring.messaging.checkpoint.Checkpointer
-import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationRequestedEvent
-import it.pagopa.ecommerce.commons.documents.v2.TransactionRefundRequestedEvent
-import it.pagopa.ecommerce.commons.documents.v2.TransactionRefundRetriedEvent
 import it.pagopa.ecommerce.commons.documents.v2.TransactionRefundedData
 import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v2.Transaction
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransaction
-import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithRefundRequested
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithRequestedAuthorization
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
+import it.pagopa.ecommerce.eventdispatcher.client.TransactionsServiceClient
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
-import it.pagopa.ecommerce.eventdispatcher.services.RefundService
-import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgStateService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import org.slf4j.Logger
@@ -36,6 +31,7 @@ import reactor.kotlin.core.publisher.switchIfEmpty
 @Service("TransactionsAuthRequestedQueueConsumer")
 class TransactionsAuthRequestQueueConsumer(
   @Autowired private val paymentGatewayClient: PaymentGatewayClient,
+  @Autowired private val transactionsServiceClient: TransactionsServiceClient,
   @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,
   @Autowired
   private val transactionsRefundedEventStoreRepository:
@@ -50,15 +46,12 @@ class TransactionsAuthRequestQueueConsumer(
 
   var logger: Logger = LoggerFactory.getLogger(TransactionsAuthRequestQueueConsumer::class.java)
 
-  private fun getTransactionIdFromPayload(
-    event: TransactionAuthorizationRequestedEvent
-  ): String {
+  private fun getTransactionIdFromPayload(event: TransactionAuthorizationRequestedEvent): String {
     return event.transactionId
   }
 
   fun messageReceiver(
-    parsedEvent:
-      QueueEvent<TransactionAuthorizationRequestedEvent>,
+    parsedEvent: QueueEvent<TransactionAuthorizationRequestedEvent>,
     checkPointer: Checkpointer
   ): Mono<Unit> {
     val event = parsedEvent.event
@@ -71,22 +64,18 @@ class TransactionsAuthRequestQueueConsumer(
         .cast(BaseTransaction::class.java)
         .filter { it.status == TransactionStatusDto.AUTHORIZATION_REQUESTED }
         .switchIfEmpty {
-          logger.info("Transaction $transactionId is not is Authorization Requested status. No more action needed")
+          logger.info(
+            "Transaction $transactionId is not is Authorization Requested status. No more action needed")
           Mono.empty()
         }
         .doOnNext {
-          logger.info("Handling get state request for transaction with id ${it.transactionId.value()}")
+          logger.info(
+            "Handling get state request for transaction with id ${it.transactionId.value()}")
         }
         .cast(BaseTransactionWithRequestedAuthorization::class.java)
-        .flatMap { tx ->
-          handleGetState(
-            tx,
-            npgStateService,
-            3
-            )
-        }
+        .flatMap { tx -> handleGetState(tx, npgStateService, transactionsServiceClient, 3) }
     val e = QueueEvent(event, tracingInfo)
-    return runTracedPipelineWithDeadLetterQueue( //CHECK THIS METHOD
+    return runTracedPipelineWithDeadLetterQueue( // CHECK THIS METHOD
       checkPointer,
       authorizationRequestedPipeline,
       e,
