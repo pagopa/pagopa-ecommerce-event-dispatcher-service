@@ -10,7 +10,6 @@ import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.commons.queues.TracingUtils
-import it.pagopa.ecommerce.commons.redis.templatewrappers.PaymentRequestInfoRedisTemplateWrapper
 import it.pagopa.ecommerce.eventdispatcher.exceptions.*
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
@@ -41,8 +40,6 @@ class TransactionClosePaymentQueueConsumer(
   @Autowired private val closureRetryService: ClosureRetryService,
   @Autowired private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient,
   @Autowired private val tracingUtils: TracingUtils,
-  @Autowired
-  private val paymentRequestInfoRedisTemplateWrapper: PaymentRequestInfoRedisTemplateWrapper,
 ) {
   var logger: Logger = LoggerFactory.getLogger(TransactionClosePaymentQueueConsumer::class.java)
 
@@ -87,66 +84,51 @@ class TransactionClosePaymentQueueConsumer(
             .then()
             .onErrorResume { exception ->
               baseTransaction.flatMap { baseTransaction ->
-                when (exception) {
-                  is BadClosePaymentRequest ->
-                    mono { baseTransaction }
-                      .flatMap {
-                        logger.error(
-                          "Got unrecoverable error (400 - Bad Request) while calling closePaymentV2 for transaction with id ${it.transactionId}!",
-                          exception)
-                        Mono.empty()
-                      }
-                  is TransactionNotFound ->
-                    mono { baseTransaction }
-                      .flatMap {
-                        logger.error(
-                          "Got unrecoverable error (404 - Not Founds) while calling closePaymentV2 for transaction with id ${it.transactionId}!",
-                          exception)
-                        Mono.empty()
-                      }
-                  else -> {
-                    logger.error(
-                      "Got exception while calling closePaymentV2 for transaction with id ${baseTransaction.transactionId}!",
-                      exception)
-
-                    mono { baseTransaction }
-                      .map { tx ->
-                        TransactionClosureErrorEvent(tx.transactionId.value().toString())
-                      }
-                      .flatMap { transactionClosureErrorEvent ->
-                        transactionClosureErrorEventStoreRepository.save(
-                          transactionClosureErrorEvent)
-                      }
-                      .flatMap {
-                        transactionsViewRepository.findByTransactionId(
-                          baseTransaction.transactionId.value())
-                      }
-                      .cast(Transaction::class.java)
-                      .flatMap { tx ->
-                        tx.status = TransactionStatusDto.CLOSURE_ERROR
-                        transactionsViewRepository.save(tx)
-                      }
-                      .flatMap {
-                        reduceEvents(
-                          mono { transactionId },
-                          transactionsEventStoreRepository,
-                          emptyTransaction)
-                      }
-                      .flatMap { transactionUpdated ->
-                        closureRetryService
-                          .enqueueRetryEvent(transactionUpdated, 0, tracingInfo)
-                          .doOnError(NoRetryAttemptsLeftException::class.java) { exception ->
-                            logger.error("No more attempts left for closure retry", exception)
-                          }
-                      }
+                val enqueueRetryEvent =
+                  when (exception) {
+                    // close payment retry event enqueued only for 5XX http error codes
+                    // or for any other exceptions that may happen during communication
+                    // such as read timeout and so on
+                    is ClosePaymentErrorResponseException ->
+                      exception.statusCode == null || exception.statusCode.is5xxServerError
+                    else -> {
+                      true
+                    }
                   }
+
+                logger.error(
+                  "Got error while calling closePaymentV2 for transaction with id ${tx.transactionId}! Enqueue retry event: $enqueueRetryEvent",
+                  exception)
+
+                if (enqueueRetryEvent) {
+                  mono { baseTransaction }
+                    .map { tx -> TransactionClosureErrorEvent(tx.transactionId.value().toString()) }
+                    .flatMap { transactionClosureErrorEvent ->
+                      transactionClosureErrorEventStoreRepository.save(transactionClosureErrorEvent)
+                    }
+                    .flatMap {
+                      transactionsViewRepository.findByTransactionId(
+                        baseTransaction.transactionId.value())
+                    }
+                    .cast(Transaction::class.java)
+                    .flatMap { tx ->
+                      tx.status = TransactionStatusDto.CLOSURE_ERROR
+                      transactionsViewRepository.save(tx)
+                    }
+                    .flatMap {
+                      reduceEvents(
+                        mono { transactionId }, transactionsEventStoreRepository, emptyTransaction)
+                    }
+                    .flatMap { transactionUpdated ->
+                      closureRetryService
+                        .enqueueRetryEvent(transactionUpdated, 0, tracingInfo)
+                        .doOnError(NoRetryAttemptsLeftException::class.java) { exception ->
+                          logger.error("No more attempts left for closure retry", exception)
+                        }
+                    }
+                } else {
+                  Mono.empty()
                 }
-              }
-            }
-            .doFinally {
-              tx.paymentNotices.forEach { el ->
-                logger.info("Invalidate cache for RptId : {}", el.rptId().value())
-                paymentRequestInfoRedisTemplateWrapper.deleteById(el.rptId().value())
               }
             }
         }

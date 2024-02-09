@@ -42,7 +42,7 @@ class NodeService(
   @Autowired private val nodeClient: NodeClient,
   @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>
 ) {
-  var logger: Logger = LoggerFactory.getLogger(NodeService::class.java)
+  val logger: Logger = LoggerFactory.getLogger(NodeService::class.java)
 
   suspend fun closePayment(
     transactionId: TransactionId,
