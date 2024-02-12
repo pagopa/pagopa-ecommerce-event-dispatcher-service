@@ -621,9 +621,9 @@ fun <T> timeLeftForSendPaymentResult(
 
 fun isRefundableCheckRequired(tx: BaseTransaction): Boolean =
   when (tx) {
-    is BaseTransactionExpired ->
-      tx.transactionExpiredData.statusBeforeExpiration ==
-        TransactionStatusDto.AUTHORIZATION_COMPLETED &&
-        isRefundableCheckRequired(tx.transactionAtPreviousState)
-    else -> tx.status == TransactionStatusDto.AUTHORIZATION_COMPLETED && !wasAuthorizationDenied(tx)
+    is BaseTransactionExpired -> isRefundableCheckRequired(tx.transactionAtPreviousState)
+    is BaseTransactionWithClosureError -> isRefundableCheckRequired(tx.transactionAtPreviousState)
+    else ->
+      setOf(TransactionStatusDto.AUTHORIZATION_COMPLETED, TransactionStatusDto.CLOSURE_REQUESTED)
+        .contains(tx.status) && !wasAuthorizationDenied(tx)
   }
