@@ -22,11 +22,11 @@ import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.commons.redis.templatewrappers.PaymentRequestInfoRedisTemplateWrapper
+import it.pagopa.ecommerce.eventdispatcher.client.NodeClient
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
-import it.pagopa.ecommerce.eventdispatcher.exceptions.BadClosePaymentRequest
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
+import it.pagopa.ecommerce.eventdispatcher.exceptions.ClosePaymentErrorResponseException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
-import it.pagopa.ecommerce.eventdispatcher.exceptions.TransactionNotFound
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.reduceEvents
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.refundTransaction
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.runTracedPipelineWithDeadLetterQueue
@@ -45,6 +45,7 @@ import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Schedulers
@@ -185,6 +186,14 @@ class ClosePaymentHelper(
           mono {
               nodeService.closePayment(tx.transactionId, closePaymentTransactionData.closureOutcome)
             }
+            .doFinally {
+              if (closePaymentTransactionData.canceledByUser) {
+                tx.paymentNotices.forEach { el ->
+                  logger.info("Invalidate cache for RptId : {}", el.rptId().value())
+                  paymentRequestInfoRedisTemplateWrapper.deleteById(el.rptId().value())
+                }
+              }
+            }
             .flatMap { closePaymentResponse ->
               updateTransactionStatus(
                 transaction = tx,
@@ -204,74 +213,12 @@ class ClosePaymentHelper(
                 })
             }
             .then()
-            .onErrorResume { exception ->
-              baseTransaction.publishOn(Schedulers.boundedElastic()).flatMap { baseTransaction ->
-                when (exception) {
-                  is BadClosePaymentRequest ->
-                    mono { baseTransaction }
-                      .flatMap {
-                        logger.error(
-                          "Got unrecoverable error (400 - Bad Request) while calling closePaymentV2 for transaction with id ${it.transactionId}!",
-                          exception)
-                        Mono.empty()
-                      }
-                  is TransactionNotFound ->
-                    mono { baseTransaction }
-                      .flatMap {
-                        logger.error(
-                          "Got unrecoverable error (404 - Not Founds) while calling closePaymentV2 for transaction with id ${it.transactionId}!",
-                          exception)
-                        Mono.empty()
-                      }
-                  else -> {
-                    logger.error(
-                      "Got exception while calling closePaymentV2 for transaction with id ${baseTransaction.transactionId}!",
-                      exception)
-
-                    mono { baseTransaction }
-                      .map { tx ->
-                        TransactionClosureErrorEvent(tx.transactionId.value().toString())
-                      }
-                      .flatMap { transactionClosureErrorEvent ->
-                        transactionClosureErrorEventStoreRepository.save(
-                          transactionClosureErrorEvent)
-                      }
-                      .flatMap {
-                        transactionsViewRepository.findByTransactionId(
-                          baseTransaction.transactionId.value())
-                      }
-                      .cast(Transaction::class.java)
-                      .flatMap { tx ->
-                        tx.status = TransactionStatusDto.CLOSURE_ERROR
-                        transactionsViewRepository.save(tx)
-                      }
-                      .flatMap {
-                        reduceEvents(
-                          mono { transactionId },
-                          transactionsEventStoreRepository,
-                          emptyTransaction)
-                      }
-                      .then()
-                      .subscribe()
-
-                    closureRetryService
-                      .enqueueRetryEvent(tx, retryCount, tracingInfo)
-                      .publishOn(Schedulers.boundedElastic())
-                      .doOnError(NoRetryAttemptsLeftException::class.java) { exception ->
-                        logger.error("No more attempts left for closure retry", exception)
-                        refundTransactionPipeline(
-                            tx, TransactionClosureData.Outcome.KO, tracingInfo)
-                          .subscribe()
-                      }
-                  }
-                }
-              }
-            }
-            .doFinally {
-              tx.paymentNotices.forEach { el ->
-                logger.info("Invalidate cache for RptId : {}", el.rptId().value())
-                paymentRequestInfoRedisTemplateWrapper.deleteById(el.rptId().value())
-              }
+            .onErrorResume {
+              closePaymentErrorHandling(
+                exception = it,
+                baseTransaction = baseTransaction,
+                retryCount = retryCount,
+                tracingInfo = tracingInfo)
             }
         }
         .then()
@@ -286,6 +233,80 @@ class ClosePaymentHelper(
       this::class.simpleName!!,
       strictSerializerProviderV2)
   }
+
+  private fun closePaymentErrorHandling(
+    exception: Throwable,
+    baseTransaction: Mono<BaseTransaction>,
+    retryCount: Int,
+    tracingInfo: TracingInfo,
+  ) =
+    baseTransaction.publishOn(Schedulers.boundedElastic()).flatMap { tx ->
+      logger.error(
+        "Got exception while retrying closePaymentV2 for transaction with id ${tx.transactionId}!",
+        exception)
+      val (statusCode, errorDescription) =
+        if (exception is ClosePaymentErrorResponseException) {
+          Pair(exception.statusCode, exception.errorResponse?.description)
+        } else {
+          Pair(null, null)
+        }
+      // transaction can be refund only for HTTP status code 422 and error response description
+      // equals to "Node did not receive RPT yet"
+      val refundTransaction =
+        statusCode == HttpStatus.UNPROCESSABLE_ENTITY &&
+          errorDescription == NodeClient.NODE_DID_NOT_RECEIVE_RPT_YET_ERROR
+      // retry event enqueued only for 5xx error responses or for other exceptions that might happen
+      // during communication such as read timeout
+      val enqueueRetryEvent =
+        !refundTransaction && (statusCode == null || statusCode.is5xxServerError)
+      logger.info(
+        "Handling Nodo close payment error response. Status code: [{}], error description: [{}] -> refund transaction: [{}], enqueue retry event: [{}]",
+        statusCode,
+        errorDescription,
+        refundTransaction,
+        enqueueRetryEvent)
+      if (refundTransaction) {
+        refundTransactionPipeline(tx, TransactionClosureData.Outcome.KO, tracingInfo).then()
+      } else {
+        if (enqueueRetryEvent) {
+          enqueueClosureRetryEventPipeline(
+            baseTransaction = tx, retryCount = retryCount, tracingInfo = tracingInfo)
+        } else {
+          Mono.empty()
+        }
+      }
+    }
+
+  private fun enqueueClosureRetryEventPipeline(
+    baseTransaction: BaseTransaction,
+    retryCount: Int,
+    tracingInfo: TracingInfo
+  ) =
+    if (baseTransaction.status != TransactionStatusDto.CLOSURE_ERROR) {
+        mono { TransactionClosureErrorEvent(baseTransaction.transactionId.value()) }
+          .flatMap { transactionClosureErrorEvent ->
+            transactionClosureErrorEventStoreRepository.save(transactionClosureErrorEvent)
+          }
+          .flatMap {
+            transactionsViewRepository.findByTransactionId(baseTransaction.transactionId.value())
+          }
+          .cast(Transaction::class.java)
+          .flatMap { trx ->
+            trx.status = TransactionStatusDto.CLOSURE_ERROR
+            transactionsViewRepository.save(trx)
+          }
+      } else {
+        Mono.empty()
+      }
+      .then(
+        closureRetryService
+          .enqueueRetryEvent(baseTransaction, retryCount, tracingInfo)
+          .publishOn(Schedulers.boundedElastic())
+          .doOnError(NoRetryAttemptsLeftException::class.java) { exception ->
+            logger.error("No more attempts left for closure retry", exception)
+            refundTransactionPipeline(
+              baseTransaction, TransactionClosureData.Outcome.KO, tracingInfo)
+          })
 
   private fun updateTransactionStatus(
     transaction: BaseTransaction,

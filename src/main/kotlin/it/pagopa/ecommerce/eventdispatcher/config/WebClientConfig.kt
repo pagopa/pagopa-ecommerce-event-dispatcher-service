@@ -39,6 +39,7 @@ class WebClientConfig {
     mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL)
     return mapper
   }
+
   @Bean
   fun nodoApi(
     @Value("\${nodo.uri}") nodoUri: String,

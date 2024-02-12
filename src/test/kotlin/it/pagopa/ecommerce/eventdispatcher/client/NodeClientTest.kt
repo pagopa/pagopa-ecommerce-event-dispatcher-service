@@ -2,29 +2,24 @@ package it.pagopa.ecommerce.eventdispatcher.client
 
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils
-import it.pagopa.ecommerce.eventdispatcher.exceptions.BadClosePaymentRequest
-import it.pagopa.ecommerce.eventdispatcher.exceptions.BadGatewayException
-import it.pagopa.ecommerce.eventdispatcher.exceptions.GatewayTimeoutException
-import it.pagopa.ecommerce.eventdispatcher.exceptions.TransactionNotFound
+import it.pagopa.ecommerce.eventdispatcher.config.WebClientConfig
+import it.pagopa.ecommerce.eventdispatcher.exceptions.ClosePaymentErrorResponseException
 import it.pagopa.ecommerce.eventdispatcher.utils.getMockedClosePaymentRequest
-import it.pagopa.generated.ecommerce.nodo.v2.api.NodoApi
+import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto.OutcomeEnum
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
-import java.nio.charset.Charset
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.reactor.awaitSingle
 import kotlinx.coroutines.test.runTest
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.BeforeEach
+import okhttp3.mockwebserver.*
+import org.junit.jupiter.api.AfterAll
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertThrows
-import org.mockito.BDDMockito.given
-import org.mockito.Mock
 import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.http.HttpHeaders
+import org.springframework.http.HttpStatus
 import org.springframework.test.context.TestPropertySource
-import org.springframework.web.reactive.function.client.WebClientResponseException
-import reactor.core.publisher.Mono
+import reactor.test.StepVerifier
 
 @SpringBootTest
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -32,17 +27,36 @@ import reactor.core.publisher.Mono
 class NodeClientTest {
 
   companion object {
-    const val CLOSE_PAYMENT_CLIENT_ID = "ecomm"
+
+    val mockWebServer = MockWebServer()
+
+    @JvmStatic
+    @BeforeAll
+    fun beforeAllTest() {
+      mockWebServer.start(8080)
+      println("Mock web server listening on ${mockWebServer.hostName}:${mockWebServer.port}")
+    }
+
+    @JvmStatic
+    @AfterAll
+    fun afterAllTest() {
+      mockWebServer.shutdown()
+      println("Mock web server stop")
+    }
   }
 
-  @Mock private lateinit var nodeApi: NodoApi
+  val nodeClient =
+    NodeClient(
+      WebClientConfig()
+        .nodoApi(
+          nodoUri = "http://localhost:8080", nodoConnectionTimeout = 1000, nodoReadTimeout = 1000),
+      "ecomm")
 
-  private lateinit var nodeClient: NodeClient
-
-  @BeforeEach
-  fun init() {
-    nodeClient = NodeClient(nodeApi, CLOSE_PAYMENT_CLIENT_ID)
-  }
+  private val closePaymentRequest =
+    ClosePaymentRequestV2Dto()
+      .transactionId(TransactionTestUtils.TRANSACTION_ID)
+      .paymentTokens(listOf(TransactionTestUtils.PAYMENT_TOKEN))
+      .outcome(OutcomeEnum.OK)
 
   @Test
   fun `closePayment returns successfully`() = runTest {
@@ -53,9 +67,26 @@ class NodeClientTest {
       ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
 
     /* preconditions */
-    given(nodeApi.closePaymentV2(closePaymentRequest, CLOSE_PAYMENT_CLIENT_ID))
-      .willReturn(Mono.just(expected))
-
+    val dispatcher: Dispatcher =
+      object : Dispatcher() {
+        override fun dispatch(request: RecordedRequest): MockResponse {
+          return when (request.path) {
+            "/closepayment?clientId=ecomm" ->
+              return MockResponse()
+                .setStatus("OK")
+                .setResponseCode(200)
+                .addHeader("Content-Type", "application/json")
+                .setBody(
+                  """
+                            {
+                                "outcome": "OK"
+                            }
+                        """.trimIndent())
+            else -> MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE)
+          }
+        }
+      }
+    mockWebServer.dispatcher = dispatcher
     /* test */
     val response = nodeClient.closePayment(closePaymentRequest).awaitSingle()
 
@@ -69,72 +100,219 @@ class NodeClientTest {
     val closePaymentRequest = getMockedClosePaymentRequest(transactionId, OutcomeEnum.OK)
 
     /* preconditions */
-    given(nodeApi.closePaymentV2(closePaymentRequest, CLOSE_PAYMENT_CLIENT_ID))
-      .willReturn(
-        Mono.error(
-          WebClientResponseException.create(
-            404, "Not found", HttpHeaders.EMPTY, ByteArray(0), Charset.defaultCharset())))
+    val dispatcher: Dispatcher =
+      object : Dispatcher() {
+        override fun dispatch(request: RecordedRequest): MockResponse {
+          return when (request.path) {
+            "/closepayment?clientId=ecomm" ->
+              return MockResponse()
+                .setStatus("NOT FOUND")
+                .setResponseCode(404)
+                .addHeader("Content-Type", "application/json")
+                .setBody(
+                  """
+                            {
+                                "outcome": "KO",
+                                "description": "NOT FOUND"
+                            }
+                        """.trimIndent())
+            else -> MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE)
+          }
+        }
+      }
+    mockWebServer.dispatcher = dispatcher
 
     /* test */
-    assertThrows<TransactionNotFound> { nodeClient.closePayment(closePaymentRequest).awaitSingle() }
+    StepVerifier.create(nodeClient.closePayment(closePaymentRequest))
+      .expectErrorMatches {
+        assertTrue(it is ClosePaymentErrorResponseException)
+        assertEquals(
+          "NOT FOUND", (it as ClosePaymentErrorResponseException).errorResponse!!.description)
+        assertEquals(HttpStatus.NOT_FOUND, it.statusCode)
+        true
+      }
+      .verify()
   }
 
   @Test
-  fun `closePayment throws GatewayTimeoutException on Node 408`() = runTest {
+  fun `closePayment handle error on Node 500`() = runTest {
     val transactionId = TransactionId(TransactionTestUtils.TRANSACTION_ID)
 
     val closePaymentRequest = getMockedClosePaymentRequest(transactionId, OutcomeEnum.OK)
 
     /* preconditions */
-    given(nodeApi.closePaymentV2(closePaymentRequest, CLOSE_PAYMENT_CLIENT_ID))
-      .willReturn(
-        Mono.error(
-          WebClientResponseException.create(
-            408, "Request timeout", HttpHeaders.EMPTY, ByteArray(0), Charset.defaultCharset())))
-
+    val dispatcher: Dispatcher =
+      object : Dispatcher() {
+        override fun dispatch(request: RecordedRequest): MockResponse {
+          return when (request.path) {
+            "/closepayment?clientId=ecomm" ->
+              return MockResponse()
+                .setStatus("Internal server error")
+                .setResponseCode(500)
+                .addHeader("Content-Type", "application/json")
+                .setBody(
+                  """
+                            {
+                                "outcome": "KO",
+                                "description": "Internal server error"
+                            }
+                        """.trimIndent())
+            else -> MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE)
+          }
+        }
+      }
+    mockWebServer.dispatcher = dispatcher
     /* test */
-    assertThrows<GatewayTimeoutException> {
-      nodeClient.closePayment(closePaymentRequest).awaitSingle()
-    }
+    StepVerifier.create(nodeClient.closePayment(closePaymentRequest))
+      .expectErrorMatches {
+        assertTrue(it is ClosePaymentErrorResponseException)
+        assertEquals(
+          "Internal server error",
+          (it as ClosePaymentErrorResponseException).errorResponse!!.description)
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, it.statusCode)
+        true
+      }
+      .verify()
   }
 
   @Test
-  fun `closePayment throws BadGatewayException on Node 500`() = runTest {
+  fun `closePayment handle Node 400`() = runTest {
     val transactionId = TransactionId(TransactionTestUtils.TRANSACTION_ID)
 
     val closePaymentRequest = getMockedClosePaymentRequest(transactionId, OutcomeEnum.OK)
 
     /* preconditions */
-    given(nodeApi.closePaymentV2(closePaymentRequest, CLOSE_PAYMENT_CLIENT_ID))
-      .willReturn(
-        Mono.error(
-          WebClientResponseException.create(
-            500,
-            "Internal server error",
-            HttpHeaders.EMPTY,
-            ByteArray(0),
-            Charset.defaultCharset())))
-
+    val dispatcher: Dispatcher =
+      object : Dispatcher() {
+        override fun dispatch(request: RecordedRequest): MockResponse {
+          return when (request.path) {
+            "/closepayment?clientId=ecomm" ->
+              return MockResponse()
+                .setStatus("Bad request")
+                .setResponseCode(400)
+                .addHeader("Content-Type", "application/json")
+                .setBody(
+                  """
+                            {
+                                "outcome": "KO",
+                                "description": "Bad request"
+                            }
+                        """.trimIndent())
+            else -> MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE)
+          }
+        }
+      }
+    mockWebServer.dispatcher = dispatcher
     /* test */
-    assertThrows<BadGatewayException> { nodeClient.closePayment(closePaymentRequest).awaitSingle() }
+
+    StepVerifier.create(nodeClient.closePayment(closePaymentRequest))
+      .expectErrorMatches {
+        assertTrue(it is ClosePaymentErrorResponseException)
+        assertEquals(
+          "Bad request", (it as ClosePaymentErrorResponseException).errorResponse!!.description)
+        assertEquals(HttpStatus.BAD_REQUEST, it.statusCode)
+        true
+      }
+      .verify()
   }
 
   @Test
-  fun `closePayment throws BadClosePaymentRequest on Node 400`() = runTest {
-    val transactionId = TransactionId(TransactionTestUtils.TRANSACTION_ID)
+  fun `Should extract error response information from Nodo error response`() = runTest {
+    val expectedNodeErrorDescription = "NODE ERROR DESCRIPTION"
+    /* preconditions */
+    val dispatcher: Dispatcher =
+      object : Dispatcher() {
+        override fun dispatch(request: RecordedRequest): MockResponse {
+          return when (request.path) {
+            "/closepayment?clientId=ecomm" ->
+              return MockResponse()
+                .setStatus("Bad request")
+                .setResponseCode(400)
+                .addHeader("Content-Type", "application/json")
+                .setBody(
+                  """
+                            {
+                                "outcome": "KO",
+                                "description": "$expectedNodeErrorDescription"
+                            }
+                        """.trimIndent())
+            else -> MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE)
+          }
+        }
+      }
+    mockWebServer.dispatcher = dispatcher
 
-    val closePaymentRequest = getMockedClosePaymentRequest(transactionId, OutcomeEnum.OK)
+    // test
+    StepVerifier.create(nodeClient.closePayment(closePaymentRequest))
+      .expectErrorMatches {
+        assertTrue(it is ClosePaymentErrorResponseException)
+        assertEquals(
+          expectedNodeErrorDescription,
+          (it as ClosePaymentErrorResponseException).errorResponse!!.description)
+        assertEquals(HttpStatus.BAD_REQUEST, it.statusCode)
+        true
+      }
+      .verify()
+  }
+
+  @Test
+  fun `Should handle connection timeout`() = runTest {
 
     /* preconditions */
-    given(nodeApi.closePaymentV2(closePaymentRequest, CLOSE_PAYMENT_CLIENT_ID))
-      .willReturn(
-        Mono.error(
-          WebClientResponseException.create(
-            400, "Bad request", HttpHeaders.EMPTY, ByteArray(0), Charset.defaultCharset())))
+    val dispatcher: Dispatcher =
+      object : Dispatcher() {
+        override fun dispatch(request: RecordedRequest): MockResponse {
+          return when (request.path) {
+            "/closepayment?clientId=ecomm" ->
+              return MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE)
+            else -> MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE)
+          }
+        }
+      }
+    mockWebServer.dispatcher = dispatcher
+    // test
+    StepVerifier.create(nodeClient.closePayment(closePaymentRequest))
+      .expectErrorMatches {
+        assertTrue(it is ClosePaymentErrorResponseException)
+        assertNull((it as ClosePaymentErrorResponseException).errorResponse)
+        assertNull((it).statusCode)
+        true
+      }
+      .verify()
+  }
 
-    /* test */
-    assertThrows<BadClosePaymentRequest> {
-      nodeClient.closePayment(closePaymentRequest).awaitSingle()
-    }
+  @Test
+  fun `Should handle invalid Nodo response body`() = runTest {
+
+    // pre-requisites
+    /* preconditions */
+    val dispatcher: Dispatcher =
+      object : Dispatcher() {
+        override fun dispatch(request: RecordedRequest): MockResponse {
+          return when (request.path) {
+            "/closepayment?clientId=ecomm" ->
+              return MockResponse()
+                .setStatus("Bad request")
+                .setResponseCode(400)
+                .addHeader("Content-Type", "application/json")
+                .setBody(
+                  """
+                            ERROR
+                        """.trimIndent())
+            else -> MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE)
+          }
+        }
+      }
+    mockWebServer.dispatcher = dispatcher
+
+    // test
+    StepVerifier.create(nodeClient.closePayment(closePaymentRequest))
+      .expectErrorMatches {
+        assertTrue(it is ClosePaymentErrorResponseException)
+        assertNull((it as ClosePaymentErrorResponseException).errorResponse)
+        assertEquals(HttpStatus.BAD_REQUEST, it.statusCode)
+        true
+      }
+      .verify()
   }
 }

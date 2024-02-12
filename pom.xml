@@ -9,7 +9,7 @@
 	</parent>
 	<groupId>it.pagopa.ecommerce</groupId>
 	<artifactId>pagopa-ecommerce-event-dispatcher-service</artifactId>
-	<version>1.4.1</version>
+	<version>1.4.5</version>
 	<name>pagopa-ecommerce-event-dispatcher-service</name>
 	<description>pagoPA ecommerce microservice to handle transaction events and perform async operations such as
 	send user email, refund based on transaction status</description>
@@ -213,6 +213,7 @@
 			<artifactId>netty-resolver-dns-native-macos</artifactId>
 			<version>4.1.82.Final</version>
 			<classifier>osx-aarch_64</classifier>
+			<scope>test</scope>
 		</dependency>
 		<dependency>
 			<groupId>io.opentelemetry</groupId>
@@ -354,7 +355,7 @@
 						</goals>
 						<configuration>
 							<inputSpec>
-								https://raw.githubusercontent.com/pagopa/pagopa-infra/eff0d7e961328c9888d73dc17d96695301df1861/src/core/api/nodopagamenti_api/nodoPerPM/v2/_swagger.json.tpl
+								https://raw.githubusercontent.com/pagopa/pagopa-infra/51569d014c17d0808d8e08be11d05b32f83bf8a6/src/core/api/nodopagamenti_api/nodoPerPM/v2/_swagger.json.tpl
 							</inputSpec>
 							<generatorName>java</generatorName>
 							<library>webclient</library>
