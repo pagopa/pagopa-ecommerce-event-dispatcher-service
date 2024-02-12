@@ -168,8 +168,8 @@ fun handleGetState(
   event: TransactionAuthorizationRequestedEvent,
   npgStateService: NpgStateService,
   transactionsServiceClient: TransactionsServiceClient,
-  retryCount: Int,
-  tracingInfo: TracingInfo
+  tracingInfo: TracingInfo,
+  retryCount: Int = 0
 ): Mono<BaseTransaction> {
   return Mono.just(tx)
     .cast(BaseTransactionWithRequestedAuthorization::class.java)
@@ -192,11 +192,7 @@ fun handleGetState(
     .onErrorResume { exception ->
       logger.error(
         "Transaction getState npg error for transaction ${tx.transactionId.value()}", exception)
-      if (retryCount == 0) {
-          handleNoRetryGetState(tx)
-        } else {
-          Mono.just(tx)
-        }
+      Mono.just(tx)
         .flatMap {
           when (exception) {
             // Enqueue retry event only if getState is allowed

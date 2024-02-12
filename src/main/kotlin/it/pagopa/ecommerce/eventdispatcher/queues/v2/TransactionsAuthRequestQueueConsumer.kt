@@ -29,22 +29,16 @@ import reactor.kotlin.core.publisher.switchIfEmpty
  * transaction is stuck in an REFUND_REQUESTED state **and** needs to be reverted
  */
 @Service("TransactionsAuthRequestedQueueConsumer")
-class TransactionsAuthRequestQueueConsumer(
-  @Autowired private val paymentGatewayClient: PaymentGatewayClient,
+class TransactionsAuthRequestedQueueConsumer(
   @Autowired private val transactionsServiceClient: TransactionsServiceClient,
   @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,
-  @Autowired
-  private val transactionsRefundedEventStoreRepository:
-    TransactionsEventStoreRepository<TransactionRefundedData>,
-  @Autowired private val transactionsViewRepository: TransactionsViewRepository,
   @Autowired private val npgStateService: NpgStateService,
-  @Autowired private val npgStateRetryService: NpgStateService,
   @Autowired private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient,
   @Autowired private val tracingUtils: TracingUtils,
   @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider,
 ) {
 
-  var logger: Logger = LoggerFactory.getLogger(TransactionsAuthRequestQueueConsumer::class.java)
+  var logger: Logger = LoggerFactory.getLogger(TransactionsAuthRequestedQueueConsumer::class.java)
 
   private fun getTransactionIdFromPayload(event: TransactionAuthorizationRequestedEvent): String {
     return event.transactionId
@@ -74,7 +68,7 @@ class TransactionsAuthRequestQueueConsumer(
         }
         .cast(BaseTransactionWithRequestedAuthorization::class.java)
         .flatMap { tx ->
-          handleGetState(tx, event, npgStateService, transactionsServiceClient, 3, tracingInfo)
+          handleGetState(tx, event, npgStateService, transactionsServiceClient, tracingInfo)
         }
     val e = QueueEvent(event, tracingInfo)
     return runTracedPipelineWithDeadLetterQueue( // CHECK THIS METHOD

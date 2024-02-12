@@ -119,19 +119,6 @@ class QueuesConsumerConfig {
   }
 
   @Bean
-  @InboundChannelAdapter(
-    channel = "transactionsauthrequestedretrychannel",
-    poller = [Poller(fixedDelay = "1000", maxMessagesPerPoll = "10")])
-  @EndpointId("storageQueueAuthRequestedRetryMessageSourceEndpoint")
-  fun storageQueueAuthRequestedRetryMessageSource(
-    storageQueueTemplate: StorageQueueTemplate,
-    @Value("\${azurestorage.queues.transactionauthrequestedretry.name}")
-    queueNameRefundRetryEvents: String
-  ): StorageQueueMessageSource {
-    return StorageQueueMessageSource(queueNameRefundRetryEvents, storageQueueTemplate)
-  }
-
-  @Bean
   fun strictSerializerProviderV1(): StrictJsonSerializerProvider =
     StrictJsonSerializerProvider()
       .addMixIn(QueueEvent::class.java, QueueEventMixInEventCodeFieldDiscriminator::class.java)
