@@ -1,27 +1,41 @@
 package it.pagopa.ecommerce.eventdispatcher.services.v2
 
+import com.azure.core.util.BinaryData
+import com.azure.storage.queue.QueueAsyncClient
 import it.pagopa.ecommerce.commons.client.NpgClient
+import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationRequestedEvent
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithPaymentToken
 import it.pagopa.ecommerce.commons.exceptions.NpgResponseException
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.StateResponseDto
+import it.pagopa.ecommerce.commons.queues.QueueEvent
+import it.pagopa.ecommerce.commons.queues.TracingInfo
+import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.commons.utils.NpgPspApiKeysConfig
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadGatewayException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.GetStateException
+import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
+import it.pagopa.ecommerce.eventdispatcher.exceptions.TooLateRetryAttemptException
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.QueueCommonsLogger.logger
+import java.time.Duration
+import java.time.Instant
 import java.util.*
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import reactor.core.publisher.Mono
-import java.time.Duration
-import java.time.Instant
+import reactor.kotlin.core.publisher.switchIfEmpty
 
 @Component
 class NpgStateService(
   @Autowired private val npgClient: NpgClient,
   @Autowired private val npgCardsPspApiKey: NpgPspApiKeysConfig,
-  @Value("\${transactionsAuthRequestedRetry.paymentTokenValidityTimeOffset}") private val paymentTokenValidityTimeOffset: Int,
+  @Value("\${transactionsAuthRequested.paymentTokenValidityTimeOffset}")
+  private val paymentTokenValidityTimeOffset: Int,
+  @Autowired private val authRequestedQueueAsyncClient: QueueAsyncClient,
+  @Value("\${transactionsAuthRequested.eventOffsetSeconds}") private val retryOffset: Int,
+  @Value("\${transactionsAuthRequested.maxAttempts}") private val maxAttempts: Int,
+  @Autowired private val tracingUtils: TracingUtils,
 ) {
 
   fun getStateNpg(transactionId: UUID, sessionId: String, pspId: String): Mono<StateResponseDto> {
@@ -45,6 +59,40 @@ class NpgStateService(
       })
   }
 
+  fun enqueueRetryEvent(
+    baseTransaction: BaseTransaction,
+    retryCount: Int,
+    retryEvent: TransactionAuthorizationRequestedEvent,
+    tracingInfo: TracingInfo?
+  ): Mono<BaseTransaction> {
+    val visibilityTimeout = Duration.ofSeconds((retryOffset * retryCount).toLong())
+    return Mono.just(baseTransaction)
+      .filter { retryCount <= maxAttempts }
+      .switchIfEmpty(
+        Mono.error(
+          NoRetryAttemptsLeftException(
+            eventCode = retryEvent.eventCode, transactionId = baseTransaction.transactionId)))
+      .filter { validateRetryEventVisibilityTimeout(baseTransaction, visibilityTimeout) }
+      .switchIfEmpty {
+        Mono.error(
+          TooLateRetryAttemptException(
+            eventCode = retryEvent.eventCode,
+            transactionId = baseTransaction.transactionId,
+            visibilityTimeout = Instant.now().plus(visibilityTimeout)))
+      }
+      .flatMap {
+        authRequestedQueueAsyncClient.sendMessageWithResponse(
+          BinaryData.fromObject(QueueEvent(retryEvent, tracingInfo!!)),
+          visibilityTimeout,
+          Duration.ZERO)
+      }
+      .doOnError {
+        logger.error(
+          "Error processing retry event for authorization requested transaction with id: [${retryEvent.transactionId}]",
+          it)
+      }
+      .flatMap { Mono.just(baseTransaction) }
+  }
 
   fun validateRetryEventVisibilityTimeout(
     baseTransaction: BaseTransaction,
@@ -63,7 +111,7 @@ class NpgStateService(
       paymentTokenValidityEnd.minus(paymentTokenValidityOffset).isAfter(retryEventVisibilityInstant)
     if (!paymentTokenStillValidAtRetry) {
       logger.warn(
-        "No closure retry event send for transaction with id: [${baseTransaction.transactionId.value()}]. Retry event visibility timeout: [$retryEventVisibilityInstant], will be after payment token validity end: [$paymentTokenValidityEnd] with offset: [$paymentTokenValidityOffset]")
+        "No get state retry event send for transaction with id: [${baseTransaction.transactionId.value()}]. Retry event visibility timeout: [$retryEventVisibilityInstant], will be after payment token validity end: [$paymentTokenValidityEnd] with offset: [$paymentTokenValidityOffset]")
     }
     return paymentTokenStillValidAtRetry
   }
@@ -74,5 +122,4 @@ class NpgStateService(
         .transactionActivatedData
         .paymentTokenValiditySeconds
         .toLong())
-
 }

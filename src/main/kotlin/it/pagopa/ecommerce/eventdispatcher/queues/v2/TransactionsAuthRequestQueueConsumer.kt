@@ -73,7 +73,9 @@ class TransactionsAuthRequestQueueConsumer(
             "Handling get state request for transaction with id ${it.transactionId.value()}")
         }
         .cast(BaseTransactionWithRequestedAuthorization::class.java)
-        .flatMap { tx -> handleGetState(tx, npgStateService, transactionsServiceClient, 3) }
+        .flatMap { tx ->
+          handleGetState(tx, event, npgStateService, transactionsServiceClient, 3, tracingInfo)
+        }
     val e = QueueEvent(event, tracingInfo)
     return runTracedPipelineWithDeadLetterQueue( // CHECK THIS METHOD
       checkPointer,
