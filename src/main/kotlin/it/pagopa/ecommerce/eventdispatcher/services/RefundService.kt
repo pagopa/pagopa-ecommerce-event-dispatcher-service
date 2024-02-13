@@ -26,14 +26,15 @@ class RefundService(
     operationId: String,
     idempotenceKey: UUID,
     amount: BigDecimal,
-    pspId: String
+    pspId: String,
+    correlationId: String
   ): Mono<RefundResponseDto> {
     return npgCardsPspApiKey[pspId].fold(
       { ex -> Mono.error(ex) },
       { apiKey ->
         npgClient
           .refundPayment(
-            UUID.randomUUID(),
+            UUID.fromString(correlationId),
             operationId,
             idempotenceKey,
             amount,
