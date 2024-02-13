@@ -39,9 +39,11 @@ class TransactionAuthorizationRequestedQueueConsumer(
   @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider
 ) {
 
-  var logger: Logger = LoggerFactory.getLogger(TransactionAuthorizationRequestedQueueConsumer::class.java)
+  var logger: Logger =
+    LoggerFactory.getLogger(TransactionAuthorizationRequestedQueueConsumer::class.java)
 
-  @ServiceActivator(inputChannel = "transactionsauthorizationrequestedchannel", outputChannel = "nullChannel")
+  @ServiceActivator(
+    inputChannel = "transactionsauthorizationrequestedchannel", outputChannel = "nullChannel")
   fun messageReceiver(
     @Payload parsedEvent: QueueEvent<TransactionAuthorizationRequestedEvent>,
     @Header(AzureHeaders.CHECKPOINTER) checkPointer: Checkpointer

@@ -71,7 +71,8 @@ class QueuesProducerConfig {
   @Bean
   fun authRequestedQueueAsyncClient(
     @Value("\${azurestorage.transient.connectionstring}") storageConnectionString: String,
-    @Value("\${azurestorage.queues.transactionauthorizationrequested.name}") queueEventInitName: String,
+    @Value("\${azurestorage.queues.transactionauthorizationrequested.name}")
+    queueEventInitName: String,
   ): QueueAsyncClient {
     return buildQueueAsyncClient(storageConnectionString, queueEventInitName)
   }
