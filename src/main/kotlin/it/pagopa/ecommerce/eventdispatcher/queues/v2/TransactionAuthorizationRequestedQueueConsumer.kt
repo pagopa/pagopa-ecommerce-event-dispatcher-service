@@ -1,7 +1,8 @@
 package it.pagopa.ecommerce.eventdispatcher.queues.v2
 
+import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
-import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationRequestedEvent
+import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v2.Transaction
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransaction
@@ -17,37 +18,37 @@ import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClien
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.integration.annotation.ServiceActivator
+import org.springframework.messaging.handler.annotation.Header
+import org.springframework.messaging.handler.annotation.Payload
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.switchIfEmpty
 
 /**
- * Event consumer for transactions to refund. These events are input in the event queue only when a
- * transaction is stuck in an REFUND_REQUESTED state **and** needs to be reverted
+ * Event consumer for events related to refund retry. This consumer's responsibilities are to handle
+ * refund process retry for a given transaction
  */
-@Service("TransactionsAuthRequestedQueueConsumer")
-class TransactionsAuthRequestedQueueConsumer(
+@Service("TransactionAuthorizationRequestedQueueConsumerV2")
+class TransactionAuthorizationRequestedQueueConsumer(
   @Autowired private val transactionsServiceClient: TransactionsServiceClient,
   @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,
   @Autowired private val npgStateService: NpgStateService,
   @Autowired private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient,
   @Autowired private val tracingUtils: TracingUtils,
-  @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider,
+  @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider
 ) {
 
-  var logger: Logger = LoggerFactory.getLogger(TransactionsAuthRequestedQueueConsumer::class.java)
+  var logger: Logger = LoggerFactory.getLogger(TransactionAuthorizationRequestedQueueConsumer::class.java)
 
-  private fun getTransactionIdFromPayload(event: TransactionAuthorizationRequestedEvent): String {
-    return event.transactionId
-  }
-
+  @ServiceActivator(inputChannel = "transactionsauthorizationrequestedchannel", outputChannel = "nullChannel")
   fun messageReceiver(
-    parsedEvent: QueueEvent<TransactionAuthorizationRequestedEvent>,
-    checkPointer: Checkpointer
+    @Payload parsedEvent: QueueEvent<TransactionAuthorizationRequestedEvent>,
+    @Header(AzureHeaders.CHECKPOINTER) checkPointer: Checkpointer
   ): Mono<Unit> {
     val event = parsedEvent.event
     val tracingInfo = parsedEvent.tracingInfo
-    val transactionId = getTransactionIdFromPayload(event)
+    val transactionId = event.transactionId
     val authorizationRequestedPipeline =
       transactionsEventStoreRepository
         .findByTransactionIdOrderByCreationDateAsc(transactionId)

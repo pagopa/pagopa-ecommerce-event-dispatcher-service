@@ -5,6 +5,7 @@ import com.azure.spring.messaging.checkpoint.Checkpointer
 import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.documents.v2.activation.NpgTransactionGatewayActivationData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationData
+import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationRequestedData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.PgsTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.RedirectTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.TransactionGatewayAuthorizationData

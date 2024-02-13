@@ -30,11 +30,10 @@ import reactor.kotlin.core.publisher.switchIfEmpty
 class NpgStateService(
   @Autowired private val npgClient: NpgClient,
   @Autowired private val npgCardsPspApiKey: NpgPspApiKeysConfig,
-  @Value("\${transactionsAuthRequested.paymentTokenValidityTimeOffset}")
-  private val paymentTokenValidityTimeOffset: Int,
+  @Value("\${transactionAuthorizationRequested.paymentTokenValidityTimeOffset}") private val paymentTokenValidityTimeOffset: Int,
   @Autowired private val authRequestedQueueAsyncClient: QueueAsyncClient,
-  @Value("\${transactionsAuthRequested.eventOffsetSeconds}") private val retryOffset: Int,
-  @Value("\${transactionsAuthRequested.maxAttempts}") private val maxAttempts: Int,
+  @Value("\${transactionAuthorizationRequested.eventOffsetSeconds}") private val retryOffset: Int,
+  @Value("\${transactionAuthorizationRequested.maxAttempts}") private val maxAttempts: Int,
   @Autowired private val tracingUtils: TracingUtils,
 ) {
 
