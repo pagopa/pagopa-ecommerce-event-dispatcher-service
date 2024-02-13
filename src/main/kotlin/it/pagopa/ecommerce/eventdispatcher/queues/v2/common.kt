@@ -3,7 +3,11 @@ package it.pagopa.ecommerce.eventdispatcher.queues.v2
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import it.pagopa.ecommerce.commons.documents.v2.*
-import it.pagopa.ecommerce.commons.documents.v2.authorization.*
+import it.pagopa.ecommerce.commons.documents.v2.activation.NpgTransactionGatewayActivationData
+import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationData
+import it.pagopa.ecommerce.commons.documents.v2.authorization.PgsTransactionGatewayAuthorizationData
+import it.pagopa.ecommerce.commons.documents.v2.authorization.RedirectTransactionGatewayAuthorizationData
+import it.pagopa.ecommerce.commons.documents.v2.authorization.TransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v2.TransactionEventCode
@@ -299,7 +303,10 @@ fun refundTransaction(
                   transaction.transactionId.uuid,
                   BigDecimal(transaction.transactionAuthorizationRequestData.amount)
                     .add(BigDecimal(transaction.transactionAuthorizationRequestData.fee)),
-                  transaction.transactionAuthorizationRequestData.pspId)
+                  transaction.transactionAuthorizationRequestData.pspId,
+                  (transaction.transactionActivatedData.transactionGatewayActivationData
+                      as NpgTransactionGatewayActivationData)
+                    .correlationId)
                 .map { refundResponse -> Pair(refundResponse, transaction) }
             }
         }
