@@ -21,13 +21,18 @@
 					}
 				},
 				"url": {
-					"raw": "http://localhost:9000/event-dispatcher/event-receivers/commands",
-					"protocol": "http",
+					"raw": "https://weuprod.ecommerce.internal.platform.pagopa.it/pagopa-ecommerce-event-dispatcher/event-dispatcher/event-receivers/commands",
+					"protocol": "https",
 					"host": [
-						"localhost"
+						"weuprod",
+						"ecommerce",
+						"internal",
+						"platform",
+						"pagopa",
+						"it"
 					],
-					"port": "9000",
 					"path": [
+						"pagopa-ecommerce-event-dispatcher",
 						"event-dispatcher",
 						"event-receivers",
 						"commands"
@@ -51,13 +56,18 @@
 					}
 				},
 				"url": {
-					"raw": "http://localhost:9000/event-dispatcher/event-receivers/commands",
-					"protocol": "http",
+					"raw": "https://weuprod.ecommerce.internal.platform.pagopa.it/pagopa-ecommerce-event-dispatcher/event-dispatcher/event-receivers/commands",
+					"protocol": "https",
 					"host": [
-						"localhost"
+						"weuprod",
+						"ecommerce",
+						"internal",
+						"platform",
+						"pagopa",
+						"it"
 					],
-					"port": "9000",
 					"path": [
+						"pagopa-ecommerce-event-dispatcher",
 						"event-dispatcher",
 						"event-receivers",
 						"commands"
@@ -72,13 +82,18 @@
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "http://localhost:9000/event-dispatcher/event-receivers/status",
-					"protocol": "http",
+					"raw": "https://weuprod.ecommerce.internal.platform.pagopa.it/pagopa-ecommerce-event-dispatcher/event-dispatcher/event-receivers/status",
+					"protocol": "https",
 					"host": [
-						"localhost"
+						"weuprod",
+						"ecommerce",
+						"internal",
+						"platform",
+						"pagopa",
+						"it"
 					],
-					"port": "9000",
 					"path": [
+						"pagopa-ecommerce-event-dispatcher",
 						"event-dispatcher",
 						"event-receivers",
 						"status"
