@@ -42,11 +42,9 @@ class TransactionAuthorizationRequestedQueueConsumer(
   var logger: Logger =
     LoggerFactory.getLogger(TransactionAuthorizationRequestedQueueConsumer::class.java)
 
-  @ServiceActivator(
-    inputChannel = "transactionsauthorizationrequestedchannel", outputChannel = "nullChannel")
   fun messageReceiver(
-    @Payload parsedEvent: QueueEvent<TransactionAuthorizationRequestedEvent>,
-    @Header(AzureHeaders.CHECKPOINTER) checkPointer: Checkpointer
+    parsedEvent: QueueEvent<TransactionAuthorizationRequestedEvent>,
+    checkPointer: Checkpointer
   ): Mono<Unit> {
     val event = parsedEvent.event
     val tracingInfo = parsedEvent.tracingInfo

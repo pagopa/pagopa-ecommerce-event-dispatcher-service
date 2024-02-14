@@ -210,11 +210,6 @@ fun handleGetState(
     }
 }
 
-fun handleNoRetryGetState(tx: BaseTransaction): Mono<BaseTransaction> {
-  // TODO implements!
-  return Mono.empty()
-}
-
 fun handleRetryGetState(
   event: TransactionAuthorizationRequestedEvent,
   npgStateService: NpgStateService,
