@@ -16,16 +16,14 @@ import reactor.core.publisher.Mono
 
 @Component
 class TransactionsServiceClient(
-  @Autowired
-  @Qualifier("transactionsServiceWebClient")
-  private val transactionsServiceClient: TransactionsApi
+  @Autowired @Qualifier("transactionsServiceWebClient") private val transactionsApi: TransactionsApi
 ) {
 
   fun patchAuthRequest(
     transactionId: UUID,
     updateAuthorizationRequestDto: UpdateAuthorizationRequestDto
   ): Mono<TransactionInfoDto> {
-    return transactionsServiceClient
+    return transactionsApi
       .updateTransactionAuthorization(transactionId.toString(), updateAuthorizationRequestDto)
       .onErrorMap(WebClientResponseException::class.java) { exception: WebClientResponseException ->
         when (exception.statusCode) {

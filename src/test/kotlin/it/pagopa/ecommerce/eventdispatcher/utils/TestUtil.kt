@@ -10,6 +10,7 @@ import it.pagopa.ecommerce.commons.v1.TransactionTestUtils
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
+import it.pagopa.generated.transactionauthrequests.v1.dto.*
 import java.time.OffsetDateTime
 import java.util.*
 import reactor.core.publisher.Mono
@@ -65,6 +66,35 @@ fun getMockedXPayRefundRequest(
       .status(XPayRefundResponse200Dto.StatusEnum.CREATED)
       .error("err")
   }
+}
+
+fun getMockedTransactionInfoDto(transactionId: UUID): TransactionInfoDto {
+  return TransactionInfoDto()
+    .transactionId(transactionId.toString())
+    .status(TransactionStatusDto.AUTHORIZATION_COMPLETED)
+    .authToken("authToken")
+    .clientId(TransactionInfoDto.ClientIdEnum.CHECKOUT)
+    .feeTotal(300)
+    .addPaymentsItem(PaymentInfoDto().amount(3000).paymentToken("paymentToken"))
+}
+
+fun getMockedUpdateAuthorizationReqeustDto(): UpdateAuthorizationRequestDto {
+
+  val updateAuthRequestOutcomeGatewayAuthorized =
+    UpdateAuthorizationRequestOutcomeGatewayDto()
+      .outcome(AuthorizationOutcomeDto.OK)
+      .authorizationCode("authCode")
+      .operationId("operationId")
+      .operationResult(UpdateAuthorizationRequestOutcomeGatewayDto.OperationResultEnum.AUTHORIZED)
+      .orderId("orderId")
+      .paymentEndToEndId("paymentEndToEndId")
+      .paymentGatewayType("paymentGatewayType")
+      .pspId("pspId")
+      .rrn("rrn")
+
+  return UpdateAuthorizationRequestDto()
+    .outcomeGateway(updateAuthRequestOutcomeGatewayAuthorized)
+    .timestampOperation(OffsetDateTime.now())
 }
 
 fun getMockedVPosRefundRequest(

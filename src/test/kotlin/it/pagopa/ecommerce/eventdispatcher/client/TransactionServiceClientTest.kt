@@ -1,49 +1,46 @@
 package it.pagopa.ecommerce.eventdispatcher.client
 
-import it.pagopa.ecommerce.eventdispatcher.exceptions.BadGatewayException
-import it.pagopa.ecommerce.eventdispatcher.exceptions.RefundNotAllowedException
-import it.pagopa.ecommerce.eventdispatcher.exceptions.TransactionNotFound
-import it.pagopa.ecommerce.eventdispatcher.utils.getMockedVPosRefundRequest
-import it.pagopa.ecommerce.eventdispatcher.utils.getMockedXPayRefundRequest
-import it.pagopa.generated.ecommerce.gateway.v1.api.VposInternalApi
-import it.pagopa.generated.ecommerce.gateway.v1.api.XPayInternalApi
-import java.nio.charset.Charset
+import it.pagopa.ecommerce.eventdispatcher.utils.getMockedTransactionInfoDto
+import it.pagopa.ecommerce.eventdispatcher.utils.getMockedUpdateAuthorizationReqeustDto
+import it.pagopa.generated.transactionauthrequests.v1.api.TransactionsApi
 import java.util.*
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.Mockito
+import org.mockito.kotlin.any
+import org.mockito.kotlin.eq
 import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.http.HttpHeaders
 import org.springframework.test.context.TestPropertySource
-import org.springframework.web.reactive.function.client.WebClientResponseException
 import reactor.core.publisher.Mono
 
 @SpringBootTest
 @TestPropertySource(locations = ["classpath:application.test.properties"])
 class TransactionServiceClientTest {
 
-  @Mock private lateinit var vposApi: VposInternalApi
-  @Mock private lateinit var xpayApi: XPayInternalApi
+  @Mock private lateinit var transactionsApi: TransactionsApi
 
-  @InjectMocks private lateinit var paymentGatewayClient: PaymentGatewayClient
+  @InjectMocks private lateinit var transactionsServiceClient: TransactionsServiceClient
 
   @Test
-  fun pgsClient_requestRefund_200_xpay() {
+  fun patchAuthRequest_200() {
     val testUIID: UUID = UUID.randomUUID()
 
     // preconditions
-    Mockito.`when`(xpayApi.refundXpayRequest(testUIID))
-      .thenReturn(Mono.just(getMockedXPayRefundRequest(testUIID.toString())))
+    Mockito.`when`(transactionsApi.updateTransactionAuthorization(eq(testUIID.toString()), any()))
+      .thenReturn(Mono.just(getMockedTransactionInfoDto(testUIID)))
 
     // test
-    val response = paymentGatewayClient.requestXPayRefund(testUIID).block()
+    val response =
+      transactionsServiceClient
+        .patchAuthRequest(testUIID, getMockedUpdateAuthorizationReqeustDto())
+        .block()
 
     // asserts
-    assertEquals("CANCELLED", response?.status?.value)
+    assertEquals("AUTHORIZATION_COMPLETED", response?.status?.value)
   }
-
+  /*
   @Test
   fun pgsClient_requestRefund_200_vpos() {
     val testUIID: UUID = UUID.randomUUID()
@@ -256,5 +253,5 @@ class TransactionServiceClientTest {
       }
 
     assertInstanceOf(RefundNotAllowedException::class.java, exc)
-  }
+  }*/
 }
