@@ -1,19 +1,13 @@
 package it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2
 
 import com.azure.storage.queue.QueueAsyncClient
-import it.pagopa.ecommerce.commons.client.NpgClient
 import it.pagopa.ecommerce.commons.documents.v2.TransactionClosureRetriedEvent
 import it.pagopa.ecommerce.commons.documents.v2.TransactionRetriedData
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithPaymentToken
-import it.pagopa.ecommerce.commons.exceptions.NpgResponseException
-import it.pagopa.ecommerce.commons.generated.npg.v1.dto.StateResponseDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
-import it.pagopa.ecommerce.commons.utils.NpgPspApiKeysConfig
-import it.pagopa.ecommerce.eventdispatcher.exceptions.BadGatewayException
-import it.pagopa.ecommerce.eventdispatcher.exceptions.GetStateException
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import java.time.Duration
@@ -22,12 +16,9 @@ import java.util.*
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
-import reactor.core.publisher.Mono
 
 @Component
-class NpgStateService(
-  @Autowired private val npgClient: NpgClient,
-  @Autowired private val npgCardsPspApiKey: NpgPspApiKeysConfig,
+class AuthorizationStateRetrieverRetryService(
   @Value("\${transactionAuthorizationRequested.paymentTokenValidityTimeOffset}")
   private val paymentTokenValidityTimeOffset: Int,
   @Autowired private val authRequestedQueueAsyncClient: QueueAsyncClient,
@@ -50,32 +41,6 @@ class NpgStateService(
     retryEventStoreRepository = eventStoreRepository,
     transientQueuesTTLSeconds = transientQueuesTTLSeconds,
     strictSerializerProviderV2 = strictSerializerProviderV2) {
-
-  fun getStateNpg(
-    transactionId: UUID,
-    sessionId: String,
-    pspId: String,
-    correlationId: String
-  ): Mono<StateResponseDto> {
-    return npgCardsPspApiKey[pspId].fold(
-      { ex -> Mono.error(ex) },
-      { apiKey ->
-        npgClient.getState(UUID.fromString(correlationId), sessionId, apiKey).onErrorMap(
-          NpgResponseException::class.java) { exception: NpgResponseException ->
-          val responseStatusCode = exception.statusCode
-          responseStatusCode
-            .map {
-              val errorCodeReason = "Received HTTP error code from NPG: $it"
-              if (it.is5xxServerError) {
-                BadGatewayException(errorCodeReason)
-              } else {
-                GetStateException(transactionId, errorCodeReason)
-              }
-            }
-            .orElse(GetStateException(transactionId, "Unknown NPG HTTP response code"))
-        }
-      })
-  }
 
   override fun buildRetryEvent(
     transactionId: TransactionId,

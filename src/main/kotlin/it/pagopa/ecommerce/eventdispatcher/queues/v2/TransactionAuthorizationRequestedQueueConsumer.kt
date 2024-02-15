@@ -12,7 +12,8 @@ import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.client.TransactionsServiceClient
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
-import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.NpgStateService
+import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.AuthorizationStateRetrieverRetryService
+import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgStateService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -29,6 +30,8 @@ import reactor.kotlin.core.publisher.switchIfEmpty
 class TransactionAuthorizationRequestedQueueConsumer(
   @Autowired private val transactionsServiceClient: TransactionsServiceClient,
   @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,
+  @Autowired
+  private val authorizationStateRetrieverRetryService: AuthorizationStateRetrieverRetryService,
   @Autowired private val npgStateService: NpgStateService,
   @Autowired private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient,
   @Autowired private val tracingUtils: TracingUtils,
@@ -64,6 +67,7 @@ class TransactionAuthorizationRequestedQueueConsumer(
         .flatMap { tx ->
           handleGetState(
             tx = tx,
+            authorizationStateRetrieverRetryService = authorizationStateRetrieverRetryService,
             npgStateService = npgStateService,
             transactionsServiceClient = transactionsServiceClient,
             tracingInfo = tracingInfo)

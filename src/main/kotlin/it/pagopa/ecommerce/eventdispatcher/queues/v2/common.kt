@@ -30,8 +30,9 @@ import it.pagopa.ecommerce.eventdispatcher.queues.v2.QueueCommonsLogger.logger
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.RefundService
-import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.NpgStateService
+import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.AuthorizationStateRetrieverRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
+import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgStateService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto.StatusEnum
@@ -166,6 +167,7 @@ fun updateTransactionWithRefundEvent(
 
 fun handleGetState(
   tx: BaseTransaction,
+  authorizationStateRetrieverRetryService: AuthorizationStateRetrieverRetryService,
   npgStateService: NpgStateService,
   transactionsServiceClient: TransactionsServiceClient,
   tracingInfo: TracingInfo,
@@ -205,7 +207,7 @@ fun handleGetState(
             // Enqueue retry event only if getState is allowed
             !is GetStateException ->
               handleRetryGetState(
-                npgStateService = npgStateService,
+                authorizationStateRetrieverRetryService = authorizationStateRetrieverRetryService,
                 tx = it,
                 retryCount = retryCount + 1,
                 tracingInfo = tracingInfo)
@@ -217,12 +219,12 @@ fun handleGetState(
 }
 
 fun handleRetryGetState(
-  npgStateService: NpgStateService,
+  authorizationStateRetrieverRetryService: AuthorizationStateRetrieverRetryService,
   tx: BaseTransaction,
   retryCount: Int,
   tracingInfo: TracingInfo
 ): Mono<Void> {
-  return npgStateService.enqueueRetryEvent(tx, retryCount, tracingInfo)
+  return authorizationStateRetrieverRetryService.enqueueRetryEvent(tx, retryCount, tracingInfo)
 }
 
 fun handleStateResponse(
