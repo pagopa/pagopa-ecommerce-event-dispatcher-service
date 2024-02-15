@@ -77,7 +77,6 @@ class TransactionsServiceClientTest {
     // pre-requisites
     val transactionId = TransactionId(TransactionTestUtils.TRANSACTION_ID)
     val updateAuthRequest = UpdateAuthorizationRequestDto()
-    val expectedResponse = TransactionInfoDto()
     given(transactionApi.updateTransactionAuthorization(transactionId.base64(), updateAuthRequest))
       .willReturn(
         Mono.error {
