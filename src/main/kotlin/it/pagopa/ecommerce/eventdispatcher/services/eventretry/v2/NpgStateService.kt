@@ -1,21 +1,21 @@
-package it.pagopa.ecommerce.eventdispatcher.services.v2
+package it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2
 
-import com.azure.core.util.BinaryData
 import com.azure.storage.queue.QueueAsyncClient
 import it.pagopa.ecommerce.commons.client.NpgClient
-import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationRequestedEvent
+import it.pagopa.ecommerce.commons.documents.v2.TransactionClosureRetriedEvent
+import it.pagopa.ecommerce.commons.documents.v2.TransactionRetriedData
+import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithPaymentToken
 import it.pagopa.ecommerce.commons.exceptions.NpgResponseException
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.StateResponseDto
-import it.pagopa.ecommerce.commons.queues.QueueEvent
-import it.pagopa.ecommerce.commons.queues.TracingInfo
+import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
+import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.utils.NpgPspApiKeysConfig
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadGatewayException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.GetStateException
-import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
-import it.pagopa.ecommerce.eventdispatcher.exceptions.TooLateRetryAttemptException
-import it.pagopa.ecommerce.eventdispatcher.queues.v2.QueueCommonsLogger.logger
+import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
+import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import java.time.Duration
 import java.time.Instant
 import java.util.*
@@ -23,7 +23,6 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import reactor.core.publisher.Mono
-import reactor.kotlin.core.publisher.switchIfEmpty
 
 @Component
 class NpgStateService(
@@ -32,11 +31,25 @@ class NpgStateService(
   @Value("\${transactionAuthorizationRequested.paymentTokenValidityTimeOffset}")
   private val paymentTokenValidityTimeOffset: Int,
   @Autowired private val authRequestedQueueAsyncClient: QueueAsyncClient,
+  @Autowired private val viewRepository: TransactionsViewRepository,
+  @Autowired
+  private val eventStoreRepository: TransactionsEventStoreRepository<TransactionRetriedData>,
   @Value("\${transactionAuthorizationRequested.eventOffsetSeconds}") private val retryOffset: Int,
   @Value("\${transactionAuthorizationRequested.maxAttempts}") private val maxAttempts: Int,
   @Value("\${azurestorage.queues.transientQueues.ttlSeconds}")
   private val transientQueuesTTLSeconds: Int,
-) {
+  @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider
+) :
+  // TODO set here TransactionClosureRetriedEvent just to make code compile, to be changed with
+  // proper retry event
+  RetryEventService<TransactionClosureRetriedEvent>(
+    queueAsyncClient = authRequestedQueueAsyncClient,
+    retryOffset = retryOffset,
+    maxAttempts = maxAttempts,
+    viewRepository = viewRepository,
+    retryEventStoreRepository = eventStoreRepository,
+    transientQueuesTTLSeconds = transientQueuesTTLSeconds,
+    strictSerializerProviderV2 = strictSerializerProviderV2) {
 
   fun getStateNpg(
     transactionId: UUID,
@@ -64,42 +77,17 @@ class NpgStateService(
       })
   }
 
-  fun enqueueRetryEvent(
-    baseTransaction: BaseTransaction,
-    retryCount: Int,
-    retryEvent: TransactionAuthorizationRequestedEvent,
-    tracingInfo: TracingInfo?
-  ): Mono<BaseTransaction> {
-    val visibilityTimeout = Duration.ofSeconds((retryOffset * retryCount).toLong())
-    return Mono.just(baseTransaction)
-      .filter { retryCount <= maxAttempts }
-      .switchIfEmpty(
-        Mono.error(
-          NoRetryAttemptsLeftException(
-            eventCode = retryEvent.eventCode, transactionId = baseTransaction.transactionId)))
-      .filter { validateRetryEventVisibilityTimeout(baseTransaction, visibilityTimeout) }
-      .switchIfEmpty {
-        Mono.error(
-          TooLateRetryAttemptException(
-            eventCode = retryEvent.eventCode,
-            transactionId = baseTransaction.transactionId,
-            visibilityTimeout = Instant.now().plus(visibilityTimeout)))
-      }
-      .flatMap {
-        authRequestedQueueAsyncClient.sendMessageWithResponse(
-          BinaryData.fromObject(QueueEvent(retryEvent, tracingInfo)),
-          visibilityTimeout,
-          Duration.ofSeconds(transientQueuesTTLSeconds.toLong()))
-      }
-      .doOnError {
-        logger.error(
-          "Error processing retry event for authorization requested transaction with id: [${retryEvent.transactionId}]",
-          it)
-      }
-      .flatMap { Mono.just(baseTransaction) }
+  override fun buildRetryEvent(
+    transactionId: TransactionId,
+    transactionRetriedData: TransactionRetriedData
+  ): TransactionClosureRetriedEvent {
+    TODO("Not yet implemented, to implement with proper retry event build logic")
   }
 
-  fun validateRetryEventVisibilityTimeout(
+  override fun newTransactionStatus(): TransactionStatusDto =
+    TransactionStatusDto.AUTHORIZATION_REQUESTED
+
+  override fun validateRetryEventVisibilityTimeout(
     baseTransaction: BaseTransaction,
     visibilityTimeout: Duration
   ): Boolean {

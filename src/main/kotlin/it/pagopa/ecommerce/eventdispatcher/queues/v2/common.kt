@@ -4,11 +4,7 @@ import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.documents.v2.activation.NpgTransactionGatewayActivationData
-import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationData
-import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationRequestedData
-import it.pagopa.ecommerce.commons.documents.v2.authorization.PgsTransactionGatewayAuthorizationData
-import it.pagopa.ecommerce.commons.documents.v2.authorization.RedirectTransactionGatewayAuthorizationData
-import it.pagopa.ecommerce.commons.documents.v2.authorization.TransactionGatewayAuthorizationData
+import it.pagopa.ecommerce.commons.documents.v2.authorization.*
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v2.TransactionEventCode
@@ -34,8 +30,8 @@ import it.pagopa.ecommerce.eventdispatcher.queues.v2.QueueCommonsLogger.logger
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.RefundService
+import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.NpgStateService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
-import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgStateService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto.StatusEnum
@@ -170,7 +166,6 @@ fun updateTransactionWithRefundEvent(
 
 fun handleGetState(
   tx: BaseTransaction,
-  event: TransactionAuthorizationRequestedEvent,
   npgStateService: NpgStateService,
   transactionsServiceClient: TransactionsServiceClient,
   tracingInfo: TracingInfo,
@@ -195,7 +190,11 @@ fun handleGetState(
           .correlationId)
     }
     .flatMap { stateResponseDto ->
-      handleStateResponse(stateResponseDto, tx, transactionsServiceClient).thenReturn(tx)
+      handleStateResponse(
+          stateResponseDto = stateResponseDto,
+          tx = tx,
+          transactionsServiceClient = transactionsServiceClient)
+        .thenReturn(tx)
     }
     .onErrorResume { exception ->
       logger.error(
@@ -205,7 +204,11 @@ fun handleGetState(
           when (exception) {
             // Enqueue retry event only if getState is allowed
             !is GetStateException ->
-              handleRetryGetState(event, npgStateService, it, retryCount + 1, tracingInfo)
+              handleRetryGetState(
+                npgStateService = npgStateService,
+                tx = it,
+                retryCount = retryCount + 1,
+                tracingInfo = tracingInfo)
             else -> Mono.error(exception)
           }
         }
@@ -214,13 +217,12 @@ fun handleGetState(
 }
 
 fun handleRetryGetState(
-  event: TransactionAuthorizationRequestedEvent,
   npgStateService: NpgStateService,
   tx: BaseTransaction,
   retryCount: Int,
   tracingInfo: TracingInfo
-): Mono<BaseTransaction> {
-  return npgStateService.enqueueRetryEvent(tx, retryCount, event, tracingInfo)
+): Mono<Void> {
+  return npgStateService.enqueueRetryEvent(tx, retryCount, tracingInfo)
 }
 
 fun handleStateResponse(

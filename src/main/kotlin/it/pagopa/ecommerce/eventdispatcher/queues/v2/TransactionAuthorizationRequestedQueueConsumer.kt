@@ -12,7 +12,7 @@ import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.client.TransactionsServiceClient
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
-import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgStateService
+import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.NpgStateService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -62,7 +62,11 @@ class TransactionAuthorizationRequestedQueueConsumer(
         }
         .cast(BaseTransactionWithRequestedAuthorization::class.java)
         .flatMap { tx ->
-          handleGetState(tx, event, npgStateService, transactionsServiceClient, tracingInfo)
+          handleGetState(
+            tx = tx,
+            npgStateService = npgStateService,
+            transactionsServiceClient = transactionsServiceClient,
+            tracingInfo = tracingInfo)
         }
     val e = QueueEvent(event, tracingInfo)
     return runTracedPipelineWithDeadLetterQueue( // CHECK THIS METHOD
