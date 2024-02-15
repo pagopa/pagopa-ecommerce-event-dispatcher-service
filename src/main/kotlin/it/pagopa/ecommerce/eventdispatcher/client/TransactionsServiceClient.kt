@@ -1,5 +1,6 @@
 package it.pagopa.ecommerce.eventdispatcher.client
 
+import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadGatewayException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.GatewayTimeoutException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.TransactionNotFound
@@ -20,16 +21,16 @@ class TransactionsServiceClient(
 ) {
 
   fun patchAuthRequest(
-    transactionId: UUID,
+    transactionId: TransactionId,
     updateAuthorizationRequestDto: UpdateAuthorizationRequestDto
   ): Mono<TransactionInfoDto> {
     return transactionsApi
-      .updateTransactionAuthorization(transactionId.toString(), updateAuthorizationRequestDto)
+      .updateTransactionAuthorization(transactionId.base64(), updateAuthorizationRequestDto)
       .onErrorMap(WebClientResponseException::class.java) { exception: WebClientResponseException ->
         when (exception.statusCode) {
-          HttpStatus.BAD_REQUEST -> TransactionNotFound(transactionId)
-          HttpStatus.UNAUTHORIZED -> TransactionNotFound(transactionId)
-          HttpStatus.NOT_FOUND -> TransactionNotFound(transactionId)
+          HttpStatus.BAD_REQUEST -> TransactionNotFound(transactionId.uuid)
+          HttpStatus.UNAUTHORIZED -> TransactionNotFound(transactionId.uuid)
+          HttpStatus.NOT_FOUND -> TransactionNotFound(transactionId.uuid)
           HttpStatus.GATEWAY_TIMEOUT -> GatewayTimeoutException()
           HttpStatus.INTERNAL_SERVER_ERROR -> BadGatewayException("")
           HttpStatus.BAD_GATEWAY -> BadGatewayException("")

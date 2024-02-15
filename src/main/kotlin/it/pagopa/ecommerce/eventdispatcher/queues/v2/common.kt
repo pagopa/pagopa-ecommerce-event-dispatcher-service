@@ -242,7 +242,7 @@ fun handleStateResponse(
     .map { tx }
     .flatMap { t ->
       transactionsServiceClient.patchAuthRequest(
-        t.transactionId.uuid,
+        t.transactionId,
         UpdateAuthorizationRequestDto().apply {
           outcomeGateway =
             UpdateAuthorizationRequestOutcomeGatewayDto().apply {
