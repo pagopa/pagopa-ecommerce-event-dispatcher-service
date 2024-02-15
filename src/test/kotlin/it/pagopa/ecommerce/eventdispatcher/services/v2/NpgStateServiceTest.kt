@@ -8,8 +8,8 @@ import it.pagopa.ecommerce.commons.generated.npg.v1.dto.StateResponseDto
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.WorkflowStateDto
 import it.pagopa.ecommerce.commons.utils.NpgPspApiKeysConfig
 import it.pagopa.ecommerce.commons.v2.TransactionTestUtils
-import it.pagopa.ecommerce.eventdispatcher.exceptions.BadGatewayException
-import it.pagopa.ecommerce.eventdispatcher.exceptions.GetStateException
+import it.pagopa.ecommerce.eventdispatcher.exceptions.NpgBadRequestException
+import it.pagopa.ecommerce.eventdispatcher.exceptions.NpgServerErrorException
 import java.util.*
 import java.util.stream.Stream
 import kotlinx.coroutines.reactor.mono
@@ -63,19 +63,19 @@ class NpgStateServiceTest {
       Stream.of(
         Arguments.of(
           Optional.of(HttpStatus.BAD_REQUEST),
-          GetStateException(
+          NpgBadRequestException(
             transactionId, "Received HTTP error code from NPG: ${HttpStatus.BAD_REQUEST}")),
         Arguments.of(
           Optional.of(HttpStatus.NOT_FOUND),
-          GetStateException(
+          NpgBadRequestException(
             transactionId, "Received HTTP error code from NPG: ${HttpStatus.NOT_FOUND}")),
         Arguments.of(
           Optional.of(HttpStatus.INTERNAL_SERVER_ERROR),
-          BadGatewayException(
+          NpgServerErrorException(
             "Received HTTP error code from NPG: ${HttpStatus.INTERNAL_SERVER_ERROR}")),
         Arguments.of(
           Optional.empty<HttpStatus>(),
-          GetStateException(transactionId, "Unknown NPG HTTP response code")),
+          NpgBadRequestException(transactionId, "Unknown NPG HTTP response code")),
       )
   }
 

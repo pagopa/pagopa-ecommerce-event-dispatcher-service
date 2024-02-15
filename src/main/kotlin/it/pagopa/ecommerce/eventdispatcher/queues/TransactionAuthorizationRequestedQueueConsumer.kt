@@ -4,8 +4,6 @@ import com.azure.core.util.BinaryData
 import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
-import it.pagopa.ecommerce.commons.documents.BaseTransactionEvent
-import it.pagopa.ecommerce.commons.documents.v1.TransactionAuthorizationRequestedEvent as TransactionAuthorizationRequestedEventV1
 import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationRequestedEvent as TransactionAuthorizationRequestedEventV2
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
@@ -38,20 +36,11 @@ class TransactionAuthorizationRequestedQueueConsumer(
 
   var logger: Logger = LoggerFactory.getLogger(TransactionsRefundQueueConsumer::class.java)
 
-  fun parseEvent(payload: ByteArray): Mono<Pair<BaseTransactionEvent<*>, TracingInfo?>> {
+  fun parseEvent(
+    payload: ByteArray
+  ): Mono<Pair<TransactionAuthorizationRequestedEventV2, TracingInfo?>> {
     val data = BinaryData.fromBytes(payload)
-    val jsonSerializerV1 = strictSerializerProviderV1.createInstance()
     val jsonSerializerV2 = strictSerializerProviderV2.createInstance()
-    val transactionAuthorizationRequestedEventV1 =
-      data
-        .toObjectAsync(
-          object : TypeReference<QueueEvent<TransactionAuthorizationRequestedEventV1>>() {},
-          jsonSerializerV1)
-        .map { it.event to it.tracingInfo }
-        .onErrorResume {
-          logger.debug(ERROR_PARSING_EVENT_ERROR, it)
-          Mono.empty()
-        }
 
     val transactionAuthorizationRequestedEventV2 =
       data
@@ -64,11 +53,9 @@ class TransactionAuthorizationRequestedQueueConsumer(
           Mono.empty()
         }
 
-    return Mono.firstWithValue(
-        transactionAuthorizationRequestedEventV1,
-        transactionAuthorizationRequestedEventV2,
-      )
-      .onErrorMap(NoSuchElementException::class.java) { InvalidEventException(data.toBytes(), it) }
+    return transactionAuthorizationRequestedEventV2.onErrorMap(NoSuchElementException::class.java) {
+      InvalidEventException(data.toBytes(), it)
+    }
   }
 
   @ServiceActivator(
@@ -81,11 +68,6 @@ class TransactionAuthorizationRequestedQueueConsumer(
     return eventWithTracingInfo
       .flatMap { (e, tracingInfo) ->
         when (e) {
-          is TransactionAuthorizationRequestedEventV1 -> {
-            logger.debug(
-              "Event {} with tracing info {} of type V1. No more action needed", e, tracingInfo)
-            Mono.empty()
-          }
           is TransactionAuthorizationRequestedEventV2 -> {
             logger.debug("Event {} with tracing info {} dispatched to V2 handler", e, tracingInfo)
             queueConsumerV2.messageReceiver(QueueEvent(e, tracingInfo), checkPointer)

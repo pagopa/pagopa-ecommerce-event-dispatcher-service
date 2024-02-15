@@ -4,8 +4,8 @@ import it.pagopa.ecommerce.commons.client.NpgClient
 import it.pagopa.ecommerce.commons.exceptions.NpgResponseException
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.StateResponseDto
 import it.pagopa.ecommerce.commons.utils.NpgPspApiKeysConfig
-import it.pagopa.ecommerce.eventdispatcher.exceptions.BadGatewayException
-import it.pagopa.ecommerce.eventdispatcher.exceptions.GetStateException
+import it.pagopa.ecommerce.eventdispatcher.exceptions.NpgBadRequestException
+import it.pagopa.ecommerce.eventdispatcher.exceptions.NpgServerErrorException
 import java.util.*
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
@@ -33,12 +33,12 @@ class NpgStateService(
             .map {
               val errorCodeReason = "Received HTTP error code from NPG: $it"
               if (it.is5xxServerError) {
-                BadGatewayException(errorCodeReason)
+                NpgServerErrorException(errorCodeReason)
               } else {
-                GetStateException(transactionId, errorCodeReason)
+                NpgBadRequestException(transactionId, errorCodeReason)
               }
             }
-            .orElse(GetStateException(transactionId, "Unknown NPG HTTP response code"))
+            .orElse(NpgBadRequestException(transactionId, "Unknown NPG HTTP response code"))
         }
       })
   }

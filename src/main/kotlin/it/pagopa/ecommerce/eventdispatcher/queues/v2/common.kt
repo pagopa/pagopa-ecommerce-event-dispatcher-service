@@ -22,10 +22,7 @@ import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.client.TransactionsServiceClient
-import it.pagopa.ecommerce.eventdispatcher.exceptions.GetStateException
-import it.pagopa.ecommerce.eventdispatcher.exceptions.GetStateValueException
-import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
-import it.pagopa.ecommerce.eventdispatcher.exceptions.RefundNotAllowedException
+import it.pagopa.ecommerce.eventdispatcher.exceptions.*
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.QueueCommonsLogger.logger
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
@@ -179,6 +176,7 @@ fun handleGetState(
       transactions.transactionAuthorizationRequestData.paymentGateway ==
         TransactionAuthorizationRequestData.PaymentGateway.NPG
     }
+    .switchIfEmpty(Mono.error(InvalidNPGPaymentGatewayException(tx.transactionId.value())))
     .flatMap { transaction ->
       npgStateService.getStateNpg(
         transaction.transactionId.uuid,
@@ -205,7 +203,7 @@ fun handleGetState(
         .flatMap {
           when (exception) {
             // Enqueue retry event only if getState is allowed
-            !is GetStateException ->
+            !is NpgBadRequestException ->
               handleRetryGetState(
                 authorizationStateRetrieverRetryService = authorizationStateRetrieverRetryService,
                 tx = it,
@@ -237,7 +235,7 @@ fun handleStateResponse(
     .filter { s -> s.state == WorkflowStateDto.PAYMENT_COMPLETE }
     .switchIfEmpty(
       Mono.error(
-        GetStateValueException(
+        NpgPaymentGatewayStateException(
           transactionID = tx.transactionId.uuid, state = stateResponseDto.state!!.value)))
     .map { tx }
     .flatMap { t ->

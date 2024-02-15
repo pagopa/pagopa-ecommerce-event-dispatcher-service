@@ -73,7 +73,7 @@ class TransactionAuthorizationRequestedQueueConsumer(
             tracingInfo = tracingInfo)
         }
     val e = QueueEvent(event, tracingInfo)
-    return runTracedPipelineWithDeadLetterQueue( // CHECK THIS METHOD
+    return runTracedPipelineWithDeadLetterQueue(
       checkPointer,
       authorizationRequestedPipeline,
       e,

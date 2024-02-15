@@ -2,9 +2,7 @@ package it.pagopa.ecommerce.eventdispatcher.client
 
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils
-import it.pagopa.ecommerce.eventdispatcher.exceptions.BadGatewayException
-import it.pagopa.ecommerce.eventdispatcher.exceptions.GatewayTimeoutException
-import it.pagopa.ecommerce.eventdispatcher.exceptions.TransactionNotFound
+import it.pagopa.ecommerce.eventdispatcher.exceptions.*
 import it.pagopa.generated.transactionauthrequests.v1.api.TransactionsApi
 import it.pagopa.generated.transactionauthrequests.v1.dto.TransactionInfoDto
 import it.pagopa.generated.transactionauthrequests.v1.dto.UpdateAuthorizationRequestDto
@@ -51,8 +49,14 @@ class TransactionsServiceClientTest {
     @JvmStatic
     fun `Transactions service error codes method source`(): Stream<Arguments> =
       Stream.of(
-        Arguments.of(HttpStatus.BAD_REQUEST, TransactionNotFound(transactionId.uuid)),
-        Arguments.of(HttpStatus.UNAUTHORIZED, TransactionNotFound(transactionId.uuid)),
+        Arguments.of(
+          HttpStatus.BAD_REQUEST,
+          PatchAuthRequestErrorResponseException(
+            transactionId.uuid, HttpStatus.BAD_REQUEST, "ErrorMessage")),
+        Arguments.of(
+          HttpStatus.UNAUTHORIZED,
+          UnauthorizedPatchAuthorizationRequestException(
+            transactionId.uuid, HttpStatus.UNAUTHORIZED)),
         Arguments.of(HttpStatus.NOT_FOUND, TransactionNotFound(transactionId.uuid)),
         Arguments.of(HttpStatus.GATEWAY_TIMEOUT, GatewayTimeoutException()),
         Arguments.of(HttpStatus.INTERNAL_SERVER_ERROR, BadGatewayException("")),
@@ -84,7 +88,7 @@ class TransactionsServiceClientTest {
             httpErrorCode.value(),
             httpErrorCode.reasonPhrase,
             HttpHeaders.EMPTY,
-            ByteArray(0),
+            "ErrorMessage".encodeToByteArray(),
             StandardCharsets.UTF_8)
         })
     // test
