@@ -189,7 +189,10 @@ fun handleGetState(
             .transactionGatewayAuthorizationRequestedData
             as NpgTransactionGatewayAuthorizationRequestedData)
           .confirmPaymentSessionId,
-        transaction.transactionAuthorizationRequestData.pspId)
+        transaction.transactionAuthorizationRequestData.pspId,
+        (transaction.transactionActivatedData.transactionGatewayActivationData
+            as NpgTransactionGatewayActivationData)
+          .correlationId)
     }
     .flatMap { stateResponseDto ->
       handleStateResponse(stateResponseDto, tx, transactionsServiceClient).thenReturn(tx)

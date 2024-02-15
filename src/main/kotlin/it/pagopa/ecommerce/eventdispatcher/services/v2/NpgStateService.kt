@@ -38,11 +38,16 @@ class NpgStateService(
   private val transientQueuesTTLSeconds: Int,
 ) {
 
-  fun getStateNpg(transactionId: UUID, sessionId: String, pspId: String): Mono<StateResponseDto> {
+  fun getStateNpg(
+    transactionId: UUID,
+    sessionId: String,
+    pspId: String,
+    correlationId: String
+  ): Mono<StateResponseDto> {
     return npgCardsPspApiKey[pspId].fold(
       { ex -> Mono.error(ex) },
       { apiKey ->
-        npgClient.getState(UUID.randomUUID(), sessionId, apiKey).onErrorMap(
+        npgClient.getState(UUID.fromString(correlationId), sessionId, apiKey).onErrorMap(
           NpgResponseException::class.java) { exception: NpgResponseException ->
           val responseStatusCode = exception.statusCode
           responseStatusCode
