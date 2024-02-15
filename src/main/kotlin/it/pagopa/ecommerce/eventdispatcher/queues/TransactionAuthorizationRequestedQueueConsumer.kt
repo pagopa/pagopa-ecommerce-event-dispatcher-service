@@ -4,7 +4,6 @@ import com.azure.core.util.BinaryData
 import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
-import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.documents.BaseTransactionEvent
 import it.pagopa.ecommerce.commons.documents.v1.TransactionAuthorizationRequestedEvent as TransactionAuthorizationRequestedEventV1
 import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationRequestedEvent as TransactionAuthorizationRequestedEventV2
@@ -31,7 +30,7 @@ import reactor.core.publisher.Mono
 class TransactionAuthorizationRequestedQueueConsumer(
   @Autowired
   private val queueConsumerV2:
-  it.pagopa.ecommerce.eventdispatcher.queues.v2.TransactionAuthorizationRequestedQueueConsumer,
+    it.pagopa.ecommerce.eventdispatcher.queues.v2.TransactionAuthorizationRequestedQueueConsumer,
   @Autowired private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient,
   @Autowired private val strictSerializerProviderV1: StrictJsonSerializerProvider,
   @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider
@@ -66,13 +65,14 @@ class TransactionAuthorizationRequestedQueueConsumer(
         }
 
     return Mono.firstWithValue(
-      transactionAuthorizationRequestedEventV1,
-      transactionAuthorizationRequestedEventV2,
-    )
+        transactionAuthorizationRequestedEventV1,
+        transactionAuthorizationRequestedEventV2,
+      )
       .onErrorMap(NoSuchElementException::class.java) { InvalidEventException(data.toBytes(), it) }
   }
 
-  @ServiceActivator(inputChannel = "transactionsauthorizationrequestedchannel", outputChannel = "nullChannel")
+  @ServiceActivator(
+    inputChannel = "transactionsauthorizationrequestedchannel", outputChannel = "nullChannel")
   fun messageReceiver(
     @Payload payload: ByteArray,
     @Header(AzureHeaders.CHECKPOINTER) checkPointer: Checkpointer
@@ -82,7 +82,8 @@ class TransactionAuthorizationRequestedQueueConsumer(
       .flatMap { (e, tracingInfo) ->
         when (e) {
           is TransactionAuthorizationRequestedEventV1 -> {
-            logger.debug("Event {} with tracing info {} of type V1. No more action needed", e, tracingInfo)
+            logger.debug(
+              "Event {} with tracing info {} of type V1. No more action needed", e, tracingInfo)
             Mono.empty()
           }
           is TransactionAuthorizationRequestedEventV2 -> {
@@ -109,4 +110,3 @@ class TransactionAuthorizationRequestedQueueConsumer(
       }
   }
 }
-

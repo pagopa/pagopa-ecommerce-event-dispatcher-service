@@ -10,7 +10,6 @@ import it.pagopa.ecommerce.commons.exceptions.NpgResponseException
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.StateResponseDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.TracingInfo
-import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.commons.utils.NpgPspApiKeysConfig
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadGatewayException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.GetStateException
@@ -35,7 +34,8 @@ class NpgStateService(
   @Autowired private val authRequestedQueueAsyncClient: QueueAsyncClient,
   @Value("\${transactionAuthorizationRequested.eventOffsetSeconds}") private val retryOffset: Int,
   @Value("\${transactionAuthorizationRequested.maxAttempts}") private val maxAttempts: Int,
-  @Autowired private val tracingUtils: TracingUtils,
+  @Value("\${azurestorage.queues.transientQueues.ttlSeconds}")
+  private val transientQueuesTTLSeconds: Int,
 ) {
 
   fun getStateNpg(transactionId: UUID, sessionId: String, pspId: String): Mono<StateResponseDto> {
@@ -82,9 +82,9 @@ class NpgStateService(
       }
       .flatMap {
         authRequestedQueueAsyncClient.sendMessageWithResponse(
-          BinaryData.fromObject(QueueEvent(retryEvent, tracingInfo!!)),
+          BinaryData.fromObject(QueueEvent(retryEvent, tracingInfo)),
           visibilityTimeout,
-          Duration.ZERO)
+          Duration.ofSeconds(transientQueuesTTLSeconds.toLong()))
       }
       .doOnError {
         logger.error(
