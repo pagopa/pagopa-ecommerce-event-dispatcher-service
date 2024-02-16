@@ -252,7 +252,7 @@ fun handleStateResponse(
     .switchIfEmpty(
       Mono.error(
         NpgPaymentGatewayStateException(
-          transactionID = tx.transactionId.uuid, state = stateResponseDto.state!!.value)))
+          transactionID = tx.transactionId.uuid, stateResponseDto.state?.value)))
     .map { tx }
     .flatMap { t ->
       transactionsServiceClient.patchAuthRequest(
@@ -266,10 +266,12 @@ fun handleStateResponse(
                   stateResponseDto.operation!!.operationResult!!.value)
               orderId = stateResponseDto.operation!!.orderId
               operationId = stateResponseDto.operation!!.operationId
-              authorizationCode =
-                stateResponseDto.operation!!.additionalData!!.get("authorizationCode") as String
+              if (stateResponseDto.operation!!.additionalData != null) {
+                authorizationCode =
+                  stateResponseDto.operation!!.additionalData!!.get("authorizationCode") as String
+                rrn = stateResponseDto.operation!!.additionalData!!.get("rrn") as String
+              }
               paymentEndToEndId = stateResponseDto.operation!!.paymentEndToEndId
-              rrn = stateResponseDto.operation!!.additionalData!!.get("rrn") as String
             }
           if (stateResponseDto.operation!!.operationTime != null) {
             timestampOperation = getTimeStampOperation(stateResponseDto.operation!!.operationTime!!)
