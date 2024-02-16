@@ -251,11 +251,15 @@ fun handleStateResponse(
               orderId = stateResponseDto.operation!!.orderId
               operationId = stateResponseDto.operation!!.operationId
               authorizationCode =
-                stateResponseDto.operation!!.additionalData!!.get("authorizationCode") as String
+                stateResponseDto.operation!!.additionalData?.get("authorizationCode") as String
               paymentEndToEndId = stateResponseDto.operation!!.paymentEndToEndId
-              rrn = stateResponseDto.operation!!.additionalData!!.get("rrn") as String
+              rrn = stateResponseDto.operation!!.additionalData?.get("rrn") as String
             }
-          timestampOperation = getTimeStampOperation(stateResponseDto.operation!!.operationTime!!)
+          if (stateResponseDto.operation!!.operationTime != null) {
+            timestampOperation = getTimeStampOperation(stateResponseDto.operation!!.operationTime!!)
+          } else {
+            throw NpgMissingRequiredFieldException("operationTime", "getState")
+          }
         })
     }
 }
