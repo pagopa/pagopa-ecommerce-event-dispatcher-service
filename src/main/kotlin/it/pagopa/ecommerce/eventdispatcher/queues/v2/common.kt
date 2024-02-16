@@ -180,7 +180,7 @@ fun handleGetState(
     .flatMap { transaction ->
       npgStateService.getStateNpg(
         transaction.transactionId.uuid,
-        retrieveGetStateTransactionId(
+        retrieveGetStateSessionId(
           transaction.transactionAuthorizationRequestData
             .transactionGatewayAuthorizationRequestedData
             as NpgTransactionGatewayAuthorizationRequestedData),
@@ -216,7 +216,7 @@ fun handleGetState(
     }
 }
 
-fun retrieveGetStateTransactionId(
+fun retrieveGetStateSessionId(
   authRequestedGatewayData: NpgTransactionGatewayAuthorizationRequestedData
 ): String {
   val sessionId = authRequestedGatewayData.sessionId
