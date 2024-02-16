@@ -246,6 +246,10 @@ fun handleStateResponse(
   tx: BaseTransaction,
   transactionsServiceClient: TransactionsServiceClient,
 ): Mono<TransactionInfoDto> {
+  logger.info(
+    "NPG Get State for transaction with id: [{}] processed successfully with state result [{}]",
+    tx.transactionId.value(),
+    stateResponseDto.state?.value ?: "N/A")
   // invoke transaction service patch
   return Mono.just(stateResponseDto)
     .filter { s -> s.state == WorkflowStateDto.PAYMENT_COMPLETE }
@@ -255,30 +259,38 @@ fun handleStateResponse(
           transactionID = tx.transactionId.uuid, stateResponseDto.state?.value)))
     .map { tx }
     .flatMap { t ->
-      transactionsServiceClient.patchAuthRequest(
-        t.transactionId,
-        UpdateAuthorizationRequestDto().apply {
-          outcomeGateway =
-            OutcomeNpgGatewayDto().apply {
-              paymentGatewayType = "NPG"
-              operationResult =
-                OutcomeNpgGatewayDto.OperationResultEnum.valueOf(
-                  stateResponseDto.operation!!.operationResult!!.value)
-              orderId = stateResponseDto.operation!!.orderId
-              operationId = stateResponseDto.operation!!.operationId
-              if (stateResponseDto.operation!!.additionalData != null) {
-                authorizationCode =
-                  stateResponseDto.operation!!.additionalData!!["authorizationCode"] as String?
-                rrn = stateResponseDto.operation!!.additionalData!!["rrn"] as String?
+      transactionsServiceClient
+        .patchAuthRequest(
+          t.transactionId,
+          UpdateAuthorizationRequestDto().apply {
+            outcomeGateway =
+              OutcomeNpgGatewayDto().apply {
+                paymentGatewayType = "NPG"
+                operationResult =
+                  OutcomeNpgGatewayDto.OperationResultEnum.valueOf(
+                    stateResponseDto.operation!!.operationResult!!.value)
+                orderId = stateResponseDto.operation!!.orderId
+                operationId = stateResponseDto.operation!!.operationId
+                if (stateResponseDto.operation!!.additionalData != null) {
+                  authorizationCode =
+                    stateResponseDto.operation!!.additionalData!!["authorizationCode"] as String?
+                  rrn = stateResponseDto.operation!!.additionalData!!["rrn"] as String?
+                }
+                paymentEndToEndId = stateResponseDto.operation!!.paymentEndToEndId
               }
-              paymentEndToEndId = stateResponseDto.operation!!.paymentEndToEndId
+            if (stateResponseDto.operation!!.operationTime != null) {
+              timestampOperation =
+                getTimeStampOperation(stateResponseDto.operation!!.operationTime!!)
+            } else {
+              throw NpgMissingRequiredFieldException("operationTime", "getState")
             }
-          if (stateResponseDto.operation!!.operationTime != null) {
-            timestampOperation = getTimeStampOperation(stateResponseDto.operation!!.operationTime!!)
-          } else {
-            throw NpgMissingRequiredFieldException("operationTime", "getState")
-          }
-        })
+          })
+        .doOnNext { patchResponse ->
+          logger.info(
+            "Transactions service PATCH authRequest for transaction with id: [{}] processed successfully. New state for transaction is [{}]",
+            tx.transactionId.value(),
+            patchResponse.status.value ?: "N/A")
+        }
     }
 }
 
