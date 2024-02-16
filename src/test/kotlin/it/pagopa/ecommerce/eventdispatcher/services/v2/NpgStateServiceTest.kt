@@ -3,6 +3,7 @@ package it.pagopa.ecommerce.eventdispatcher.services.v2
 import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.client.NpgClient
 import it.pagopa.ecommerce.commons.domain.TransactionId
+import it.pagopa.ecommerce.commons.exceptions.NpgApiKeyMissingPspRequestedException
 import it.pagopa.ecommerce.commons.exceptions.NpgResponseException
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.StateResponseDto
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.WorkflowStateDto
@@ -111,5 +112,29 @@ class NpgStateServiceTest {
       }
       .verify()
     verify(npgClient, times(1)).getState(correlationId, sessionId, pspApiKey)
+  }
+
+  @Test
+  fun `Should throw error for psp api key not configured`() {
+    // pre-conditions
+    val pspId = "pspId"
+    val pspApiKey = "pspApiKey"
+    val transactionId = TransactionId(TransactionTestUtils.TRANSACTION_ID).uuid
+    val sessionId = "sessionId"
+    val correlationId = UUID.randomUUID()
+    val stateResponse = StateResponseDto().state(WorkflowStateDto.CARD_DATA_COLLECTION)
+    given(npgPspApiKeysConfig[pspId])
+      .willReturn(Either.left(NpgApiKeyMissingPspRequestedException(pspId, setOf())))
+    given(npgClient.getState(any(), any(), any())).willReturn(mono { stateResponse })
+    // test
+    StepVerifier.create(
+        npgStateService.getStateNpg(
+          transactionId = transactionId,
+          sessionId = sessionId,
+          pspId = pspId,
+          correlationId = correlationId.toString()))
+      .expectError(NpgApiKeyMissingPspRequestedException::class.java)
+      .verify()
+    verify(npgClient, times(0)).getState(correlationId, sessionId, pspApiKey)
   }
 }

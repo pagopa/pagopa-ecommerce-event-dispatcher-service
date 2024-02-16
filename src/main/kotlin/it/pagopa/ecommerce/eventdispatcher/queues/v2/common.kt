@@ -180,10 +180,10 @@ fun handleGetState(
     .flatMap { transaction ->
       npgStateService.getStateNpg(
         transaction.transactionId.uuid,
-        (transaction.transactionAuthorizationRequestData
+        retrieveGetStateTransactionId(
+          transaction.transactionAuthorizationRequestData
             .transactionGatewayAuthorizationRequestedData
-            as NpgTransactionGatewayAuthorizationRequestedData)
-          .confirmPaymentSessionId,
+            as NpgTransactionGatewayAuthorizationRequestedData),
         transaction.transactionAuthorizationRequestData.pspId,
         (transaction.transactionActivatedData.transactionGatewayActivationData
             as NpgTransactionGatewayActivationData)
@@ -214,6 +214,22 @@ fun handleGetState(
         }
         .thenReturn(tx)
     }
+}
+
+fun retrieveGetStateTransactionId(
+  authRequestedGatewayData: NpgTransactionGatewayAuthorizationRequestedData
+): String {
+  val sessionId = authRequestedGatewayData.sessionId
+  val confirmPaymentSessionId = authRequestedGatewayData.confirmPaymentSessionId
+  val sessionIdToUse =
+    Optional.of(authRequestedGatewayData.confirmPaymentSessionId)
+      .orElse(authRequestedGatewayData.sessionId)
+  logger.info(
+    "NPG authorization request sessionId: [{}], confirm payment session id: [{}] -> session id to use for retrieve state: [{}]",
+    sessionId,
+    confirmPaymentSessionId,
+    sessionIdToUse)
+  return sessionIdToUse
 }
 
 fun handleRetryGetState(
@@ -251,9 +267,9 @@ fun handleStateResponse(
               orderId = stateResponseDto.operation!!.orderId
               operationId = stateResponseDto.operation!!.operationId
               authorizationCode =
-                stateResponseDto.operation!!.additionalData?.get("authorizationCode") as String
+                stateResponseDto.operation!!.additionalData!!.get("authorizationCode") as String
               paymentEndToEndId = stateResponseDto.operation!!.paymentEndToEndId
-              rrn = stateResponseDto.operation!!.additionalData?.get("rrn") as String
+              rrn = stateResponseDto.operation!!.additionalData!!.get("rrn") as String
             }
           if (stateResponseDto.operation!!.operationTime != null) {
             timestampOperation = getTimeStampOperation(stateResponseDto.operation!!.operationTime!!)
