@@ -191,11 +191,11 @@ fun handleGetState(
     }
     .flatMap { stateResponseDto ->
       handleStateResponse(
-          stateResponseDto = stateResponseDto,
-          tx = tx,
-          transactionsServiceClient = transactionsServiceClient)
-        .thenReturn(tx)
+        stateResponseDto = stateResponseDto,
+        tx = tx,
+        transactionsServiceClient = transactionsServiceClient)
     }
+    .thenReturn(tx)
     .onErrorResume { exception ->
       logger.error(
         "Transaction getState npg error for transaction ${tx.transactionId.value()}", exception)
@@ -278,18 +278,13 @@ fun handleStateResponse(
                 }
                 paymentEndToEndId = stateResponseDto.operation!!.paymentEndToEndId
               }
-            if (stateResponseDto.operation!!.operationTime != null) {
-              timestampOperation =
-                getTimeStampOperation(stateResponseDto.operation!!.operationTime!!)
-            } else {
-              throw NpgMissingRequiredFieldException("operationTime", "getState")
-            }
+            timestampOperation = getTimeStampOperation(stateResponseDto.operation!!.operationTime!!)
           })
         .doOnNext { patchResponse ->
           logger.info(
             "Transactions service PATCH authRequest for transaction with id: [{}] processed successfully. New state for transaction is [{}]",
             tx.transactionId.value(),
-            patchResponse.status.value ?: "N/A")
+            patchResponse.status)
         }
     }
 }
