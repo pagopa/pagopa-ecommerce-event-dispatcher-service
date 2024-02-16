@@ -186,6 +186,58 @@ class TransactionAuthorizationRequestedQueueConsumerTest {
   }
 
   @Test
+  fun `Should not process transaction for payment gateway different from NPG`() {
+    // pre-conditions
+    val transactionActivatedEvent = transactionActivateEvent(npgTransactionGatewayActivationData())
+    val transactionAuthorizationRequestedEvent =
+      transactionAuthorizationRequestedEvent(
+        TransactionAuthorizationRequestData.PaymentGateway.REDIRECT,
+        redirectTransactionGatewayAuthorizationRequestedData())
+    val transactionId = TransactionId(TRANSACTION_ID)
+    val events: List<TransactionEvent<Any>> =
+      listOf(
+        transactionActivatedEvent as TransactionEvent<Any>,
+        transactionAuthorizationRequestedEvent as TransactionEvent<Any>)
+
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+          transactionId.value()))
+      .willReturn(Flux.fromIterable(events))
+
+    given(checkpointer.success()).willReturn(Mono.empty())
+    given(
+        deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(any<BinaryData>(), any()))
+      .willReturn(mono {})
+    // Test
+    Hooks.onOperatorDebug()
+    StepVerifier.create(
+        transactionAuthorizationRequestedQueueConsumer.messageReceiver(
+          QueueEvent(transactionAuthorizationRequestedEvent, TracingInfoTest.MOCK_TRACING_INFO),
+          checkpointer))
+      .expectNext(Unit)
+      .verifyComplete()
+    // assertions
+    verify(npgStateService, times(0)).getStateNpg(any(), any(), any(), any())
+    verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
+    verify(deadLetterTracedQueueAsyncClient, times(1))
+      .sendAndTraceDeadLetterQueueEvent(
+        argThat<BinaryData> {
+          TransactionEventCode.valueOf(
+            this.toObject(
+                object : TypeReference<QueueEvent<TransactionAuthorizationRequestedEvent>>() {},
+                jsonSerializerV2)
+              .event
+              .eventCode) == TransactionEventCode.TRANSACTION_AUTHORIZATION_REQUESTED_EVENT
+        },
+        eq(
+          DeadLetterTracedQueueAsyncClient.ErrorContext(
+            transactionId = transactionId,
+            transactionEventCode =
+              TransactionEventCode.TRANSACTION_AUTHORIZATION_REQUESTED_EVENT.toString(),
+            errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)))
+  }
+
+  @Test
   fun `Should enqueue retry event for 5xx error retrieving authorization status from NPG`() {
     // pre-conditions
     val transactionActivatedEvent = transactionActivateEvent(npgTransactionGatewayActivationData())

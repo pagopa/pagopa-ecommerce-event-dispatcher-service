@@ -21,8 +21,9 @@ import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
 
 /**
- * Event consumer for transactions to refund. These events are input in the event queue only when a
- * transaction is stuck in an REFUND_REQUESTED state **and** needs to be reverted
+ * Event consumer for transactions for which retrieve authorization outcome status. This consumer
+ * will handle TransactionAuthorizationRequestedEvent V2 events and inquiry gateway in order to
+ * retrieve authorization outcome
  */
 @Service("TransactionAuthorizationRequestedQueueConsumer")
 class TransactionAuthorizationRequestedQueueConsumer(
@@ -30,11 +31,11 @@ class TransactionAuthorizationRequestedQueueConsumer(
   private val queueConsumerV2:
     it.pagopa.ecommerce.eventdispatcher.queues.v2.TransactionAuthorizationRequestedQueueConsumer,
   @Autowired private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient,
-  @Autowired private val strictSerializerProviderV1: StrictJsonSerializerProvider,
   @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider
 ) {
 
-  var logger: Logger = LoggerFactory.getLogger(TransactionsRefundQueueConsumer::class.java)
+  var logger: Logger =
+    LoggerFactory.getLogger(TransactionAuthorizationRequestedQueueConsumer::class.java)
 
   fun parseEvent(
     payload: ByteArray
@@ -42,20 +43,15 @@ class TransactionAuthorizationRequestedQueueConsumer(
     val data = BinaryData.fromBytes(payload)
     val jsonSerializerV2 = strictSerializerProviderV2.createInstance()
 
-    val transactionAuthorizationRequestedEventV2 =
-      data
-        .toObjectAsync(
-          object : TypeReference<QueueEvent<TransactionAuthorizationRequestedEventV2>>() {},
-          jsonSerializerV2)
-        .map { it.event to it.tracingInfo }
-        .onErrorResume {
-          logger.debug(ERROR_PARSING_EVENT_ERROR, it)
-          Mono.empty()
-        }
-
-    return transactionAuthorizationRequestedEventV2.onErrorMap(NoSuchElementException::class.java) {
-      InvalidEventException(data.toBytes(), it)
-    }
+    return data
+      .toObjectAsync(
+        object : TypeReference<QueueEvent<TransactionAuthorizationRequestedEventV2>>() {},
+        jsonSerializerV2)
+      .map { it.event to it.tracingInfo }
+      .onErrorMap {
+        logger.debug(ERROR_PARSING_EVENT_ERROR, it)
+        InvalidEventException(data.toBytes(), it)
+      }
   }
 
   @ServiceActivator(
@@ -67,19 +63,8 @@ class TransactionAuthorizationRequestedQueueConsumer(
     val eventWithTracingInfo = parseEvent(payload)
     return eventWithTracingInfo
       .flatMap { (e, tracingInfo) ->
-        when (e) {
-          is TransactionAuthorizationRequestedEventV2 -> {
-            logger.debug("Event {} with tracing info {} dispatched to V2 handler", e, tracingInfo)
-            queueConsumerV2.messageReceiver(QueueEvent(e, tracingInfo), checkPointer)
-          }
-          else -> {
-            logger.error(
-              "Event {} with tracing info {} cannot be dispatched to any know handler",
-              e,
-              tracingInfo)
-            Mono.error(InvalidEventException(payload, null))
-          }
-        }
+        logger.debug("Event {} with tracing info {} dispatched to V2 handler", e, tracingInfo)
+        queueConsumerV2.messageReceiver(QueueEvent(e, tracingInfo), checkPointer)
       }
       .onErrorResume(InvalidEventException::class.java) {
         logger.error("Invalid input event", it)
