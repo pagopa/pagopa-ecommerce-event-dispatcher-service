@@ -268,8 +268,8 @@ fun handleStateResponse(
               operationId = stateResponseDto.operation!!.operationId
               if (stateResponseDto.operation!!.additionalData != null) {
                 authorizationCode =
-                  stateResponseDto.operation!!.additionalData!!.get("authorizationCode") as String
-                rrn = stateResponseDto.operation!!.additionalData!!.get("rrn") as String
+                  stateResponseDto.operation!!.additionalData!!["authorizationCode"] as String?
+                rrn = stateResponseDto.operation!!.additionalData!!["rrn"] as String?
               }
               paymentEndToEndId = stateResponseDto.operation!!.paymentEndToEndId
             }
