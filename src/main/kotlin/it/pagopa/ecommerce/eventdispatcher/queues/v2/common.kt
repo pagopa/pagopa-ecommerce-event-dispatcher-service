@@ -34,9 +34,9 @@ import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClien
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto.StatusEnum
 import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
+import it.pagopa.generated.transactionauthrequests.v1.dto.OutcomeNpgGatewayDto
 import it.pagopa.generated.transactionauthrequests.v1.dto.TransactionInfoDto
 import it.pagopa.generated.transactionauthrequests.v1.dto.UpdateAuthorizationRequestDto
-import it.pagopa.generated.transactionauthrequests.v1.dto.UpdateAuthorizationRequestOutcomeGatewayDto
 import java.math.BigDecimal
 import java.time.*
 import java.util.*
@@ -259,10 +259,10 @@ fun handleStateResponse(
         t.transactionId,
         UpdateAuthorizationRequestDto().apply {
           outcomeGateway =
-            UpdateAuthorizationRequestOutcomeGatewayDto().apply {
+            OutcomeNpgGatewayDto().apply {
               paymentGatewayType = "NPG"
               operationResult =
-                UpdateAuthorizationRequestOutcomeGatewayDto.OperationResultEnum.valueOf(
+                OutcomeNpgGatewayDto.OperationResultEnum.valueOf(
                   stateResponseDto.operation!!.operationResult!!.value)
               orderId = stateResponseDto.operation!!.orderId
               operationId = stateResponseDto.operation!!.operationId

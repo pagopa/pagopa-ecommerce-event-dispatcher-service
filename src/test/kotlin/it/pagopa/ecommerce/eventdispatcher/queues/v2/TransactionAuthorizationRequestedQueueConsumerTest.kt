@@ -24,9 +24,9 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRe
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.AuthorizationStateRetrieverRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgStateService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
+import it.pagopa.generated.transactionauthrequests.v1.dto.OutcomeNpgGatewayDto
 import it.pagopa.generated.transactionauthrequests.v1.dto.TransactionInfoDto
 import it.pagopa.generated.transactionauthrequests.v1.dto.UpdateAuthorizationRequestDto
-import it.pagopa.generated.transactionauthrequests.v1.dto.UpdateAuthorizationRequestOutcomeGatewayDto
 import java.time.OffsetDateTime
 import java.util.*
 import java.util.stream.Stream
@@ -117,10 +117,9 @@ class TransactionAuthorizationRequestedQueueConsumerTest {
     val expectedPatchAuthRequest =
       UpdateAuthorizationRequestDto().apply {
         outcomeGateway =
-          UpdateAuthorizationRequestOutcomeGatewayDto().apply {
+          OutcomeNpgGatewayDto().apply {
             this.paymentGatewayType = "NPG"
-            this.operationResult =
-              UpdateAuthorizationRequestOutcomeGatewayDto.OperationResultEnum.EXECUTED
+            this.operationResult = OutcomeNpgGatewayDto.OperationResultEnum.EXECUTED
             this.orderId = orderId
             this.operationId = operationId
             this.authorizationCode = authorizationCode
@@ -185,10 +184,9 @@ class TransactionAuthorizationRequestedQueueConsumerTest {
     val expectedPatchAuthRequest =
       UpdateAuthorizationRequestDto().apply {
         outcomeGateway =
-          UpdateAuthorizationRequestOutcomeGatewayDto().apply {
+          OutcomeNpgGatewayDto().apply {
             this.paymentGatewayType = "NPG"
-            this.operationResult =
-              UpdateAuthorizationRequestOutcomeGatewayDto.OperationResultEnum.DECLINED
+            this.operationResult = OutcomeNpgGatewayDto.OperationResultEnum.DECLINED
             this.orderId = orderId
             this.operationId = operationId
             this.authorizationCode = null
@@ -440,10 +438,9 @@ class TransactionAuthorizationRequestedQueueConsumerTest {
     val expectedPatchAuthRequest =
       UpdateAuthorizationRequestDto().apply {
         outcomeGateway =
-          UpdateAuthorizationRequestOutcomeGatewayDto().apply {
+          OutcomeNpgGatewayDto().apply {
             this.paymentGatewayType = "NPG"
-            this.operationResult =
-              UpdateAuthorizationRequestOutcomeGatewayDto.OperationResultEnum.EXECUTED
+            this.operationResult = OutcomeNpgGatewayDto.OperationResultEnum.EXECUTED
             this.orderId = orderId
             this.operationId = operationId
             this.authorizationCode = authorizationCode

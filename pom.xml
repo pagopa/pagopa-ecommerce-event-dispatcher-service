@@ -346,7 +346,7 @@
 		<plugin>
 			<groupId>org.openapitools</groupId>
 				<artifactId>openapi-generator-maven-plugin</artifactId>
-				<version>6.0.1</version>
+				<version>7.1.0</version>
 				<executions>
 					<execution>
 						<id>node-api</id>
@@ -428,6 +428,7 @@
 							<configOptions>
 								<swaggerAnnotations>false</swaggerAnnotations>
 								<openApiNullable>false</openApiNullable>
+								<useOneOfInterfaces>true</useOneOfInterfaces>
 							</configOptions>
 							<modelPackage>it.pagopa.generated.transactionauthrequests.v1.dto</modelPackage>
 							<apiPackage>it.pagopa.generated.transactionauthrequests.v1.api</apiPackage>
