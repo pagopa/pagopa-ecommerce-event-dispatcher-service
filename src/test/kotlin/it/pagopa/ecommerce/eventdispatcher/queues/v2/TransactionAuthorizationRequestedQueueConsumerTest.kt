@@ -149,7 +149,7 @@ class TransactionAuthorizationRequestedQueueConsumerTest {
       .verifyComplete()
     // assertions
     verify(npgStateService, times(1))
-      .getStateNpg(transactionId.uuid, expectedGetStateSessionId, PSP_ID, NPG_CORRELATION_ID)
+      .getStateNpg(transactionId, expectedGetStateSessionId, PSP_ID, NPG_CORRELATION_ID)
     verify(transactionsServiceClient, times(1))
       .patchAuthRequest(transactionId, expectedPatchAuthRequest)
     verify(deadLetterTracedQueueAsyncClient, times(0))
@@ -217,7 +217,7 @@ class TransactionAuthorizationRequestedQueueConsumerTest {
       .verifyComplete()
     // assertions
     verify(npgStateService, times(1))
-      .getStateNpg(transactionId.uuid, expectedGetStateSessionId, PSP_ID, NPG_CORRELATION_ID)
+      .getStateNpg(transactionId, expectedGetStateSessionId, PSP_ID, NPG_CORRELATION_ID)
     verify(transactionsServiceClient, times(1))
       .patchAuthRequest(transactionId, expectedPatchAuthRequest)
     verify(deadLetterTracedQueueAsyncClient, times(0))
@@ -328,8 +328,7 @@ class TransactionAuthorizationRequestedQueueConsumerTest {
       .willReturn(Mono.empty())
     given(npgStateService.getStateNpg(any(), any(), any(), any()))
       .willReturn(
-        Mono.error(
-          NpgBadRequestException(transactionId.uuid, "Error retrieving transaction status")))
+        Mono.error(NpgBadRequestException(transactionId, "Error retrieving transaction status")))
     given(checkpointer.success()).willReturn(Mono.empty())
     given(
         deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(any<BinaryData>(), any()))
@@ -345,7 +344,7 @@ class TransactionAuthorizationRequestedQueueConsumerTest {
       .verifyComplete()
     // assertions
     verify(npgStateService, times(1))
-      .getStateNpg(transactionId.uuid, expectedGetStateSessionId, PSP_ID, NPG_CORRELATION_ID)
+      .getStateNpg(transactionId, expectedGetStateSessionId, PSP_ID, NPG_CORRELATION_ID)
     verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
     verify(authorizationStateRetrieverRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
     verify(deadLetterTracedQueueAsyncClient, times(1))
@@ -401,7 +400,7 @@ class TransactionAuthorizationRequestedQueueConsumerTest {
       .verifyComplete()
     // assertions
     verify(npgStateService, times(1))
-      .getStateNpg(transactionId.uuid, expectedGetStateSessionId, PSP_ID, NPG_CORRELATION_ID)
+      .getStateNpg(transactionId, expectedGetStateSessionId, PSP_ID, NPG_CORRELATION_ID)
     verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
     verify(authorizationStateRetrieverRetryService, times(1)).enqueueRetryEvent(any(), eq(1), any())
     verify(deadLetterTracedQueueAsyncClient, times(0))
@@ -474,7 +473,7 @@ class TransactionAuthorizationRequestedQueueConsumerTest {
       .verifyComplete()
     // assertions
     verify(npgStateService, times(1))
-      .getStateNpg(transactionId.uuid, expectedGetStateSessionId, PSP_ID, NPG_CORRELATION_ID)
+      .getStateNpg(transactionId, expectedGetStateSessionId, PSP_ID, NPG_CORRELATION_ID)
     verify(transactionsServiceClient, times(1))
       .patchAuthRequest(transactionId, expectedPatchAuthRequest)
     verify(deadLetterTracedQueueAsyncClient, times(0))
@@ -548,7 +547,7 @@ class TransactionAuthorizationRequestedQueueConsumerTest {
       .verifyComplete()
     // assertions
     verify(npgStateService, times(1))
-      .getStateNpg(transactionId.uuid, expectedGetStateSessionId, PSP_ID, NPG_CORRELATION_ID)
+      .getStateNpg(transactionId, expectedGetStateSessionId, PSP_ID, NPG_CORRELATION_ID)
     verify(transactionsServiceClient, times(0))
       .patchAuthRequest(transactionId, expectedPatchAuthRequest)
     verify(deadLetterTracedQueueAsyncClient, times(1))

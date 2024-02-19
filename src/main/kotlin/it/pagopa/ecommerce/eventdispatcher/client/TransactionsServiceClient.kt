@@ -32,7 +32,7 @@ class TransactionsServiceClient(
             PatchAuthRequestErrorResponseException(
               transactionId, exception.statusCode, exception.responseBodyAsString)
           HttpStatus.UNAUTHORIZED ->
-            UnauthorizedPatchAuthorizationRequestException(transactionId.uuid, exception.statusCode)
+            UnauthorizedPatchAuthorizationRequestException(transactionId, exception.statusCode)
           HttpStatus.NOT_FOUND -> TransactionNotFound(transactionId.uuid)
           HttpStatus.GATEWAY_TIMEOUT -> GatewayTimeoutException()
           HttpStatus.INTERNAL_SERVER_ERROR -> BadGatewayException("")

@@ -38,7 +38,7 @@ class NpgStateServiceTest {
     // pre-conditions
     val pspId = "pspId"
     val pspApiKey = "pspApiKey"
-    val transactionId = TransactionId(TransactionTestUtils.TRANSACTION_ID).uuid
+    val transactionId = TransactionId(TransactionTestUtils.TRANSACTION_ID)
     val sessionId = "sessionId"
     val correlationId = UUID.randomUUID()
     val stateResponse = StateResponseDto().state(WorkflowStateDto.CARD_DATA_COLLECTION)
@@ -57,7 +57,7 @@ class NpgStateServiceTest {
   }
 
   companion object {
-    private val transactionId = TransactionId(TransactionTestUtils.TRANSACTION_ID).uuid
+    private val transactionId = TransactionId(TransactionTestUtils.TRANSACTION_ID)
 
     @JvmStatic
     fun `NPG get state error mapping method source`(): Stream<Arguments> =
@@ -89,7 +89,7 @@ class NpgStateServiceTest {
     // pre-conditions
     val pspId = "pspId"
     val pspApiKey = "pspApiKey"
-    val transactionId = TransactionId(TransactionTestUtils.TRANSACTION_ID).uuid
+    val transactionId = TransactionId(TransactionTestUtils.TRANSACTION_ID)
     val sessionId = "sessionId"
     val correlationId = UUID.randomUUID()
     given(npgPspApiKeysConfig[pspId]).willReturn(Either.right(pspApiKey))
@@ -119,7 +119,7 @@ class NpgStateServiceTest {
     // pre-conditions
     val pspId = "pspId"
     val pspApiKey = "pspApiKey"
-    val transactionId = TransactionId(TransactionTestUtils.TRANSACTION_ID).uuid
+    val transactionId = TransactionId(TransactionTestUtils.TRANSACTION_ID)
     val sessionId = "sessionId"
     val correlationId = UUID.randomUUID()
     val stateResponse = StateResponseDto().state(WorkflowStateDto.CARD_DATA_COLLECTION)

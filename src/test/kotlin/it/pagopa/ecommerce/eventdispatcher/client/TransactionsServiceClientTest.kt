@@ -52,11 +52,10 @@ class TransactionsServiceClientTest {
         Arguments.of(
           HttpStatus.BAD_REQUEST,
           PatchAuthRequestErrorResponseException(
-            transactionId.uuid, HttpStatus.BAD_REQUEST, "ErrorMessage")),
+            transactionId, HttpStatus.BAD_REQUEST, "ErrorMessage")),
         Arguments.of(
           HttpStatus.UNAUTHORIZED,
-          UnauthorizedPatchAuthorizationRequestException(
-            transactionId.uuid, HttpStatus.UNAUTHORIZED)),
+          UnauthorizedPatchAuthorizationRequestException(transactionId, HttpStatus.UNAUTHORIZED)),
         Arguments.of(HttpStatus.NOT_FOUND, TransactionNotFound(transactionId.uuid)),
         Arguments.of(HttpStatus.GATEWAY_TIMEOUT, GatewayTimeoutException()),
         Arguments.of(HttpStatus.INTERNAL_SERVER_ERROR, BadGatewayException("")),
