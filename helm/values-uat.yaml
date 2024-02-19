@@ -25,6 +25,7 @@ microservice-chart:
         TRANSACTIONS_NOTIFICATIONS_RETRY_QUEUE_NAME: pagopa-u-weu-ecommerce-transaction-notifications-retry-queue-b
         TRANSACTIONS_NOTIFICATIONS_QUEUE_NAME: pagopa-u-weu-ecommerce-transaction-notifications-queue-b
         TRANSACTIONS_DEAD_LETTER_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-dead-letter-queue-b
+        TRANSACTIONS_AUTHORIZATION_REQUESTED_QUEUE_NAME: pagopa-d-weu-ecommerce-transaction-auth-requested-queue-b
         NODO_ECOMMERCE_CLIENT_ID: ecomm-blue
         OTEL_RESOURCE_ATTRIBUTES: "service.name=pagopa-ecommerce-event-dispatcher-service-blue,service.deployment.environment=uat"
         ECS_SERVICE_NAME: pagopa-ecommerce-event-dispatcher-service-blue
