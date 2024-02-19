@@ -30,7 +30,7 @@ class TransactionsServiceClient(
         when (exception.statusCode) {
           HttpStatus.BAD_REQUEST ->
             PatchAuthRequestErrorResponseException(
-              transactionId.uuid, exception.statusCode, exception.responseBodyAsString)
+              transactionId, exception.statusCode, exception.responseBodyAsString)
           HttpStatus.UNAUTHORIZED ->
             UnauthorizedPatchAuthorizationRequestException(transactionId.uuid, exception.statusCode)
           HttpStatus.NOT_FOUND -> TransactionNotFound(transactionId.uuid)

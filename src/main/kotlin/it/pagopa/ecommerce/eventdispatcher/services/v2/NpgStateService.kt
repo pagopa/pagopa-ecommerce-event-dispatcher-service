@@ -1,6 +1,7 @@
 package it.pagopa.ecommerce.eventdispatcher.services.v2
 
 import it.pagopa.ecommerce.commons.client.NpgClient
+import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.exceptions.NpgResponseException
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.StateResponseDto
 import it.pagopa.ecommerce.commons.utils.NpgPspApiKeysConfig
@@ -18,7 +19,7 @@ class NpgStateService(
 ) {
 
   fun getStateNpg(
-    transactionId: UUID,
+    transactionId: TransactionId,
     sessionId: String,
     pspId: String,
     correlationId: String

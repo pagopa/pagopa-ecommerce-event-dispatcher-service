@@ -1,6 +1,6 @@
 package it.pagopa.ecommerce.eventdispatcher.exceptions
 
-import java.util.*
+import it.pagopa.ecommerce.commons.domain.TransactionId
 
-class NpgPaymentGatewayStateException(transactionID: UUID, state: String? = "N/A") :
-  RuntimeException("Transaction with id $transactionID npg state is $state")
+class NpgPaymentGatewayStateException(transactionID: TransactionId, state: String? = "N/A") :
+  RuntimeException("Transaction with id ${transactionID.value()} npg state is $state")

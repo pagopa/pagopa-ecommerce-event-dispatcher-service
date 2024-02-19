@@ -172,14 +172,14 @@ fun handleGetState(
 ): Mono<BaseTransaction> {
   return Mono.just(tx)
     .cast(BaseTransactionWithRequestedAuthorization::class.java)
-    .filter { transactions ->
-      transactions.transactionAuthorizationRequestData.paymentGateway ==
+    .filter { transaction ->
+      transaction.transactionAuthorizationRequestData.paymentGateway ==
         TransactionAuthorizationRequestData.PaymentGateway.NPG
     }
-    .switchIfEmpty(Mono.error(InvalidNPGPaymentGatewayException(tx.transactionId.value())))
+    .switchIfEmpty(Mono.error(InvalidNPGPaymentGatewayException(tx.transactionId)))
     .flatMap { transaction ->
       npgStateService.getStateNpg(
-        transaction.transactionId.uuid,
+        transaction.transactionId,
         retrieveGetStateSessionId(
           transaction.transactionAuthorizationRequestData
             .transactionGatewayAuthorizationRequestedData
@@ -256,7 +256,7 @@ fun handleStateResponse(
     .switchIfEmpty(
       Mono.error(
         NpgPaymentGatewayStateException(
-          transactionID = tx.transactionId.uuid, stateResponseDto.state?.value)))
+          transactionID = tx.transactionId, stateResponseDto.state?.value)))
     .map { tx }
     .flatMap { t ->
       transactionsServiceClient

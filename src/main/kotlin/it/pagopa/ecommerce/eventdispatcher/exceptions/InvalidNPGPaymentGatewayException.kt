@@ -1,8 +1,9 @@
 package it.pagopa.ecommerce.eventdispatcher.exceptions
 
+import it.pagopa.ecommerce.commons.domain.TransactionId
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.ResponseStatus
 
 @ResponseStatus(value = HttpStatus.BAD_REQUEST)
-class InvalidNPGPaymentGatewayException(transactionId: String) :
+class InvalidNPGPaymentGatewayException(transactionId: TransactionId) :
   InvalidPaymentGatewayException(transactionId, "NPG")
