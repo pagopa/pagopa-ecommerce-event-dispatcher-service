@@ -7,7 +7,6 @@ import com.azure.spring.messaging.checkpoint.Checkpointer
 import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationRequestedEvent as TransactionAuthorizationRequestedEventV2
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
-import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.eventdispatcher.exceptions.InvalidEventException
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import java.util.*
@@ -37,9 +36,7 @@ class TransactionAuthorizationRequestedQueueConsumer(
   var logger: Logger =
     LoggerFactory.getLogger(TransactionAuthorizationRequestedQueueConsumer::class.java)
 
-  fun parseEvent(
-    payload: ByteArray
-  ): Mono<Pair<TransactionAuthorizationRequestedEventV2, TracingInfo?>> {
+  fun parseEvent(payload: ByteArray): Mono<QueueEvent<TransactionAuthorizationRequestedEventV2>> {
     val data = BinaryData.fromBytes(payload)
     val jsonSerializerV2 = strictSerializerProviderV2.createInstance()
 
@@ -47,7 +44,6 @@ class TransactionAuthorizationRequestedQueueConsumer(
       .toObjectAsync(
         object : TypeReference<QueueEvent<TransactionAuthorizationRequestedEventV2>>() {},
         jsonSerializerV2)
-      .map { it.event to it.tracingInfo }
       .onErrorMap {
         logger.debug(ERROR_PARSING_EVENT_ERROR, it)
         InvalidEventException(data.toBytes(), it)
@@ -62,9 +58,10 @@ class TransactionAuthorizationRequestedQueueConsumer(
   ): Mono<Unit> {
     val eventWithTracingInfo = parseEvent(payload)
     return eventWithTracingInfo
-      .flatMap { (e, tracingInfo) ->
-        logger.debug("Event {} with tracing info {} dispatched to V2 handler", e, tracingInfo)
-        queueConsumerV2.messageReceiver(QueueEvent(e, tracingInfo), checkPointer)
+      .flatMap {
+        logger.debug(
+          "Event {} with tracing info {} dispatched to V2 handler", it.event, it.tracingInfo)
+        queueConsumerV2.messageReceiver(it, checkPointer)
       }
       .onErrorResume(InvalidEventException::class.java) {
         logger.error("Invalid input event", it)
