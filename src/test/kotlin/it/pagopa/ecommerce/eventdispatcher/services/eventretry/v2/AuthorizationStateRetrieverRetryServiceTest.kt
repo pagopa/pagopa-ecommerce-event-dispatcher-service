@@ -9,11 +9,8 @@ import com.azure.storage.queue.models.SendMessageResult
 import it.pagopa.ecommerce.commons.documents.v2.Transaction
 import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationRequestedRetriedEvent
 import it.pagopa.ecommerce.commons.documents.v2.TransactionEvent
-import it.pagopa.ecommerce.commons.documents.v2.TransactionRefundRetriedEvent
 import it.pagopa.ecommerce.commons.documents.v2.TransactionRetriedData
-import it.pagopa.ecommerce.commons.documents.v2.authorization.PgsTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.domain.v2.TransactionEventCode
-import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
@@ -29,7 +26,6 @@ import java.time.ZonedDateTime
 import java.util.stream.Stream
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
@@ -49,7 +45,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
 
   private val authRequestedRetryQueueAsyncClient: QueueAsyncClient = mock()
 
-  private val viewRepository: TransactionsViewRepository = mock()
+  private val transactionsViewRepository: TransactionsViewRepository = mock()
 
   private val eventStoreRepository: TransactionsEventStoreRepository<TransactionRetriedData> =
     mock()
@@ -71,26 +67,12 @@ class AuthorizationStateRetrieverRetryServiceTest {
     AuthorizationStateRetrieverRetryService(
       paymentTokenValidityTimeOffset = paymentTokenValidityTimeOffset,
       authRequestedQueueAsyncClient = authRequestedRetryQueueAsyncClient,
-      viewRepository = viewRepository,
+      viewRepository = transactionsViewRepository,
       eventStoreRepository = eventStoreRepository,
       retryOffset = retryOffset,
       maxAttempts = maxAttempts,
       transientQueuesTTLSeconds = TRANSIENT_QUEUE_TTL_SECONDS,
       strictSerializerProviderV2 = strictSerializerProviderV2)
-
-  /*@Test
-  fun `Should throw exception trying to enqueue a retry event`() {
-    val events: List<TransactionEvent<Any>> =
-      listOf(
-        TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
-        TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>)
-
-    val baseTransaction = TransactionTestUtils.reduceEvents(*events.toTypedArray())
-    assertThrows<NotImplementedError> {
-      authorizationStateRetrieverRetryService.enqueueRetryEvent(
-        baseTransaction = baseTransaction, retriedCount = 0, tracingInfo = null)
-    }
-  }*/
 
   @Test
   fun `Should enqueue new authorization requested retry event for left remaining attempts`() {
@@ -106,9 +88,9 @@ class AuthorizationStateRetrieverRetryServiceTest {
     given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
-    given(viewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
+    given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
       .willAnswer { Mono.just(transactionDocument) }
-    given(viewRepository.save(viewRepositoryCaptor.capture())).willAnswer {
+    given(transactionsViewRepository.save(viewRepositoryCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
     given(
@@ -119,23 +101,15 @@ class AuthorizationStateRetrieverRetryServiceTest {
       ))
       .willReturn(queueSuccessfulResponse())
 
-   /* given(
-      authRequestedRetryQueueAsyncClient.sendMessageWithResponse(
-        any<BinaryData>(),
-        any<Duration>(), //eq(Duration.ofSeconds((retryOffset * 3).toLong())),
-        anyOrNull<Duration>()
-      ))
-      .willReturn(queueSuccessfulResponse())*/
-
     StepVerifier.create(
       authorizationStateRetrieverRetryService.enqueueRetryEvent(baseTransaction, maxAttempts - 1, TracingInfoTest.MOCK_TRACING_INFO))
       .expectNext()
       .verifyComplete()
 
     verify(eventStoreRepository, times(1)).save(any())
-    verify(viewRepository, times(1))
+    verify(transactionsViewRepository, times(1))
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
-    verify(viewRepository, times(1)).save(any())
+    verify(transactionsViewRepository, times(1)).save(any())
     verify(authRequestedRetryQueueAsyncClient, times(1))
       .sendMessageWithResponse(
         any<BinaryData>(), any(), eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_SECONDS.toLong()))
@@ -159,7 +133,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
   }
 
   @Test
-  fun `Should enqueue new refund retry event for first time sending event`() {
+  fun `Should enqueue new authorization requested retry event for first time sending event`() {
     val events: MutableList<TransactionEvent<Any>> =
       mutableListOf(
         TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
@@ -172,9 +146,9 @@ class AuthorizationStateRetrieverRetryServiceTest {
     given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
-    given(viewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
+    given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
       .willAnswer { Mono.just(transactionDocument) }
-    given(viewRepository.save(viewRepositoryCaptor.capture())).willAnswer {
+    given(transactionsViewRepository.save(viewRepositoryCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
     given(
@@ -186,9 +160,9 @@ class AuthorizationStateRetrieverRetryServiceTest {
       .verifyComplete()
 
     verify(eventStoreRepository, times(1)).save(any())
-    verify(viewRepository, times(1))
+    verify(transactionsViewRepository, times(1))
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
-    verify(viewRepository, times(1)).save(any())
+    verify(transactionsViewRepository, times(1)).save(any())
     verify(authRequestedRetryQueueAsyncClient, times(1))
       .sendMessageWithResponse(
         any<BinaryData>(), any(), eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_SECONDS.toLong())))
@@ -212,7 +186,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
   }
 
   @Test
-  fun `Should not enqueue new refund retry event for no left remaining attempts`() {
+  fun `Should not enqueue new authorization requested retry event for no left remaining attempts`() {
     val events: MutableList<TransactionEvent<Any>> =
       mutableListOf(
         TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
@@ -231,9 +205,9 @@ class AuthorizationStateRetrieverRetryServiceTest {
     given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
-    given(viewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
+    given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
       .willAnswer { Mono.just(transactionDocument) }
-    given(viewRepository.save(viewRepositoryCaptor.capture())).willAnswer {
+    given(transactionsViewRepository.save(viewRepositoryCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
     given(
@@ -246,9 +220,46 @@ class AuthorizationStateRetrieverRetryServiceTest {
       .verify()
 
     verify(eventStoreRepository, times(0)).save(any())
-    verify(viewRepository, times(0))
+    verify(transactionsViewRepository, times(0))
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
-    verify(viewRepository, times(0)).save(any())
+    verify(transactionsViewRepository, times(0)).save(any())
+    verify(authRequestedRetryQueueAsyncClient, times(0))
+      .sendMessageWithResponse(
+        any<BinaryData>(), any(), eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_SECONDS.toLong())))
+  }
+
+  @Test
+  fun `Should not enqueue new authorization requested retry event for error saving event to eventstore`() {
+    val events: MutableList<TransactionEvent<Any>> =
+      mutableListOf(
+        TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
+        TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
+      )
+    val baseTransaction = TransactionTestUtils.reduceEvents(*events.toTypedArray())
+    val transactionDocument =
+      TransactionTestUtils.transactionDocument(
+        TransactionStatusDto.AUTHORIZATION_REQUESTED, ZonedDateTime.now())
+    given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
+      Mono.error<TransactionEvent<Any>>(RuntimeException("Error saving event into event store"))
+    }
+    given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
+      .willAnswer { Mono.just(transactionDocument) }
+    given(transactionsViewRepository.save(viewRepositoryCaptor.capture())).willAnswer {
+      Mono.just(it.arguments[0])
+    }
+    given(
+      authRequestedRetryQueueAsyncClient.sendMessageWithResponse(
+        queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
+      .willReturn(queueSuccessfulResponse())
+    StepVerifier.create(
+      authorizationStateRetrieverRetryService.enqueueRetryEvent(baseTransaction, maxAttempts - 1, TracingInfoTest.MOCK_TRACING_INFO))
+      .expectError(java.lang.RuntimeException::class.java)
+      .verify()
+
+    verify(eventStoreRepository, times(1)).save(any())
+    verify(transactionsViewRepository, times(0))
+      .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
+    verify(transactionsViewRepository, times(0)).save(any())
     verify(authRequestedRetryQueueAsyncClient, times(0))
       .sendMessageWithResponse(
         any<BinaryData>(), any(), eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_SECONDS.toLong())))
@@ -290,6 +301,78 @@ class AuthorizationStateRetrieverRetryServiceTest {
       authorizationStateRetrieverRetryService.validateRetryEventVisibilityTimeout(
         baseTransaction = baseTransaction, visibilityTimeout)
     assertEquals(expectedResult, visibilityTimeoutCheck)
+  }
+
+  @Test
+  fun `Should not enqueue new authorization requested retry event for error retrieving transaction view`() {
+    val events: MutableList<TransactionEvent<Any>> =
+      mutableListOf(
+        TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
+        TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
+      )
+    val baseTransaction = TransactionTestUtils.reduceEvents(*events.toTypedArray())
+
+    given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
+      Mono.just(it.arguments[0])
+    }
+    given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
+      .willAnswer { Mono.error<Transaction>(RuntimeException("Error finding transaction by id")) }
+    given(transactionsViewRepository.save(viewRepositoryCaptor.capture())).willAnswer {
+      Mono.just(it.arguments[0])
+    }
+    given(
+      authRequestedRetryQueueAsyncClient.sendMessageWithResponse(
+        queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
+      .willReturn(queueSuccessfulResponse())
+    StepVerifier.create(
+      authorizationStateRetrieverRetryService.enqueueRetryEvent(baseTransaction, maxAttempts - 1, TracingInfoTest.MOCK_TRACING_INFO))
+      .expectError(java.lang.RuntimeException::class.java)
+      .verify()
+
+    verify(eventStoreRepository, times(1)).save(any())
+    verify(transactionsViewRepository, times(1))
+      .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
+    verify(transactionsViewRepository, times(0)).save(any())
+    verify(authRequestedRetryQueueAsyncClient, times(0))
+      .sendMessageWithResponse(
+        any<BinaryData>(), any(), eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_SECONDS.toLong())))
+  }
+
+  @Test
+  fun `Should not enqueue new authorization requested retry event for error updating transaction view`() {
+    val events: MutableList<TransactionEvent<Any>> =
+      mutableListOf(
+        TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
+        TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
+      )
+    val baseTransaction = TransactionTestUtils.reduceEvents(*events.toTypedArray())
+    val transactionDocument =
+      TransactionTestUtils.transactionDocument(
+        TransactionStatusDto.AUTHORIZATION_REQUESTED, ZonedDateTime.now())
+    given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
+      Mono.just(it.arguments[0])
+    }
+    given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
+      .willAnswer { Mono.just(transactionDocument) }
+    given(transactionsViewRepository.save(viewRepositoryCaptor.capture())).willAnswer {
+      Mono.error<Transaction>(RuntimeException("Error updating transaction view"))
+    }
+    given(
+      authRequestedRetryQueueAsyncClient.sendMessageWithResponse(
+        queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
+      .willReturn(queueSuccessfulResponse())
+    StepVerifier.create(
+      authorizationStateRetrieverRetryService.enqueueRetryEvent(baseTransaction, maxAttempts - 1, TracingInfoTest.MOCK_TRACING_INFO))
+      .expectError(java.lang.RuntimeException::class.java)
+      .verify()
+
+    verify(eventStoreRepository, times(1)).save(any())
+    verify(transactionsViewRepository, times(1))
+      .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
+    verify(transactionsViewRepository, times(1)).save(any())
+    verify(authRequestedRetryQueueAsyncClient, times(0))
+      .sendMessageWithResponse(
+        any<BinaryData>(), any(), eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_SECONDS.toLong())))
   }
 
   private fun queueSuccessfulResponse(): Mono<Response<SendMessageResult>> {

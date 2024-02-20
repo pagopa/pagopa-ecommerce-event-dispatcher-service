@@ -113,9 +113,22 @@ class QueuesConsumerConfig {
   fun storageQueueAuthorizationRequestedMessageSource(
     storageQueueTemplate: StorageQueueTemplate,
     @Value("\${azurestorage.queues.transactionauthorizationrequested.name}")
-    queueNameRefundRetryEvents: String
+    queueNameAuthRequestedEvents: String
   ): StorageQueueMessageSource {
-    return StorageQueueMessageSource(queueNameRefundRetryEvents, storageQueueTemplate)
+    return StorageQueueMessageSource(queueNameAuthRequestedEvents, storageQueueTemplate)
+  }
+
+  @Bean
+  @InboundChannelAdapter(
+    channel = "transactionsauthorizationrequestedretrychannel",
+    poller = [Poller(fixedDelay = "1000", maxMessagesPerPoll = "10")])
+  @EndpointId("storageQueueAuthorizationRequestedRetryMessageSourceEndpoint")
+  fun storageQueueAuthorizationRequestedRetryMessageSource(
+    storageQueueTemplate: StorageQueueTemplate,
+    @Value("\${azurestorage.queues.transactionauthorizationrequestedretry.name}")
+    queueNameAuthRequestedRetryEvents: String
+  ): StorageQueueMessageSource {
+    return StorageQueueMessageSource(queueNameAuthRequestedRetryEvents, storageQueueTemplate)
   }
 
   @Bean
