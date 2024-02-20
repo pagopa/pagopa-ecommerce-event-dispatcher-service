@@ -1,6 +1,7 @@
 package it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2
 
 import com.azure.storage.queue.QueueAsyncClient
+import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationRequestedRetriedEvent
 import it.pagopa.ecommerce.commons.documents.v2.TransactionClosureRetriedEvent
 import it.pagopa.ecommerce.commons.documents.v2.TransactionRetriedData
 import it.pagopa.ecommerce.commons.domain.TransactionId
@@ -12,7 +13,6 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRe
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import java.time.Duration
 import java.time.Instant
-import java.util.*
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
@@ -31,9 +31,7 @@ class AuthorizationStateRetrieverRetryService(
   private val transientQueuesTTLSeconds: Int,
   @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider
 ) :
-  // TODO set here TransactionClosureRetriedEvent just to make code compile, to be changed with
-  // proper retry event
-  RetryEventService<TransactionClosureRetriedEvent>(
+  RetryEventService<TransactionAuthorizationRequestedRetriedEvent>(
     queueAsyncClient = authRequestedQueueAsyncClient,
     retryOffset = retryOffset,
     maxAttempts = maxAttempts,
@@ -44,10 +42,9 @@ class AuthorizationStateRetrieverRetryService(
 
   override fun buildRetryEvent(
     transactionId: TransactionId,
-    transactionRetriedData: TransactionRetriedData
-  ): TransactionClosureRetriedEvent {
-    TODO("Not yet implemented, to implement with proper retry event build logic")
-  }
+    transactionRetriedData: TransactionRetriedData,
+  ) = TransactionAuthorizationRequestedRetriedEvent(transactionId.value(), transactionRetriedData)
+
 
   override fun newTransactionStatus(): TransactionStatusDto =
     TransactionStatusDto.AUTHORIZATION_REQUESTED

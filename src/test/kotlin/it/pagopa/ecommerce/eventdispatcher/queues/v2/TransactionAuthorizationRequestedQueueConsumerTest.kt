@@ -22,14 +22,13 @@ import it.pagopa.ecommerce.eventdispatcher.exceptions.NpgBadRequestException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NpgServerErrorException
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.AuthorizationStateRetrieverRetryService
-import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgStateService
+import it.pagopa.ecommerce.eventdispatcher.services.v2.AuthorizationStateRetrieverService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.generated.transactionauthrequests.v1.dto.OutcomeNpgGatewayDto
 import it.pagopa.generated.transactionauthrequests.v1.dto.TransactionInfoDto
 import it.pagopa.generated.transactionauthrequests.v1.dto.TransactionStatusDto
 import it.pagopa.generated.transactionauthrequests.v1.dto.UpdateAuthorizationRequestDto
 import java.time.OffsetDateTime
-import java.util.*
 import java.util.stream.Stream
 import kotlinx.coroutines.reactor.mono
 import org.junit.jupiter.api.Test
@@ -51,7 +50,7 @@ class TransactionAuthorizationRequestedQueueConsumerTest {
   private val authorizationStateRetrieverRetryService: AuthorizationStateRetrieverRetryService =
     mock()
 
-  private val npgStateService: NpgStateService = mock()
+  private val authorizationStateRetrieverService: AuthorizationStateRetrieverService = mock()
 
   private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient = mock()
 
@@ -68,7 +67,7 @@ class TransactionAuthorizationRequestedQueueConsumerTest {
       transactionsServiceClient = transactionsServiceClient,
       transactionsEventStoreRepository = transactionsEventStoreRepository,
       authorizationStateRetrieverRetryService = authorizationStateRetrieverRetryService,
-      npgStateService = npgStateService,
+      authorizationStateRetrieverService = authorizationStateRetrieverService,
       deadLetterTracedQueueAsyncClient = deadLetterTracedQueueAsyncClient,
       tracingUtils = tracingUtils,
       strictSerializerProviderV2 = strictJsonSerializerProviderV2)
@@ -133,7 +132,7 @@ class TransactionAuthorizationRequestedQueueConsumerTest {
         transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
           transactionId.value()))
       .willReturn(Flux.fromIterable(events))
-    given(npgStateService.getStateNpg(any(), any(), any(), any()))
+    given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any()))
       .willReturn(mono { npgStateResponse })
     given(transactionsServiceClient.patchAuthRequest(any(), any()))
       .willReturn(
@@ -148,7 +147,7 @@ class TransactionAuthorizationRequestedQueueConsumerTest {
       .expectNext(Unit)
       .verifyComplete()
     // assertions
-    verify(npgStateService, times(1))
+    verify(authorizationStateRetrieverService, times(1))
       .getStateNpg(transactionId, expectedGetStateSessionId, PSP_ID, NPG_CORRELATION_ID)
     verify(transactionsServiceClient, times(1))
       .patchAuthRequest(transactionId, expectedPatchAuthRequest)
@@ -201,7 +200,7 @@ class TransactionAuthorizationRequestedQueueConsumerTest {
         transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
           transactionId.value()))
       .willReturn(Flux.fromIterable(events))
-    given(npgStateService.getStateNpg(any(), any(), any(), any()))
+    given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any()))
       .willReturn(mono { npgStateResponse })
     given(transactionsServiceClient.patchAuthRequest(any(), any()))
       .willReturn(
@@ -216,7 +215,7 @@ class TransactionAuthorizationRequestedQueueConsumerTest {
       .expectNext(Unit)
       .verifyComplete()
     // assertions
-    verify(npgStateService, times(1))
+    verify(authorizationStateRetrieverService, times(1))
       .getStateNpg(transactionId, expectedGetStateSessionId, PSP_ID, NPG_CORRELATION_ID)
     verify(transactionsServiceClient, times(1))
       .patchAuthRequest(transactionId, expectedPatchAuthRequest)
@@ -248,7 +247,7 @@ class TransactionAuthorizationRequestedQueueConsumerTest {
       .expectNext(Unit)
       .verifyComplete()
     // assertions
-    verify(npgStateService, times(0)).getStateNpg(any(), any(), any(), any())
+    verify(authorizationStateRetrieverService, times(0)).getStateNpg(any(), any(), any(), any())
     verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
     verify(deadLetterTracedQueueAsyncClient, times(0))
       .sendAndTraceDeadLetterQueueEvent(any(), any())
@@ -286,7 +285,7 @@ class TransactionAuthorizationRequestedQueueConsumerTest {
       .expectNext(Unit)
       .verifyComplete()
     // assertions
-    verify(npgStateService, times(0)).getStateNpg(any(), any(), any(), any())
+    verify(authorizationStateRetrieverService, times(0)).getStateNpg(any(), any(), any(), any())
     verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
     verify(deadLetterTracedQueueAsyncClient, times(1))
       .sendAndTraceDeadLetterQueueEvent(
@@ -326,7 +325,7 @@ class TransactionAuthorizationRequestedQueueConsumerTest {
       .willReturn(Flux.fromIterable(events))
     given(authorizationStateRetrieverRetryService.enqueueRetryEvent(any(), any(), any()))
       .willReturn(Mono.empty())
-    given(npgStateService.getStateNpg(any(), any(), any(), any()))
+    given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any()))
       .willReturn(
         Mono.error(NpgBadRequestException(transactionId, "Error retrieving transaction status")))
     given(checkpointer.success()).willReturn(Mono.empty())
@@ -343,7 +342,7 @@ class TransactionAuthorizationRequestedQueueConsumerTest {
       .expectNext(Unit)
       .verifyComplete()
     // assertions
-    verify(npgStateService, times(1))
+    verify(authorizationStateRetrieverService, times(1))
       .getStateNpg(transactionId, expectedGetStateSessionId, PSP_ID, NPG_CORRELATION_ID)
     verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
     verify(authorizationStateRetrieverRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
@@ -386,7 +385,7 @@ class TransactionAuthorizationRequestedQueueConsumerTest {
       .willReturn(Flux.fromIterable(events))
     given(authorizationStateRetrieverRetryService.enqueueRetryEvent(any(), any(), any()))
       .willReturn(Mono.empty())
-    given(npgStateService.getStateNpg(any(), any(), any(), any()))
+    given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any()))
       .willReturn(Mono.error(NpgServerErrorException("Error retrieving transaction status")))
     given(checkpointer.success()).willReturn(Mono.empty())
 
@@ -399,7 +398,7 @@ class TransactionAuthorizationRequestedQueueConsumerTest {
       .expectNext(Unit)
       .verifyComplete()
     // assertions
-    verify(npgStateService, times(1))
+    verify(authorizationStateRetrieverService, times(1))
       .getStateNpg(transactionId, expectedGetStateSessionId, PSP_ID, NPG_CORRELATION_ID)
     verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
     verify(authorizationStateRetrieverRetryService, times(1)).enqueueRetryEvent(any(), eq(1), any())
@@ -455,7 +454,7 @@ class TransactionAuthorizationRequestedQueueConsumerTest {
         transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
           transactionId.value()))
       .willReturn(Flux.fromIterable(events))
-    given(npgStateService.getStateNpg(any(), any(), any(), any()))
+    given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any()))
       .willReturn(mono { npgStateResponse })
     given(transactionsServiceClient.patchAuthRequest(any(), any()))
       .willReturn(
@@ -472,7 +471,7 @@ class TransactionAuthorizationRequestedQueueConsumerTest {
       .expectNext(Unit)
       .verifyComplete()
     // assertions
-    verify(npgStateService, times(1))
+    verify(authorizationStateRetrieverService, times(1))
       .getStateNpg(transactionId, expectedGetStateSessionId, PSP_ID, NPG_CORRELATION_ID)
     verify(transactionsServiceClient, times(1))
       .patchAuthRequest(transactionId, expectedPatchAuthRequest)
@@ -528,7 +527,7 @@ class TransactionAuthorizationRequestedQueueConsumerTest {
         transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
           transactionId.value()))
       .willReturn(Flux.fromIterable(events))
-    given(npgStateService.getStateNpg(any(), any(), any(), any()))
+    given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any()))
       .willReturn(mono { npgStateResponse })
     given(transactionsServiceClient.patchAuthRequest(any(), any()))
       .willReturn(
@@ -546,7 +545,7 @@ class TransactionAuthorizationRequestedQueueConsumerTest {
       .expectNext(Unit)
       .verifyComplete()
     // assertions
-    verify(npgStateService, times(1))
+    verify(authorizationStateRetrieverService, times(1))
       .getStateNpg(transactionId, expectedGetStateSessionId, PSP_ID, NPG_CORRELATION_ID)
     verify(transactionsServiceClient, times(0))
       .patchAuthRequest(transactionId, expectedPatchAuthRequest)

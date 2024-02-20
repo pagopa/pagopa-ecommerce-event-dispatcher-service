@@ -29,7 +29,7 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewReposito
 import it.pagopa.ecommerce.eventdispatcher.services.RefundService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.AuthorizationStateRetrieverRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
-import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgStateService
+import it.pagopa.ecommerce.eventdispatcher.services.v2.AuthorizationStateRetrieverService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto.StatusEnum
@@ -165,7 +165,7 @@ fun updateTransactionWithRefundEvent(
 fun handleGetState(
   tx: BaseTransaction,
   authorizationStateRetrieverRetryService: AuthorizationStateRetrieverRetryService,
-  npgStateService: NpgStateService,
+  authorizationStateRetrieverService: AuthorizationStateRetrieverService,
   transactionsServiceClient: TransactionsServiceClient,
   tracingInfo: TracingInfo,
   retryCount: Int = 0
@@ -178,7 +178,7 @@ fun handleGetState(
     }
     .switchIfEmpty(Mono.error(InvalidNPGPaymentGatewayException(tx.transactionId)))
     .flatMap { transaction ->
-      npgStateService.getStateNpg(
+      authorizationStateRetrieverService.getStateNpg(
         transaction.transactionId,
         retrieveGetStateSessionId(
           transaction.transactionAuthorizationRequestData

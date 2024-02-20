@@ -24,14 +24,14 @@ import org.springframework.http.HttpStatus
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
 
-class NpgStateServiceTest {
+class AuthorizationStateRetrieverServiceTest {
 
   private val npgClient: NpgClient = mock()
 
   private val npgPspApiKeysConfig: NpgPspApiKeysConfig = mock()
 
-  private val npgStateService =
-    NpgStateService(npgClient = npgClient, npgCardsPspApiKey = npgPspApiKeysConfig)
+  private val authorizationStateRetrieverService =
+    AuthorizationStateRetrieverService(npgClient = npgClient, npgCardsPspApiKey = npgPspApiKeysConfig)
 
   @Test
   fun `Should retrieve transaction status successfully`() {
@@ -46,7 +46,7 @@ class NpgStateServiceTest {
     given(npgClient.getState(any(), any(), any())).willReturn(mono { stateResponse })
     // test
     StepVerifier.create(
-        npgStateService.getStateNpg(
+        authorizationStateRetrieverService.getStateNpg(
           transactionId = transactionId,
           sessionId = sessionId,
           pspId = pspId,
@@ -100,7 +100,7 @@ class NpgStateServiceTest {
             "Error communicating with NPG", npgHttpErrorStatus, RuntimeException())))
     // test
     StepVerifier.create(
-        npgStateService.getStateNpg(
+        authorizationStateRetrieverService.getStateNpg(
           transactionId = transactionId,
           sessionId = sessionId,
           pspId = pspId,
@@ -128,7 +128,7 @@ class NpgStateServiceTest {
     given(npgClient.getState(any(), any(), any())).willReturn(mono { stateResponse })
     // test
     StepVerifier.create(
-        npgStateService.getStateNpg(
+        authorizationStateRetrieverService.getStateNpg(
           transactionId = transactionId,
           sessionId = sessionId,
           pspId = pspId,
