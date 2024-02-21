@@ -24,7 +24,9 @@ import reactor.core.publisher.Mono
 @Service("TransactionAuthorizationRequestedRetryQueueConsumerV2")
 class TransactionAuthorizationRequestedRetryQueueConsumer(
   @Autowired private val transactionsServiceClient: TransactionsServiceClient,
-  @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<TransactionAuthorizationRequestedRetriedEvent>,
+  @Autowired
+  private val transactionsEventStoreRepository:
+    TransactionsEventStoreRepository<TransactionAuthorizationRequestedRetriedEvent>,
   @Autowired
   private val authorizationStateRetrieverRetryService: AuthorizationStateRetrieverRetryService,
   @Autowired private val authorizationStateRetrieverService: AuthorizationStateRetrieverService,
@@ -56,8 +58,7 @@ class TransactionAuthorizationRequestedRetryQueueConsumer(
               BadTransactionStatusException(
                 transactionId = it.transactionId,
                 expected = listOf(TransactionStatusDto.AUTHORIZATION_REQUESTED),
-                actual = it.status)
-            )
+                actual = it.status))
           } else {
             Mono.just(it)
           }

@@ -22,6 +22,7 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRe
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.utils.TRANSIENT_QUEUE_TTL_SECONDS
 import java.time.Duration
+import java.time.OffsetDateTime
 import java.time.ZonedDateTime
 import java.util.stream.Stream
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -36,7 +37,6 @@ import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.*
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
-import java.time.OffsetDateTime
 
 @ExtendWith(MockitoExtension::class)
 class AuthorizationStateRetrieverRetryServiceTest {
@@ -55,7 +55,8 @@ class AuthorizationStateRetrieverRetryServiceTest {
   private val strictSerializerProviderV2: StrictJsonSerializerProvider =
     QueuesConsumerConfig().strictSerializerProviderV2()
 
-  @Captor private lateinit var eventStoreCaptor: ArgumentCaptor<TransactionEvent<TransactionRetriedData>>
+  @Captor
+  private lateinit var eventStoreCaptor: ArgumentCaptor<TransactionEvent<TransactionRetriedData>>
 
   @Captor private lateinit var viewRepositoryCaptor: ArgumentCaptor<Transaction>
 
@@ -79,8 +80,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
     val events: MutableList<TransactionEvent<Any>> =
       mutableListOf(
         TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
-        TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
-      )
+        TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>)
     val baseTransaction = TransactionTestUtils.reduceEvents(*events.toTypedArray())
     val transactionDocument =
       TransactionTestUtils.transactionDocument(
@@ -94,15 +94,13 @@ class AuthorizationStateRetrieverRetryServiceTest {
       Mono.just(it.arguments[0])
     }
     given(
-      authRequestedRetryQueueAsyncClient.sendMessageWithResponse(
-        queueCaptor.capture(),
-        eq(Duration.ofSeconds((retryOffset * 3).toLong())),
-        anyOrNull()
-      ))
+        authRequestedRetryQueueAsyncClient.sendMessageWithResponse(
+          queueCaptor.capture(), eq(Duration.ofSeconds((retryOffset * 3).toLong())), anyOrNull()))
       .willReturn(queueSuccessfulResponse())
 
     StepVerifier.create(
-      authorizationStateRetrieverRetryService.enqueueRetryEvent(baseTransaction, maxAttempts - 1, TracingInfoTest.MOCK_TRACING_INFO))
+        authorizationStateRetrieverRetryService.enqueueRetryEvent(
+          baseTransaction, maxAttempts - 1, TracingInfoTest.MOCK_TRACING_INFO))
       .expectNext()
       .verifyComplete()
 
@@ -112,8 +110,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
     verify(transactionsViewRepository, times(1)).save(any())
     verify(authRequestedRetryQueueAsyncClient, times(1))
       .sendMessageWithResponse(
-        any<BinaryData>(), any(), eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_SECONDS.toLong()))
-      )
+        any<BinaryData>(), any(), eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_SECONDS.toLong())))
     val savedEvent = eventStoreCaptor.value
     val savedView = viewRepositoryCaptor.value
     val eventSentOnQueue = queueCaptor.value
@@ -137,8 +134,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
     val events: MutableList<TransactionEvent<Any>> =
       mutableListOf(
         TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
-        TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
-      )
+        TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>)
     val baseTransaction = TransactionTestUtils.reduceEvents(*events.toTypedArray())
     val transactionDocument =
       TransactionTestUtils.transactionDocument(
@@ -152,10 +148,12 @@ class AuthorizationStateRetrieverRetryServiceTest {
       Mono.just(it.arguments[0])
     }
     given(
-      authRequestedRetryQueueAsyncClient.sendMessageWithResponse(
-        queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
+        authRequestedRetryQueueAsyncClient.sendMessageWithResponse(
+          queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
       .willReturn(queueSuccessfulResponse())
-    StepVerifier.create(authorizationStateRetrieverRetryService.enqueueRetryEvent(baseTransaction, 0, TracingInfoTest.MOCK_TRACING_INFO))
+    StepVerifier.create(
+        authorizationStateRetrieverRetryService.enqueueRetryEvent(
+          baseTransaction, 0, TracingInfoTest.MOCK_TRACING_INFO))
       .expectNext()
       .verifyComplete()
 
@@ -190,8 +188,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
     val events: MutableList<TransactionEvent<Any>> =
       mutableListOf(
         TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
-        TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
-      )
+        TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>)
     events.add(
       TransactionTestUtils.transactionExpiredEvent(
         TransactionTestUtils.reduceEvents(*events.toTypedArray())) as TransactionEvent<Any>)
@@ -211,11 +208,12 @@ class AuthorizationStateRetrieverRetryServiceTest {
       Mono.just(it.arguments[0])
     }
     given(
-      authRequestedRetryQueueAsyncClient.sendMessageWithResponse(
-        queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
+        authRequestedRetryQueueAsyncClient.sendMessageWithResponse(
+          queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
       .willReturn(queueSuccessfulResponse())
     StepVerifier.create(
-      authorizationStateRetrieverRetryService.enqueueRetryEvent(baseTransaction, maxAttempts, TracingInfoTest.MOCK_TRACING_INFO))
+        authorizationStateRetrieverRetryService.enqueueRetryEvent(
+          baseTransaction, maxAttempts, TracingInfoTest.MOCK_TRACING_INFO))
       .expectError(NoRetryAttemptsLeftException::class.java)
       .verify()
 
@@ -233,8 +231,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
     val events: MutableList<TransactionEvent<Any>> =
       mutableListOf(
         TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
-        TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
-      )
+        TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>)
     val baseTransaction = TransactionTestUtils.reduceEvents(*events.toTypedArray())
     val transactionDocument =
       TransactionTestUtils.transactionDocument(
@@ -248,11 +245,12 @@ class AuthorizationStateRetrieverRetryServiceTest {
       Mono.just(it.arguments[0])
     }
     given(
-      authRequestedRetryQueueAsyncClient.sendMessageWithResponse(
-        queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
+        authRequestedRetryQueueAsyncClient.sendMessageWithResponse(
+          queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
       .willReturn(queueSuccessfulResponse())
     StepVerifier.create(
-      authorizationStateRetrieverRetryService.enqueueRetryEvent(baseTransaction, maxAttempts - 1, TracingInfoTest.MOCK_TRACING_INFO))
+        authorizationStateRetrieverRetryService.enqueueRetryEvent(
+          baseTransaction, maxAttempts - 1, TracingInfoTest.MOCK_TRACING_INFO))
       .expectError(java.lang.RuntimeException::class.java)
       .verify()
 
@@ -308,8 +306,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
     val events: MutableList<TransactionEvent<Any>> =
       mutableListOf(
         TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
-        TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
-      )
+        TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>)
     val baseTransaction = TransactionTestUtils.reduceEvents(*events.toTypedArray())
 
     given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
@@ -321,11 +318,12 @@ class AuthorizationStateRetrieverRetryServiceTest {
       Mono.just(it.arguments[0])
     }
     given(
-      authRequestedRetryQueueAsyncClient.sendMessageWithResponse(
-        queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
+        authRequestedRetryQueueAsyncClient.sendMessageWithResponse(
+          queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
       .willReturn(queueSuccessfulResponse())
     StepVerifier.create(
-      authorizationStateRetrieverRetryService.enqueueRetryEvent(baseTransaction, maxAttempts - 1, TracingInfoTest.MOCK_TRACING_INFO))
+        authorizationStateRetrieverRetryService.enqueueRetryEvent(
+          baseTransaction, maxAttempts - 1, TracingInfoTest.MOCK_TRACING_INFO))
       .expectError(java.lang.RuntimeException::class.java)
       .verify()
 
@@ -343,8 +341,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
     val events: MutableList<TransactionEvent<Any>> =
       mutableListOf(
         TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
-        TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
-      )
+        TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>)
     val baseTransaction = TransactionTestUtils.reduceEvents(*events.toTypedArray())
     val transactionDocument =
       TransactionTestUtils.transactionDocument(
@@ -358,11 +355,12 @@ class AuthorizationStateRetrieverRetryServiceTest {
       Mono.error<Transaction>(RuntimeException("Error updating transaction view"))
     }
     given(
-      authRequestedRetryQueueAsyncClient.sendMessageWithResponse(
-        queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
+        authRequestedRetryQueueAsyncClient.sendMessageWithResponse(
+          queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
       .willReturn(queueSuccessfulResponse())
     StepVerifier.create(
-      authorizationStateRetrieverRetryService.enqueueRetryEvent(baseTransaction, maxAttempts - 1, TracingInfoTest.MOCK_TRACING_INFO))
+        authorizationStateRetrieverRetryService.enqueueRetryEvent(
+          baseTransaction, maxAttempts - 1, TracingInfoTest.MOCK_TRACING_INFO))
       .expectError(java.lang.RuntimeException::class.java)
       .verify()
 

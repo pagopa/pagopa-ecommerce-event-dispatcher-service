@@ -2,7 +2,6 @@ package it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2
 
 import com.azure.storage.queue.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationRequestedRetriedEvent
-import it.pagopa.ecommerce.commons.documents.v2.TransactionClosureRetriedEvent
 import it.pagopa.ecommerce.commons.documents.v2.TransactionRetriedData
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransaction
@@ -44,7 +43,6 @@ class AuthorizationStateRetrieverRetryService(
     transactionId: TransactionId,
     transactionRetriedData: TransactionRetriedData,
   ) = TransactionAuthorizationRequestedRetriedEvent(transactionId.value(), transactionRetriedData)
-
 
   override fun newTransactionStatus(): TransactionStatusDto =
     TransactionStatusDto.AUTHORIZATION_REQUESTED

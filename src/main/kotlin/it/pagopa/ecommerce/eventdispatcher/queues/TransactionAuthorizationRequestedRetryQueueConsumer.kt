@@ -35,7 +35,9 @@ class TransactionAuthorizationRequestedRetryQueueConsumer(
   var logger: Logger =
     LoggerFactory.getLogger(TransactionAuthorizationRequestedRetryQueueConsumer::class.java)
 
-  fun parseEvent(payload: ByteArray): Mono<QueueEvent<TransactionAuthorizationRequestedRetriedEvent>> {
+  fun parseEvent(
+    payload: ByteArray
+  ): Mono<QueueEvent<TransactionAuthorizationRequestedRetriedEvent>> {
     val data = BinaryData.fromBytes(payload)
     val jsonSerializerV2 = strictSerializerProviderV2.createInstance()
 

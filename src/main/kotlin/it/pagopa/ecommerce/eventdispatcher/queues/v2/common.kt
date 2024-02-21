@@ -207,7 +207,7 @@ fun handleGetState(
               handleRetryGetState(
                 authorizationStateRetrieverRetryService = authorizationStateRetrieverRetryService,
                 tx = it,
-                retryCount = retryCount + 1,
+                retryCount = retryCount,
                 tracingInfo = tracingInfo)
             else -> Mono.error(exception)
           }

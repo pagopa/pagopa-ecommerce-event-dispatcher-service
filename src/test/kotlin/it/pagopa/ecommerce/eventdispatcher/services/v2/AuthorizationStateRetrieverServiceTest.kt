@@ -31,7 +31,8 @@ class AuthorizationStateRetrieverServiceTest {
   private val npgPspApiKeysConfig: NpgPspApiKeysConfig = mock()
 
   private val authorizationStateRetrieverService =
-    AuthorizationStateRetrieverService(npgClient = npgClient, npgCardsPspApiKey = npgPspApiKeysConfig)
+    AuthorizationStateRetrieverService(
+      npgClient = npgClient, npgCardsPspApiKey = npgPspApiKeysConfig)
 
   @Test
   fun `Should retrieve transaction status successfully`() {
