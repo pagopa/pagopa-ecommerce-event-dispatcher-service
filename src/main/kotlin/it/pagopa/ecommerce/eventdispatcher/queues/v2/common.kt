@@ -4,10 +4,7 @@ import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.documents.v2.activation.NpgTransactionGatewayActivationData
-import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationData
-import it.pagopa.ecommerce.commons.documents.v2.authorization.PgsTransactionGatewayAuthorizationData
-import it.pagopa.ecommerce.commons.documents.v2.authorization.RedirectTransactionGatewayAuthorizationData
-import it.pagopa.ecommerce.commons.documents.v2.authorization.TransactionGatewayAuthorizationData
+import it.pagopa.ecommerce.commons.documents.v2.authorization.*
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v2.TransactionEventCode
@@ -15,6 +12,8 @@ import it.pagopa.ecommerce.commons.domain.v2.TransactionWithClosureError
 import it.pagopa.ecommerce.commons.domain.v2.pojos.*
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.RefundResponseDto
+import it.pagopa.ecommerce.commons.generated.npg.v1.dto.StateResponseDto
+import it.pagopa.ecommerce.commons.generated.npg.v1.dto.WorkflowStateDto
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
@@ -22,20 +21,24 @@ import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
-import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
-import it.pagopa.ecommerce.eventdispatcher.exceptions.RefundNotAllowedException
+import it.pagopa.ecommerce.eventdispatcher.client.TransactionsServiceClient
+import it.pagopa.ecommerce.eventdispatcher.exceptions.*
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.QueueCommonsLogger.logger
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.RefundService
+import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.AuthorizationStateRetrieverRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
+import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgStateService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto.StatusEnum
 import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
+import it.pagopa.generated.transactionauthrequests.v1.dto.OutcomeNpgGatewayDto
+import it.pagopa.generated.transactionauthrequests.v1.dto.TransactionInfoDto
+import it.pagopa.generated.transactionauthrequests.v1.dto.UpdateAuthorizationRequestDto
 import java.math.BigDecimal
-import java.time.Duration
-import java.time.ZonedDateTime
+import java.time.*
 import java.util.*
 import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
@@ -157,6 +160,140 @@ fun updateTransactionWithRefundEvent(
         "Updated event for transaction with id ${transaction.transactionId.value()} to status $status")
     }
     .thenReturn(transaction)
+}
+
+fun handleGetState(
+  tx: BaseTransaction,
+  authorizationStateRetrieverRetryService: AuthorizationStateRetrieverRetryService,
+  npgStateService: NpgStateService,
+  transactionsServiceClient: TransactionsServiceClient,
+  tracingInfo: TracingInfo,
+  retryCount: Int = 0
+): Mono<BaseTransaction> {
+  return Mono.just(tx)
+    .cast(BaseTransactionWithRequestedAuthorization::class.java)
+    .filter { transaction ->
+      transaction.transactionAuthorizationRequestData.paymentGateway ==
+        TransactionAuthorizationRequestData.PaymentGateway.NPG
+    }
+    .switchIfEmpty(Mono.error(InvalidNPGPaymentGatewayException(tx.transactionId)))
+    .flatMap { transaction ->
+      npgStateService.getStateNpg(
+        transaction.transactionId,
+        retrieveGetStateSessionId(
+          transaction.transactionAuthorizationRequestData
+            .transactionGatewayAuthorizationRequestedData
+            as NpgTransactionGatewayAuthorizationRequestedData),
+        transaction.transactionAuthorizationRequestData.pspId,
+        (transaction.transactionActivatedData.transactionGatewayActivationData
+            as NpgTransactionGatewayActivationData)
+          .correlationId)
+    }
+    .flatMap { stateResponseDto ->
+      handleStateResponse(
+        stateResponseDto = stateResponseDto,
+        tx = tx,
+        transactionsServiceClient = transactionsServiceClient)
+    }
+    .thenReturn(tx)
+    .onErrorResume { exception ->
+      logger.error(
+        "Transaction getState npg error for transaction ${tx.transactionId.value()}", exception)
+      Mono.just(tx)
+        .flatMap {
+          when (exception) {
+            // Enqueue retry event only if getState is allowed
+            !is NpgBadRequestException ->
+              handleRetryGetState(
+                authorizationStateRetrieverRetryService = authorizationStateRetrieverRetryService,
+                tx = it,
+                retryCount = retryCount + 1,
+                tracingInfo = tracingInfo)
+            else -> Mono.error(exception)
+          }
+        }
+        .thenReturn(tx)
+    }
+}
+
+fun retrieveGetStateSessionId(
+  authRequestedGatewayData: NpgTransactionGatewayAuthorizationRequestedData
+): String {
+  val sessionId = authRequestedGatewayData.sessionId
+  val confirmPaymentSessionId = authRequestedGatewayData.confirmPaymentSessionId
+  val sessionIdToUse =
+    Optional.of(authRequestedGatewayData.confirmPaymentSessionId)
+      .orElse(authRequestedGatewayData.sessionId)
+  logger.info(
+    "NPG authorization request sessionId: [{}], confirm payment session id: [{}] -> session id to use for retrieve state: [{}]",
+    sessionId,
+    confirmPaymentSessionId,
+    sessionIdToUse)
+  return sessionIdToUse
+}
+
+fun handleRetryGetState(
+  authorizationStateRetrieverRetryService: AuthorizationStateRetrieverRetryService,
+  tx: BaseTransaction,
+  retryCount: Int,
+  tracingInfo: TracingInfo
+): Mono<Void> {
+  return authorizationStateRetrieverRetryService.enqueueRetryEvent(tx, retryCount, tracingInfo)
+}
+
+fun handleStateResponse(
+  stateResponseDto: StateResponseDto,
+  tx: BaseTransaction,
+  transactionsServiceClient: TransactionsServiceClient,
+): Mono<TransactionInfoDto> {
+  logger.info(
+    "NPG Get State for transaction with id: [{}] processed successfully with state result [{}]",
+    tx.transactionId.value(),
+    stateResponseDto.state?.value ?: "N/A")
+  // invoke transaction service patch
+  return Mono.just(stateResponseDto)
+    .filter { s -> s.state == WorkflowStateDto.PAYMENT_COMPLETE }
+    .switchIfEmpty(
+      Mono.error(
+        NpgPaymentGatewayStateException(
+          transactionID = tx.transactionId, stateResponseDto.state?.value)))
+    .map { tx }
+    .flatMap { t ->
+      transactionsServiceClient
+        .patchAuthRequest(
+          t.transactionId,
+          UpdateAuthorizationRequestDto().apply {
+            outcomeGateway =
+              OutcomeNpgGatewayDto().apply {
+                paymentGatewayType = "NPG"
+                operationResult =
+                  OutcomeNpgGatewayDto.OperationResultEnum.valueOf(
+                    stateResponseDto.operation!!.operationResult!!.value)
+                orderId = stateResponseDto.operation!!.orderId
+                operationId = stateResponseDto.operation!!.operationId
+                if (stateResponseDto.operation!!.additionalData != null) {
+                  authorizationCode =
+                    stateResponseDto.operation!!.additionalData!!["authorizationCode"] as String?
+                  rrn = stateResponseDto.operation!!.additionalData!!["rrn"] as String?
+                }
+                paymentEndToEndId = stateResponseDto.operation!!.paymentEndToEndId
+              }
+            timestampOperation = getTimeStampOperation(stateResponseDto.operation!!.operationTime!!)
+          })
+        .doOnNext { patchResponse ->
+          logger.info(
+            "Transactions service PATCH authRequest for transaction with id: [{}] processed successfully. New state for transaction is [{}]",
+            tx.transactionId.value(),
+            patchResponse.status)
+        }
+    }
+}
+
+fun getTimeStampOperation(operationTime: String): OffsetDateTime {
+  val operationTimeT: String = operationTime.replace(" ", "T")
+  val localDateTime = LocalDateTime.parse(operationTimeT)
+  val zonedDateTime = localDateTime.atZone(ZoneId.of("CET"))
+  return zonedDateTime.toOffsetDateTime()
 }
 
 fun refundTransaction(

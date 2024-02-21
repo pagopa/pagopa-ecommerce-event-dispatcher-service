@@ -11,7 +11,6 @@ import it.pagopa.ecommerce.eventdispatcher.config.QueuesConsumerConfig
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import java.nio.charset.StandardCharsets
 import java.util.stream.Stream
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.reactor.mono
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
@@ -24,7 +23,6 @@ import reactor.core.publisher.Hooks
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
 
-@OptIn(ExperimentalCoroutinesApi::class)
 class TransactionClosePaymentQueueConsumerTest {
 
   private val queueConsumerV1:
