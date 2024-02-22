@@ -10,7 +10,6 @@ import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.client.TransactionsServiceClient
-import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.AuthorizationStateRetrieverRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.AuthorizationStateRetrieverService
@@ -20,6 +19,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
+import reactor.kotlin.core.publisher.switchIfEmpty
 
 @Service("TransactionAuthorizationRequestedRetryQueueConsumerV2")
 class TransactionAuthorizationRequestedRetryQueueConsumer(
@@ -41,26 +41,27 @@ class TransactionAuthorizationRequestedRetryQueueConsumer(
   ): Mono<Unit> {
     val event = parsedEvent.event
     val tracingInfo = parsedEvent.tracingInfo
-    val baseTransaction =
+    val transactionId = event.transactionId
+    val authorizationRequestedRetryPipeline =
       transactionsEventStoreRepository
-        .findByTransactionIdOrderByCreationDateAsc(event.transactionId)
+        .findByTransactionIdOrderByCreationDateAsc(transactionId)
         .reduce(EmptyTransaction(), Transaction::applyEvent)
         .cast(BaseTransaction::class.java)
-    val authorizationPipeline =
-      baseTransaction
-        .flatMap {
-          logger.info("Status for transaction ${it.transactionId.value()}: ${it.status}")
-
-          if (it.status != TransactionStatusDto.AUTHORIZATION_REQUESTED) {
-            Mono.error(
-              BadTransactionStatusException(
-                transactionId = it.transactionId,
-                expected = listOf(TransactionStatusDto.AUTHORIZATION_REQUESTED),
-                actual = it.status))
-          } else {
-            Mono.just(it)
-          }
+        .doOnNext {
+          logger.info(
+            "Performing attempt number ${event.data.retryCount} for NPG getState invocation")
         }
+        .filter { it.status == TransactionStatusDto.AUTHORIZATION_REQUESTED }
+        .switchIfEmpty {
+          logger.info(
+            "Transaction $transactionId is not is Authorization Requested status. No more action needed")
+          Mono.empty()
+        }
+        .doOnNext {
+          logger.info(
+            "Handling get state request for transaction with id ${it.transactionId.value()}")
+        }
+        .cast(BaseTransactionWithRequestedAuthorization::class.java)
         .flatMap { tx ->
           handleGetState(
             tx,
@@ -72,7 +73,7 @@ class TransactionAuthorizationRequestedRetryQueueConsumer(
         }
     return runTracedPipelineWithDeadLetterQueue(
       checkPointer,
-      authorizationPipeline,
+      authorizationRequestedRetryPipeline,
       QueueEvent(event, tracingInfo),
       deadLetterTracedQueueAsyncClient,
       tracingUtils,
