@@ -13,6 +13,8 @@ import it.pagopa.generated.ecommerce.nodo.v2.ApiClient as NodoApiClient
 import it.pagopa.generated.ecommerce.nodo.v2.api.NodoApi
 import it.pagopa.generated.notifications.v1.ApiClient
 import it.pagopa.generated.notifications.v1.api.DefaultApi
+import it.pagopa.generated.transactionauthrequests.v1.ApiClient as TransanctionsApiClient
+import it.pagopa.generated.transactionauthrequests.v1.api.TransactionsApi
 import java.util.concurrent.TimeUnit
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
@@ -155,5 +157,30 @@ class WebClientConfig {
         .baseUrl(notificationsServiceUri)
         .build()
     return DefaultApi(ApiClient(webClient).setBasePath(notificationsServiceUri))
+  }
+
+  @Bean(name = ["transactionsServiceWebClient"])
+  fun transactionsServiceWebClient(
+    @Value("\${transactionsService.uri}") transactionsServiceUri: String,
+    @Value("\${transactionsService.readTimeout}") transactionsServiceReadTimeout: Int,
+    @Value("\${transactionsService.connectionTimeout}") transactionsServiceConnectionTimeout: Int,
+    @Value("\${transactionsService.apiKey}") transactionsServiceApiKey: String
+  ): TransactionsApi {
+    val httpClient =
+      HttpClient.create()
+        .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, transactionsServiceConnectionTimeout)
+        .doOnConnected { connection: Connection ->
+          connection.addHandlerLast(
+            ReadTimeoutHandler(transactionsServiceReadTimeout.toLong(), TimeUnit.MILLISECONDS))
+        }
+    val webClient =
+      ApiClient.buildWebClientBuilder()
+        .clientConnector(ReactorClientHttpConnector(httpClient))
+        .baseUrl(transactionsServiceUri)
+        .build()
+
+    val apiClient = TransanctionsApiClient(webClient).setBasePath(transactionsServiceUri)
+    apiClient.setApiKey(transactionsServiceApiKey)
+    return TransactionsApi(apiClient)
   }
 }
