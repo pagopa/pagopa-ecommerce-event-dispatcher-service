@@ -24,9 +24,7 @@ import reactor.core.publisher.Mono
 @Service("TransactionAuthorizationRequestedRetryQueueConsumerV2")
 class TransactionAuthorizationRequestedRetryQueueConsumer(
   @Autowired private val transactionsServiceClient: TransactionsServiceClient,
-  @Autowired
-  private val transactionsEventStoreRepository:
-    TransactionsEventStoreRepository<TransactionAuthorizationRequestedRetriedEvent>,
+  @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,
   @Autowired
   private val authorizationStateRetrieverRetryService: AuthorizationStateRetrieverRetryService,
   @Autowired private val authorizationStateRetrieverService: AuthorizationStateRetrieverService,
@@ -48,7 +46,7 @@ class TransactionAuthorizationRequestedRetryQueueConsumer(
         .findByTransactionIdOrderByCreationDateAsc(event.transactionId)
         .reduce(EmptyTransaction(), Transaction::applyEvent)
         .cast(BaseTransaction::class.java)
-    val refundPipeline =
+    val authorizationPipeline =
       baseTransaction
         .flatMap {
           logger.info("Status for transaction ${it.transactionId.value()}: ${it.status}")
@@ -74,7 +72,7 @@ class TransactionAuthorizationRequestedRetryQueueConsumer(
         }
     return runTracedPipelineWithDeadLetterQueue(
       checkPointer,
-      refundPipeline,
+      authorizationPipeline,
       QueueEvent(event, tracingInfo),
       deadLetterTracedQueueAsyncClient,
       tracingUtils,
