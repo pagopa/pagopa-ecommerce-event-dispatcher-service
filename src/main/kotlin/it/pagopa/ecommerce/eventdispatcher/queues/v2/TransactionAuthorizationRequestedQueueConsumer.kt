@@ -72,11 +72,10 @@ class TransactionAuthorizationRequestedQueueConsumer(
             transactionsServiceClient = transactionsServiceClient,
             tracingInfo = tracingInfo)
         }
-    val e = QueueEvent(event, tracingInfo)
     return runTracedPipelineWithDeadLetterQueue(
       checkPointer,
       authorizationRequestedPipeline,
-      e,
+      QueueEvent(event, tracingInfo),
       deadLetterTracedQueueAsyncClient,
       tracingUtils,
       this::class.simpleName!!,

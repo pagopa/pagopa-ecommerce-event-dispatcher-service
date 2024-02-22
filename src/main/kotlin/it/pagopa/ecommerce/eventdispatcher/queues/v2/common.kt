@@ -198,18 +198,18 @@ fun handleGetState(
     .thenReturn(tx)
     .onErrorResume { exception ->
       logger.error(
-        "Transaction getState npg error for transaction ${tx.transactionId.value()}", exception)
+        "Transaction handleGetState error for transaction ${tx.transactionId.value()}", exception)
       Mono.just(tx)
         .flatMap {
           when (exception) {
-            // Enqueue retry event only if getState is allowed
-            !is NpgBadRequestException ->
-              handleRetryGetState(
-                authorizationStateRetrieverRetryService = authorizationStateRetrieverRetryService,
-                tx = it,
-                retryCount = retryCount,
-                tracingInfo = tracingInfo)
-            else -> Mono.error(exception)
+            // Enqueue retry event only if getState is 5xx or 2xx with no PAYMENT_COMPLETE or
+            // patchRequest is 5xx
+            is NpgBadRequestException,
+            is TransactionNotFound,
+            is UnauthorizedPatchAuthorizationRequestException,
+            is PatchAuthRequestErrorResponseException -> Mono.empty()
+            else ->
+              authorizationStateRetrieverRetryService.enqueueRetryEvent(tx, retryCount, tracingInfo)
           }
         }
         .thenReturn(tx)
@@ -230,15 +230,6 @@ fun retrieveGetStateSessionId(
     confirmPaymentSessionId,
     sessionIdToUse)
   return sessionIdToUse
-}
-
-fun handleRetryGetState(
-  authorizationStateRetrieverRetryService: AuthorizationStateRetrieverRetryService,
-  tx: BaseTransaction,
-  retryCount: Int,
-  tracingInfo: TracingInfo
-): Mono<Void> {
-  return authorizationStateRetrieverRetryService.enqueueRetryEvent(tx, retryCount, tracingInfo)
 }
 
 fun handleStateResponse(

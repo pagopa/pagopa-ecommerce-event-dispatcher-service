@@ -20,6 +20,7 @@ import it.pagopa.ecommerce.eventdispatcher.client.TransactionsServiceClient
 import it.pagopa.ecommerce.eventdispatcher.config.QueuesConsumerConfig
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NpgBadRequestException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NpgServerErrorException
+import it.pagopa.ecommerce.eventdispatcher.exceptions.PatchAuthRequestErrorResponseException
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.AuthorizationStateRetrieverRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.AuthorizationStateRetrieverService
@@ -36,6 +37,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import org.mockito.kotlin.*
+import org.springframework.http.HttpStatus
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Hooks
 import reactor.core.publisher.Mono
@@ -346,7 +348,7 @@ class TransactionAuthorizationRequestedQueueConsumerTest {
       .getStateNpg(transactionId, expectedGetStateSessionId, PSP_ID, NPG_CORRELATION_ID)
     verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
     verify(authorizationStateRetrieverRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
-    verify(deadLetterTracedQueueAsyncClient, times(1))
+    verify(deadLetterTracedQueueAsyncClient, times(0))
       .sendAndTraceDeadLetterQueueEvent(
         argThat<BinaryData> {
           TransactionEventCode.valueOf(
@@ -408,6 +410,12 @@ class TransactionAuthorizationRequestedQueueConsumerTest {
 
   @Test
   fun `Should not enqueue retry event for error performing auth request to transactions service`() {
+
+    // TEST PATCH 400 -> NO retry
+    // TEST PATCH 500 -> Retry
+    // TEST PATCH Timeout -> Retry
+    // TEST PATCH Body non valido -> Dead letter o retry?
+
     // pre-conditions
     val transactionActivatedEvent = transactionActivateEvent(npgTransactionGatewayActivationData())
     val transactionAuthorizationRequestedEvent =
@@ -458,7 +466,9 @@ class TransactionAuthorizationRequestedQueueConsumerTest {
       .willReturn(mono { npgStateResponse })
     given(transactionsServiceClient.patchAuthRequest(any(), any()))
       .willReturn(
-        mono { TransactionInfoDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED) })
+        Mono.error(
+          PatchAuthRequestErrorResponseException(
+            transactionId, HttpStatus.BAD_REQUEST, "test error")))
     given(checkpointer.success()).willReturn(Mono.empty())
     given(
         deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(any<BinaryData>(), any()))
