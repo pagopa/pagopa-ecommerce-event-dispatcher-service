@@ -401,7 +401,7 @@ class TransactionAuthorizationRequestedQueueConsumerTest {
     verify(authorizationStateRetrieverService, times(1))
       .getStateNpg(transactionId, expectedGetStateSessionId, PSP_ID, NPG_CORRELATION_ID)
     verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
-    verify(authorizationStateRetrieverRetryService, times(1)).enqueueRetryEvent(any(), eq(1), any())
+    verify(authorizationStateRetrieverRetryService, times(1)).enqueueRetryEvent(any(), eq(0), any())
     verify(deadLetterTracedQueueAsyncClient, times(0))
       .sendAndTraceDeadLetterQueueEvent(any(), any())
   }
