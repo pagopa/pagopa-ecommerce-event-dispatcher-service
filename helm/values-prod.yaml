@@ -16,80 +16,18 @@ microservice-chart:
         repository: pagopapcommonacr.azurecr.io/pagopaecommerceeventdispatcherservice
         tag: "latest"
         pullPolicy: Always
-    envConfig:
-      TRANSACTIONS_CLOSE_PAYMENT_QUEUE_NAME: pagopa-p-weu-ecommerce-transactions-close-payment-queue
-      TRANSACTIONS_CLOSE_PAYMENT_RETRY_QUEUE_NAME: pagopa-p-weu-ecommerce-transactions-close-payment-retry-queue
-      TRANSACTIONS_EXPIRATION_QUEUE_NAME: pagopa-p-weu-ecommerce-transactions-expiration-queue
-      TRANSACTIONS_REFUND_RETRY_QUEUE_NAME: pagopa-p-weu-ecommerce-transactions-refund-retry-queue
-      TRANSACTIONS_REFUND_QUEUE_NAME: pagopa-p-weu-ecommerce-transactions-refund-queue
-      TRANSACTIONS_NOTIFICATIONS_RETRY_QUEUE_NAME: pagopa-p-weu-ecommerce-transaction-notifications-retry-queue
-      TRANSACTIONS_NOTIFICATIONS_QUEUE_NAME: pagopa-p-weu-ecommerce-transaction-notifications-queue
-      TRANSACTIONS_DEAD_LETTER_QUEUE_NAME: pagopa-p-weu-ecommerce-transactions-dead-letter-queue
-      TRANSACTIONS_AUTHORIZATION_REQUESTED_QUEUE_NAME: pagopa-p-weu-ecommerce-transaction-auth-requested-queue
-      PAYMENT_TRANSACTIONS_GATEWAY_URI: https://api.platform.pagopa.it/payment-transactions-gateway/internal/v1
-      PAYMENT_TRANSACTIONS_GATEWAY_READ_TIMEOUT: "15000"
-      PAYMENT_TRANSACTIONS_GATEWAY_CONNECTION_TIMEOUT: "10000"
-      NODO_URI: https://api.platform.pagopa.it/nodo/nodo-per-pm/v2
-      NODO_READ_TIMEOUT: "14000"
-      NODO_CONNECTION_TIMEOUT: "14000"
-      NODO_ECOMMERCE_CLIENT_ID: ecomm
-      MONGO_HOST: pagopa-p-weu-ecommerce-cosmos-account.mongo.cosmos.azure.com
-      MONGO_USERNAME: pagopa-p-weu-ecommerce-cosmos-account
-      MONGO_PORT: "10255"
-      MONGO_SSL_ENABLED: "true"
-      REDIS_HOST: pagopa-p-weu-ecommerce-redis.redis.cache.windows.net
-      REDIS_PORT: "6380"
-      REDIS_SSL_ENABLED: "true"
-      ECOMMERCE_STORAGE_TRANSIENT_QUEUE_ACCOUNT_NAME: pagopapweuecommercetrsa
-      ECOMMERCE_STORAGE_TRANSIENT_QUEUE_ENDPOINT: https://pagopapweuecommercetrsa.queue.core.windows.net/pagopauweuecommercetrsa
-      REFUND_RETRY_EVENT_BASE_INTERVAL_SECONDS: "600"
-      REFUND_RETRY_EVENT_MAX_ATTEMPTS: "5"
-      CLOSE_PAYMENT_RETRY_EVENT_BASE_INTERVAL_SECONDS: "30"
-      CLOSE_PAYMENT_RETRY_EVENT_MAX_ATTEMPTS: "3"
-      NOTIFICATION_RETRY_EVENT_BASE_INTERVAL_SECONDS: "600"
-      NOTIFICATION_RETRY_EVENT_MAX_ATTEMPTS: "3"
-      AUTHORIZATION_REQUESTED_RETRY_EVENT_BASE_INTERVAL_SECONDS: "60"
-      AUTHORIZATION_REQUESTED_RETRY_EVENT_MAX_ATTEMPTS: "3"
-      NOTIFICATIONS_SERVICE_URI: https://api.platform.pagopa.it/ecommerce/notifications-service/v1
-      NOTIFICATIONS_SERVICE_READ_TIMEOUT: "10000"
-      NOTIFICATIONS_SERVICE_CONNECTION_TIMEOUT: "10000"
-      TRANSACTIONS_SERVICE_URI: https://api.platform.pagopa.it/ecommerce/transaction-auth-requests-service/v1
-      TRANSACTIONS_SERVICE_READ_TIMEOUT: "10000"
-      TRANSACTIONS_SERVICE_CONNECTION_TIMEOUT: "10000"
-      PERSONAL_DATA_VAULT_API_BASE_PATH: "https://api.tokenizer.pdv.pagopa.it/tokenizer/v1"
-      OTEL_RESOURCE_ATTRIBUTES: "service.name=pagopa-ecommerce-event-dispatcher-service-blue,service.deployment.environment=prod"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.elastic-system.svc:4317"
-      OTEL_TRACES_EXPORTER: otlp
-      OTEL_METRICS_EXPORTER: otlp
-      OTEL_LOGS_EXPORTER: none
-      OTEL_TRACES_SAMPLER: "always_on"
-      SEND_PAYMENT_RESULT_TIMEOUT_SECONDS: "3900"
-      SEND_PAYMENT_RESULT_EXPIRATION_OFFSET_SECONDS: "5"
-      TRANSIENT_QUEUES_TTL_SECONDS: "2592000"
-      NPG_URI: https://xpay.nexigroup.com/api/phoenix-0.0
-      NPG_READ_TIMEOUT: "10000"
-      NPG_CONNECTION_TIMEOUT: "10000"
-      ECS_SERVICE_NAME: pagopa-ecommerce-event-dispatcher-service-blue
-      ECS_SERVICE_ENVIRONMENT: prod
-      NPG_CARDS_PSP_LIST: "" #TODO to be filled with psp id list that are expected to be present into psp api keys configuration
-      REDIS_STREAM_EVENT_CONTROLLER_STREAM_KEY: "event-dispatcher-commands"
-      REDIS_STREAM_EVENT_CONTROLLER_CONSUMER_GROUP_PREFIX: "event-dispatcher"
-      REDIS_STREAM_EVENT_CONTROLLER_CONSUMER_NAME_PREFIX: "event-dispatcher"
-      EVENT_CONTROLLER_STATUS_POLLING_CHRON: "*/10 * * * * *"
-    envSecret:
-      ECOMMERCE_STORAGE_TRANSIENT_QUEUE_KEY: ecommerce-storage-transient-account-key
-      MONGO_PASSWORD: mongo-ecommerce-password
-      REDIS_PASSWORD: redis-ecommerce-password
-      NODO_CONNECTION_STRING: nodo-connection-string
-      QUEUE_TRANSIENT_CONNECTION_STRING: ecommerce-storage-transient-connection-string
-      QUEUE_DEADLETTER_CONNECTION_STRING: ecommerce-storage-deadletter-connection-string
-      NOTIFICATIONS_SERVICE_API_KEY: notifications-service-api-key
-      TRANSACTIONS_SERVICE_API_KEY: transactions-service-auth-update-api-key
-      PERSONAL_DATA_VAULT_API_KEY: personal-data-vault-api-key
-      OTEL_EXPORTER_OTLP_HEADERS: elastic-otel-token-header
-      PAYMENT_TRANSACTIONS_GATEWAY_API_KEY: payment-transactions-gateway-api-key
-      NPG_API_KEY: npg-api-key
-      NPG_CARDS_PSP_KEYS: npg-cards-psp-keys
+      envConfig:
+        TRANSACTIONS_CLOSE_PAYMENT_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-close-payment-queue-b
+        TRANSACTIONS_CLOSE_PAYMENT_RETRY_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-close-payment-retry-queue-b
+        TRANSACTIONS_EXPIRATION_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-expiration-queue-b
+        TRANSACTIONS_REFUND_RETRY_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-refund-retry-queue-b
+        TRANSACTIONS_REFUND_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-refund-queue-b
+        TRANSACTIONS_NOTIFICATIONS_RETRY_QUEUE_NAME: pagopa-u-weu-ecommerce-transaction-notifications-retry-queue-b
+        TRANSACTIONS_NOTIFICATIONS_QUEUE_NAME: pagopa-u-weu-ecommerce-transaction-notifications-queue-b
+        TRANSACTIONS_DEAD_LETTER_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-dead-letter-queue-b
+        NODO_ECOMMERCE_CLIENT_ID: ecomm-blue
+        OTEL_RESOURCE_ATTRIBUTES: "service.name=pagopa-ecommerce-event-dispatcher-service-blue,service.deployment.environment=prod"
+        ECS_SERVICE_NAME: pagopa-ecommerce-event-dispatcher-service-blue
   image:
     repository: pagopapcommonacr.azurecr.io/pagopaecommerceeventdispatcherservice
     tag: "1.6.0"
@@ -176,6 +114,14 @@ microservice-chart:
     MONGO_USERNAME: pagopa-p-weu-ecommerce-cosmos-account
     MONGO_PORT: "10255"
     MONGO_SSL_ENABLED: "true"
+    MONGO_MIN_POOL_SIZE: "0"
+    MONGO_MAX_POOL_SIZE: "50"
+    MONGO_MAX_IDLE_TIMEOUT_MS: "600000"
+    MONGO_CONNECTION_TIMEOUT_MS: "2000"
+    MONGO_SOCKET_TIMEOUT_MS: "10000"
+    MONGO_SERVER_SELECTION_TIMEOUT_MS: "2000"
+    MONGO_WAITING_QUEUE_MS: "2000"
+    MONGO_HEARTBEAT_FREQUENCY_MS: "5000"
     REDIS_HOST: pagopa-p-weu-ecommerce-redis.redis.cache.windows.net
     REDIS_PORT: "6380"
     REDIS_SSL_ENABLED: "true"
