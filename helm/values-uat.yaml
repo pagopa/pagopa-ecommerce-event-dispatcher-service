@@ -32,7 +32,7 @@ microservice-chart:
         ECS_SERVICE_NAME: pagopa-ecommerce-event-dispatcher-service-blue
   image:
     repository: pagopaucommonacr.azurecr.io/pagopaecommerceeventdispatcherservice
-    tag: "1.5.0"
+    tag: "1.6.1"
     pullPolicy: Always
   livenessProbe:
     httpGet:
@@ -114,6 +114,14 @@ microservice-chart:
     MONGO_USERNAME: pagopa-u-weu-ecommerce-cosmos-account
     MONGO_PORT: "10255"
     MONGO_SSL_ENABLED: "true"
+    MONGO_MIN_POOL_SIZE: "0"
+    MONGO_MAX_POOL_SIZE: "50"
+    MONGO_MAX_IDLE_TIMEOUT_MS: "600000"
+    MONGO_CONNECTION_TIMEOUT_MS: "2000"
+    MONGO_SOCKET_TIMEOUT_MS: "10000"
+    MONGO_SERVER_SELECTION_TIMEOUT_MS: "2000"
+    MONGO_WAITING_QUEUE_MS: "2000"
+    MONGO_HEARTBEAT_FREQUENCY_MS: "5000"
     REDIS_HOST: pagopa-u-weu-ecommerce-redis.redis.cache.windows.net
     REDIS_PORT: "6380"
     REDIS_SSL_ENABLED: "true"
