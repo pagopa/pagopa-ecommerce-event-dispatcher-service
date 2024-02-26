@@ -4,6 +4,7 @@ import com.azure.core.util.BinaryData
 import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
+import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationRequestedRetriedEvent
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
@@ -59,10 +60,21 @@ class TransactionAuthorizationRequestedRetryQueueConsumer(
   ): Mono<Unit> {
     val eventWithTracingInfo = parseEvent(payload)
     return eventWithTracingInfo
-      .flatMap {
-        logger.debug(
-          "Event {} with tracing info {} dispatched to V2 handler", it.event, it.tracingInfo)
-        queueConsumerV2.messageReceiver(it, checkPointer)
+      .flatMap { e ->
+        when (e.event) {
+          is TransactionAuthorizationRequestedRetriedEvent -> {
+            logger.debug(
+              "Event {} with tracing info {} dispatched to V2 handler", e.event, e.tracingInfo)
+            queueConsumerV2.messageReceiver(Either.right(e), checkPointer)
+          }
+          else -> {
+            logger.error(
+              "Event {} with tracing info {} cannot be dispatched to any know handler",
+              e.event,
+              e.tracingInfo)
+            Mono.error(InvalidEventException(payload, null))
+          }
+        }
       }
       .onErrorResume(InvalidEventException::class.java) {
         logger.error("Invalid input event", it)
