@@ -8,9 +8,12 @@ import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.AuthorizationReques
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.AuthorizationRequestedHelper
 import kotlinx.coroutines.reactor.mono
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
+import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.*
 import reactor.test.StepVerifier
 
+@ExtendWith(MockitoExtension::class)
 class TransactionAuthorizationRequestedQueueConsumerTest {
 
   private val authorizationRequestedHelper: AuthorizationRequestedHelper = mock()

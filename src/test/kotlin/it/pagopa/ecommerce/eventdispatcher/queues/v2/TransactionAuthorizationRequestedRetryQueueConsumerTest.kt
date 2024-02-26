@@ -15,7 +15,6 @@ import org.mockito.kotlin.*
 import reactor.test.StepVerifier
 
 @ExtendWith(MockitoExtension::class)
-@OptIn(ExperimentalCoroutinesApi::class)
 class TransactionAuthorizationRequestedRetryQueueConsumerTest {
 
   private val authorizationRequestedHelper: AuthorizationRequestedHelper = mock()
