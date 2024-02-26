@@ -3,6 +3,7 @@ package it.pagopa.ecommerce.eventdispatcher.queues.v2
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.queues.QueueEvent
+import it.pagopa.ecommerce.commons.queues.TracingInfoTest.MOCK_TRACING_INFO
 import it.pagopa.ecommerce.commons.v2.TransactionTestUtils.*
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.AuthorizationRequestedEvent
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.AuthorizationRequestedHelper
@@ -26,9 +27,11 @@ class TransactionAuthorizationRequestedRetryQueueConsumerTest {
   @Test
   fun `Should handle authorization state retriever for authorization requested retry event`() {
     // assertions
-    val event = QueueEvent(transactionAuthorizationRequestedRetriedEvent(0), null)
+    val event = QueueEvent(transactionAuthorizationRequestedRetriedEvent(0), MOCK_TRACING_INFO)
     val expectedAuthorizationRequestedRetriedEvent = AuthorizationRequestedEvent.retried(event)
-    given(authorizationRequestedHelper.authorizationStateRetrieve(any(), any()))
+    given(
+        authorizationRequestedHelper.authorizationStateRetrieve(
+          eq(expectedAuthorizationRequestedRetriedEvent), any()))
       .willReturn(mono { (Unit) })
     // test
     StepVerifier.create(
