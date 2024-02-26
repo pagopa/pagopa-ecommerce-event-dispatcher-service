@@ -5,10 +5,12 @@ import com.azure.spring.messaging.checkpoint.Checkpointer
 import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationRequestedEvent
 import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationRequestedRetriedEvent
+import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.TracingInfoTest
 import it.pagopa.ecommerce.commons.v2.TransactionTestUtils
 import it.pagopa.ecommerce.eventdispatcher.config.QueuesConsumerConfig
+import it.pagopa.ecommerce.eventdispatcher.exceptions.InvalidEventException
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import java.nio.charset.StandardCharsets
 import kotlinx.coroutines.reactor.mono
@@ -135,6 +137,34 @@ class TransactionAuthorizationRequestedRetriedQueueConsumerTest {
             transactionId = null,
             transactionEventCode = null,
             errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.EVENT_PARSING_ERROR)))
+  }
+
+  @Test
+  fun `Should not dispatch events different authorization requested retry events`() {
+    // pre-condition
+    val authCompletedEvent =
+      TransactionTestUtils.transactionAuthorizationCompletedEvent(
+        NpgTransactionGatewayAuthorizationData())
+    val serializedEvent =
+      String(
+        BinaryData.fromObject(
+            QueueEvent(authCompletedEvent, TracingInfoTest.MOCK_TRACING_INFO),
+            strictSerializerProviderV2.createInstance())
+          .toBytes(),
+        StandardCharsets.UTF_8)
+    println("Serialized event: $serializedEvent")
+    given(queueConsumerV2.messageReceiver(queueConsumerV2Captor.capture(), any()))
+      .willReturn(Mono.empty())
+    // test
+    Hooks.onOperatorDebug()
+    StepVerifier.create(
+        transactionAuthorizationRequestedRetryQueueConsumer.messageReceiver(
+          serializedEvent.toByteArray(StandardCharsets.UTF_8), checkpointer))
+      .expectError(InvalidEventException::class.java)
+    // assertions
+    verify(queueConsumerV2, times(0)).messageReceiver(any(), any())
+    verify(deadLetterTracedQueueAsyncClient, times(0))
+      .sendAndTraceDeadLetterQueueEvent(any<BinaryData>(), any())
   }
 
   @Test
