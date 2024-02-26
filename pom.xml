@@ -9,7 +9,7 @@
 	</parent>
 	<groupId>it.pagopa.ecommerce</groupId>
 	<artifactId>pagopa-ecommerce-event-dispatcher-service</artifactId>
-	<version>1.6.1</version>
+	<version>1.6.2</version>
 	<name>pagopa-ecommerce-event-dispatcher-service</name>
 	<description>pagoPA ecommerce microservice to handle transaction events and perform async operations such as
 	send user email, refund based on transaction status</description>
@@ -245,7 +245,7 @@
 			<dependency>
 				<groupId>io.opentelemetry</groupId>
 				<artifactId>opentelemetry-bom</artifactId>
-				<version>1.27.0</version>
+				<version>1.34.1</version>
 				<type>pom</type>
 				<scope>import</scope>
 			</dependency>

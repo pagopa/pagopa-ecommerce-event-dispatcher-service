@@ -32,7 +32,7 @@ microservice-chart:
         ECS_SERVICE_NAME: pagopa-ecommerce-event-dispatcher-service-blue
   image:
     repository: pagopaucommonacr.azurecr.io/pagopaecommerceeventdispatcherservice
-    tag: "1.6.1"
+    tag: "1.6.2"
     pullPolicy: Always
   livenessProbe:
     httpGet:
@@ -145,6 +145,7 @@ microservice-chart:
     PERSONAL_DATA_VAULT_API_BASE_PATH: "https://api.uat.tokenizer.pdv.pagopa.it/tokenizer/v1"
     OTEL_RESOURCE_ATTRIBUTES: "service.name=pagopa-ecommerce-event-dispatcher-service,service.deployment.environment=uat"
     OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.elastic-system.svc:4317"
+    OTEL_EXPORTER_OTLP_PROTOCOL: grpc
     OTEL_TRACES_EXPORTER: otlp
     OTEL_METRICS_EXPORTER: otlp
     OTEL_LOGS_EXPORTER: none
