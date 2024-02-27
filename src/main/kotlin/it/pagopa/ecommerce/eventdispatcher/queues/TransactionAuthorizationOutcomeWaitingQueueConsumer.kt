@@ -24,17 +24,17 @@ import reactor.core.publisher.Mono
  * will handle TransactionAuthorizationRequestedEvent V2 events and inquiry gateway in order to
  * retrieve authorization outcome
  */
-@Service("TransactionAuthorizationRequestedRetryQueueConsumer")
-class TransactionAuthorizationRequestedRetryQueueConsumer(
+@Service("TransactionAuthorizationOutcomeWaitingQueueConsumer")
+class TransactionAuthorizationOutcomeWaitingQueueConsumer(
   @Autowired
   private val queueConsumerV2:
-    it.pagopa.ecommerce.eventdispatcher.queues.v2.TransactionAuthorizationRequestedRetryQueueConsumer,
+    it.pagopa.ecommerce.eventdispatcher.queues.v2.TransactionAuthorizationOutcomeWaitingQueueConsumer,
   @Autowired private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient,
   @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider
 ) {
 
   var logger: Logger =
-    LoggerFactory.getLogger(TransactionAuthorizationRequestedRetryQueueConsumer::class.java)
+    LoggerFactory.getLogger(TransactionAuthorizationOutcomeWaitingQueueConsumer::class.java)
 
   fun parseEvent(
     payload: ByteArray

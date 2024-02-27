@@ -10,8 +10,8 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
 
-@Service("TransactionAuthorizationRequestedRetryQueueConsumerV2")
-class TransactionAuthorizationRequestedRetryQueueConsumer(
+@Service("TransactionAuthorizationOutcomeWaitingQueueConsumerV2")
+class TransactionAuthorizationOutcomeWaitingQueueConsumer(
   @Autowired private val authorizationRequestedHelper: AuthorizationRequestedHelper,
 ) {
 

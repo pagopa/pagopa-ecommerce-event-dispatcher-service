@@ -15,13 +15,13 @@ import org.mockito.kotlin.*
 import reactor.test.StepVerifier
 
 @ExtendWith(MockitoExtension::class)
-class TransactionAuthorizationRequestedRetryQueueConsumerTest {
+class TransactionAuthorizationOutcomeWaitingQueueConsumerTest {
 
   private val authorizationRequestedHelper: AuthorizationRequestedHelper = mock()
 
   private val checkpointer: Checkpointer = mock()
-  private val transactionAuthorizationRequestedRetryQueueConsumer =
-    TransactionAuthorizationRequestedRetryQueueConsumer(
+  private val transactionAuthorizationOutcomeWaitingQueueConsumer =
+    TransactionAuthorizationOutcomeWaitingQueueConsumer(
       authorizationRequestedHelper = authorizationRequestedHelper)
 
   @Test
@@ -35,7 +35,7 @@ class TransactionAuthorizationRequestedRetryQueueConsumerTest {
       .willReturn(mono { (Unit) })
     // test
     StepVerifier.create(
-        transactionAuthorizationRequestedRetryQueueConsumer.messageReceiver(
+        transactionAuthorizationOutcomeWaitingQueueConsumer.messageReceiver(
           Either.right(event), checkpointer))
       .expectNext(Unit)
       .verifyComplete()

@@ -125,7 +125,7 @@ class QueuesConsumerConfig {
   @EndpointId("storageQueueAuthorizationRequestedRetryMessageSourceEndpoint")
   fun storageQueueAuthorizationRequestedRetryMessageSource(
     storageQueueTemplate: StorageQueueTemplate,
-    @Value("\${azurestorage.queues.transactionauthorizationrequestedretry.name}")
+    @Value("\${azurestorage.queues.transactionauthorizationoutcomewaiting.name}")
     queueNameAuthRequestedRetryEvents: String
   ): StorageQueueMessageSource {
     return StorageQueueMessageSource(queueNameAuthRequestedRetryEvents, storageQueueTemplate)

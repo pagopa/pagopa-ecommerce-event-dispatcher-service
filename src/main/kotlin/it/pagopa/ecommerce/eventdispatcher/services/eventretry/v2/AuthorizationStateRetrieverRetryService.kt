@@ -24,9 +24,9 @@ class AuthorizationStateRetrieverRetryService(
   @Autowired private val viewRepository: TransactionsViewRepository,
   @Autowired
   private val eventStoreRepository: TransactionsEventStoreRepository<TransactionRetriedData>,
-  @Value("\${transactionAuthorizationRequestedRetry.eventOffsetSeconds}")
+  @Value("\${transactionAuthorizationOutcomeWaiting.eventOffsetSeconds}")
   private val retryOffset: Int,
-  @Value("\${transactionAuthorizationRequestedRetry.maxAttempts}") private val maxAttempts: Int,
+  @Value("\${transactionAuthorizationOutcomeWaiting.maxAttempts}") private val maxAttempts: Int,
   @Value("\${azurestorage.queues.transientQueues.ttlSeconds}")
   private val transientQueuesTTLSeconds: Int,
   @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider

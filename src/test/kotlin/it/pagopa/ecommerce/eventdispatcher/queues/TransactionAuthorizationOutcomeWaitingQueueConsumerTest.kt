@@ -21,10 +21,10 @@ import reactor.core.publisher.Hooks
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
 
-class TransactionAuthorizationRequestedRetriedQueueConsumerTest {
+class TransactionAuthorizationOutcomeWaitingQueueConsumerTest {
 
   private val queueConsumerV2:
-    it.pagopa.ecommerce.eventdispatcher.queues.v2.TransactionAuthorizationRequestedRetryQueueConsumer =
+    it.pagopa.ecommerce.eventdispatcher.queues.v2.TransactionAuthorizationOutcomeWaitingQueueConsumer =
     mock()
   private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient = mock()
 
@@ -42,9 +42,9 @@ class TransactionAuthorizationRequestedRetriedQueueConsumerTest {
 
   private val checkpointer: Checkpointer = mock()
 
-  private val transactionAuthorizationRequestedRetryQueueConsumer =
+  private val transactionAuthorizationOutcomeWaitingQueueConsumer =
     spy(
-      TransactionAuthorizationRequestedRetryQueueConsumer(
+      TransactionAuthorizationOutcomeWaitingQueueConsumer(
         queueConsumerV2 = queueConsumerV2,
         deadLetterTracedQueueAsyncClient = deadLetterTracedQueueAsyncClient,
         strictSerializerProviderV2 = strictSerializerProviderV2))
@@ -66,7 +66,7 @@ class TransactionAuthorizationRequestedRetriedQueueConsumerTest {
     // test
     Hooks.onOperatorDebug()
     StepVerifier.create(
-        transactionAuthorizationRequestedRetryQueueConsumer.messageReceiver(
+        transactionAuthorizationOutcomeWaitingQueueConsumer.messageReceiver(
           serializedEvent.toByteArray(StandardCharsets.UTF_8), checkpointer))
       .verifyComplete()
     // assertions
@@ -93,7 +93,7 @@ class TransactionAuthorizationRequestedRetriedQueueConsumerTest {
     // test
     Hooks.onOperatorDebug()
     StepVerifier.create(
-        transactionAuthorizationRequestedRetryQueueConsumer.messageReceiver(
+        transactionAuthorizationOutcomeWaitingQueueConsumer.messageReceiver(
           invalidEvent.toByteArray(StandardCharsets.UTF_8), checkpointer))
       .expectNext(Unit)
       .verifyComplete()
@@ -123,7 +123,7 @@ class TransactionAuthorizationRequestedRetriedQueueConsumerTest {
     // test
     Hooks.onOperatorDebug()
     StepVerifier.create(
-        transactionAuthorizationRequestedRetryQueueConsumer.messageReceiver(
+        transactionAuthorizationOutcomeWaitingQueueConsumer.messageReceiver(
           invalidEvent.toByteArray(StandardCharsets.UTF_8), checkpointer))
       .expectError(java.lang.RuntimeException::class.java)
       .verify()
@@ -158,7 +158,7 @@ class TransactionAuthorizationRequestedRetriedQueueConsumerTest {
     // test
     Hooks.onOperatorDebug()
     StepVerifier.create(
-        transactionAuthorizationRequestedRetryQueueConsumer.messageReceiver(
+        transactionAuthorizationOutcomeWaitingQueueConsumer.messageReceiver(
           serializedEvent.toByteArray(StandardCharsets.UTF_8), checkpointer))
       .expectError(InvalidEventException::class.java)
     // assertions
@@ -182,7 +182,7 @@ class TransactionAuthorizationRequestedRetriedQueueConsumerTest {
     // test
     Hooks.onOperatorDebug()
     StepVerifier.create(
-        transactionAuthorizationRequestedRetryQueueConsumer.messageReceiver(
+        transactionAuthorizationOutcomeWaitingQueueConsumer.messageReceiver(
           invalidEvent.toByteArray(StandardCharsets.UTF_8), checkpointer))
       .expectError(java.lang.RuntimeException::class.java)
       .verify()
