@@ -211,18 +211,19 @@ fun handleGetState(
             is InvalidNPGPaymentGatewayException, // 400 from NPG
             -> Mono.empty() //
             else ->
-              authorizationStateRetrieverRetryService.enqueueRetryEvent(tx, retryCount, tracingInfo)
+              authorizationStateRetrieverRetryService
+                .enqueueRetryEvent(tx, retryCount, tracingInfo)
                 .onErrorResume { enqueueException ->
-                  logger.error("Transaction enqueue retry event error for transaction ${tx.transactionId.value()}", enqueueException)
-                  Mono.just(tx)
-                    .flatMap {
-                      when (enqueueException) {
-                        is TooLateRetryAttemptException,
-                        is NoRetryAttemptsLeftException,
-                        -> Mono.empty()
-                        else -> Mono.error(enqueueException)
-                      }
+                  logger.error(
+                    "Transaction enqueue retry event error for transaction ${tx.transactionId.value()}",
+                    enqueueException)
+                  Mono.just(tx).flatMap {
+                    when (enqueueException) {
+                      is TooLateRetryAttemptException,
+                      is NoRetryAttemptsLeftException, -> Mono.empty()
+                      else -> Mono.error(enqueueException)
                     }
+                  }
                 }
           }
         }
