@@ -18,10 +18,12 @@ import it.pagopa.ecommerce.commons.queues.TracingInfoTest
 import it.pagopa.ecommerce.commons.v2.TransactionTestUtils
 import it.pagopa.ecommerce.eventdispatcher.config.QueuesConsumerConfig
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
+import it.pagopa.ecommerce.eventdispatcher.exceptions.TooLateRetryAttemptException
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.utils.TRANSIENT_QUEUE_TTL_SECONDS
 import java.time.Duration
+import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZonedDateTime
 import java.util.stream.Stream
@@ -188,13 +190,10 @@ class AuthorizationStateRetrieverRetryServiceTest {
     val events: MutableList<TransactionEvent<Any>> =
       mutableListOf(
         TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
-        TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>)
-    events.add(
-      TransactionTestUtils.transactionExpiredEvent(
-        TransactionTestUtils.reduceEvents(*events.toTypedArray())) as TransactionEvent<Any>)
-    events.add(
-      TransactionTestUtils.transactionRefundRequestedEvent(
-        TransactionTestUtils.reduceEvents(*events.toTypedArray())) as TransactionEvent<Any>)
+        TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>,
+        TransactionTestUtils.transactionAuthorizationRequestedRetriedEvent(maxAttempts)
+          as TransactionEvent<Any>)
+
     val baseTransaction = TransactionTestUtils.reduceEvents(*events.toTypedArray())
     val transactionDocument =
       TransactionTestUtils.transactionDocument(
@@ -222,8 +221,46 @@ class AuthorizationStateRetrieverRetryServiceTest {
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(0)).save(any())
     verify(authRequestedRetryQueueAsyncClient, times(0))
-      .sendMessageWithResponse(
-        any<BinaryData>(), any(), eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_SECONDS.toLong())))
+      .sendMessageWithResponse(any<BinaryData>(), any(), any())
+  }
+
+  @Test
+  fun `Should not enqueue new authorization requested retry event for no time remaining until payment token expires`() {
+    val events: MutableList<TransactionEvent<Any>> =
+      mutableListOf(
+        TransactionTestUtils.transactionActivateEvent(
+          Instant.ofEpochMilli(0L).toString(),
+          TransactionTestUtils.npgTransactionGatewayActivationData()) as TransactionEvent<Any>,
+        TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>)
+    val baseTransaction = TransactionTestUtils.reduceEvents(*events.toTypedArray())
+
+    val transactionDocument =
+      TransactionTestUtils.transactionDocument(
+        TransactionStatusDto.AUTHORIZATION_REQUESTED, ZonedDateTime.now())
+    given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
+      Mono.just(it.arguments[0])
+    }
+    given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
+      .willAnswer { Mono.just(transactionDocument) }
+    given(transactionsViewRepository.save(viewRepositoryCaptor.capture())).willAnswer {
+      Mono.just(it.arguments[0])
+    }
+    given(
+        authRequestedRetryQueueAsyncClient.sendMessageWithResponse(
+          queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
+      .willReturn(queueSuccessfulResponse())
+    StepVerifier.create(
+        authorizationStateRetrieverRetryService.enqueueRetryEvent(
+          baseTransaction, 0, TracingInfoTest.MOCK_TRACING_INFO))
+      .expectError(TooLateRetryAttemptException::class.java)
+      .verify()
+
+    verify(eventStoreRepository, times(0)).save(any())
+    verify(transactionsViewRepository, times(0))
+      .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
+    verify(transactionsViewRepository, times(0)).save(any())
+    verify(authRequestedRetryQueueAsyncClient, times(0))
+      .sendMessageWithResponse(any<BinaryData>(), any(), any())
   }
 
   @Test
@@ -259,8 +296,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(0)).save(any())
     verify(authRequestedRetryQueueAsyncClient, times(0))
-      .sendMessageWithResponse(
-        any<BinaryData>(), any(), eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_SECONDS.toLong())))
+      .sendMessageWithResponse(any<BinaryData>(), any(), any())
   }
 
   companion object {
@@ -332,8 +368,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(0)).save(any())
     verify(authRequestedRetryQueueAsyncClient, times(0))
-      .sendMessageWithResponse(
-        any<BinaryData>(), any(), eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_SECONDS.toLong())))
+      .sendMessageWithResponse(any<BinaryData>(), any(), any())
   }
 
   @Test
@@ -369,8 +404,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(1)).save(any())
     verify(authRequestedRetryQueueAsyncClient, times(0))
-      .sendMessageWithResponse(
-        any<BinaryData>(), any(), eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_SECONDS.toLong())))
+      .sendMessageWithResponse(any<BinaryData>(), any(), any())
   }
 
   private fun queueSuccessfulResponse(): Mono<Response<SendMessageResult>> {

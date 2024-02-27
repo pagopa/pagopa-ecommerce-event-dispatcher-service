@@ -1,12 +1,10 @@
 package it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers
 
 import com.azure.core.util.BinaryData
-import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.domain.TransactionId
-import it.pagopa.ecommerce.commons.domain.v2.TransactionEventCode
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationDto
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.StateResponseDto
@@ -375,21 +373,7 @@ class AuhtorizationRequestedHelperTests {
         .getStateNpg(transactionId, expectedGetStateSessionId, PSP_ID, NPG_CORRELATION_ID)
       verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
       verify(deadLetterTracedQueueAsyncClient, times(0))
-        .sendAndTraceDeadLetterQueueEvent(
-          argThat<BinaryData> {
-            TransactionEventCode.valueOf(
-              this.toObject(
-                  object : TypeReference<QueueEvent<TransactionAuthorizationRequestedEvent>>() {},
-                  jsonSerializerV2)
-                .event
-                .eventCode) == TransactionEventCode.TRANSACTION_AUTHORIZATION_REQUESTED_EVENT
-          },
-          eq(
-            DeadLetterTracedQueueAsyncClient.ErrorContext(
-              transactionId = transactionId,
-              transactionEventCode =
-                TransactionEventCode.TRANSACTION_AUTHORIZATION_REQUESTED_EVENT.toString(),
-              errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)))
+        .sendAndTraceDeadLetterQueueEvent(any(), any())
     }
 
   @Test
@@ -454,8 +438,7 @@ class AuhtorizationRequestedHelperTests {
       verify(checkpointer, times(1)).success()
       verify(authorizationStateRetrieverRetryService, times(0))
         .enqueueRetryEvent(any(), any(), any())
-      verify(authorizationStateRetrieverService, times(0))
-        .getStateNpg(transactionId, expectedGetStateSessionId, PSP_ID, NPG_CORRELATION_ID)
+      verify(authorizationStateRetrieverService, times(0)).getStateNpg(any(), any(), any(), any())
       verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
       verify(deadLetterTracedQueueAsyncClient, times(0))
         .sendAndTraceDeadLetterQueueEvent(any<BinaryData>(), any())
@@ -506,21 +489,7 @@ class AuhtorizationRequestedHelperTests {
     verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
     verify(authorizationStateRetrieverRetryService, times(1)).enqueueRetryEvent(any(), any(), any())
     verify(deadLetterTracedQueueAsyncClient, times(0))
-      .sendAndTraceDeadLetterQueueEvent(
-        argThat<BinaryData> {
-          TransactionEventCode.valueOf(
-            this.toObject(
-                object : TypeReference<QueueEvent<TransactionAuthorizationRequestedEvent>>() {},
-                jsonSerializerV2)
-              .event
-              .eventCode) == TransactionEventCode.TRANSACTION_AUTHORIZATION_REQUESTED_EVENT
-        },
-        eq(
-          DeadLetterTracedQueueAsyncClient.ErrorContext(
-            transactionId = transactionId,
-            transactionEventCode =
-              TransactionEventCode.TRANSACTION_AUTHORIZATION_REQUESTED_EVENT.toString(),
-            errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)))
+      .sendAndTraceDeadLetterQueueEvent(any(), any())
   }
 
   @Test
@@ -565,7 +534,7 @@ class AuhtorizationRequestedHelperTests {
     verify(authorizationStateRetrieverService, times(1))
       .getStateNpg(transactionId, expectedGetStateSessionId, PSP_ID, NPG_CORRELATION_ID)
     verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
-    verify(authorizationStateRetrieverRetryService, times(0)).enqueueRetryEvent(any(), eq(0), any())
+    verify(authorizationStateRetrieverRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
     verify(deadLetterTracedQueueAsyncClient, times(0))
       .sendAndTraceDeadLetterQueueEvent(any(), any())
   }
@@ -891,8 +860,7 @@ class AuhtorizationRequestedHelperTests {
     // assertions
     verify(authorizationStateRetrieverService, times(1))
       .getStateNpg(transactionId, expectedGetStateSessionId, PSP_ID, NPG_CORRELATION_ID)
-    verify(transactionsServiceClient, times(0))
-      .patchAuthRequest(transactionId, expectedPatchAuthRequest)
+    verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
     verify(deadLetterTracedQueueAsyncClient, times(0))
       .sendAndTraceDeadLetterQueueEvent(any(), any())
     verify(authorizationStateRetrieverRetryService, times(1)).enqueueRetryEvent(any(), any(), any())
@@ -1110,21 +1078,7 @@ class AuhtorizationRequestedHelperTests {
     verify(authorizationStateRetrieverService, times(0)).getStateNpg(any(), any(), any(), any())
     verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
     verify(deadLetterTracedQueueAsyncClient, times(0))
-      .sendAndTraceDeadLetterQueueEvent(
-        argThat<BinaryData> {
-          TransactionEventCode.valueOf(
-            this.toObject(
-                object : TypeReference<QueueEvent<TransactionAuthorizationRequestedEvent>>() {},
-                jsonSerializerV2)
-              .event
-              .eventCode) == TransactionEventCode.TRANSACTION_AUTHORIZATION_REQUESTED_EVENT
-        },
-        eq(
-          DeadLetterTracedQueueAsyncClient.ErrorContext(
-            transactionId = transactionId,
-            transactionEventCode =
-              TransactionEventCode.TRANSACTION_AUTHORIZATION_REQUESTED_EVENT.toString(),
-            errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)))
+      .sendAndTraceDeadLetterQueueEvent(any(), any())
   }
 
   @Test
@@ -1170,21 +1124,7 @@ class AuhtorizationRequestedHelperTests {
     verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
     verify(authorizationStateRetrieverRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
     verify(deadLetterTracedQueueAsyncClient, times(0))
-      .sendAndTraceDeadLetterQueueEvent(
-        argThat<BinaryData> {
-          TransactionEventCode.valueOf(
-            this.toObject(
-                object : TypeReference<QueueEvent<TransactionAuthorizationRequestedEvent>>() {},
-                jsonSerializerV2)
-              .event
-              .eventCode) == TransactionEventCode.TRANSACTION_AUTHORIZATION_REQUESTED_EVENT
-        },
-        eq(
-          DeadLetterTracedQueueAsyncClient.ErrorContext(
-            transactionId = transactionId,
-            transactionEventCode =
-              TransactionEventCode.TRANSACTION_AUTHORIZATION_REQUESTED_EVENT.toString(),
-            errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)))
+      .sendAndTraceDeadLetterQueueEvent(any(), any())
   }
 
   @Test
@@ -1537,8 +1477,7 @@ class AuhtorizationRequestedHelperTests {
     // assertions
     verify(authorizationStateRetrieverService, times(1))
       .getStateNpg(transactionId, expectedGetStateSessionId, PSP_ID, NPG_CORRELATION_ID)
-    verify(transactionsServiceClient, times(0))
-      .patchAuthRequest(transactionId, expectedPatchAuthRequest)
+    verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
     verify(deadLetterTracedQueueAsyncClient, times(0))
       .sendAndTraceDeadLetterQueueEvent(any(), any())
     verify(authorizationStateRetrieverRetryService, times(1)).enqueueRetryEvent(any(), any(), any())
