@@ -212,6 +212,18 @@ fun handleGetState(
             -> Mono.empty() //
             else ->
               authorizationStateRetrieverRetryService.enqueueRetryEvent(tx, retryCount, tracingInfo)
+                .onErrorResume { enqueueException ->
+                  logger.error("Transaction enqueue retry event error for transaction ${tx.transactionId.value()}", enqueueException)
+                  Mono.just(tx)
+                    .flatMap {
+                      when (enqueueException) {
+                        is TooLateRetryAttemptException,
+                        is NoRetryAttemptsLeftException,
+                        -> Mono.empty()
+                        else -> Mono.error(enqueueException)
+                      }
+                    }
+                }
           }
         }
         .thenReturn(tx)
@@ -223,9 +235,7 @@ fun retrieveGetStateSessionId(
 ): String {
   val sessionId = authRequestedGatewayData.sessionId
   val confirmPaymentSessionId = authRequestedGatewayData.confirmPaymentSessionId
-  val sessionIdToUse =
-    Optional.of(authRequestedGatewayData.confirmPaymentSessionId)
-      .orElse(authRequestedGatewayData.sessionId)
+  val sessionIdToUse = Optional.ofNullable(confirmPaymentSessionId).orElse(sessionId)
   logger.info(
     "NPG authorization request sessionId: [{}], confirm payment session id: [{}] -> session id to use for retrieve state: [{}]",
     sessionId,

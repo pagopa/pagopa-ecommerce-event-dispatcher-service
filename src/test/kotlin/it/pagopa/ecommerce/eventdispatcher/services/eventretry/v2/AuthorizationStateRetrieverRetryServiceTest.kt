@@ -67,7 +67,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
   private val authorizationStateRetrieverRetryService =
     AuthorizationStateRetrieverRetryService(
       paymentTokenValidityTimeOffset = paymentTokenValidityTimeOffset,
-      authRequestedQueueAsyncClient = authRequestedRetryQueueAsyncClient,
+      authRequestedRetryQueueAsyncClient = authRequestedRetryQueueAsyncClient,
       viewRepository = transactionsViewRepository,
       eventStoreRepository = eventStoreRepository,
       retryOffset = retryOffset,

@@ -20,7 +20,7 @@ import org.springframework.stereotype.Component
 class AuthorizationStateRetrieverRetryService(
   @Value("\${transactionAuthorizationRequested.paymentTokenValidityTimeOffset}")
   private val paymentTokenValidityTimeOffset: Int,
-  @Autowired private val authRequestedQueueAsyncClient: QueueAsyncClient,
+  @Autowired private val authRequestedRetryQueueAsyncClient: QueueAsyncClient,
   @Autowired private val viewRepository: TransactionsViewRepository,
   @Autowired
   private val eventStoreRepository: TransactionsEventStoreRepository<TransactionRetriedData>,
@@ -32,7 +32,7 @@ class AuthorizationStateRetrieverRetryService(
   @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider
 ) :
   RetryEventService<TransactionAuthorizationRequestedRetriedEvent>(
-    queueAsyncClient = authRequestedQueueAsyncClient,
+    queueAsyncClient = authRequestedRetryQueueAsyncClient,
     retryOffset = retryOffset,
     maxAttempts = maxAttempts,
     viewRepository = viewRepository,
