@@ -3,8 +3,8 @@ package it.pagopa.ecommerce.eventdispatcher.queues
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import io.vavr.control.Either
+import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationOutcomeWaitingEvent
 import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationRequestedEvent
-import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationRequestedRetriedEvent
 import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.TracingInfoTest
@@ -34,11 +34,11 @@ class TransactionAuthorizationRequestedQueueConsumerTest {
     KArgumentCaptor<
       Either<
         QueueEvent<TransactionAuthorizationRequestedEvent>,
-        QueueEvent<TransactionAuthorizationRequestedRetriedEvent>>> =
+        QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>>> =
     argumentCaptor<
       Either<
         QueueEvent<TransactionAuthorizationRequestedEvent>,
-        QueueEvent<TransactionAuthorizationRequestedRetriedEvent>>>()
+        QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>>>()
 
   private val checkpointer: Checkpointer = mock()
 

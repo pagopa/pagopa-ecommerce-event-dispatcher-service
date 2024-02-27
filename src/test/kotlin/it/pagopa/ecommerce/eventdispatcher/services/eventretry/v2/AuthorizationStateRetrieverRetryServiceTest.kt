@@ -7,7 +7,7 @@ import com.azure.core.util.serializer.TypeReference
 import com.azure.storage.queue.QueueAsyncClient
 import com.azure.storage.queue.models.SendMessageResult
 import it.pagopa.ecommerce.commons.documents.v2.Transaction
-import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationRequestedRetriedEvent
+import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationOutcomeWaitingEvent
 import it.pagopa.ecommerce.commons.documents.v2.TransactionEvent
 import it.pagopa.ecommerce.commons.documents.v2.TransactionRetriedData
 import it.pagopa.ecommerce.commons.domain.v2.TransactionEventCode
@@ -117,14 +117,14 @@ class AuthorizationStateRetrieverRetryServiceTest {
     val savedView = viewRepositoryCaptor.value
     val eventSentOnQueue = queueCaptor.value
     assertEquals(
-      TransactionEventCode.TRANSACTION_AUTHORIZATION_REQUESTED_RETRIED_EVENT,
+      TransactionEventCode.TRANSACTION_AUTHORIZATION_OUTCOME_WAITING_EVENT,
       TransactionEventCode.valueOf(savedEvent.eventCode))
     assertEquals(TransactionStatusDto.AUTHORIZATION_REQUESTED, savedView.status)
     assertEquals(
       maxAttempts,
       eventSentOnQueue
         .toObject(
-          object : TypeReference<QueueEvent<TransactionAuthorizationRequestedRetriedEvent>>() {},
+          object : TypeReference<QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>>() {},
           strictSerializerProviderV2.createInstance())
         .event
         .data
@@ -170,14 +170,14 @@ class AuthorizationStateRetrieverRetryServiceTest {
     val savedView = viewRepositoryCaptor.value
     val eventSentOnQueue = queueCaptor.value
     assertEquals(
-      TransactionEventCode.TRANSACTION_AUTHORIZATION_REQUESTED_RETRIED_EVENT,
+      TransactionEventCode.TRANSACTION_AUTHORIZATION_OUTCOME_WAITING_EVENT,
       TransactionEventCode.valueOf(savedEvent.eventCode))
     assertEquals(TransactionStatusDto.AUTHORIZATION_REQUESTED, savedView.status)
     assertEquals(
       1,
       eventSentOnQueue
         .toObject(
-          object : TypeReference<QueueEvent<TransactionAuthorizationRequestedRetriedEvent>>() {},
+          object : TypeReference<QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>>() {},
           strictSerializerProviderV2.createInstance())
         .event
         .data
@@ -191,7 +191,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
       mutableListOf(
         TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
         TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>,
-        TransactionTestUtils.transactionAuthorizationRequestedRetriedEvent(maxAttempts)
+        TransactionTestUtils.transactionAuthorizationOutcomeWaitingEvent(maxAttempts)
           as TransactionEvent<Any>)
 
     val baseTransaction = TransactionTestUtils.reduceEvents(*events.toTypedArray())

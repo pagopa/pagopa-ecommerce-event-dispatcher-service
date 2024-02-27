@@ -5,7 +5,7 @@ import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import io.vavr.control.Either
-import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationRequestedRetriedEvent
+import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationOutcomeWaitingEvent
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.eventdispatcher.exceptions.InvalidEventException
@@ -38,13 +38,13 @@ class TransactionAuthorizationRequestedRetryQueueConsumer(
 
   fun parseEvent(
     payload: ByteArray
-  ): Mono<QueueEvent<TransactionAuthorizationRequestedRetriedEvent>> {
+  ): Mono<QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>> {
     val data = BinaryData.fromBytes(payload)
     val jsonSerializerV2 = strictSerializerProviderV2.createInstance()
 
     return data
       .toObjectAsync(
-        object : TypeReference<QueueEvent<TransactionAuthorizationRequestedRetriedEvent>>() {},
+        object : TypeReference<QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>>() {},
         jsonSerializerV2)
       .onErrorMap {
         logger.debug(ERROR_PARSING_EVENT_ERROR, it)
@@ -62,7 +62,7 @@ class TransactionAuthorizationRequestedRetryQueueConsumer(
     return eventWithTracingInfo
       .flatMap { e ->
         when (e.event) {
-          is TransactionAuthorizationRequestedRetriedEvent -> {
+          is TransactionAuthorizationOutcomeWaitingEvent -> {
             logger.debug(
               "Event {} with tracing info {} dispatched to V2 handler", e.event, e.tracingInfo)
             queueConsumerV2.messageReceiver(Either.right(e), checkPointer)

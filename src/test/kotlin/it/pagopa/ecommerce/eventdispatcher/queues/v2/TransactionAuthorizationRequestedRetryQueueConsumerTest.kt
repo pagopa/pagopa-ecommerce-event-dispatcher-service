@@ -27,7 +27,7 @@ class TransactionAuthorizationRequestedRetryQueueConsumerTest {
   @Test
   fun `Should handle authorization state retriever for authorization requested retry event`() {
     // assertions
-    val event = QueueEvent(transactionAuthorizationRequestedRetriedEvent(0), MOCK_TRACING_INFO)
+    val event = QueueEvent(transactionAuthorizationOutcomeWaitingEvent(0), MOCK_TRACING_INFO)
     val expectedAuthorizationRequestedRetriedEvent = AuthorizationRequestedEvent.retried(event)
     given(
         authorizationRequestedHelper.authorizationStateRetrieve(

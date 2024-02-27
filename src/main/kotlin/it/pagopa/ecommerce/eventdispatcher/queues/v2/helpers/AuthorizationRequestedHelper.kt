@@ -26,7 +26,7 @@ import reactor.kotlin.core.publisher.switchIfEmpty
 
 data class AuthorizationRequestedEvent(
   val requested: QueueEvent<TransactionAuthorizationRequestedEvent>?,
-  val retried: QueueEvent<TransactionAuthorizationRequestedRetriedEvent>?
+  val retried: QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>?
 ) {
   init {
     require(listOfNotNull(requested, retried).size == 1) { "Only one event must be non-null!" }
@@ -38,13 +38,13 @@ data class AuthorizationRequestedEvent(
     ): AuthorizationRequestedEvent = AuthorizationRequestedEvent(event, null)
 
     fun retried(
-      event: QueueEvent<TransactionAuthorizationRequestedRetriedEvent>
+      event: QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>
     ): AuthorizationRequestedEvent = AuthorizationRequestedEvent(null, event)
   }
 
   fun <T> fold(
     onRequested: (QueueEvent<TransactionAuthorizationRequestedEvent>) -> T,
-    onRetried: (QueueEvent<TransactionAuthorizationRequestedRetriedEvent>) -> T,
+    onRetried: (QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>) -> T,
   ): T {
     return checkNotNull(
       when {

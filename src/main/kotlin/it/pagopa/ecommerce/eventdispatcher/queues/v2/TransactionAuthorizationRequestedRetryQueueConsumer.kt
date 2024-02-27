@@ -19,7 +19,7 @@ class TransactionAuthorizationRequestedRetryQueueConsumer(
     parsedEvent:
       Either<
         QueueEvent<TransactionAuthorizationRequestedEvent>,
-        QueueEvent<TransactionAuthorizationRequestedRetriedEvent>>,
+        QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>>,
     checkPointer: Checkpointer
   ): Mono<Unit> {
     val authorizationRequestedEvent =
