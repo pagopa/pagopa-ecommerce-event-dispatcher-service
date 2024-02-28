@@ -2,7 +2,11 @@ package it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers
 
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
-import it.pagopa.ecommerce.commons.documents.v2.*
+import io.vavr.control.Either
+import it.pagopa.ecommerce.commons.documents.v2.Transaction
+import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationCompletedData
+import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationRequestData
+import it.pagopa.ecommerce.commons.documents.v2.TransactionEvent
 import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationDto
@@ -124,7 +128,7 @@ class AuhtorizationRequestedHelperTests {
         TransactionAuthorizationRequestData.PaymentGateway.NPG,
         npgTransactionGatewayAuthorizationRequestedData())
 
-    val authorizationRequestedRetriedEvent = transactionAuthorizationOutcomeWaitingEvent(1)
+    val authorizationOutcomeWaitingEvent = transactionAuthorizationOutcomeWaitingEvent(1)
     val transactionId = TransactionId(TRANSACTION_ID)
     val operationId = "operationId"
     val orderId = "orderId"
@@ -168,7 +172,7 @@ class AuhtorizationRequestedHelperTests {
         Flux.just(
           activatedEvent as TransactionEvent<Any>,
           authorizationRequestedEvent as TransactionEvent<Any>,
-          authorizationRequestedRetriedEvent as TransactionEvent<Any>,
+          authorizationOutcomeWaitingEvent as TransactionEvent<Any>,
         ))
 
     given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
@@ -195,8 +199,8 @@ class AuhtorizationRequestedHelperTests {
     /* test */
     StepVerifier.create(
         authorizationRequestedHelper.authorizationStateRetrieve(
-          AuthorizationRequestedEvent.retried(
-            QueueEvent(authorizationRequestedRetriedEvent, TracingInfoTest.MOCK_TRACING_INFO)),
+          Either.right(
+            QueueEvent(authorizationOutcomeWaitingEvent, TracingInfoTest.MOCK_TRACING_INFO)),
           checkpointer))
       .expectNext(Unit)
       .verifyComplete()
@@ -220,7 +224,7 @@ class AuhtorizationRequestedHelperTests {
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
           npgTransactionGatewayAuthorizationRequestedData())
 
-      val authorizationRequestedRetriedEvent = transactionAuthorizationOutcomeWaitingEvent(0)
+      val authorizationOutcomeWaitingEvent = transactionAuthorizationOutcomeWaitingEvent(0)
       val transactionId = TransactionId(TRANSACTION_ID)
       val operationId = "operationId"
       val orderId = "orderId"
@@ -250,7 +254,7 @@ class AuhtorizationRequestedHelperTests {
           Flux.just(
             activatedEvent as TransactionEvent<Any>,
             authorizationRequestedEvent as TransactionEvent<Any>,
-            authorizationRequestedRetriedEvent as TransactionEvent<Any>,
+            authorizationOutcomeWaitingEvent as TransactionEvent<Any>,
           ))
 
       given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
@@ -277,8 +281,8 @@ class AuhtorizationRequestedHelperTests {
       /* test */
       StepVerifier.create(
           authorizationRequestedHelper.authorizationStateRetrieve(
-            AuthorizationRequestedEvent.retried(
-              QueueEvent(authorizationRequestedRetriedEvent, TracingInfoTest.MOCK_TRACING_INFO)),
+            Either.right(
+              QueueEvent(authorizationOutcomeWaitingEvent, TracingInfoTest.MOCK_TRACING_INFO)),
             checkpointer))
         .expectNext(Unit)
         .verifyComplete()
@@ -302,7 +306,7 @@ class AuhtorizationRequestedHelperTests {
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
           npgTransactionGatewayAuthorizationRequestedData())
 
-      val authorizationRequestedRetriedEvent = transactionAuthorizationOutcomeWaitingEvent(4)
+      val authorizationOutcomeWaitingEvent = transactionAuthorizationOutcomeWaitingEvent(4)
       val transactionId = TransactionId(TRANSACTION_ID)
       val operationId = "operationId"
       val orderId = "orderId"
@@ -332,7 +336,7 @@ class AuhtorizationRequestedHelperTests {
           Flux.just(
             activatedEvent as TransactionEvent<Any>,
             authorizationRequestedEvent as TransactionEvent<Any>,
-            authorizationRequestedRetriedEvent as TransactionEvent<Any>,
+            authorizationOutcomeWaitingEvent as TransactionEvent<Any>,
           ))
 
       given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
@@ -359,8 +363,8 @@ class AuhtorizationRequestedHelperTests {
       /* test */
       StepVerifier.create(
           authorizationRequestedHelper.authorizationStateRetrieve(
-            AuthorizationRequestedEvent.retried(
-              QueueEvent(authorizationRequestedRetriedEvent, TracingInfoTest.MOCK_TRACING_INFO)),
+            Either.right(
+              QueueEvent(authorizationOutcomeWaitingEvent, TracingInfoTest.MOCK_TRACING_INFO)),
             checkpointer))
         .expectNext(Unit)
         .verifyComplete()
@@ -385,7 +389,7 @@ class AuhtorizationRequestedHelperTests {
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
           npgTransactionGatewayAuthorizationRequestedData())
 
-      val authorizationRequestedRetriedEvent = transactionAuthorizationOutcomeWaitingEvent(0)
+      val authorizationOutcomeWaitingEvent = transactionAuthorizationOutcomeWaitingEvent(0)
       val authorizationCompleted =
         transactionAuthorizationCompletedEvent(NpgTransactionGatewayAuthorizationData())
       val transactionId = TransactionId(TRANSACTION_ID)
@@ -401,7 +405,7 @@ class AuhtorizationRequestedHelperTests {
           Flux.just(
             activatedEvent as TransactionEvent<Any>,
             authorizationRequestedEvent as TransactionEvent<Any>,
-            authorizationRequestedRetriedEvent as TransactionEvent<Any>,
+            authorizationOutcomeWaitingEvent as TransactionEvent<Any>,
             authorizationCompleted as TransactionEvent<Any>,
           ))
 
@@ -428,8 +432,8 @@ class AuhtorizationRequestedHelperTests {
       /* test */
       StepVerifier.create(
           authorizationRequestedHelper.authorizationStateRetrieve(
-            AuthorizationRequestedEvent.retried(
-              QueueEvent(authorizationRequestedRetriedEvent, TracingInfoTest.MOCK_TRACING_INFO)),
+            Either.right(
+              QueueEvent(authorizationOutcomeWaitingEvent, TracingInfoTest.MOCK_TRACING_INFO)),
             checkpointer))
         .expectNext(Unit)
         .verifyComplete()
@@ -476,7 +480,7 @@ class AuhtorizationRequestedHelperTests {
     // Test
     StepVerifier.create(
         authorizationRequestedHelper.authorizationStateRetrieve(
-          AuthorizationRequestedEvent.retried(
+          Either.right(
             QueueEvent(
               transactionAuthorizationOutcomeWaitingEvent, TracingInfoTest.MOCK_TRACING_INFO)),
           checkpointer))
@@ -522,7 +526,7 @@ class AuhtorizationRequestedHelperTests {
     // Test
     StepVerifier.create(
         authorizationRequestedHelper.authorizationStateRetrieve(
-          AuthorizationRequestedEvent.retried(
+          Either.right(
             QueueEvent(
               transactionAuthorizationOutcomeWaitingEvent, TracingInfoTest.MOCK_TRACING_INFO)),
           checkpointer))
@@ -604,7 +608,7 @@ class AuhtorizationRequestedHelperTests {
     // Test
     StepVerifier.create(
         authorizationRequestedHelper.authorizationStateRetrieve(
-          AuthorizationRequestedEvent.retried(
+          Either.right(
             QueueEvent(
               transactionAuthorizationOutcomeWaitingEvent, TracingInfoTest.MOCK_TRACING_INFO)),
           checkpointer))
@@ -687,7 +691,7 @@ class AuhtorizationRequestedHelperTests {
     // Test
     StepVerifier.create(
         authorizationRequestedHelper.authorizationStateRetrieve(
-          AuthorizationRequestedEvent.retried(
+          Either.right(
             QueueEvent(
               transactionAuthorizationOutcomeWaitingEvent, TracingInfoTest.MOCK_TRACING_INFO)),
           checkpointer))
@@ -765,7 +769,7 @@ class AuhtorizationRequestedHelperTests {
     // Test
     StepVerifier.create(
         authorizationRequestedHelper.authorizationStateRetrieve(
-          AuthorizationRequestedEvent.retried(
+          Either.right(
             QueueEvent(
               transactionAuthorizationOutcomeWaitingEvent, TracingInfoTest.MOCK_TRACING_INFO)),
           checkpointer))
@@ -845,7 +849,7 @@ class AuhtorizationRequestedHelperTests {
     // Test
     StepVerifier.create(
         authorizationRequestedHelper.authorizationStateRetrieve(
-          AuthorizationRequestedEvent.retried(
+          Either.right(
             QueueEvent(
               transactionAuthorizationOutcomeWaitingEvent, TracingInfoTest.MOCK_TRACING_INFO)),
           checkpointer))
@@ -922,7 +926,7 @@ class AuhtorizationRequestedHelperTests {
     // Test
     StepVerifier.create(
         authorizationRequestedHelper.authorizationStateRetrieve(
-          AuthorizationRequestedEvent.requested(
+          Either.left(
             QueueEvent(transactionAuthorizationRequestedEvent, TracingInfoTest.MOCK_TRACING_INFO)),
           checkpointer))
       .expectNext(Unit)
@@ -991,7 +995,7 @@ class AuhtorizationRequestedHelperTests {
     // Test
     StepVerifier.create(
         authorizationRequestedHelper.authorizationStateRetrieve(
-          AuthorizationRequestedEvent.requested(
+          Either.left(
             QueueEvent(transactionAuthorizationRequestedEvent, TracingInfoTest.MOCK_TRACING_INFO)),
           checkpointer))
       .expectNext(Unit)
@@ -1024,7 +1028,7 @@ class AuhtorizationRequestedHelperTests {
     // Test
     StepVerifier.create(
         authorizationRequestedHelper.authorizationStateRetrieve(
-          AuthorizationRequestedEvent.requested(
+          Either.left(
             QueueEvent(transactionAuthorizationRequestedEvent, TracingInfoTest.MOCK_TRACING_INFO)),
           checkpointer))
       .expectNext(Unit)
@@ -1063,7 +1067,7 @@ class AuhtorizationRequestedHelperTests {
     Hooks.onOperatorDebug()
     StepVerifier.create(
         authorizationRequestedHelper.authorizationStateRetrieve(
-          AuthorizationRequestedEvent.requested(
+          Either.left(
             QueueEvent(transactionAuthorizationRequestedEvent, TracingInfoTest.MOCK_TRACING_INFO)),
           checkpointer))
       .expectNext(Unit)
@@ -1107,7 +1111,7 @@ class AuhtorizationRequestedHelperTests {
     Hooks.onOperatorDebug()
     StepVerifier.create(
         authorizationRequestedHelper.authorizationStateRetrieve(
-          AuthorizationRequestedEvent.requested(
+          Either.left(
             QueueEvent(transactionAuthorizationRequestedEvent, TracingInfoTest.MOCK_TRACING_INFO)),
           checkpointer))
       .expectNext(Unit)
@@ -1150,7 +1154,7 @@ class AuhtorizationRequestedHelperTests {
     Hooks.onOperatorDebug()
     StepVerifier.create(
         authorizationRequestedHelper.authorizationStateRetrieve(
-          AuthorizationRequestedEvent.requested(
+          Either.left(
             QueueEvent(transactionAuthorizationRequestedEvent, TracingInfoTest.MOCK_TRACING_INFO)),
           checkpointer))
       .expectNext(Unit)
@@ -1229,7 +1233,7 @@ class AuhtorizationRequestedHelperTests {
     // Test
     StepVerifier.create(
         authorizationRequestedHelper.authorizationStateRetrieve(
-          AuthorizationRequestedEvent.requested(
+          Either.left(
             QueueEvent(transactionAuthorizationRequestedEvent, TracingInfoTest.MOCK_TRACING_INFO)),
           checkpointer))
       .expectNext(Unit)
@@ -1309,7 +1313,7 @@ class AuhtorizationRequestedHelperTests {
     // Test
     StepVerifier.create(
         authorizationRequestedHelper.authorizationStateRetrieve(
-          AuthorizationRequestedEvent.requested(
+          Either.left(
             QueueEvent(transactionAuthorizationRequestedEvent, TracingInfoTest.MOCK_TRACING_INFO)),
           checkpointer))
       .expectNext(Unit)
@@ -1385,7 +1389,7 @@ class AuhtorizationRequestedHelperTests {
     // Test
     StepVerifier.create(
         authorizationRequestedHelper.authorizationStateRetrieve(
-          AuthorizationRequestedEvent.requested(
+          Either.left(
             QueueEvent(transactionAuthorizationRequestedEvent, TracingInfoTest.MOCK_TRACING_INFO)),
           checkpointer))
       .expectNext(Unit)
@@ -1463,7 +1467,7 @@ class AuhtorizationRequestedHelperTests {
     // Test
     StepVerifier.create(
         authorizationRequestedHelper.authorizationStateRetrieve(
-          AuthorizationRequestedEvent.requested(
+          Either.left(
             QueueEvent(transactionAuthorizationRequestedEvent, TracingInfoTest.MOCK_TRACING_INFO)),
           checkpointer))
       .expectNext(Unit)

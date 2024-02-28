@@ -2,8 +2,6 @@ package it.pagopa.ecommerce.eventdispatcher.queues
 
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
-import io.vavr.control.Either
-import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationOutcomeWaitingEvent
 import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationRequestedEvent
 import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.queues.QueueEvent
@@ -31,14 +29,8 @@ class TransactionAuthorizationRequestedQueueConsumerTest {
   val strictSerializerProviderV2 = QueuesConsumerConfig().strictSerializerProviderV2()
 
   private val queueConsumerV2Captor:
-    KArgumentCaptor<
-      Either<
-        QueueEvent<TransactionAuthorizationRequestedEvent>,
-        QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>>> =
-    argumentCaptor<
-      Either<
-        QueueEvent<TransactionAuthorizationRequestedEvent>,
-        QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>>>()
+    KArgumentCaptor<QueueEvent<TransactionAuthorizationRequestedEvent>> =
+    argumentCaptor<QueueEvent<TransactionAuthorizationRequestedEvent>>()
 
   private val checkpointer: Checkpointer = mock()
 
@@ -74,9 +66,8 @@ class TransactionAuthorizationRequestedQueueConsumerTest {
     verify(deadLetterTracedQueueAsyncClient, times(0))
       .sendAndTraceDeadLetterQueueEvent(any<BinaryData>(), any())
     val queueEvent = queueConsumerV2Captor.firstValue
-    val actualEvent = queueEvent.fold({ it }, { it })
-    Assertions.assertEquals(originalEvent, actualEvent.event)
-    Assertions.assertNotNull(actualEvent.tracingInfo)
+    Assertions.assertEquals(originalEvent, queueEvent.event)
+    Assertions.assertNotNull(queueEvent.tracingInfo)
   }
 
   @Test

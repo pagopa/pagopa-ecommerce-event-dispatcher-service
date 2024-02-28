@@ -4,8 +4,7 @@ import com.azure.spring.messaging.checkpoint.Checkpointer
 import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.TracingInfoTest.MOCK_TRACING_INFO
-import it.pagopa.ecommerce.commons.v2.TransactionTestUtils.*
-import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.AuthorizationRequestedEvent
+import it.pagopa.ecommerce.commons.v2.TransactionTestUtils.transactionAuthorizationOutcomeWaitingEvent
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.AuthorizationRequestedHelper
 import kotlinx.coroutines.reactor.mono
 import org.junit.jupiter.api.Test
@@ -28,18 +27,14 @@ class TransactionAuthorizationOutcomeWaitingQueueConsumerTest {
   fun `Should handle authorization state retriever for authorization requested retry event`() {
     // assertions
     val event = QueueEvent(transactionAuthorizationOutcomeWaitingEvent(0), MOCK_TRACING_INFO)
-    val expectedAuthorizationRequestedRetriedEvent = AuthorizationRequestedEvent.retried(event)
-    given(
-        authorizationRequestedHelper.authorizationStateRetrieve(
-          eq(expectedAuthorizationRequestedRetriedEvent), any()))
+    given(authorizationRequestedHelper.authorizationStateRetrieve(eq(Either.right(event)), any()))
       .willReturn(mono { (Unit) })
     // test
     StepVerifier.create(
-        transactionAuthorizationOutcomeWaitingQueueConsumer.messageReceiver(
-          Either.right(event), checkpointer))
+        transactionAuthorizationOutcomeWaitingQueueConsumer.messageReceiver(event, checkpointer))
       .expectNext(Unit)
       .verifyComplete()
     verify(authorizationRequestedHelper, times(1))
-      .authorizationStateRetrieve(eq(expectedAuthorizationRequestedRetriedEvent), eq(checkpointer))
+      .authorizationStateRetrieve(eq(Either.right(event)), eq(checkpointer))
   }
 }
