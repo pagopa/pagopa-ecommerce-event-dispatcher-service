@@ -123,7 +123,7 @@ class QueuesConsumerConfig {
     channel = "transactionsauthorizationoutcomewaitingchannel",
     poller = [Poller(fixedDelay = "1000", maxMessagesPerPoll = "10")])
   @EndpointId("storageQueueAuthorizationOutcomeWaitingMessageSourceEndpoint")
-  fun storageQueueAuthorizationRequestedRetryMessageSource(
+  fun storageQueueAuthorizationOutcomeWaitingMessageSource(
     storageQueueTemplate: StorageQueueTemplate,
     @Value("\${azurestorage.queues.transactionauthorizationoutcomewaiting.name}")
     queueNameAuthRequestedRetryEvents: String

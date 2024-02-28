@@ -45,7 +45,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
 
   private val paymentTokenValidityTimeOffset = 10
 
-  private val authRequestedRetryQueueAsyncClient: QueueAsyncClient = mock()
+  private val authRequestedOutcomeWaitingQueueAsyncClient: QueueAsyncClient = mock()
 
   private val transactionsViewRepository: TransactionsViewRepository = mock()
 
@@ -69,7 +69,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
   private val authorizationStateRetrieverRetryService =
     AuthorizationStateRetrieverRetryService(
       paymentTokenValidityTimeOffset = paymentTokenValidityTimeOffset,
-      authRequestedRetryQueueAsyncClient = authRequestedRetryQueueAsyncClient,
+      authRequestedOutcomeWaitingQueueAsyncClient = authRequestedOutcomeWaitingQueueAsyncClient,
       viewRepository = transactionsViewRepository,
       eventStoreRepository = eventStoreRepository,
       retryOffset = retryOffset,
@@ -96,7 +96,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
       Mono.just(it.arguments[0])
     }
     given(
-        authRequestedRetryQueueAsyncClient.sendMessageWithResponse(
+        authRequestedOutcomeWaitingQueueAsyncClient.sendMessageWithResponse(
           queueCaptor.capture(), eq(Duration.ofSeconds((retryOffset * 3).toLong())), anyOrNull()))
       .willReturn(queueSuccessfulResponse())
 
@@ -110,7 +110,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
     verify(transactionsViewRepository, times(1))
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(1)).save(any())
-    verify(authRequestedRetryQueueAsyncClient, times(1))
+    verify(authRequestedOutcomeWaitingQueueAsyncClient, times(1))
       .sendMessageWithResponse(
         any<BinaryData>(), any(), eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_SECONDS.toLong())))
     val savedEvent = eventStoreCaptor.value
@@ -150,7 +150,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
       Mono.just(it.arguments[0])
     }
     given(
-        authRequestedRetryQueueAsyncClient.sendMessageWithResponse(
+        authRequestedOutcomeWaitingQueueAsyncClient.sendMessageWithResponse(
           queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
       .willReturn(queueSuccessfulResponse())
     StepVerifier.create(
@@ -163,7 +163,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
     verify(transactionsViewRepository, times(1))
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(1)).save(any())
-    verify(authRequestedRetryQueueAsyncClient, times(1))
+    verify(authRequestedOutcomeWaitingQueueAsyncClient, times(1))
       .sendMessageWithResponse(
         any<BinaryData>(), any(), eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_SECONDS.toLong())))
     val savedEvent = eventStoreCaptor.value
@@ -207,7 +207,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
       Mono.just(it.arguments[0])
     }
     given(
-        authRequestedRetryQueueAsyncClient.sendMessageWithResponse(
+        authRequestedOutcomeWaitingQueueAsyncClient.sendMessageWithResponse(
           queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
       .willReturn(queueSuccessfulResponse())
     StepVerifier.create(
@@ -220,7 +220,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
     verify(transactionsViewRepository, times(0))
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(0)).save(any())
-    verify(authRequestedRetryQueueAsyncClient, times(0))
+    verify(authRequestedOutcomeWaitingQueueAsyncClient, times(0))
       .sendMessageWithResponse(any<BinaryData>(), any(), any())
   }
 
@@ -246,7 +246,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
       Mono.just(it.arguments[0])
     }
     given(
-        authRequestedRetryQueueAsyncClient.sendMessageWithResponse(
+        authRequestedOutcomeWaitingQueueAsyncClient.sendMessageWithResponse(
           queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
       .willReturn(queueSuccessfulResponse())
     StepVerifier.create(
@@ -259,7 +259,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
     verify(transactionsViewRepository, times(0))
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(0)).save(any())
-    verify(authRequestedRetryQueueAsyncClient, times(0))
+    verify(authRequestedOutcomeWaitingQueueAsyncClient, times(0))
       .sendMessageWithResponse(any<BinaryData>(), any(), any())
   }
 
@@ -282,7 +282,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
       Mono.just(it.arguments[0])
     }
     given(
-        authRequestedRetryQueueAsyncClient.sendMessageWithResponse(
+        authRequestedOutcomeWaitingQueueAsyncClient.sendMessageWithResponse(
           queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
       .willReturn(queueSuccessfulResponse())
     StepVerifier.create(
@@ -295,7 +295,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
     verify(transactionsViewRepository, times(0))
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(0)).save(any())
-    verify(authRequestedRetryQueueAsyncClient, times(0))
+    verify(authRequestedOutcomeWaitingQueueAsyncClient, times(0))
       .sendMessageWithResponse(any<BinaryData>(), any(), any())
   }
 
@@ -354,7 +354,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
       Mono.just(it.arguments[0])
     }
     given(
-        authRequestedRetryQueueAsyncClient.sendMessageWithResponse(
+        authRequestedOutcomeWaitingQueueAsyncClient.sendMessageWithResponse(
           queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
       .willReturn(queueSuccessfulResponse())
     StepVerifier.create(
@@ -367,7 +367,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
     verify(transactionsViewRepository, times(1))
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(0)).save(any())
-    verify(authRequestedRetryQueueAsyncClient, times(0))
+    verify(authRequestedOutcomeWaitingQueueAsyncClient, times(0))
       .sendMessageWithResponse(any<BinaryData>(), any(), any())
   }
 
@@ -390,7 +390,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
       Mono.error<Transaction>(RuntimeException("Error updating transaction view"))
     }
     given(
-        authRequestedRetryQueueAsyncClient.sendMessageWithResponse(
+        authRequestedOutcomeWaitingQueueAsyncClient.sendMessageWithResponse(
           queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
       .willReturn(queueSuccessfulResponse())
     StepVerifier.create(
@@ -403,7 +403,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
     verify(transactionsViewRepository, times(1))
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(1)).save(any())
-    verify(authRequestedRetryQueueAsyncClient, times(0))
+    verify(authRequestedOutcomeWaitingQueueAsyncClient, times(0))
       .sendMessageWithResponse(any<BinaryData>(), any(), any())
   }
 

@@ -78,7 +78,7 @@ class QueuesProducerConfig {
   }
 
   @Bean
-  fun authRequestedRetryQueueAsyncClient(
+  fun authRequestedOutcomeWaitingQueueAsyncClient(
     @Value("\${azurestorage.transient.connectionstring}") storageConnectionString: String,
     @Value("\${azurestorage.queues.transactionauthorizationoutcomewaiting.name}")
     queueEventInitName: String,
