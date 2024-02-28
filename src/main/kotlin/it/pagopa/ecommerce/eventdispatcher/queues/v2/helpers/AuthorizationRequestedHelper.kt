@@ -93,8 +93,7 @@ class AuthorizationRequestedHelper(
         .cast(BaseTransaction::class.java)
         .filter { it.status == TransactionStatusDto.AUTHORIZATION_REQUESTED }
         .switchIfEmpty {
-          logger.info(
-            "Transaction [$transactionId] status: [${it.status}]. No action needed")
+          logger.info("Transaction $transactionId not in authorization requested. No action needed")
           Mono.empty()
         }
         .doOnNext {

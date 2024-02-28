@@ -18,7 +18,7 @@ import org.springframework.stereotype.Component
 
 @Component
 class AuthorizationStateRetrieverRetryService(
-  @Value("\${transactionAuthorizationOutcomeWaiting.paymentTokenValidityTimeOffset}")
+  @Value("\${transactionAuthorizationOutcomeWaiting.paymentTokenValidityTimeOffsetSeconds}")
   private val paymentTokenValidityTimeOffset: Int,
   @Autowired private val authRequestedRetryQueueAsyncClient: QueueAsyncClient,
   @Autowired private val viewRepository: TransactionsViewRepository,
