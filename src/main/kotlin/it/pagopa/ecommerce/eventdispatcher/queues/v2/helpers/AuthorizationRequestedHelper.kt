@@ -94,7 +94,7 @@ class AuthorizationRequestedHelper(
         .filter { it.status == TransactionStatusDto.AUTHORIZATION_REQUESTED }
         .switchIfEmpty {
           logger.info(
-            "Transaction $transactionId is not is Authorization Requested status. No more action needed")
+            "Transaction [$transactionId] status: [${it.status}]. No action needed")
           Mono.empty()
         }
         .doOnNext {
