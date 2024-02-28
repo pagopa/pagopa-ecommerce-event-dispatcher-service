@@ -4,7 +4,6 @@ import com.azure.core.util.BinaryData
 import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
-import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationRequestedEvent as TransactionAuthorizationRequestedEventV2
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
@@ -64,7 +63,7 @@ class TransactionAuthorizationRequestedQueueConsumer(
           is TransactionAuthorizationRequestedEventV2 -> {
             logger.debug(
               "Event {} with tracing info {} dispatched to V2 handler", e.event, e.tracingInfo)
-            queueConsumerV2.messageReceiver(Either.left(e), checkPointer)
+            queueConsumerV2.messageReceiver(e, checkPointer)
           }
           else -> {
             logger.error(

@@ -1,6 +1,7 @@
 package it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers
 
 import com.azure.spring.messaging.checkpoint.Checkpointer
+import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v2.Transaction
@@ -23,37 +24,6 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.switchIfEmpty
-
-data class AuthorizationRequestedEvent(
-  val requested: QueueEvent<TransactionAuthorizationRequestedEvent>?,
-  val retried: QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>?
-) {
-  init {
-    require(listOfNotNull(requested, retried).size == 1) { "Only one event must be non-null!" }
-  }
-
-  companion object {
-    fun requested(
-      event: QueueEvent<TransactionAuthorizationRequestedEvent>
-    ): AuthorizationRequestedEvent = AuthorizationRequestedEvent(event, null)
-
-    fun retried(
-      event: QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>
-    ): AuthorizationRequestedEvent = AuthorizationRequestedEvent(null, event)
-  }
-
-  fun <T> fold(
-    onRequested: (QueueEvent<TransactionAuthorizationRequestedEvent>) -> T,
-    onRetried: (QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>) -> T,
-  ): T {
-    return checkNotNull(
-      when {
-        requested != null -> onRequested(requested)
-        retried != null -> onRetried(retried)
-        else -> null
-      }) { "No variant of `AuthorizationRequestedEvent` is non-null!" }
-  }
-}
 
 /**
  * This helper implements the business logic related to handling calling `getState` from NPG. In
@@ -79,22 +49,29 @@ class AuthorizationRequestedHelper(
   var logger: Logger = LoggerFactory.getLogger(AuthorizationRequestedHelper::class.java)
 
   fun authorizationStateRetrieve(
-    parsedEvent: AuthorizationRequestedEvent,
+    parsedEvent:
+      Either<
+        QueueEvent<TransactionAuthorizationRequestedEvent>,
+        QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>>,
     checkPointer: Checkpointer
   ): Mono<Unit> {
     val tracingInfo = getTracingInfo(parsedEvent)
     val transactionId = getTransactionId(parsedEvent)
     val retryCount = getRetryCount(parsedEvent)
-
-    val authorizationRequestedPipeline =
+    val baseTransaction =
       transactionsEventStoreRepository
         .findByTransactionIdOrderByCreationDateAsc(transactionId)
         .reduce(EmptyTransaction(), Transaction::applyEvent)
         .cast(BaseTransaction::class.java)
+
+    val authorizationRequestedPipeline =
+      baseTransaction
         .filter { it.status == TransactionStatusDto.AUTHORIZATION_REQUESTED }
         .switchIfEmpty {
-          logger.info("Transaction $transactionId not in authorization requested. No action needed")
-          Mono.empty()
+          baseTransaction.flatMap {
+            logger.info("Transaction [$transactionId] status [${it.status}]. No action needed")
+            Mono.empty()
+          }
         }
         .doOnNext {
           logger.info(
@@ -120,15 +97,30 @@ class AuthorizationRequestedHelper(
       strictSerializerProviderV2)
   }
 
-  private fun getTracingInfo(event: AuthorizationRequestedEvent): TracingInfo {
+  private fun getTracingInfo(
+    event:
+      Either<
+        QueueEvent<TransactionAuthorizationRequestedEvent>,
+        QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>>
+  ): TracingInfo {
     return event.fold({ it.tracingInfo }, { it.tracingInfo })
   }
 
-  private fun getTransactionId(event: AuthorizationRequestedEvent): String {
+  private fun getTransactionId(
+    event:
+      Either<
+        QueueEvent<TransactionAuthorizationRequestedEvent>,
+        QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>>
+  ): String {
     return event.fold({ it.event.transactionId }, { it.event.transactionId })
   }
 
-  private fun getRetryCount(event: AuthorizationRequestedEvent): Int {
+  private fun getRetryCount(
+    event:
+      Either<
+        QueueEvent<TransactionAuthorizationRequestedEvent>,
+        QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>>
+  ): Int {
     return event.fold({ 0 }, { it.event.data.retryCount })
   }
 }
