@@ -120,9 +120,9 @@ class QueuesConsumerConfig {
 
   @Bean
   @InboundChannelAdapter(
-    channel = "transactionsauthorizationrequestedretrychannel",
+    channel = "transactionsauthorizationoutcomewaitingchannel",
     poller = [Poller(fixedDelay = "1000", maxMessagesPerPoll = "10")])
-  @EndpointId("storageQueueAuthorizationRequestedRetryMessageSourceEndpoint")
+  @EndpointId("storageQueueAuthorizationOutcomeWaitingMessageSourceEndpoint")
   fun storageQueueAuthorizationRequestedRetryMessageSource(
     storageQueueTemplate: StorageQueueTemplate,
     @Value("\${azurestorage.queues.transactionauthorizationoutcomewaiting.name}")

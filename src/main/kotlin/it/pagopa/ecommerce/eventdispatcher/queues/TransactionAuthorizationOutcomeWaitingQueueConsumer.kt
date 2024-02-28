@@ -53,7 +53,7 @@ class TransactionAuthorizationOutcomeWaitingQueueConsumer(
   }
 
   @ServiceActivator(
-    inputChannel = "transactionsauthorizationrequestedretrychannel", outputChannel = "nullChannel")
+    inputChannel = "transactionsauthorizationoutcomewaitingchannel", outputChannel = "nullChannel")
   fun messageReceiver(
     @Payload payload: ByteArray,
     @Header(AzureHeaders.CHECKPOINTER) checkPointer: Checkpointer
