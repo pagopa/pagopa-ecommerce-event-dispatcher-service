@@ -25,7 +25,8 @@ microservice-chart:
         TRANSACTIONS_NOTIFICATIONS_RETRY_QUEUE_NAME: pagopa-u-weu-ecommerce-transaction-notifications-retry-queue-b
         TRANSACTIONS_NOTIFICATIONS_QUEUE_NAME: pagopa-u-weu-ecommerce-transaction-notifications-queue-b
         TRANSACTIONS_DEAD_LETTER_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-dead-letter-queue-b
-        TRANSACTIONS_AUTHORIZATION_REQUESTED_QUEUE_NAME: pagopa-d-weu-ecommerce-transaction-auth-requested-queue-b
+        TRANSACTIONS_AUTHORIZATION_REQUESTED_QUEUE_NAME: pagopa-u-weu-ecommerce-transaction-auth-requested-queue-b
+        TRANSACTIONS_AUTHORIZATION_OUTCOME_WAITING_QUEUE_NAME: pagopa-u-weu-ecommerce-transaction-auth-outcome-waiting-queue-b
         NODO_ECOMMERCE_CLIENT_ID: ecomm-blue
         OTEL_RESOURCE_ATTRIBUTES: "service.name=pagopa-ecommerce-event-dispatcher-service-blue,service.deployment.environment=uat"
         ECS_SERVICE_NAME: pagopa-ecommerce-event-dispatcher-service-blue
@@ -59,9 +60,9 @@ microservice-chart:
     servicePort: 9000
   serviceAccount:
     create: false
-    annotations: {}
+    annotations: { }
     name: ""
-  podAnnotations: {}
+  podAnnotations: { }
   podSecurityContext:
     seccompProfile:
       type: RuntimeDefault
@@ -102,6 +103,7 @@ microservice-chart:
     TRANSACTIONS_NOTIFICATIONS_QUEUE_NAME: pagopa-u-weu-ecommerce-transaction-notifications-queue
     TRANSACTIONS_DEAD_LETTER_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-dead-letter-queue
     TRANSACTIONS_AUTHORIZATION_REQUESTED_QUEUE_NAME: pagopa-u-weu-ecommerce-transaction-auth-requested-queue
+    TRANSACTIONS_AUTHORIZATION_OUTCOME_WAITING_QUEUE_NAME: pagopa-u-weu-ecommerce-transaction-auth-outcome-waiting-queue
     PAYMENT_TRANSACTIONS_GATEWAY_URI: https://api.uat.platform.pagopa.it/payment-transactions-gateway/internal/v1
     PAYMENT_TRANSACTIONS_GATEWAY_READ_TIMEOUT: "10000"
     PAYMENT_TRANSACTIONS_GATEWAY_CONNECTION_TIMEOUT: "10000"
@@ -132,8 +134,8 @@ microservice-chart:
     CLOSE_PAYMENT_RETRY_EVENT_MAX_ATTEMPTS: "3"
     NOTIFICATION_RETRY_EVENT_BASE_INTERVAL_SECONDS: "600"
     NOTIFICATION_RETRY_EVENT_MAX_ATTEMPTS: "3"
-    AUTHORIZATION_REQUESTED_RETRY_EVENT_BASE_INTERVAL_SECONDS: "60"
-    AUTHORIZATION_REQUESTED_RETRY_EVENT_MAX_ATTEMPTS: "3"
+    AUTHORIZATION_OUTCOME_WAITING_EVENT_BASE_INTERVAL_SECONDS: "10"
+    AUTHORIZATION_OUTCOME_WAITING_EVENT_MAX_ATTEMPTS: "3"
     NOTIFICATIONS_SERVICE_URI: https://api.uat.platform.pagopa.it/ecommerce/notifications-service/v1
     NOTIFICATIONS_SERVICE_READ_TIMEOUT: "10000"
     NOTIFICATIONS_SERVICE_CONNECTION_TIMEOUT: "10000"
@@ -177,8 +179,8 @@ microservice-chart:
   keyvault:
     name: "pagopa-u-ecommerce-kv"
     tenantId: "7788edaf-0346-4068-9d79-c868aed15b3d"
-  nodeSelector: {}
-  tolerations: []
+  nodeSelector: { }
+  tolerations: [ ]
   affinity:
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:

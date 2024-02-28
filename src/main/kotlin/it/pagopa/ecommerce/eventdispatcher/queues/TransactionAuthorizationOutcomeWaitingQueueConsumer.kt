@@ -4,7 +4,7 @@ import com.azure.core.util.BinaryData
 import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
-import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationRequestedEvent as TransactionAuthorizationRequestedEventV2
+import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationOutcomeWaitingEvent
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.eventdispatcher.exceptions.InvalidEventException
@@ -23,25 +23,27 @@ import reactor.core.publisher.Mono
  * will handle TransactionAuthorizationRequestedEvent V2 events and inquiry gateway in order to
  * retrieve authorization outcome
  */
-@Service("TransactionAuthorizationRequestedQueueConsumer")
-class TransactionAuthorizationRequestedQueueConsumer(
+@Service("TransactionAuthorizationOutcomeWaitingQueueConsumer")
+class TransactionAuthorizationOutcomeWaitingQueueConsumer(
   @Autowired
   private val queueConsumerV2:
-    it.pagopa.ecommerce.eventdispatcher.queues.v2.TransactionAuthorizationRequestedQueueConsumer,
+    it.pagopa.ecommerce.eventdispatcher.queues.v2.TransactionAuthorizationOutcomeWaitingQueueConsumer,
   @Autowired private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient,
   @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider
 ) {
 
   var logger: Logger =
-    LoggerFactory.getLogger(TransactionAuthorizationRequestedQueueConsumer::class.java)
+    LoggerFactory.getLogger(TransactionAuthorizationOutcomeWaitingQueueConsumer::class.java)
 
-  fun parseEvent(payload: ByteArray): Mono<QueueEvent<TransactionAuthorizationRequestedEventV2>> {
+  fun parseEvent(
+    payload: ByteArray
+  ): Mono<QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>> {
     val data = BinaryData.fromBytes(payload)
     val jsonSerializerV2 = strictSerializerProviderV2.createInstance()
 
     return data
       .toObjectAsync(
-        object : TypeReference<QueueEvent<TransactionAuthorizationRequestedEventV2>>() {},
+        object : TypeReference<QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>>() {},
         jsonSerializerV2)
       .onErrorMap {
         logger.debug(ERROR_PARSING_EVENT_ERROR, it)
@@ -50,17 +52,16 @@ class TransactionAuthorizationRequestedQueueConsumer(
   }
 
   @ServiceActivator(
-    inputChannel = "transactionsauthorizationrequestedchannel", outputChannel = "nullChannel")
+    inputChannel = "transactionsauthorizationoutcomewaitingchannel", outputChannel = "nullChannel")
   fun messageReceiver(
     @Payload payload: ByteArray,
     @Header(AzureHeaders.CHECKPOINTER) checkPointer: Checkpointer
   ): Mono<Unit> {
     val eventWithTracingInfo = parseEvent(payload)
-
     return eventWithTracingInfo
       .flatMap { e ->
         when (e.event) {
-          is TransactionAuthorizationRequestedEventV2 -> {
+          is TransactionAuthorizationOutcomeWaitingEvent -> {
             logger.debug(
               "Event {} with tracing info {} dispatched to V2 handler", e.event, e.tracingInfo)
             queueConsumerV2.messageReceiver(e, checkPointer)

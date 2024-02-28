@@ -29,7 +29,7 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewReposito
 import it.pagopa.ecommerce.eventdispatcher.services.RefundService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.AuthorizationStateRetrieverRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
-import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgStateService
+import it.pagopa.ecommerce.eventdispatcher.services.v2.AuthorizationStateRetrieverService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto.StatusEnum
@@ -165,7 +165,7 @@ fun updateTransactionWithRefundEvent(
 fun handleGetState(
   tx: BaseTransaction,
   authorizationStateRetrieverRetryService: AuthorizationStateRetrieverRetryService,
-  npgStateService: NpgStateService,
+  authorizationStateRetrieverService: AuthorizationStateRetrieverService,
   transactionsServiceClient: TransactionsServiceClient,
   tracingInfo: TracingInfo,
   retryCount: Int = 0
@@ -178,7 +178,7 @@ fun handleGetState(
     }
     .switchIfEmpty(Mono.error(InvalidNPGPaymentGatewayException(tx.transactionId)))
     .flatMap { transaction ->
-      npgStateService.getStateNpg(
+      authorizationStateRetrieverService.getStateNpg(
         transaction.transactionId,
         retrieveGetStateSessionId(
           transaction.transactionAuthorizationRequestData
@@ -198,18 +198,33 @@ fun handleGetState(
     .thenReturn(tx)
     .onErrorResume { exception ->
       logger.error(
-        "Transaction getState npg error for transaction ${tx.transactionId.value()}", exception)
+        "Transaction handleGetState error for transaction ${tx.transactionId.value()}", exception)
       Mono.just(tx)
         .flatMap {
           when (exception) {
-            // Enqueue retry event only if getState is allowed
-            !is NpgBadRequestException ->
-              handleRetryGetState(
-                authorizationStateRetrieverRetryService = authorizationStateRetrieverRetryService,
-                tx = it,
-                retryCount = retryCount + 1,
-                tracingInfo = tracingInfo)
-            else -> Mono.error(exception)
+            // Enqueue retry event only if getState is 5xx or 2xx with no PAYMENT_COMPLETE or
+            // patchRequest is 5xx
+            is NpgBadRequestException, // 400 from NPG
+            is TransactionNotFound, // 404 from transactions-service
+            is UnauthorizedPatchAuthorizationRequestException, // 401 from transactions-service
+            is PatchAuthRequestErrorResponseException, // 400 from transactions-service
+            is InvalidNPGPaymentGatewayException, // 400 from NPG
+            -> Mono.empty() //
+            else ->
+              authorizationStateRetrieverRetryService
+                .enqueueRetryEvent(tx, retryCount, tracingInfo)
+                .onErrorResume { enqueueException ->
+                  logger.error(
+                    "Transaction enqueue retry event error for transaction ${tx.transactionId.value()}",
+                    enqueueException)
+                  Mono.just(tx).flatMap {
+                    when (enqueueException) {
+                      is TooLateRetryAttemptException,
+                      is NoRetryAttemptsLeftException, -> Mono.empty()
+                      else -> Mono.error(enqueueException)
+                    }
+                  }
+                }
           }
         }
         .thenReturn(tx)
@@ -221,24 +236,13 @@ fun retrieveGetStateSessionId(
 ): String {
   val sessionId = authRequestedGatewayData.sessionId
   val confirmPaymentSessionId = authRequestedGatewayData.confirmPaymentSessionId
-  val sessionIdToUse =
-    Optional.of(authRequestedGatewayData.confirmPaymentSessionId)
-      .orElse(authRequestedGatewayData.sessionId)
+  val sessionIdToUse = Optional.ofNullable(confirmPaymentSessionId).orElse(sessionId)
   logger.info(
     "NPG authorization request sessionId: [{}], confirm payment session id: [{}] -> session id to use for retrieve state: [{}]",
     sessionId,
     confirmPaymentSessionId,
     sessionIdToUse)
   return sessionIdToUse
-}
-
-fun handleRetryGetState(
-  authorizationStateRetrieverRetryService: AuthorizationStateRetrieverRetryService,
-  tx: BaseTransaction,
-  retryCount: Int,
-  tracingInfo: TracingInfo
-): Mono<Void> {
-  return authorizationStateRetrieverRetryService.enqueueRetryEvent(tx, retryCount, tracingInfo)
 }
 
 fun handleStateResponse(
@@ -252,6 +256,12 @@ fun handleStateResponse(
     stateResponseDto.state?.value ?: "N/A")
   // invoke transaction service patch
   return Mono.just(stateResponseDto)
+    .filter { s ->
+      s.operation != null &&
+        s.operation!!.operationTime != null &&
+        s.operation!!.operationResult != null
+    }
+    .switchIfEmpty(Mono.error(InvalidNPGResponseException()))
     .filter { s -> s.state == WorkflowStateDto.PAYMENT_COMPLETE }
     .switchIfEmpty(
       Mono.error(

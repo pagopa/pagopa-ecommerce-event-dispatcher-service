@@ -7,7 +7,6 @@ import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v2.TransactionWithUserReceiptError
-import it.pagopa.ecommerce.commons.domain.v2.pojos.*
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
@@ -16,7 +15,6 @@ import it.pagopa.ecommerce.eventdispatcher.client.NotificationsServiceClient
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
-import it.pagopa.ecommerce.eventdispatcher.queues.*
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.RefundService
@@ -24,7 +22,6 @@ import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.NotificationRe
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.ecommerce.eventdispatcher.utils.v2.UserReceiptMailBuilder
-import it.pagopa.generated.notifications.templates.success.*
 import java.util.*
 import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger

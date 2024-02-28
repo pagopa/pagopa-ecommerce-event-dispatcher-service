@@ -2,7 +2,7 @@ package it.pagopa.ecommerce.eventdispatcher.queues
 
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
-import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationRequestedEvent
+import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationOutcomeWaitingEvent
 import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.TracingInfoTest
@@ -19,24 +19,24 @@ import reactor.core.publisher.Hooks
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
 
-class TransactionAuthorizationRequestedQueueConsumerTest {
+class TransactionAuthorizationOutcomeWaitingQueueConsumerTest {
 
   private val queueConsumerV2:
-    it.pagopa.ecommerce.eventdispatcher.queues.v2.TransactionAuthorizationRequestedQueueConsumer =
+    it.pagopa.ecommerce.eventdispatcher.queues.v2.TransactionAuthorizationOutcomeWaitingQueueConsumer =
     mock()
   private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient = mock()
 
   val strictSerializerProviderV2 = QueuesConsumerConfig().strictSerializerProviderV2()
 
   private val queueConsumerV2Captor:
-    KArgumentCaptor<QueueEvent<TransactionAuthorizationRequestedEvent>> =
-    argumentCaptor<QueueEvent<TransactionAuthorizationRequestedEvent>>()
+    KArgumentCaptor<QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>> =
+    argumentCaptor<QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>>()
 
   private val checkpointer: Checkpointer = mock()
 
-  private val transactionAuthorizationRequestedQueueConsumer =
+  private val transactionAuthorizationOutcomeWaitingQueueConsumer =
     spy(
-      TransactionAuthorizationRequestedQueueConsumer(
+      TransactionAuthorizationOutcomeWaitingQueueConsumer(
         queueConsumerV2 = queueConsumerV2,
         deadLetterTracedQueueAsyncClient = deadLetterTracedQueueAsyncClient,
         strictSerializerProviderV2 = strictSerializerProviderV2))
@@ -44,7 +44,7 @@ class TransactionAuthorizationRequestedQueueConsumerTest {
   @Test
   fun `Should dispatch authorization requested events`() {
     // pre-condition
-    val originalEvent = TransactionTestUtils.transactionAuthorizationRequestedEvent()
+    val originalEvent = TransactionTestUtils.transactionAuthorizationOutcomeWaitingEvent(0)
     val serializedEvent =
       String(
         BinaryData.fromObject(
@@ -58,7 +58,7 @@ class TransactionAuthorizationRequestedQueueConsumerTest {
     // test
     Hooks.onOperatorDebug()
     StepVerifier.create(
-        transactionAuthorizationRequestedQueueConsumer.messageReceiver(
+        transactionAuthorizationOutcomeWaitingQueueConsumer.messageReceiver(
           serializedEvent.toByteArray(StandardCharsets.UTF_8), checkpointer))
       .verifyComplete()
     // assertions
@@ -68,34 +68,6 @@ class TransactionAuthorizationRequestedQueueConsumerTest {
     val queueEvent = queueConsumerV2Captor.firstValue
     Assertions.assertEquals(originalEvent, queueEvent.event)
     Assertions.assertNotNull(queueEvent.tracingInfo)
-  }
-
-  @Test
-  fun `Should not dispatch events different authorization requested events`() {
-    // pre-condition
-    val authCompletedEvent =
-      TransactionTestUtils.transactionAuthorizationCompletedEvent(
-        NpgTransactionGatewayAuthorizationData())
-    val serializedEvent =
-      String(
-        BinaryData.fromObject(
-            QueueEvent(authCompletedEvent, TracingInfoTest.MOCK_TRACING_INFO),
-            strictSerializerProviderV2.createInstance())
-          .toBytes(),
-        StandardCharsets.UTF_8)
-    println("Serialized event: $serializedEvent")
-    given(queueConsumerV2.messageReceiver(queueConsumerV2Captor.capture(), any()))
-      .willReturn(Mono.empty())
-    // test
-    Hooks.onOperatorDebug()
-    StepVerifier.create(
-        transactionAuthorizationRequestedQueueConsumer.messageReceiver(
-          serializedEvent.toByteArray(StandardCharsets.UTF_8), checkpointer))
-      .expectError(InvalidEventException::class.java)
-    // assertions
-    verify(queueConsumerV2, times(0)).messageReceiver(any(), any())
-    verify(deadLetterTracedQueueAsyncClient, times(0))
-      .sendAndTraceDeadLetterQueueEvent(any<BinaryData>(), any())
   }
 
   @Test
@@ -112,7 +84,7 @@ class TransactionAuthorizationRequestedQueueConsumerTest {
     // test
     Hooks.onOperatorDebug()
     StepVerifier.create(
-        transactionAuthorizationRequestedQueueConsumer.messageReceiver(
+        transactionAuthorizationOutcomeWaitingQueueConsumer.messageReceiver(
           invalidEvent.toByteArray(StandardCharsets.UTF_8), checkpointer))
       .expectNext(Unit)
       .verifyComplete()
@@ -142,7 +114,7 @@ class TransactionAuthorizationRequestedQueueConsumerTest {
     // test
     Hooks.onOperatorDebug()
     StepVerifier.create(
-        transactionAuthorizationRequestedQueueConsumer.messageReceiver(
+        transactionAuthorizationOutcomeWaitingQueueConsumer.messageReceiver(
           invalidEvent.toByteArray(StandardCharsets.UTF_8), checkpointer))
       .expectError(java.lang.RuntimeException::class.java)
       .verify()
@@ -156,6 +128,34 @@ class TransactionAuthorizationRequestedQueueConsumerTest {
             transactionId = null,
             transactionEventCode = null,
             errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.EVENT_PARSING_ERROR)))
+  }
+
+  @Test
+  fun `Should not dispatch events different authorization requested retry events`() {
+    // pre-condition
+    val authCompletedEvent =
+      TransactionTestUtils.transactionAuthorizationCompletedEvent(
+        NpgTransactionGatewayAuthorizationData())
+    val serializedEvent =
+      String(
+        BinaryData.fromObject(
+            QueueEvent(authCompletedEvent, TracingInfoTest.MOCK_TRACING_INFO),
+            strictSerializerProviderV2.createInstance())
+          .toBytes(),
+        StandardCharsets.UTF_8)
+    println("Serialized event: $serializedEvent")
+    given(queueConsumerV2.messageReceiver(queueConsumerV2Captor.capture(), any()))
+      .willReturn(Mono.empty())
+    // test
+    Hooks.onOperatorDebug()
+    StepVerifier.create(
+        transactionAuthorizationOutcomeWaitingQueueConsumer.messageReceiver(
+          serializedEvent.toByteArray(StandardCharsets.UTF_8), checkpointer))
+      .expectError(InvalidEventException::class.java)
+    // assertions
+    verify(queueConsumerV2, times(0)).messageReceiver(any(), any())
+    verify(deadLetterTracedQueueAsyncClient, times(0))
+      .sendAndTraceDeadLetterQueueEvent(any<BinaryData>(), any())
   }
 
   @Test
@@ -173,7 +173,7 @@ class TransactionAuthorizationRequestedQueueConsumerTest {
     // test
     Hooks.onOperatorDebug()
     StepVerifier.create(
-        transactionAuthorizationRequestedQueueConsumer.messageReceiver(
+        transactionAuthorizationOutcomeWaitingQueueConsumer.messageReceiver(
           invalidEvent.toByteArray(StandardCharsets.UTF_8), checkpointer))
       .expectError(java.lang.RuntimeException::class.java)
       .verify()

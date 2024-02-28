@@ -13,7 +13,7 @@ import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
 
 @Service
-class NpgStateService(
+class AuthorizationStateRetrieverService(
   @Autowired private val npgClient: NpgClient,
   @Autowired private val npgCardsPspApiKey: NpgPspApiKeysConfig,
 ) {
