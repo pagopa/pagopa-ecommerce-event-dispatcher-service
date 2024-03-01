@@ -368,8 +368,7 @@ class NodeService(
   ): String? =
     when (transactionGatewayAuthData) {
       is PgsTransactionGatewayAuthorizationData -> transactionGatewayAuthData.errorCode
-      // TODO handle error code into Close Payment for NPG flow
-      is NpgTransactionGatewayAuthorizationData -> null
+      is NpgTransactionGatewayAuthorizationData -> transactionGatewayAuthData.errorCode
       is RedirectTransactionGatewayAuthorizationData -> transactionGatewayAuthData.errorCode
     }
 }
