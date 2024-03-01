@@ -6,9 +6,11 @@ import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import io.netty.channel.ChannelOption
 import io.netty.handler.timeout.ReadTimeoutHandler
+import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.ClosePaymentRequestMixin
 import it.pagopa.generated.ecommerce.gateway.v1.ApiClient as GatewayApiClient
 import it.pagopa.generated.ecommerce.gateway.v1.api.VposInternalApi
 import it.pagopa.generated.ecommerce.gateway.v1.api.XPayInternalApi
+import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.notifications.v1.ApiClient
 import it.pagopa.generated.notifications.v1.api.DefaultApi
 import it.pagopa.generated.transactionauthrequests.v1.ApiClient as TransanctionsApiClient
@@ -37,6 +39,7 @@ class WebClientConfig {
     mapper.registerModule(JavaTimeModule())
     mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
     mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL)
+    mapper.addMixIn(ClosePaymentRequestV2Dto::class.java, ClosePaymentRequestMixin::class.java)
     return mapper
   }
 
