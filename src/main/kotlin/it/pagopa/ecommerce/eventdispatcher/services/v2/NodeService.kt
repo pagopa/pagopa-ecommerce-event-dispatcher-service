@@ -245,6 +245,7 @@ class NodeService(
       }
 
     return when (authRequestedData.type!!) {
+      // TODO: Add here support for APM methods and wallet
       TransactionGatewayAuthorizationRequestedData.AuthorizationDataType.PGS,
       TransactionGatewayAuthorizationRequestedData.AuthorizationDataType.NPG ->
         CardClosePaymentRequestV2Dto().apply {
