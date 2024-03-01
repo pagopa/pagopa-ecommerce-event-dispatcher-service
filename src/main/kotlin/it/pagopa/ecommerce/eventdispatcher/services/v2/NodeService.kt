@@ -251,20 +251,24 @@ class NodeService(
           paymentTokens =
             authCompleted.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken.value }
           outcome = CardClosePaymentRequestV2Dto.OutcomeEnum.valueOf(transactionOutcome.name)
-          timestampOperation =
-            OffsetDateTime.parse(
-              authCompleted.transactionAuthorizationCompletedData.timestampOperation)
-          this.totalAmount = totalAmountEuro
-          this.fee = feeEuro
-          this.timestampOperation =
-            OffsetDateTime.parse(
-              authCompleted.transactionAuthorizationCompletedData.timestampOperation,
-              DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-          idPSP = authCompleted.transactionAuthorizationRequestData.pspId
-          paymentMethod = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
-          idBrokerPSP = authCompleted.transactionAuthorizationRequestData.brokerName
-          idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
           this.transactionId = transactionId.value()
+
+          if (transactionOutcome == ClosePaymentOutcome.OK) {
+            timestampOperation =
+              OffsetDateTime.parse(
+                authCompleted.transactionAuthorizationCompletedData.timestampOperation)
+            this.totalAmount = totalAmountEuro
+            this.fee = feeEuro
+            this.timestampOperation =
+              OffsetDateTime.parse(
+                authCompleted.transactionAuthorizationCompletedData.timestampOperation,
+                DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+            idPSP = authCompleted.transactionAuthorizationRequestData.pspId
+            paymentMethod = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
+            idBrokerPSP = authCompleted.transactionAuthorizationRequestData.brokerName
+            idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
+          }
+
           additionalPaymentInformations =
             if (transactionOutcome == ClosePaymentOutcome.OK)
               CardAdditionalPaymentInformationsDto().apply {
@@ -294,17 +298,21 @@ class NodeService(
           paymentTokens =
             authCompleted.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken.value }
           outcome = RedirectClosePaymentRequestV2Dto.OutcomeEnum.valueOf(transactionOutcome.name)
-          this.totalAmount = totalAmountEuro
-          this.fee = feeEuro
-          this.timestampOperation =
-            OffsetDateTime.parse(
-              authCompleted.transactionAuthorizationCompletedData.timestampOperation,
-              DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-          idPSP = authCompleted.transactionAuthorizationRequestData.pspId
-          paymentMethod = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
-          idBrokerPSP = authCompleted.transactionAuthorizationRequestData.brokerName
-          idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
           this.transactionId = transactionId.value()
+
+          if (transactionOutcome == ClosePaymentOutcome.OK) {
+            this.totalAmount = totalAmountEuro
+            this.fee = feeEuro
+            this.timestampOperation =
+              OffsetDateTime.parse(
+                authCompleted.transactionAuthorizationCompletedData.timestampOperation,
+                DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+            idPSP = authCompleted.transactionAuthorizationRequestData.pspId
+            paymentMethod = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
+            idBrokerPSP = authCompleted.transactionAuthorizationRequestData.brokerName
+            idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
+          }
+
           additionalPaymentInformations =
             if (transactionOutcome == ClosePaymentOutcome.OK) {
               RedirectAdditionalPaymentInformationsDto().apply {
