@@ -21,13 +21,13 @@ import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusExcept
 import it.pagopa.ecommerce.eventdispatcher.exceptions.ClosePaymentErrorResponseException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
 import it.pagopa.ecommerce.eventdispatcher.queues.*
+import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.ClosePaymentOutcome
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v1.ClosureRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v1.RefundRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.v1.NodeService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
-import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
 import java.util.*
 import kotlinx.coroutines.reactor.mono
@@ -118,7 +118,7 @@ class TransactionClosePaymentRetryQueueConsumer(
                      * retrying a closure for a transaction canceled by the user (not authorized) so here
                      * we have to perform a closePayment KO request to Nodo
                      */
-                    ClosePaymentRequestV2Dto.OutcomeEnum.KO
+                    ClosePaymentOutcome.KO
                   },
                   {
                     /*
@@ -128,8 +128,8 @@ class TransactionClosePaymentRetryQueueConsumer(
                     trxWithAuthorizationCompleted ->
                     when (trxWithAuthorizationCompleted.transactionAuthorizationCompletedData
                       .authorizationResultDto) {
-                      AuthorizationResultDto.OK -> ClosePaymentRequestV2Dto.OutcomeEnum.OK
-                      AuthorizationResultDto.KO -> ClosePaymentRequestV2Dto.OutcomeEnum.KO
+                      AuthorizationResultDto.OK -> ClosePaymentOutcome.OK
+                      AuthorizationResultDto.KO -> ClosePaymentOutcome.KO
                       else ->
                         throw RuntimeException(
                           "authorizationResult in status update event is null!")
@@ -290,7 +290,7 @@ class TransactionClosePaymentRetryQueueConsumer(
 
   private fun updateTransactionStatus(
     transaction: BaseTransactionWithClosureError,
-    closureOutcome: ClosePaymentRequestV2Dto.OutcomeEnum,
+    closureOutcome: ClosePaymentOutcome,
     closePaymentResponseDto: ClosePaymentResponseDto,
     canceledByUser: Boolean,
     wasAuthorized: Boolean
@@ -322,8 +322,8 @@ class TransactionClosePaymentRetryQueueConsumer(
         TransactionStatusDto.CANCELED
       } else {
         when (closureOutcome) {
-          ClosePaymentRequestV2Dto.OutcomeEnum.OK -> TransactionStatusDto.CLOSED
-          ClosePaymentRequestV2Dto.OutcomeEnum.KO -> TransactionStatusDto.UNAUTHORIZED
+          ClosePaymentOutcome.OK -> TransactionStatusDto.CLOSED
+          ClosePaymentOutcome.KO -> TransactionStatusDto.UNAUTHORIZED
         }
       }
     logger.info(

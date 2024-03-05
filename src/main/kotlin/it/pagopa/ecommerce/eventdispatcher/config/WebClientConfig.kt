@@ -6,16 +6,17 @@ import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import io.netty.channel.ChannelOption
 import io.netty.handler.timeout.ReadTimeoutHandler
+import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.ClosePaymentRequestMixin
 import it.pagopa.generated.ecommerce.gateway.v1.ApiClient as GatewayApiClient
 import it.pagopa.generated.ecommerce.gateway.v1.api.VposInternalApi
 import it.pagopa.generated.ecommerce.gateway.v1.api.XPayInternalApi
-import it.pagopa.generated.ecommerce.nodo.v2.ApiClient as NodoApiClient
-import it.pagopa.generated.ecommerce.nodo.v2.api.NodoApi
+import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.notifications.v1.ApiClient
 import it.pagopa.generated.notifications.v1.api.DefaultApi
 import it.pagopa.generated.transactionauthrequests.v1.ApiClient as TransanctionsApiClient
 import it.pagopa.generated.transactionauthrequests.v1.api.TransactionsApi
 import java.util.concurrent.TimeUnit
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -26,6 +27,7 @@ import org.springframework.http.codec.ClientCodecConfigurer
 import org.springframework.http.codec.json.Jackson2JsonDecoder
 import org.springframework.http.codec.json.Jackson2JsonEncoder
 import org.springframework.web.reactive.function.client.ExchangeStrategies
+import org.springframework.web.reactive.function.client.WebClient
 import reactor.netty.Connection
 import reactor.netty.http.client.HttpClient
 
@@ -37,15 +39,17 @@ class WebClientConfig {
     mapper.registerModule(JavaTimeModule())
     mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
     mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL)
+    mapper.addMixIn(ClosePaymentRequestV2Dto::class.java, ClosePaymentRequestMixin::class.java)
     return mapper
   }
 
   @Bean
+  @Qualifier("nodoApiClient")
   fun nodoApi(
     @Value("\${nodo.uri}") nodoUri: String,
     @Value("\${nodo.readTimeout}") nodoReadTimeout: Long,
     @Value("\${nodo.connectionTimeout}") nodoConnectionTimeout: Int
-  ): NodoApi {
+  ): WebClient {
     val httpClient: HttpClient =
       HttpClient.create()
         .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, nodoConnectionTimeout)
@@ -68,16 +72,11 @@ class WebClientConfig {
         }
         .build()
 
-    val webClient =
-      NodoApiClient.buildWebClientBuilder()
-        .clientConnector(ReactorClientHttpConnector(httpClient))
-        .exchangeStrategies(exchangeStrategies)
-        .baseUrl(nodoUri)
-        .build()
-
-    val nodoApiClient = NodoApiClient(webClient).apply { basePath = nodoUri }
-
-    return NodoApi(nodoApiClient)
+    return WebClient.builder()
+      .clientConnector(ReactorClientHttpConnector(httpClient))
+      .exchangeStrategies(exchangeStrategies)
+      .baseUrl(nodoUri)
+      .build()
   }
 
   @Bean(name = ["VposApiWebClient"])

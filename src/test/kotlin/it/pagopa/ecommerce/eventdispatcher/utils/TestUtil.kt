@@ -7,8 +7,10 @@ import it.pagopa.ecommerce.commons.documents.v1.TransactionAuthorizationRequestD
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.RefundResponseDto
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils
+import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.ClosePaymentOutcome
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
+import it.pagopa.generated.ecommerce.nodo.v2.dto.CardClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.transactionauthrequests.v1.dto.PaymentInfoDto
 import it.pagopa.generated.transactionauthrequests.v1.dto.TransactionInfoDto
@@ -17,9 +19,9 @@ import java.time.OffsetDateTime
 import java.util.*
 import reactor.core.publisher.Mono
 
-fun getMockedClosePaymentRequest(
+fun getMockedCardClosePaymentRequest(
   transactionId: TransactionId,
-  outcome: ClosePaymentRequestV2Dto.OutcomeEnum
+  outcome: ClosePaymentOutcome
 ): ClosePaymentRequestV2Dto {
 
   val authEventData =
@@ -40,9 +42,9 @@ fun getMockedClosePaymentRequest(
       TransactionAuthorizationRequestData.CardBrand.VISA,
       TransactionTestUtils.PAYMENT_METHOD_DESCRIPTION)
 
-  return ClosePaymentRequestV2Dto().apply {
+  return CardClosePaymentRequestV2Dto().apply {
     paymentTokens = listOf(UUID.randomUUID().toString())
-    this.outcome = outcome
+    this.outcome = CardClosePaymentRequestV2Dto.OutcomeEnum.valueOf(outcome.name)
     idPSP = authEventData.pspId
     paymentMethod = authEventData.paymentTypeCode
     idBrokerPSP = authEventData.brokerName

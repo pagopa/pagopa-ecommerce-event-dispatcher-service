@@ -1,7 +1,7 @@
 package it.pagopa.ecommerce.eventdispatcher.config
 
-import it.pagopa.generated.ecommerce.nodo.v2.dto.AdditionalPaymentInformationsDto
-import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
+import it.pagopa.generated.ecommerce.nodo.v2.dto.CardAdditionalPaymentInformationsDto
+import it.pagopa.generated.ecommerce.nodo.v2.dto.CardClosePaymentRequestV2Dto
 import java.math.BigDecimal
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
@@ -25,8 +25,8 @@ internal class WebClientConfigTest {
 
     // Precondition
     val additionalPaymentInformationsDto =
-      AdditionalPaymentInformationsDto()
-        .outcomePaymentGateway(AdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.OK)
+      CardAdditionalPaymentInformationsDto()
+        .outcomePaymentGateway(CardAdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.OK)
         .totalAmount(BigDecimal(101).toString())
         .rrn("rrn")
         .fee(BigDecimal(1).toString())
@@ -36,9 +36,9 @@ internal class WebClientConfigTest {
             .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
 
     val closePaymentRequest =
-      ClosePaymentRequestV2Dto()
+      CardClosePaymentRequestV2Dto()
         .paymentTokens(List.of("paymentToken"))
-        .outcome(ClosePaymentRequestV2Dto.OutcomeEnum.OK)
+        .outcome(CardClosePaymentRequestV2Dto.OutcomeEnum.OK)
         .idPSP("identificativoPsp")
         .idBrokerPSP("identificativoIntermediario")
         .idChannel("identificativoCanale")
@@ -60,8 +60,8 @@ internal class WebClientConfigTest {
 
     // Precondition
     val additionalPaymentInformationsDto =
-      AdditionalPaymentInformationsDto()
-        .outcomePaymentGateway(AdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.OK)
+      CardAdditionalPaymentInformationsDto()
+        .outcomePaymentGateway(CardAdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.OK)
         .totalAmount(BigDecimal(101).toString())
         .rrn(null)
         .fee(BigDecimal(1).toString())
@@ -71,9 +71,9 @@ internal class WebClientConfigTest {
             .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
 
     val closePaymentRequest =
-      ClosePaymentRequestV2Dto()
+      CardClosePaymentRequestV2Dto()
         .paymentTokens(List.of("paymentToken"))
-        .outcome(ClosePaymentRequestV2Dto.OutcomeEnum.OK)
+        .outcome(CardClosePaymentRequestV2Dto.OutcomeEnum.OK)
         .idPSP("identificativoPsp")
         .idBrokerPSP("identificativoIntermediario")
         .idChannel("identificativoCanale")
