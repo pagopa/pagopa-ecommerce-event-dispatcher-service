@@ -323,10 +323,10 @@ class NodeService(
                       .transactionGatewayAuthorizationRequestedData
                       as RedirectTransactionGatewayAuthorizationRequestedData)
                     .pspTransactionId
-                this.totalAmount = totalAmountEuro
+                this.totalAmount = totalAmountEuro.toString()
                 this.authorizationCode =
                   authCompleted.transactionAuthorizationCompletedData.authorizationCode
-                this.fee = feeEuro
+                this.fee = feeEuro.toString()
                 timestampOperation =
                   OffsetDateTime.parse(
                     authCompleted.transactionAuthorizationCompletedData.timestampOperation,

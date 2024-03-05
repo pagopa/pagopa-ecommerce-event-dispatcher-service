@@ -1217,8 +1217,8 @@ class NodeServiceTests {
               timestampOperation = OffsetDateTime.parse(expectedTimestamp)
               idPSPTransaction =
                 redirectTransactionGatewayAuthorizationRequestedData.pspTransactionId
-              this.fee = feeEuro
-              this.totalAmount = totalAmountEuro
+              this.fee = feeEuro.toString()
+              this.totalAmount = totalAmountEuro.toString()
               authorizationCode = authCompletedEvent.data.authorizationCode
               idTransaction = TRANSACTION_ID
             }
