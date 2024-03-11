@@ -1199,11 +1199,7 @@ class NodeServiceTests {
                 InfoDto().apply {
                   type = authEvent.data.paymentTypeCode
                   clientId = Transaction.ClientId.CHECKOUT.name
-                  brand =
-                    (authEvent.data.transactionGatewayAuthorizationRequestedData
-                        as RedirectTransactionGatewayAuthorizationRequestedData)
-                      .paymentMethodType
-                      .toString()
+                  brand = authEvent.data.paymentTypeCode
                   brandLogo =
                     (authEvent.data.transactionGatewayAuthorizationRequestedData
                         as RedirectTransactionGatewayAuthorizationRequestedData)
@@ -1215,8 +1211,7 @@ class NodeServiceTests {
           additionalPaymentInformations =
             RedirectAdditionalPaymentInformationsDto().apply {
               timestampOperation = OffsetDateTime.parse(expectedTimestamp)
-              idPSPTransaction =
-                redirectTransactionGatewayAuthorizationRequestedData.pspTransactionId
+              idPSPTransaction = authEvent.data.authorizationRequestId
               this.fee = feeEuro.toString()
               this.totalAmount = totalAmountEuro.toString()
               authorizationCode = authCompletedEvent.data.authorizationCode
@@ -1317,11 +1312,7 @@ class NodeServiceTests {
                 InfoDto().apply {
                   type = authEvent.data.paymentTypeCode
                   clientId = Transaction.ClientId.CHECKOUT.name
-                  brand =
-                    (authEvent.data.transactionGatewayAuthorizationRequestedData
-                        as RedirectTransactionGatewayAuthorizationRequestedData)
-                      .paymentMethodType
-                      .toString()
+                  brand = authEvent.data.paymentTypeCode
                   brandLogo =
                     (authEvent.data.transactionGatewayAuthorizationRequestedData
                         as RedirectTransactionGatewayAuthorizationRequestedData)
@@ -1426,11 +1417,7 @@ class NodeServiceTests {
                 InfoDto().apply {
                   type = authEvent.data.paymentTypeCode
                   clientId = Transaction.ClientId.CHECKOUT.name
-                  brand =
-                    (authEvent.data.transactionGatewayAuthorizationRequestedData
-                        as RedirectTransactionGatewayAuthorizationRequestedData)
-                      .paymentMethodType
-                      .toString()
+                  brand = authEvent.data.paymentTypeCode
                   brandLogo =
                     (authEvent.data.transactionGatewayAuthorizationRequestedData
                         as RedirectTransactionGatewayAuthorizationRequestedData)

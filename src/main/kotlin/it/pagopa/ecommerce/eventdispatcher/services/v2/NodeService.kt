@@ -235,7 +235,7 @@ class NodeService(
                 is PgsTransactionGatewayAuthorizationRequestedData ->
                   authRequestedData.brand?.toString()
                 is RedirectTransactionGatewayAuthorizationRequestedData ->
-                  authRequestedData.paymentMethodType.toString()
+                  authCompleted.transactionAuthorizationRequestData.paymentTypeCode
                 else -> null
               }
             paymentMethodName = authCompleted.transactionAuthorizationRequestData.paymentMethodName
@@ -319,10 +319,7 @@ class NodeService(
               RedirectAdditionalPaymentInformationsDto().apply {
                 idTransaction = transactionId.value()
                 idPSPTransaction =
-                  (authCompleted.transactionAuthorizationRequestData
-                      .transactionGatewayAuthorizationRequestedData
-                      as RedirectTransactionGatewayAuthorizationRequestedData)
-                    .pspTransactionId
+                  authCompleted.transactionAuthorizationRequestData.authorizationRequestId
                 this.totalAmount = totalAmountEuro.toString()
                 this.authorizationCode =
                   authCompleted.transactionAuthorizationCompletedData.authorizationCode
