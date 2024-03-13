@@ -123,7 +123,7 @@ microservice-chart:
     MONGO_CONNECTION_TIMEOUT_MS: "5000"
     MONGO_SOCKET_TIMEOUT_MS: "10000"
     MONGO_SERVER_SELECTION_TIMEOUT_MS: "30000"
-    MONGO_WAITING_QUEUE_MS: "2000"
+    MONGO_WAITING_QUEUE_MS: "30000" # must be greater than or equal to server selection timeout
     MONGO_HEARTBEAT_FREQUENCY_MS: "5000"
     REDIS_HOST: pagopa-p-weu-ecommerce-redis.redis.cache.windows.net
     REDIS_PORT: "6380"
