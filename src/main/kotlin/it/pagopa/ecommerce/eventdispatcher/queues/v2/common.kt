@@ -34,6 +34,7 @@ import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClien
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto.StatusEnum
 import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
+import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundOutcomeDto
 import it.pagopa.generated.transactionauthrequests.v1.dto.OutcomeNpgGatewayDto
 import it.pagopa.generated.transactionauthrequests.v1.dto.TransactionInfoDto
 import it.pagopa.generated.transactionauthrequests.v1.dto.UpdateAuthorizationRequestDto
@@ -350,6 +351,15 @@ fun refundTransaction(
                 .map { refundResponse -> Pair(refundResponse, transaction) }
             }
         }
+        TransactionAuthorizationRequestData.PaymentGateway.REDIRECT -> {
+          refundService
+            .requestRedirectRefund(
+              transactionId = transaction.transactionId,
+              pspTransactionId =
+                transaction.transactionAuthorizationRequestData.authorizationRequestId,
+              paymentTypeCode = transaction.transactionAuthorizationRequestData.paymentTypeCode)
+            .map { refundResponse -> Pair(refundResponse, transaction) }
+        }
         else ->
           Mono.error(
             RuntimeException(
@@ -374,6 +384,12 @@ fun refundTransaction(
             transactionsViewRepository)
         is RefundResponseDto ->
           handleNpgRefundResponse(
+            transaction,
+            refundResponse,
+            transactionsEventStoreRepository,
+            transactionsViewRepository)
+        is it.pagopa.generated.ecommerce.redirect.v1.dto.RefundResponseDto ->
+          handleRedirectRefundResponse(
             transaction,
             refundResponse,
             transactionsEventStoreRepository,
@@ -476,6 +492,29 @@ fun handleNpgRefundResponse(
     refundResponse.operationId ?: "N/A")
   return updateTransactionToRefunded(
     transaction, transactionsEventStoreRepository, transactionsViewRepository)
+}
+
+fun handleRedirectRefundResponse(
+  transaction: BaseTransactionWithRequestedAuthorization,
+  refundResponse: it.pagopa.generated.ecommerce.redirect.v1.dto.RefundResponseDto,
+  transactionsEventStoreRepository: TransactionsEventStoreRepository<TransactionRefundedData>,
+  transactionsViewRepository: TransactionsViewRepository
+): Mono<BaseTransaction> {
+  val refundOutcome = refundResponse.outcome
+  logger.info(
+    "Refund for redirect transaction for psp: [{}] with id: [{}] processed successfully. Received outcome: [{}]",
+    transaction.transactionAuthorizationRequestData.pspId,
+    transaction.transactionId.value(),
+    refundOutcome)
+  return when (refundOutcome) {
+    RefundOutcomeDto.OK,
+    RefundOutcomeDto.CANCELED ->
+      updateTransactionToRefunded(
+        transaction, transactionsEventStoreRepository, transactionsViewRepository)
+    RefundOutcomeDto.KO ->
+      updateTransactionToRefundError(
+        transaction, transactionsEventStoreRepository, transactionsViewRepository)
+  }
 }
 
 fun isTransactionRefundable(tx: BaseTransaction): Boolean {
