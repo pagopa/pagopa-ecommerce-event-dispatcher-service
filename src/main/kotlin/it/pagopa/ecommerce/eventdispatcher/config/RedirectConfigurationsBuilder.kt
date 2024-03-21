@@ -32,12 +32,9 @@ class RedirectConfigurationsBuilder {
     @Value("\${redirect.paymentTypeCodeList}") paymentTypeCodeList: Set<String>,
     @Value("#{\${redirect.pspUrlMapping}}") pspUrlMapping: Map<String, String>
   ): Map<String, URI> {
-    val redirectUriMap: MutableMap<String, URI> = HashMap()
     // URI.create throws IllegalArgumentException that will prevent module load for
     // invalid PSP URI configuration
-    pspUrlMapping.forEach { (pspId: String, uri: String?) ->
-      redirectUriMap[pspId] = URI.create(uri)
-    }
+    val redirectUriMap = pspUrlMapping.mapValues { URI.create(it.value) }
     val missingKeys =
       paymentTypeCodeList
         .stream()
