@@ -162,6 +162,10 @@ microservice-chart:
     REDIS_STREAM_EVENT_CONTROLLER_CONSUMER_GROUP_PREFIX: "event-dispatcher"
     REDIS_STREAM_EVENT_CONTROLLER_CONSUMER_NAME_PREFIX: "event-dispatcher"
     EVENT_CONTROLLER_STATUS_POLLING_CHRON: "*/10 * * * * *"
+    NODE_FORWARDER_URL: "https://api.uat.platform.pagopa.it/pagopa-node-forwarder/api/v1"
+    NODE_FORWARDER_READ_TIMEOUT: "10000"
+    NODE_FORWARDER_CONNECTION_TIMEOUT: "10000"
+    REDIRECT_PAYMENT_TYPE_CODE_LIST: "RPIC,RBPS"
   envSecret:
     ECOMMERCE_STORAGE_TRANSIENT_QUEUE_KEY: ecommerce-storage-transient-account-key
     MONGO_PASSWORD: mongo-ecommerce-password
@@ -176,6 +180,8 @@ microservice-chart:
     PAYMENT_TRANSACTIONS_GATEWAY_API_KEY: payment-transactions-gateway-api-key
     NPG_API_KEY: npg-api-key
     NPG_CARDS_PSP_KEYS: npg-cards-psp-keys
+    NODE_FORWARDER_API_KEY: node-forwarder-api-key
+    REDIRECT_URL_MAPPING: redirect-url-mapping
   keyvault:
     name: "pagopa-u-ecommerce-kv"
     tenantId: "7788edaf-0346-4068-9d79-c868aed15b3d"
