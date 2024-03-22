@@ -18,7 +18,7 @@ import org.springframework.context.annotation.Configuration
 @Slf4j
 class RedirectConfigurationsBuilder {
   /**
-   * Create a Map &lt String,URI &gt that will associate, to every handled PSP, the backend URI to
+   * Create a {@code Map<String,URI>} that will associate, to every handled PSP, the backend URI to
    * be used to perform Redirect payment flow api call
    *
    * @param paymentTypeCodeList
