@@ -35,11 +35,7 @@ class RedirectConfigurationsBuilder {
     // URI.create throws IllegalArgumentException that will prevent module load for
     // invalid PSP URI configuration
     val redirectUriMap = pspUrlMapping.mapValues { URI.create(it.value) }
-    val missingKeys =
-      paymentTypeCodeList
-        .stream()
-        .filter(Predicate.not { key: String -> redirectUriMap.containsKey(key) })
-        .collect(Collectors.toSet())
+    val missingKeys = paymentTypeCodeList - redirectUriMap.keys
     if (missingKeys.isNotEmpty()) {
       throw RedirectConfigurationException(
         "Misconfigured redirect.pspUrlMapping, the following redirect payment type code b.e. URIs are not configured: %s".format(
