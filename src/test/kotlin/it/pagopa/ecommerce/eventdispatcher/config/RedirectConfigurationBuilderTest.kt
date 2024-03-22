@@ -9,8 +9,8 @@ import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 
-internal class RedirectConfigurationsBuilderTest {
-  private val checkoutRedirectConfigurationsBuilder = RedirectConfigurationsBuilder()
+internal class RedirectConfigurationBuilderTest {
+  private val checkoutRedirectConfigurationBuilder = RedirectConfigurationBuilder()
   private val pspToHandle = setOf("key1", "key2", "key3")
   private val pspUriMap =
     java.util.Map.of(
@@ -25,7 +25,7 @@ internal class RedirectConfigurationsBuilderTest {
   @ValueSource(strings = ["key1", "key2", "key3"])
   fun shouldBuildPspBackendUriMapSuccessfully(pspId: String) {
     val mapping: Map<String, URI> = assertDoesNotThrow {
-      checkoutRedirectConfigurationsBuilder.redirectBeApiCallUriMap(pspToHandle, pspUriMap)
+      checkoutRedirectConfigurationBuilder.redirectBeApiCallUriMap(pspToHandle, pspUriMap)
     }
     assertEquals("http://localhost/%s/redirectionUrl".formatted(pspId), mapping[pspId].toString())
   }
@@ -36,7 +36,7 @@ internal class RedirectConfigurationsBuilderTest {
     missingKeyPspMap.remove("key1")
     val e: RedirectConfigurationException =
       assertThrows(RedirectConfigurationException::class.java) {
-        checkoutRedirectConfigurationsBuilder.redirectBeApiCallUriMap(pspToHandle, missingKeyPspMap)
+        checkoutRedirectConfigurationBuilder.redirectBeApiCallUriMap(pspToHandle, missingKeyPspMap)
       }
     assertEquals(
       "Error parsing Redirect PSP BACKEND_URLS configuration, cause: Misconfigured redirect.pspUrlMapping, the following redirect payment type code b.e. URIs are not configured: [key1]",
@@ -48,7 +48,7 @@ internal class RedirectConfigurationsBuilderTest {
     val missingKeyPspMap: MutableMap<String, String> = HashMap(pspUriMap)
     missingKeyPspMap["key1"] = "http:\\\\localhost"
     assertThrows(IllegalArgumentException::class.java) {
-      checkoutRedirectConfigurationsBuilder.redirectBeApiCallUriMap(pspToHandle, missingKeyPspMap)
+      checkoutRedirectConfigurationBuilder.redirectBeApiCallUriMap(pspToHandle, missingKeyPspMap)
     }
   }
 }

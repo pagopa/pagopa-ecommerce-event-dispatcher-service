@@ -16,12 +16,12 @@ import org.springframework.context.annotation.Configuration
  */
 @Configuration
 @Slf4j
-class RedirectConfigurationsBuilder {
+class RedirectConfigurationBuilder {
   /**
-   * Create a Map &lt String,URI &gt that will associate, to every handled PSP, the backend URI to
+   * Create a {@code Map<String,URI>} that will associate, to every handled PSP, the backend URI to
    * be used to perform Redirect payment flow api call
    *
-   * @param paymentTypeCodeList
+   * @param paymentTypeCodes
    * - set of all redirect payment type codes to be handled flow
    * @param pspUrlMapping
    * - configuration parameter that contains PSP to URI mapping
@@ -29,20 +29,16 @@ class RedirectConfigurationsBuilder {
    */
   @Bean
   fun redirectBeApiCallUriMap(
-    @Value("\${redirect.paymentTypeCodeList}") paymentTypeCodeList: Set<String>,
+    @Value("\${redirect.paymentTypeCodes}") paymentTypeCodes: Set<String>,
     @Value("#{\${redirect.pspUrlMapping}}") pspUrlMapping: Map<String, String>
   ): Map<String, URI> {
     // URI.create throws IllegalArgumentException that will prevent module load for
     // invalid PSP URI configuration
     val redirectUriMap = pspUrlMapping.mapValues { URI.create(it.value) }
-    val missingKeys =
-      paymentTypeCodeList
-        .stream()
-        .filter(Predicate.not { key: String -> redirectUriMap.containsKey(key) })
-        .collect(Collectors.toSet())
+    val missingKeys = paymentTypeCodes - redirectUriMap.keys
     if (missingKeys.isNotEmpty()) {
       throw RedirectConfigurationException(
-        "Misconfigured redirect.pspUrlMapping, the following redirect payment type code b.e. URIs are not configured: %s".format(
+        "Misconfigured redirect.pspUrlMapping, the following redirect payment type codes backend URIs are not configured: %s".format(
           missingKeys),
         RedirectConfigurationType.BACKEND_URLS)
     }
