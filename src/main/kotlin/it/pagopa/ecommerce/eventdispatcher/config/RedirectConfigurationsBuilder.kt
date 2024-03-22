@@ -38,7 +38,7 @@ class RedirectConfigurationsBuilder {
     val missingKeys = paymentTypeCodeList - redirectUriMap.keys
     if (missingKeys.isNotEmpty()) {
       throw RedirectConfigurationException(
-        "Misconfigured redirect.pspUrlMapping, the following redirect payment type code b.e. URIs are not configured: %s".format(
+        "Misconfigured redirect.pspUrlMapping, the following redirect payment type codes backend URIs are not configured: %s".format(
           missingKeys),
         RedirectConfigurationType.BACKEND_URLS)
     }
