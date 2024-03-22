@@ -3,8 +3,6 @@ package it.pagopa.ecommerce.eventdispatcher.config
 import it.pagopa.ecommerce.commons.exceptions.RedirectConfigurationException
 import it.pagopa.ecommerce.commons.exceptions.RedirectConfigurationType
 import java.net.URI
-import java.util.function.Predicate
-import java.util.stream.Collectors
 import lombok.extern.slf4j.Slf4j
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
