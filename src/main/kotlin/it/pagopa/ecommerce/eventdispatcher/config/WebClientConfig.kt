@@ -197,8 +197,8 @@ class WebClientConfig {
    */
   @Bean
   fun nodeForwarderRedirectApiClient(
-    @Value("\${node.forwarder.apiKey}") apiKey: String?,
-    @Value("\${node.forwarder.url}") backendUrl: String?,
+    @Value("\${node.forwarder.apiKey}") apiKey: String,
+    @Value("\${node.forwarder.url}") backendUrl: String,
     @Value("\${node.forwarder.readTimeout}") readTimeout: Int,
     @Value("\${node.forwarder.connectionTimeout}") connectionTimeout: Int
   ): NodeForwarderClient<RefundRequestDto, RefundResponseDto> {

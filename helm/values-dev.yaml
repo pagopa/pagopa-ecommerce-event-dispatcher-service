@@ -139,7 +139,7 @@ microservice-chart:
     NODE_FORWARDER_URL: "https://api.uat.platform.pagopa.it/pagopa-node-forwarder/api/v1"
     NODE_FORWARDER_READ_TIMEOUT: "10000"
     NODE_FORWARDER_CONNECTION_TIMEOUT: "10000"
-    REDIRECT_PAYMENT_TYPE_CODE_LIST: "RPIC,RBPS"
+    REDIRECT_PAYMENT_TYPE_CODES: "RPIC,RBPS"
   envSecret:
     ECOMMERCE_STORAGE_TRANSIENT_QUEUE_KEY: ecommerce-storage-transient-account-key
     MONGO_PASSWORD: mongo-ecommerce-password
