@@ -1464,7 +1464,8 @@ class TransactionsRefundEventsConsumerTests {
       /* Asserts */
       val expectedTransactionId = TRANSACTION_ID
       val expectedPspTransactionId = AUTHORIZATION_REQUEST_ID
-      val expectedPaymentTypeCode = "RPIC"
+      val expectedPaymentTypeCode =
+        (authorizationRequestEvent as TransactionAuthorizationRequestedEvent).data.paymentTypeCode
       verify(checkpointer, Mockito.times(1)).success()
       verify(refundService, Mockito.times(1))
         .requestRedirectRefund(
