@@ -7,6 +7,7 @@ import it.pagopa.ecommerce.commons.client.NpgClient
 import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.documents.v2.activation.NpgTransactionGatewayActivationData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.PgsTransactionGatewayAuthorizationData
+import it.pagopa.ecommerce.commons.documents.v2.authorization.RedirectTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.v2.TransactionEventCode
 import it.pagopa.ecommerce.commons.domain.v2.pojos.*
@@ -28,6 +29,8 @@ import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetrySer
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
+import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundOutcomeDto
+import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundResponseDto as RedirectRefundResponseDto
 import java.math.BigDecimal
 import java.nio.charset.StandardCharsets
 import java.time.ZonedDateTime
@@ -1393,5 +1396,86 @@ class TransactionsRefundEventsConsumerTests {
         reduceEvents(*events.toTypedArray()) as BaseTransactionWithRequestedAuthorization
 
       assertNull(getAuthorizationCompletedData(transaction))
+    }
+
+  @Test
+  fun `consumer processes refund request event correctly with for redirect transaction`() =
+    runTest {
+      val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
+      val authorizationRequestEvent =
+        transactionAuthorizationRequestedEvent(
+          TransactionAuthorizationRequestData.PaymentGateway.REDIRECT,
+          redirectTransactionGatewayAuthorizationRequestedData())
+          as TransactionEvent<Any>
+
+      val authorizationCompleteEvent =
+        transactionAuthorizationCompletedEvent(
+          redirectTransactionGatewayAuthorizationData(
+            RedirectTransactionGatewayAuthorizationData.Outcome.OK, null))
+          as TransactionEvent<Any>
+      val closureRequestedEvent = transactionClosureRequestedEvent() as TransactionEvent<Any>
+      val closedEvent =
+        transactionClosedEvent(TransactionClosureData.Outcome.KO) as TransactionEvent<Any>
+      val refundRequestedEvent =
+        TransactionRefundRequestedEvent(
+          TRANSACTION_ID, TransactionRefundedData(TransactionStatusDto.REFUND_REQUESTED))
+          as TransactionEvent<Any>
+
+      val refundRedirectResponse =
+        RedirectRefundResponseDto().apply {
+          idTransaction = TRANSACTION_ID
+          outcome = RefundOutcomeDto.OK
+        }
+
+      val events =
+        listOf(
+          activationEvent,
+          authorizationRequestEvent,
+          authorizationCompleteEvent,
+          closureRequestedEvent,
+          closedEvent,
+          refundRequestedEvent)
+
+      /* preconditions */
+      given(checkpointer.success()).willReturn(Mono.empty())
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
+        .willReturn(events.toFlux())
+      given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
+      given(transactionsRefundedEventStoreRepository.save(refundEventStoreCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
+      given(refundService.requestRedirectRefund(any(), any(), any()))
+        .willReturn(Mono.just(refundRedirectResponse))
+      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturn(
+          mono { transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now()) })
+
+      /* test */
+      StepVerifier.create(
+          transactionRefundedEventsConsumer.messageReceiver(
+            Either.right(
+              QueueEvent(
+                refundRequestedEvent as TransactionRefundRequestedEvent, MOCK_TRACING_INFO)),
+            checkpointer))
+        .expectNext(Unit)
+        .verifyComplete()
+
+      /* Asserts */
+      val expectedTransactionId = TRANSACTION_ID
+      val expectedPspTransactionId = AUTHORIZATION_REQUEST_ID
+      val expectedPaymentTypeCode = "RPIC"
+      verify(checkpointer, Mockito.times(1)).success()
+      verify(refundService, Mockito.times(1))
+        .requestRedirectRefund(
+          transactionId = TransactionId(expectedTransactionId),
+          pspTransactionId = expectedPspTransactionId,
+          paymentTypeCode = expectedPaymentTypeCode)
+      verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
+      verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
+      val storedEvent = refundEventStoreCaptor.value
+      assertEquals(
+        TransactionEventCode.TRANSACTION_REFUNDED_EVENT.toString(), storedEvent.eventCode)
+      assertEquals(TransactionStatusDto.REFUND_REQUESTED, storedEvent.data.statusBeforeRefunded)
     }
 }
