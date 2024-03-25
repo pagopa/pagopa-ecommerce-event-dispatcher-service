@@ -1445,7 +1445,7 @@ class TransactionsRefundEventsConsumerTests {
       given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
       given(transactionsRefundedEventStoreRepository.save(refundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
-      given(refundService.requestRedirectRefund(any(), any(), any()))
+      given(refundService.requestRedirectRefund(any(), any(), any(), any()))
         .willReturn(Mono.just(refundRedirectResponse))
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(
@@ -1466,12 +1466,15 @@ class TransactionsRefundEventsConsumerTests {
       val expectedPspTransactionId = AUTHORIZATION_REQUEST_ID
       val expectedPaymentTypeCode =
         (authorizationRequestEvent as TransactionAuthorizationRequestedEvent).data.paymentTypeCode
+      val expectedPspId =
+        (authorizationRequestEvent as TransactionAuthorizationRequestedEvent).data.pspId
       verify(checkpointer, Mockito.times(1)).success()
       verify(refundService, Mockito.times(1))
         .requestRedirectRefund(
           transactionId = TransactionId(expectedTransactionId),
           pspTransactionId = expectedPspTransactionId,
-          paymentTypeCode = expectedPaymentTypeCode)
+          paymentTypeCode = expectedPaymentTypeCode,
+          pspId = expectedPspId)
       verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
       verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
       val storedEvent = refundEventStoreCaptor.value

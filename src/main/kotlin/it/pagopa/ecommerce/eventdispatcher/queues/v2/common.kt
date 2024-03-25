@@ -357,7 +357,8 @@ fun refundTransaction(
               transactionId = transaction.transactionId,
               pspTransactionId =
                 transaction.transactionAuthorizationRequestData.authorizationRequestId,
-              paymentTypeCode = transaction.transactionAuthorizationRequestData.paymentTypeCode)
+              paymentTypeCode = transaction.transactionAuthorizationRequestData.paymentTypeCode,
+              pspId = transaction.transactionAuthorizationRequestData.pspId)
             .map { refundResponse -> Pair(refundResponse, transaction) }
         }
         else ->

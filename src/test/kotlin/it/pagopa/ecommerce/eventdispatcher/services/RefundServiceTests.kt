@@ -72,7 +72,7 @@ class RefundServiceTests {
     mock()
 
   private val redirectBeApiCallUriMap: Map<String, URI> =
-    mapOf("RPIC" to URI.create("http://redirect/RPIC"))
+    mapOf("pspId-RPIC" to URI.create("http://redirect/RPIC"))
   private val refundService: RefundService =
     RefundService(
       paymentGatewayClient = paymentGatewayClient,
@@ -305,6 +305,7 @@ class RefundServiceTests {
     val transactionId = TransactionTestUtils.TRANSACTION_ID
     val pspTransactionId = "pspTransactionId"
     val paymentTypeCode = "RPIC"
+    val pspId = "pspId"
     val redirectRefundResponse =
       RedirectRefundResponseDto().idTransaction(transactionId).outcome(RefundOutcomeDto.OK)
     val expectedRequest =
@@ -321,13 +322,14 @@ class RefundServiceTests {
         refundService.requestRedirectRefund(
           transactionId = TransactionId(transactionId),
           pspTransactionId = pspTransactionId,
-          paymentTypeCode = paymentTypeCode))
+          paymentTypeCode = paymentTypeCode,
+          pspId = pspId))
       .expectNext(redirectRefundResponse)
       .verifyComplete()
     verify(nodeForwarderRedirectApiClient, times(1))
       .proxyRequest(
         expectedRequest,
-        redirectBeApiCallUriMap[paymentTypeCode],
+        redirectBeApiCallUriMap["pspId-$paymentTypeCode"],
         transactionId,
         RedirectRefundResponseDto::class.java)
   }
@@ -338,16 +340,18 @@ class RefundServiceTests {
     val transactionId = TransactionTestUtils.TRANSACTION_ID
     val pspTransactionId = "pspTransactionId"
     val paymentTypeCode = "MISSING"
+    val pspId = "pspId"
     // test
     StepVerifier.create(
         refundService.requestRedirectRefund(
           transactionId = TransactionId(transactionId),
           pspTransactionId = pspTransactionId,
-          paymentTypeCode = paymentTypeCode))
+          paymentTypeCode = paymentTypeCode,
+          pspId = "pspId"))
       .expectErrorMatches {
         assertTrue(it is RedirectConfigurationException)
         assertEquals(
-          "Error parsing Redirect PSP BACKEND_URLS configuration, cause: Missing key for payment type code: [MISSING]",
+          "Error parsing Redirect PSP BACKEND_URLS configuration, cause: Missing key for redirect return url with key: [pspId-MISSING]",
           it.message)
         true
       }
@@ -365,8 +369,7 @@ class RefundServiceTests {
     val transactionId = TransactionTestUtils.TRANSACTION_ID
     val pspTransactionId = "pspTransactionId"
     val paymentTypeCode = "RPIC"
-    val redirectRefundResponse =
-      RedirectRefundResponseDto().idTransaction(transactionId).outcome(RefundOutcomeDto.OK)
+    val pspId = "pspId"
     val expectedRequest =
       RedirectRefundRequestDto()
         .action("refund")
@@ -393,13 +396,14 @@ class RefundServiceTests {
         refundService.requestRedirectRefund(
           transactionId = TransactionId(transactionId),
           pspTransactionId = pspTransactionId,
-          paymentTypeCode = paymentTypeCode))
+          paymentTypeCode = paymentTypeCode,
+          pspId = pspId))
       .expectError(expectedErrorClass)
       .verify()
     verify(nodeForwarderRedirectApiClient, times(1))
       .proxyRequest(
         expectedRequest,
-        redirectBeApiCallUriMap[paymentTypeCode],
+        redirectBeApiCallUriMap["pspId-$paymentTypeCode"],
         transactionId,
         RedirectRefundResponseDto::class.java)
   }

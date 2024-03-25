@@ -86,9 +86,10 @@ class RefundService(
   fun requestRedirectRefund(
     transactionId: TransactionId,
     pspTransactionId: String,
-    paymentTypeCode: String
+    paymentTypeCode: String,
+    pspId: String
   ): Mono<RedirectRefundResponseDto> =
-    getRedirectUri(paymentTypeCode)
+    getRedirectUri(pspId, paymentTypeCode)
       .fold(
         { Mono.error(it) },
         { uri ->
@@ -133,12 +134,17 @@ class RefundService(
             .map { it.body }
         })
 
-  private fun getRedirectUri(paymentTypeCode: String): Either<RedirectConfigurationException, URI> =
-    Optional.ofNullable(redirectBeApiCallUriMap[paymentTypeCode])
+  private fun getRedirectUri(
+    pspId: String,
+    paymentTypeCode: String
+  ): Either<RedirectConfigurationException, URI> {
+    val urlKey = "$pspId-$paymentTypeCode"
+    return Optional.ofNullable(redirectBeApiCallUriMap[urlKey])
       .map { Either.right<RedirectConfigurationException, URI>(it) }
       .orElse(
         Either.left(
           RedirectConfigurationException(
-            "Missing key for payment type code: [$paymentTypeCode]",
+            "Missing key for redirect return url with key: [$urlKey]",
             RedirectConfigurationType.BACKEND_URLS)))
+  }
 }
