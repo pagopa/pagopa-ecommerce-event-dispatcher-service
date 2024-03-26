@@ -12,8 +12,8 @@ import it.pagopa.generated.ecommerce.gateway.v1.ApiClient as GatewayApiClient
 import it.pagopa.generated.ecommerce.gateway.v1.api.VposInternalApi
 import it.pagopa.generated.ecommerce.gateway.v1.api.XPayInternalApi
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
-import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundRequestDto
-import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundResponseDto
+import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundRequestDto as RedirectRefundRequestDto
+import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundResponseDto as RedirectRefundResponseDto
 import it.pagopa.generated.notifications.v1.ApiClient
 import it.pagopa.generated.notifications.v1.api.DefaultApi
 import it.pagopa.generated.transactionauthrequests.v1.ApiClient as TransanctionsApiClient
@@ -201,8 +201,8 @@ class WebClientConfig {
     @Value("\${node.forwarder.url}") backendUrl: String,
     @Value("\${node.forwarder.readTimeout}") readTimeout: Int,
     @Value("\${node.forwarder.connectionTimeout}") connectionTimeout: Int
-  ): NodeForwarderClient<RefundRequestDto, RefundResponseDto> {
-    return NodeForwarderClient<RefundRequestDto, RefundResponseDto>(
+  ): NodeForwarderClient<RedirectRefundRequestDto, RedirectRefundResponseDto> {
+    return NodeForwarderClient<RedirectRefundRequestDto, RedirectRefundResponseDto>(
       apiKey, backendUrl, readTimeout, connectionTimeout)
   }
 }

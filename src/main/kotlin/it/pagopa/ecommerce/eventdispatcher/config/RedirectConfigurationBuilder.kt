@@ -3,8 +3,6 @@ package it.pagopa.ecommerce.eventdispatcher.config
 import it.pagopa.ecommerce.commons.exceptions.RedirectConfigurationException
 import it.pagopa.ecommerce.commons.exceptions.RedirectConfigurationType
 import java.net.URI
-import java.util.function.Predicate
-import java.util.stream.Collectors
 import lombok.extern.slf4j.Slf4j
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
@@ -34,7 +32,11 @@ class RedirectConfigurationBuilder {
   ): Map<String, URI> {
     // URI.create throws IllegalArgumentException that will prevent module load for
     // invalid PSP URI configuration
-    val redirectUriMap = pspUrlMapping.mapValues { URI.create(it.value) }
+    // the redirect url configuration map is in common and it's used to configure both redirections
+    // and redirections/refunds endpoints. here we want to configure refunds endpoint only since
+    // it's the only api call that will be performed by event dispatcher for redirections payment
+    // flow
+    val redirectUriMap = pspUrlMapping.mapValues { URI.create("${it.value}/refunds") }
     val missingKeys = paymentTypeCodes - redirectUriMap.keys
     if (missingKeys.isNotEmpty()) {
       throw RedirectConfigurationException(

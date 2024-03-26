@@ -1,4 +1,4 @@
-package it.pagopa.ecommerce.payment.requests.validation
+package it.pagopa.ecommerce.eventdispatcher.validation
 
 import java.lang.reflect.Constructor
 import java.lang.reflect.Method
