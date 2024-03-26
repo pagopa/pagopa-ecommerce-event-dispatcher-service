@@ -6,11 +6,14 @@ import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import io.netty.channel.ChannelOption
 import io.netty.handler.timeout.ReadTimeoutHandler
+import it.pagopa.ecommerce.commons.client.NodeForwarderClient
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.ClosePaymentRequestMixin
 import it.pagopa.generated.ecommerce.gateway.v1.ApiClient as GatewayApiClient
 import it.pagopa.generated.ecommerce.gateway.v1.api.VposInternalApi
 import it.pagopa.generated.ecommerce.gateway.v1.api.XPayInternalApi
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
+import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundRequestDto as RedirectRefundRequestDto
+import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundResponseDto as RedirectRefundResponseDto
 import it.pagopa.generated.notifications.v1.ApiClient
 import it.pagopa.generated.notifications.v1.api.DefaultApi
 import it.pagopa.generated.transactionauthrequests.v1.ApiClient as TransanctionsApiClient
@@ -181,5 +184,25 @@ class WebClientConfig {
     val apiClient = TransanctionsApiClient(webClient).setBasePath(transactionsServiceUri)
     apiClient.setApiKey(transactionsServiceApiKey)
     return TransactionsApi(apiClient)
+  }
+
+  /**
+   * Build node forwarder proxy api client
+   *
+   * @param apiKey backend api key
+   * @param backendUrl backend URL
+   * @param readTimeout read timeout
+   * @param connectionTimeout connection timeout
+   * @return the build Node forwarder proxy api client
+   */
+  @Bean
+  fun nodeForwarderRedirectApiClient(
+    @Value("\${node.forwarder.apiKey}") apiKey: String,
+    @Value("\${node.forwarder.url}") backendUrl: String,
+    @Value("\${node.forwarder.readTimeout}") readTimeout: Int,
+    @Value("\${node.forwarder.connectionTimeout}") connectionTimeout: Int
+  ): NodeForwarderClient<RedirectRefundRequestDto, RedirectRefundResponseDto> {
+    return NodeForwarderClient<RedirectRefundRequestDto, RedirectRefundResponseDto>(
+      apiKey, backendUrl, readTimeout, connectionTimeout)
   }
 }

@@ -4,22 +4,32 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import io.opentelemetry.api.trace.Span
 import io.opentelemetry.api.trace.SpanBuilder
 import io.opentelemetry.api.trace.Tracer
+import it.pagopa.ecommerce.commons.client.NodeForwarderClient
 import it.pagopa.ecommerce.commons.client.NpgClient
+import it.pagopa.ecommerce.commons.domain.TransactionId
+import it.pagopa.ecommerce.commons.exceptions.NodeForwarderClientException
 import it.pagopa.ecommerce.commons.exceptions.NpgApiKeyMissingPspRequestedException
 import it.pagopa.ecommerce.commons.exceptions.NpgResponseException
+import it.pagopa.ecommerce.commons.exceptions.RedirectConfigurationException
+import it.pagopa.ecommerce.commons.v2.TransactionTestUtils
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.config.NpgPspsApiKeyConfigBuilder
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadGatewayException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.RefundNotAllowedException
 import it.pagopa.ecommerce.eventdispatcher.utils.getMockedVPosRefundRequest
 import it.pagopa.ecommerce.eventdispatcher.utils.getMockedXPayRefundRequest
+import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundOutcomeDto
+import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundRequestDto as RedirectRefundRequestDto
+import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundResponseDto as RedirectRefundResponseDto
 import java.math.BigDecimal
+import java.net.URI
 import java.util.*
 import java.util.stream.Stream
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
@@ -28,8 +38,10 @@ import org.junit.jupiter.params.provider.MethodSource
 import org.mockito.Mockito
 import org.mockito.kotlin.*
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.test.context.TestPropertySource
+import org.springframework.web.reactive.function.client.WebClientResponseException
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
 
@@ -54,8 +66,20 @@ class RefundServiceTests {
         "pspId1": "pspKey1"
       }
     """, setOf("pspId1"))
+
+  private val nodeForwarderRedirectApiClient:
+    NodeForwarderClient<RedirectRefundRequestDto, RedirectRefundResponseDto> =
+    mock()
+
+  private val redirectBeApiCallUriMap: Map<String, URI> =
+    mapOf("pspId-RPIC" to URI.create("http://redirect/RPIC"))
   private val refundService: RefundService =
-    RefundService(paymentGatewayClient, npgClient, npgPspApiKeys)
+    RefundService(
+      paymentGatewayClient = paymentGatewayClient,
+      npgClient = npgClient,
+      npgCardsPspApiKey = npgPspApiKeys,
+      nodeForwarderRedirectApiClient = nodeForwarderRedirectApiClient,
+      redirectBeApiCallUriMap = redirectBeApiCallUriMap)
 
   companion object {
     lateinit var mockWebServer: MockWebServer
@@ -83,6 +107,17 @@ class RefundServiceTests {
         Arguments.of(HttpStatus.NOT_FOUND, RefundNotAllowedException::class.java),
         Arguments.of(HttpStatus.INTERNAL_SERVER_ERROR, BadGatewayException::class.java),
         Arguments.of(HttpStatus.GATEWAY_TIMEOUT, BadGatewayException::class.java),
+      )
+
+    @JvmStatic
+    private fun `Redirect refund errors method source`(): Stream<Arguments> =
+      Stream.of(
+        Arguments.of(HttpStatus.BAD_REQUEST, RefundNotAllowedException::class.java),
+        Arguments.of(HttpStatus.UNAUTHORIZED, RefundNotAllowedException::class.java),
+        Arguments.of(HttpStatus.NOT_FOUND, RefundNotAllowedException::class.java),
+        Arguments.of(HttpStatus.INTERNAL_SERVER_ERROR, BadGatewayException::class.java),
+        Arguments.of(HttpStatus.GATEWAY_TIMEOUT, BadGatewayException::class.java),
+        Arguments.of(null, BadGatewayException::class.java),
       )
   }
 
@@ -183,7 +218,13 @@ class RefundServiceTests {
   @Test
   fun `should handle npg error without http response code info`() {
     val npgClient: NpgClient = mock()
-    val refundService = RefundService(paymentGatewayClient, npgClient, npgPspApiKeys)
+    val refundService =
+      RefundService(
+        paymentGatewayClient = paymentGatewayClient,
+        npgClient = npgClient,
+        npgCardsPspApiKey = npgPspApiKeys,
+        nodeForwarderRedirectApiClient = nodeForwarderRedirectApiClient,
+        redirectBeApiCallUriMap = redirectBeApiCallUriMap)
     val operationId = "operationID"
     val idempotenceKey = UUID.randomUUID()
     val correlationId = UUID.randomUUID().toString()
@@ -208,7 +249,13 @@ class RefundServiceTests {
   @Test
   fun `should not call NPG and return error for not configured PSP key`() {
     val npgClient: NpgClient = mock()
-    val refundService = RefundService(paymentGatewayClient, npgClient, npgPspApiKeys)
+    val refundService =
+      RefundService(
+        paymentGatewayClient = paymentGatewayClient,
+        npgClient = npgClient,
+        npgCardsPspApiKey = npgPspApiKeys,
+        nodeForwarderRedirectApiClient = nodeForwarderRedirectApiClient,
+        redirectBeApiCallUriMap = redirectBeApiCallUriMap)
     val operationId = "operationID"
     val idempotenceKey = UUID.randomUUID()
     val correlationId = UUID.randomUUID().toString()
@@ -250,5 +297,114 @@ class RefundServiceTests {
 
     // Assertions
     assertEquals("CANCELLED", response?.status?.value)
+  }
+
+  @Test
+  fun `Should perform redirect refund successfully`() {
+    // pre-requisites
+    val transactionId = TransactionTestUtils.TRANSACTION_ID
+    val pspTransactionId = "pspTransactionId"
+    val paymentTypeCode = "RPIC"
+    val pspId = "pspId"
+    val redirectRefundResponse =
+      RedirectRefundResponseDto().idTransaction(transactionId).outcome(RefundOutcomeDto.OK)
+    val expectedRequest =
+      RedirectRefundRequestDto()
+        .action("refund")
+        .idPSPTransaction(pspTransactionId)
+        .idTransaction(transactionId)
+    given(nodeForwarderRedirectApiClient.proxyRequest(any(), any(), any(), any()))
+      .willReturn(
+        Mono.just(
+          NodeForwarderClient.NodeForwarderResponse(redirectRefundResponse, Optional.empty())))
+    // test
+    StepVerifier.create(
+        refundService.requestRedirectRefund(
+          transactionId = TransactionId(transactionId),
+          pspTransactionId = pspTransactionId,
+          paymentTypeCode = paymentTypeCode,
+          pspId = pspId))
+      .expectNext(redirectRefundResponse)
+      .verifyComplete()
+    verify(nodeForwarderRedirectApiClient, times(1))
+      .proxyRequest(
+        expectedRequest,
+        redirectBeApiCallUriMap["pspId-$paymentTypeCode"],
+        transactionId,
+        RedirectRefundResponseDto::class.java)
+  }
+
+  @Test
+  fun `Should return error performing redirect refund for missing backend URL`() {
+    // pre-requisites
+    val transactionId = TransactionTestUtils.TRANSACTION_ID
+    val pspTransactionId = "pspTransactionId"
+    val paymentTypeCode = "MISSING"
+    val pspId = "pspId"
+    // test
+    StepVerifier.create(
+        refundService.requestRedirectRefund(
+          transactionId = TransactionId(transactionId),
+          pspTransactionId = pspTransactionId,
+          paymentTypeCode = paymentTypeCode,
+          pspId = "pspId"))
+      .expectErrorMatches {
+        assertTrue(it is RedirectConfigurationException)
+        assertEquals(
+          "Error parsing Redirect PSP BACKEND_URLS configuration, cause: Missing key for redirect return url with key: [pspId-MISSING]",
+          it.message)
+        true
+      }
+      .verify()
+    verify(nodeForwarderRedirectApiClient, times(0)).proxyRequest(any(), any(), any(), any())
+  }
+
+  @ParameterizedTest
+  @MethodSource("Redirect refund errors method source")
+  fun `Should handle returned error performing redirect refund call`(
+    httpErrorCode: HttpStatus?,
+    expectedErrorClass: Class<Exception>
+  ) {
+    // pre-requisites
+    val transactionId = TransactionTestUtils.TRANSACTION_ID
+    val pspTransactionId = "pspTransactionId"
+    val paymentTypeCode = "RPIC"
+    val pspId = "pspId"
+    val expectedRequest =
+      RedirectRefundRequestDto()
+        .action("refund")
+        .idPSPTransaction(pspTransactionId)
+        .idTransaction(transactionId)
+    given(nodeForwarderRedirectApiClient.proxyRequest(any(), any(), any(), any()))
+      .willReturn(
+        Mono.error(
+          NodeForwarderClientException(
+            "Error performing refund",
+            if (httpErrorCode != null) {
+              WebClientResponseException(
+                "Error performing request",
+                httpErrorCode.value(),
+                "",
+                HttpHeaders.EMPTY,
+                null,
+                null)
+            } else {
+              RuntimeException("Error performing request")
+            })))
+    // test
+    StepVerifier.create(
+        refundService.requestRedirectRefund(
+          transactionId = TransactionId(transactionId),
+          pspTransactionId = pspTransactionId,
+          paymentTypeCode = paymentTypeCode,
+          pspId = pspId))
+      .expectError(expectedErrorClass)
+      .verify()
+    verify(nodeForwarderRedirectApiClient, times(1))
+      .proxyRequest(
+        expectedRequest,
+        redirectBeApiCallUriMap["pspId-$paymentTypeCode"],
+        transactionId,
+        RedirectRefundResponseDto::class.java)
   }
 }
