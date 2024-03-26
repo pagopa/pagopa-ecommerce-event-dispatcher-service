@@ -1,6 +1,5 @@
 package it.pagopa.ecommerce.eventdispatcher.validation
 
-import it.pagopa.ecommerce.payment.requests.validation.CustomLocalValidatorFactoryBean
 import org.springframework.beans.factory.config.BeanDefinition
 import org.springframework.boot.validation.MessageInterpolatorFactory
 import org.springframework.context.annotation.Bean
