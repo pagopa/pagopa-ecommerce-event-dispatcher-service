@@ -15,11 +15,11 @@ internal class RedirectConfigurationBuilderTest {
   private val pspUriMap =
     java.util.Map.of(
       "key1",
-      "http://localhost/key1/redirectionUrl",
+      "http://localhost/key1/redirections",
       "key2",
-      "http://localhost/key2/redirectionUrl",
+      "http://localhost/key2/redirections",
       "key3",
-      "http://localhost/key3/redirectionUrl")
+      "http://localhost/key3/redirections")
 
   @ParameterizedTest
   @ValueSource(strings = ["key1", "key2", "key3"])
@@ -27,7 +27,8 @@ internal class RedirectConfigurationBuilderTest {
     val mapping: Map<String, URI> = assertDoesNotThrow {
       checkoutRedirectConfigurationBuilder.redirectBeApiCallUriMap(pspToHandle, pspUriMap)
     }
-    assertEquals("http://localhost/%s/redirectionUrl".formatted(pspId), mapping[pspId].toString())
+    assertEquals(
+      "http://localhost/%s/redirections/refunds".format(pspId), mapping[pspId].toString())
   }
 
   @Test
