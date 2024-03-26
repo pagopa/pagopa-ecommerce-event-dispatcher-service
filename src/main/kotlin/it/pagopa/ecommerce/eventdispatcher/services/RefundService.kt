@@ -94,10 +94,11 @@ class RefundService(
         { Mono.error(it) },
         { uri ->
           logger.info(
-            "Redirect transaction refund. TransactionId: [{}], pspTransactionId: [{}], payment type code: [{}}",
-            transactionId,
+            "Processing Redirect transaction refund. TransactionId: [{}], pspTransactionId: [{}], payment type code: [{}], pspId: [{}]",
+            transactionId.value(),
             pspTransactionId,
-            paymentTypeCode)
+            paymentTypeCode,
+            pspId)
           nodeForwarderRedirectApiClient
             .proxyRequest(
               RedirectRefundRequestDto()
@@ -117,10 +118,15 @@ class RefundService(
                     null
                   }
                 }
+              logger.error(
+                "Error performing Redirect refund operation for transaction with id: [${transactionId.value()}]. psp id: [$pspId], pspTransactionId: [$pspTransactionId], paymentTypeCode: [$paymentTypeCode], received HTTP response error code: [${
+                                    httpErrorCode.map { it.toString() }.orElse("N/A")
+                                }]",
+                exception)
               httpErrorCode
                 .map {
                   val errorCodeReason =
-                    "Received HTTP error code performing refund for Redirect transaction made with payment type code: [$paymentTypeCode] -> [$it]"
+                    "Error performing refund for Redirect transaction with id: [${transactionId.value()}] and payment type code: [$paymentTypeCode], HTTP error code: [$it]"
                   if (it.is5xxServerError) {
                     BadGatewayException(errorCodeReason)
                   } else {
