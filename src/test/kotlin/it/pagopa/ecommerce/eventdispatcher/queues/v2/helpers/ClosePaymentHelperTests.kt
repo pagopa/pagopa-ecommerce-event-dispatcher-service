@@ -148,7 +148,8 @@ class ClosePaymentHelperTests {
 
       val expectedUpdatedTransaction =
         transactionDocument(
-          TransactionStatusDto.CLOSED, ZonedDateTime.parse(activationEvent.creationDate))
+            TransactionStatusDto.CLOSED, ZonedDateTime.parse(activationEvent.creationDate))
+          .apply { this.sendPaymentResultOutcome = TransactionUserReceiptData.Outcome.NOT_RECEIVED }
 
       val transactionDocument =
         transactionDocument(
@@ -461,7 +462,8 @@ class ClosePaymentHelperTests {
 
     val expectedUpdatedTransaction =
       transactionDocument(
-        TransactionStatusDto.CLOSED, ZonedDateTime.parse(activationEvent.creationDate))
+          TransactionStatusDto.CLOSED, ZonedDateTime.parse(activationEvent.creationDate))
+        .apply { this.sendPaymentResultOutcome = TransactionUserReceiptData.Outcome.NOT_RECEIVED }
 
     val transactionDocument =
       transactionDocument(
@@ -1401,7 +1403,8 @@ class ClosePaymentHelperTests {
 
       val expectedUpdatedTransaction =
         transactionDocument(
-          TransactionStatusDto.CLOSED, ZonedDateTime.parse(activationEvent.creationDate))
+            TransactionStatusDto.CLOSED, ZonedDateTime.parse(activationEvent.creationDate))
+          .apply { this.sendPaymentResultOutcome = TransactionUserReceiptData.Outcome.NOT_RECEIVED }
 
       val transactionDocument =
         transactionDocument(

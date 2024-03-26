@@ -354,6 +354,13 @@ class ClosePaymentHelper(
         .findByTransactionId(transaction.transactionId.value())
         .cast(Transaction::class.java)
 
+    val sendPaymentResultOutcome =
+      if (!canceledByUser && closePaymentTransactionData.closureOutcome == ClosePaymentOutcome.OK) {
+        TransactionUserReceiptData.Outcome.NOT_RECEIVED
+      } else {
+        null
+      }
+
     val saveEvent =
       event.bimap(
         {
@@ -361,6 +368,7 @@ class ClosePaymentHelper(
             transactionUpdate
               .flatMap { tx ->
                 tx.status = newStatus
+                tx.sendPaymentResultOutcome = sendPaymentResultOutcome
                 transactionsViewRepository.save(tx)
               }
               .thenReturn(closedEvent)
@@ -371,6 +379,7 @@ class ClosePaymentHelper(
             transactionUpdate
               .flatMap { tx ->
                 tx.status = newStatus
+                tx.sendPaymentResultOutcome = sendPaymentResultOutcome
                 transactionsViewRepository.save(tx)
               }
               .thenReturn(closedEvent)
