@@ -50,7 +50,7 @@ class RefundService(
     correlationId: String,
     paymentMethod: PaymentMethod
   ): Mono<RefundResponseDto> {
-    return npgApiKeyConfiguration[PaymentMethod.CARDS, pspId].fold(
+    return npgApiKeyConfiguration[paymentMethod, pspId].fold(
       { ex -> Mono.error(ex) },
       { apiKey ->
         npgClient
