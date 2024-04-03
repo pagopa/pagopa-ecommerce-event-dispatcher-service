@@ -246,94 +246,140 @@ class NodeService(
 
     return when (authRequestedData.type!!) {
       // TODO: Add here support for APM methods and wallet
-      TransactionGatewayAuthorizationRequestedData.AuthorizationDataType.PGS,
+      TransactionGatewayAuthorizationRequestedData.AuthorizationDataType.PGS ->
+        buildAuthorizationCompletedCardClosePaymentRequest(
+          authCompleted,
+          transactionOutcome,
+          transactionId,
+          totalAmountEuro,
+          feeEuro,
+          closePaymentTransactionDetails)
       TransactionGatewayAuthorizationRequestedData.AuthorizationDataType.NPG ->
-        CardClosePaymentRequestV2Dto().apply {
-          paymentTokens =
-            authCompleted.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken.value }
-          outcome = CardClosePaymentRequestV2Dto.OutcomeEnum.valueOf(transactionOutcome.name)
-          this.transactionId = transactionId.value()
-
-          if (transactionOutcome == ClosePaymentOutcome.OK) {
-            timestampOperation =
-              OffsetDateTime.parse(
-                authCompleted.transactionAuthorizationCompletedData.timestampOperation)
-            this.totalAmount = totalAmountEuro
-            this.fee = feeEuro
-            this.timestampOperation =
-              OffsetDateTime.parse(
-                authCompleted.transactionAuthorizationCompletedData.timestampOperation,
-                DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-            idPSP = authCompleted.transactionAuthorizationRequestData.pspId
-            paymentMethod = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
-            idBrokerPSP = authCompleted.transactionAuthorizationRequestData.brokerName
-            idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
-          }
-
-          additionalPaymentInformations =
-            if (transactionOutcome == ClosePaymentOutcome.OK)
-              CardAdditionalPaymentInformationsDto().apply {
-                outcomePaymentGateway =
-                  getOutcomePaymentGateway(
-                    authCompleted.transactionAuthorizationCompletedData
-                      .transactionGatewayAuthorizationData)
-                this.authorizationCode =
-                  authCompleted.transactionAuthorizationCompletedData.authorizationCode
-                this.fee = feeEuro.toString()
-                this.timestampOperation =
-                  OffsetDateTime.parse(
-                      authCompleted.transactionAuthorizationCompletedData.timestampOperation,
-                      DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-                    .atZoneSameInstant(ZoneId.of("Europe/Paris"))
-                    .truncatedTo(ChronoUnit.SECONDS)
-                    .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
-                    .toString()
-                this.rrn = authCompleted.transactionAuthorizationCompletedData.rrn
-                this.totalAmount = totalAmountEuro.toString()
-              }
-            else null
-          transactionDetails = closePaymentTransactionDetails
+        when (authCompleted.transactionAuthorizationRequestData.paymentTypeCode) {
+          "CP" ->
+            buildAuthorizationCompletedCardClosePaymentRequest(
+              authCompleted,
+              transactionOutcome,
+              transactionId,
+              totalAmountEuro,
+              feeEuro,
+              closePaymentTransactionDetails)
+          else ->
+            throw IllegalArgumentException(
+              "Unhandled or invalid payment type code: '%s'".format(
+                authCompleted.transactionAuthorizationRequestData.paymentTypeCode))
         }
       TransactionGatewayAuthorizationRequestedData.AuthorizationDataType.REDIRECT ->
-        RedirectClosePaymentRequestV2Dto().apply {
-          paymentTokens =
-            authCompleted.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken.value }
-          outcome = RedirectClosePaymentRequestV2Dto.OutcomeEnum.valueOf(transactionOutcome.name)
-          this.transactionId = transactionId.value()
+        buildAuthorizationCompletedRedirectClosePaymentRequest(
+          authCompleted,
+          transactionOutcome,
+          transactionId,
+          totalAmountEuro,
+          feeEuro,
+          closePaymentTransactionDetails)
+    }
+  }
 
-          if (transactionOutcome == ClosePaymentOutcome.OK) {
-            this.totalAmount = totalAmountEuro
-            this.fee = feeEuro
-            this.timestampOperation =
+  private fun buildAuthorizationCompletedRedirectClosePaymentRequest(
+    authCompleted: BaseTransactionWithCompletedAuthorization,
+    transactionOutcome: ClosePaymentOutcome,
+    transactionId: TransactionId,
+    totalAmountEuro: BigDecimal,
+    feeEuro: BigDecimal,
+    closePaymentTransactionDetails: TransactionDetailsDto
+  ) =
+    RedirectClosePaymentRequestV2Dto().apply {
+      paymentTokens =
+        authCompleted.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken.value }
+      outcome = RedirectClosePaymentRequestV2Dto.OutcomeEnum.valueOf(transactionOutcome.name)
+      this.transactionId = transactionId.value()
+
+      if (transactionOutcome == ClosePaymentOutcome.OK) {
+        this.totalAmount = totalAmountEuro
+        this.fee = feeEuro
+        this.timestampOperation =
+          OffsetDateTime.parse(
+            authCompleted.transactionAuthorizationCompletedData.timestampOperation,
+            DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+        idPSP = authCompleted.transactionAuthorizationRequestData.pspId
+        paymentMethod = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
+        idBrokerPSP = authCompleted.transactionAuthorizationRequestData.brokerName
+        idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
+      }
+
+      additionalPaymentInformations =
+        if (transactionOutcome == ClosePaymentOutcome.OK) {
+          RedirectAdditionalPaymentInformationsDto().apply {
+            idTransaction = transactionId.value()
+            idPSPTransaction =
+              authCompleted.transactionAuthorizationRequestData.authorizationRequestId
+            this.totalAmount = totalAmountEuro.toString()
+            this.authorizationCode =
+              authCompleted.transactionAuthorizationCompletedData.authorizationCode
+            this.fee = feeEuro.toString()
+            timestampOperation =
               OffsetDateTime.parse(
                 authCompleted.transactionAuthorizationCompletedData.timestampOperation,
                 DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-            idPSP = authCompleted.transactionAuthorizationRequestData.pspId
-            paymentMethod = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
-            idBrokerPSP = authCompleted.transactionAuthorizationRequestData.brokerName
-            idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
           }
-
-          additionalPaymentInformations =
-            if (transactionOutcome == ClosePaymentOutcome.OK) {
-              RedirectAdditionalPaymentInformationsDto().apply {
-                idTransaction = transactionId.value()
-                idPSPTransaction =
-                  authCompleted.transactionAuthorizationRequestData.authorizationRequestId
-                this.totalAmount = totalAmountEuro.toString()
-                this.authorizationCode =
-                  authCompleted.transactionAuthorizationCompletedData.authorizationCode
-                this.fee = feeEuro.toString()
-                timestampOperation =
-                  OffsetDateTime.parse(
-                    authCompleted.transactionAuthorizationCompletedData.timestampOperation,
-                    DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-              }
-            } else null
-          transactionDetails = closePaymentTransactionDetails
-        }
+        } else null
+      transactionDetails = closePaymentTransactionDetails
     }
-  }
+
+  private fun buildAuthorizationCompletedCardClosePaymentRequest(
+    authCompleted: BaseTransactionWithCompletedAuthorization,
+    transactionOutcome: ClosePaymentOutcome,
+    transactionId: TransactionId,
+    totalAmountEuro: BigDecimal,
+    feeEuro: BigDecimal,
+    closePaymentTransactionDetails: TransactionDetailsDto
+  ) =
+    CardClosePaymentRequestV2Dto().apply {
+      paymentTokens =
+        authCompleted.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken.value }
+      outcome = CardClosePaymentRequestV2Dto.OutcomeEnum.valueOf(transactionOutcome.name)
+      this.transactionId = transactionId.value()
+
+      if (transactionOutcome == ClosePaymentOutcome.OK) {
+        timestampOperation =
+          OffsetDateTime.parse(
+            authCompleted.transactionAuthorizationCompletedData.timestampOperation)
+        this.totalAmount = totalAmountEuro
+        this.fee = feeEuro
+        this.timestampOperation =
+          OffsetDateTime.parse(
+            authCompleted.transactionAuthorizationCompletedData.timestampOperation,
+            DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+        idPSP = authCompleted.transactionAuthorizationRequestData.pspId
+        paymentMethod = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
+        idBrokerPSP = authCompleted.transactionAuthorizationRequestData.brokerName
+        idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
+      }
+
+      additionalPaymentInformations =
+        if (transactionOutcome == ClosePaymentOutcome.OK)
+          CardAdditionalPaymentInformationsDto().apply {
+            outcomePaymentGateway =
+              getOutcomePaymentGateway(
+                authCompleted.transactionAuthorizationCompletedData
+                  .transactionGatewayAuthorizationData)
+            this.authorizationCode =
+              authCompleted.transactionAuthorizationCompletedData.authorizationCode
+            this.fee = feeEuro.toString()
+            this.timestampOperation =
+              OffsetDateTime.parse(
+                  authCompleted.transactionAuthorizationCompletedData.timestampOperation,
+                  DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                .atZoneSameInstant(ZoneId.of("Europe/Paris"))
+                .truncatedTo(ChronoUnit.SECONDS)
+                .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                .toString()
+            this.rrn = authCompleted.transactionAuthorizationCompletedData.rrn
+            this.totalAmount = totalAmountEuro.toString()
+          }
+        else null
+      transactionDetails = closePaymentTransactionDetails
+    }
 
   private fun getOutcomePaymentGateway(
     transactionGatewayAuthData: TransactionGatewayAuthorizationData
