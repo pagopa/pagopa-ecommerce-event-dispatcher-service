@@ -264,6 +264,14 @@ class NodeService(
               totalAmountEuro,
               feeEuro,
               closePaymentTransactionDetails)
+          "PPAL" ->
+            buildAuthorizationCompletedPayPalClosePaymentRequest(
+              authCompleted,
+              transactionOutcome,
+              transactionId,
+              totalAmountEuro,
+              feeEuro,
+              closePaymentTransactionDetails)
           else ->
             throw IllegalArgumentException(
               "Unhandled or invalid payment type code: '%s'".format(
@@ -378,6 +386,56 @@ class NodeService(
             this.totalAmount = totalAmountEuro.toString()
           }
         else null
+      transactionDetails = closePaymentTransactionDetails
+    }
+
+  private fun buildAuthorizationCompletedPayPalClosePaymentRequest(
+    authCompleted: BaseTransactionWithCompletedAuthorization,
+    transactionOutcome: ClosePaymentOutcome,
+    transactionId: TransactionId,
+    totalAmountEuro: BigDecimal,
+    feeEuro: BigDecimal,
+    closePaymentTransactionDetails: TransactionDetailsDto
+  ) =
+    PayPalClosePaymentRequestV2Dto().apply {
+      paymentTokens =
+        authCompleted.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken.value }
+      outcome = PayPalClosePaymentRequestV2Dto.OutcomeEnum.valueOf(transactionOutcome.name)
+      this.transactionId = transactionId.value()
+
+      if (transactionOutcome == ClosePaymentOutcome.OK) {
+        timestampOperation =
+          OffsetDateTime.parse(
+            authCompleted.transactionAuthorizationCompletedData.timestampOperation)
+        this.totalAmount = totalAmountEuro
+        this.fee = feeEuro
+        this.timestampOperation =
+          OffsetDateTime.parse(
+            authCompleted.transactionAuthorizationCompletedData.timestampOperation,
+            DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+        idPSP = authCompleted.transactionAuthorizationRequestData.pspId
+        paymentMethod = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
+        idBrokerPSP = authCompleted.transactionAuthorizationRequestData.brokerName
+        idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
+      }
+
+      additionalPaymentInformations =
+        if (transactionOutcome == ClosePaymentOutcome.OK) {
+          val npgTransactionGatewayAuthorizationData =
+            authCompleted.transactionAuthorizationCompletedData.transactionGatewayAuthorizationData
+              as NpgTransactionGatewayAuthorizationData
+
+          PayPalAdditionalPaymentInformationsDto().apply {
+            this.transactionId = npgTransactionGatewayAuthorizationData.operationId
+            this.pspTransactionId = npgTransactionGatewayAuthorizationData.paymentEndToEndId
+            this.fee = feeEuro.toString()
+            this.timestampOperation =
+              OffsetDateTime.parse(
+                authCompleted.transactionAuthorizationCompletedData.timestampOperation,
+                DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+            this.totalAmount = totalAmountEuro.toString()
+          }
+        } else null
       transactionDetails = closePaymentTransactionDetails
     }
 
