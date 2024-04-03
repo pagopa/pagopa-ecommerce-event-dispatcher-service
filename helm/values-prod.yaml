@@ -161,6 +161,9 @@ microservice-chart:
     NPG_READ_TIMEOUT: "10000"
     NPG_CONNECTION_TIMEOUT: "10000"
     NPG_CARDS_PSP_LIST: "" #TODO to be filled with psp id list that are expected to be present into psp api keys configuration
+    NPG_PAYPAL_PSP_LIST: "" #TODO to be filled with psp id list that are expected to be present into psp api keys configuration
+    NPG_MYBANK_PSP_LIST: "" #TODO to be filled with psp id list that are expected to be present into psp api keys configuration
+    NPG_BANCOMATPAY_PSP_LIST: "" #TODO to be filled with psp id list that are expected to be present into psp api keys configuration
     REDIS_STREAM_EVENT_CONTROLLER_STREAM_KEY: "event-dispatcher-commands"
     REDIS_STREAM_EVENT_CONTROLLER_CONSUMER_GROUP_PREFIX: "event-dispatcher"
     REDIS_STREAM_EVENT_CONTROLLER_CONSUMER_NAME_PREFIX: "event-dispatcher"
@@ -185,6 +188,9 @@ microservice-chart:
     NPG_CARDS_PSP_KEYS: npg-cards-psp-keys
     NODE_FORWARDER_API_KEY: node-forwarder-api-key
     REDIRECT_URL_MAPPING: redirect-url-mapping
+    NPG_PAYPAL_PSP_KEYS: npg-paypal-psp-keys
+    NPG_BANCOMATPAY_PSP_KEYS: npg-bancomatpay-psp-keys
+    NPG_MYBANK_PSP_KEYS: npg-mybank-psp-keys
   keyvault:
     name: "pagopa-p-ecommerce-kv"
     tenantId: "7788edaf-0346-4068-9d79-c868aed15b3d"

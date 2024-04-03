@@ -3,13 +3,14 @@ package it.pagopa.ecommerce.eventdispatcher.services
 import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.client.NodeForwarderClient
 import it.pagopa.ecommerce.commons.client.NpgClient
+import it.pagopa.ecommerce.commons.client.NpgClient.PaymentMethod
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.exceptions.NodeForwarderClientException
 import it.pagopa.ecommerce.commons.exceptions.NpgResponseException
 import it.pagopa.ecommerce.commons.exceptions.RedirectConfigurationException
 import it.pagopa.ecommerce.commons.exceptions.RedirectConfigurationType
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.RefundResponseDto
-import it.pagopa.ecommerce.commons.utils.NpgPspApiKeysConfig
+import it.pagopa.ecommerce.commons.utils.NpgApiKeyConfiguration
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadGatewayException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.RefundNotAllowedException
@@ -32,7 +33,7 @@ import reactor.core.publisher.Mono
 class RefundService(
   @Autowired private val paymentGatewayClient: PaymentGatewayClient,
   @Autowired private val npgClient: NpgClient,
-  @Autowired private val npgCardsPspApiKey: NpgPspApiKeysConfig,
+  @Autowired private val npgApiKeyConfiguration: NpgApiKeyConfiguration,
   @Autowired
   private val nodeForwarderRedirectApiClient:
     NodeForwarderClient<RedirectRefundRequestDto, RedirectRefundResponseDto>,
@@ -46,9 +47,10 @@ class RefundService(
     idempotenceKey: UUID,
     amount: BigDecimal,
     pspId: String,
-    correlationId: String
+    correlationId: String,
+    paymentMethod: PaymentMethod
   ): Mono<RefundResponseDto> {
-    return npgCardsPspApiKey[pspId].fold(
+    return npgApiKeyConfiguration[PaymentMethod.CARDS, pspId].fold(
       { ex -> Mono.error(ex) },
       { apiKey ->
         npgClient
