@@ -7,7 +7,7 @@ import it.pagopa.ecommerce.commons.exceptions.NpgApiKeyMissingPspRequestedExcept
 import it.pagopa.ecommerce.commons.exceptions.NpgResponseException
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.StateResponseDto
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.WorkflowStateDto
-import it.pagopa.ecommerce.commons.utils.NpgPspApiKeysConfig
+import it.pagopa.ecommerce.commons.utils.NpgApiKeyConfiguration
 import it.pagopa.ecommerce.commons.v2.TransactionTestUtils
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NpgBadRequestException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NpgServerErrorException
@@ -28,11 +28,11 @@ class AuthorizationStateRetrieverServiceTest {
 
   private val npgClient: NpgClient = mock()
 
-  private val npgPspApiKeysConfig: NpgPspApiKeysConfig = mock()
+  private val npgApiKeyConfiguration: NpgApiKeyConfiguration = mock()
 
   private val authorizationStateRetrieverService =
     AuthorizationStateRetrieverService(
-      npgClient = npgClient, npgCardsPspApiKey = npgPspApiKeysConfig)
+      npgClient = npgClient, npgApiKeyConfiguration = npgApiKeyConfiguration)
 
   @Test
   fun `Should retrieve transaction status successfully`() {
@@ -43,7 +43,8 @@ class AuthorizationStateRetrieverServiceTest {
     val sessionId = "sessionId"
     val correlationId = UUID.randomUUID()
     val stateResponse = StateResponseDto().state(WorkflowStateDto.CARD_DATA_COLLECTION)
-    given(npgPspApiKeysConfig[pspId]).willReturn(Either.right(pspApiKey))
+    given(npgApiKeyConfiguration[NpgClient.PaymentMethod.CARDS, pspId])
+      .willReturn(Either.right(pspApiKey))
     given(npgClient.getState(any(), any(), any())).willReturn(mono { stateResponse })
     // test
     StepVerifier.create(
@@ -51,7 +52,8 @@ class AuthorizationStateRetrieverServiceTest {
           transactionId = transactionId,
           sessionId = sessionId,
           pspId = pspId,
-          correlationId = correlationId.toString()))
+          correlationId = correlationId.toString(),
+          paymentMethod = NpgClient.PaymentMethod.CARDS))
       .expectNext(stateResponse)
       .verifyComplete()
     verify(npgClient, times(1)).getState(correlationId, sessionId, pspApiKey)
@@ -93,7 +95,8 @@ class AuthorizationStateRetrieverServiceTest {
     val transactionId = TransactionId(TransactionTestUtils.TRANSACTION_ID)
     val sessionId = "sessionId"
     val correlationId = UUID.randomUUID()
-    given(npgPspApiKeysConfig[pspId]).willReturn(Either.right(pspApiKey))
+    given(npgApiKeyConfiguration[NpgClient.PaymentMethod.CARDS, pspId])
+      .willReturn(Either.right(pspApiKey))
     given(npgClient.getState(any(), any(), any()))
       .willReturn(
         Mono.error(
@@ -105,7 +108,8 @@ class AuthorizationStateRetrieverServiceTest {
           transactionId = transactionId,
           sessionId = sessionId,
           pspId = pspId,
-          correlationId = correlationId.toString()))
+          correlationId = correlationId.toString(),
+          paymentMethod = NpgClient.PaymentMethod.CARDS))
       .expectErrorMatches {
         assertEquals(expectedExceptionToBeThrown::class.java, it::class.java)
         assertEquals(expectedExceptionToBeThrown.message, it.message)
@@ -124,7 +128,7 @@ class AuthorizationStateRetrieverServiceTest {
     val sessionId = "sessionId"
     val correlationId = UUID.randomUUID()
     val stateResponse = StateResponseDto().state(WorkflowStateDto.CARD_DATA_COLLECTION)
-    given(npgPspApiKeysConfig[pspId])
+    given(npgApiKeyConfiguration[NpgClient.PaymentMethod.CARDS, pspId])
       .willReturn(Either.left(NpgApiKeyMissingPspRequestedException(pspId, setOf())))
     given(npgClient.getState(any(), any(), any())).willReturn(mono { stateResponse })
     // test
@@ -133,7 +137,8 @@ class AuthorizationStateRetrieverServiceTest {
           transactionId = transactionId,
           sessionId = sessionId,
           pspId = pspId,
-          correlationId = correlationId.toString()))
+          correlationId = correlationId.toString(),
+          paymentMethod = NpgClient.PaymentMethod.CARDS))
       .expectError(NpgApiKeyMissingPspRequestedException::class.java)
       .verify()
     verify(npgClient, times(0)).getState(correlationId, sessionId, pspApiKey)
