@@ -271,7 +271,7 @@ class ClosePaymentHelper(
           enqueueClosureRetryEventPipeline(
             baseTransaction = tx, retryCount = retryCount, tracingInfo = tracingInfo)
         } else {
-          Mono.empty()
+          updateTransactionToClosureError(tx).then()
         }
       }
     }
@@ -281,22 +281,7 @@ class ClosePaymentHelper(
     retryCount: Int,
     tracingInfo: TracingInfo
   ) =
-    if (baseTransaction.status != TransactionStatusDto.CLOSURE_ERROR) {
-        mono { TransactionClosureErrorEvent(baseTransaction.transactionId.value()) }
-          .flatMap { transactionClosureErrorEvent ->
-            transactionClosureErrorEventStoreRepository.save(transactionClosureErrorEvent)
-          }
-          .flatMap {
-            transactionsViewRepository.findByTransactionId(baseTransaction.transactionId.value())
-          }
-          .cast(Transaction::class.java)
-          .flatMap { trx ->
-            trx.status = TransactionStatusDto.CLOSURE_ERROR
-            transactionsViewRepository.save(trx)
-          }
-      } else {
-        Mono.empty()
-      }
+    updateTransactionToClosureError(baseTransaction)
       .then(
         closureRetryService
           .enqueueRetryEvent(baseTransaction, retryCount, tracingInfo)
@@ -306,6 +291,29 @@ class ClosePaymentHelper(
             refundTransactionPipeline(
               baseTransaction, TransactionClosureData.Outcome.KO, tracingInfo)
           })
+
+  private fun updateTransactionToClosureError(baseTransaction: BaseTransaction) =
+    if (baseTransaction.status != TransactionStatusDto.CLOSURE_ERROR) {
+      logger.info(
+        "Updating transaction with id: [${baseTransaction.transactionId.value()}] to ${TransactionStatusDto.CLOSURE_ERROR} status")
+      mono { TransactionClosureErrorEvent(baseTransaction.transactionId.value()) }
+        .flatMap { transactionClosureErrorEvent ->
+          transactionClosureErrorEventStoreRepository.save(transactionClosureErrorEvent)
+        }
+        .flatMap {
+          transactionsViewRepository.findByTransactionId(baseTransaction.transactionId.value())
+        }
+        .cast(Transaction::class.java)
+        .flatMap { trx ->
+          trx.status = TransactionStatusDto.CLOSURE_ERROR
+          transactionsViewRepository.save(trx)
+        }
+        .thenReturn(baseTransaction)
+    } else {
+      logger.info(
+        "Transaction with id: [${baseTransaction.transactionId.value()}] already in ${TransactionStatusDto.CLOSURE_ERROR} status")
+      Mono.just(baseTransaction)
+    }
 
   private fun updateTransactionStatus(
     transaction: BaseTransaction,
