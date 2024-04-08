@@ -53,6 +53,14 @@ class RefundService(
     return npgApiKeyConfiguration[paymentMethod, pspId].fold(
       { ex -> Mono.error(ex) },
       { apiKey ->
+        logger.info(
+          "Performing NPG refund for transaction with id: [{}] and paymentMethod: [{}]. OperationId: [{}], amount: [{}], pspId: [{}], correlationId: [{}]",
+          idempotenceKey,
+          paymentMethod,
+          operationId,
+          amount,
+          pspId,
+          correlationId)
         npgClient
           .refundPayment(
             UUID.fromString(correlationId),
@@ -62,6 +70,9 @@ class RefundService(
             apiKey,
             "Refund request for transactionId $idempotenceKey and operationId $operationId")
           .onErrorMap(NpgResponseException::class.java) { exception: NpgResponseException ->
+            logger.error(
+              "Exception performing NPG refund for transactionId: [$idempotenceKey] and operationId: [$operationId]",
+              exception)
             val responseStatusCode = exception.statusCode
             responseStatusCode
               .map {
