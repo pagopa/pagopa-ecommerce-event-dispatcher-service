@@ -1,10 +1,11 @@
 package it.pagopa.ecommerce.eventdispatcher.services.v2
 
 import it.pagopa.ecommerce.commons.client.NpgClient
+import it.pagopa.ecommerce.commons.client.NpgClient.PaymentMethod
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.exceptions.NpgResponseException
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.StateResponseDto
-import it.pagopa.ecommerce.commons.utils.NpgPspApiKeysConfig
+import it.pagopa.ecommerce.commons.utils.NpgApiKeyConfiguration
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NpgBadRequestException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NpgServerErrorException
 import java.util.*
@@ -15,16 +16,17 @@ import reactor.core.publisher.Mono
 @Service
 class AuthorizationStateRetrieverService(
   @Autowired private val npgClient: NpgClient,
-  @Autowired private val npgCardsPspApiKey: NpgPspApiKeysConfig,
+  @Autowired private val npgApiKeyConfiguration: NpgApiKeyConfiguration,
 ) {
 
   fun getStateNpg(
     transactionId: TransactionId,
     sessionId: String,
     pspId: String,
-    correlationId: String
+    correlationId: String,
+    paymentMethod: PaymentMethod
   ): Mono<StateResponseDto> {
-    return npgCardsPspApiKey[pspId].fold(
+    return npgApiKeyConfiguration[paymentMethod, pspId].fold(
       { ex -> Mono.error(ex) },
       { apiKey ->
         npgClient.getState(UUID.fromString(correlationId), sessionId, apiKey).onErrorMap(

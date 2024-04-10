@@ -2,6 +2,7 @@ package it.pagopa.ecommerce.eventdispatcher.queues.v2
 
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
+import it.pagopa.ecommerce.commons.client.NpgClient
 import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.documents.v2.activation.NpgTransactionGatewayActivationData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.*
@@ -180,15 +181,20 @@ fun handleGetState(
     .switchIfEmpty(Mono.error(InvalidNPGPaymentGatewayException(tx.transactionId)))
     .flatMap { transaction ->
       authorizationStateRetrieverService.getStateNpg(
-        transaction.transactionId,
-        retrieveGetStateSessionId(
-          transaction.transactionAuthorizationRequestData
-            .transactionGatewayAuthorizationRequestedData
-            as NpgTransactionGatewayAuthorizationRequestedData),
-        transaction.transactionAuthorizationRequestData.pspId,
-        (transaction.transactionActivatedData.transactionGatewayActivationData
-            as NpgTransactionGatewayActivationData)
-          .correlationId)
+        transactionId = transaction.transactionId,
+        sessionId =
+          retrieveGetStateSessionId(
+            transaction.transactionAuthorizationRequestData
+              .transactionGatewayAuthorizationRequestedData
+              as NpgTransactionGatewayAuthorizationRequestedData),
+        pspId = transaction.transactionAuthorizationRequestData.pspId,
+        correlationId =
+          (transaction.transactionActivatedData.transactionGatewayActivationData
+              as NpgTransactionGatewayActivationData)
+            .correlationId,
+        paymentMethod =
+          NpgClient.PaymentMethod.valueOf(
+            transaction.transactionAuthorizationRequestData.paymentMethodName))
     }
     .flatMap { stateResponseDto ->
       handleStateResponse(
@@ -340,14 +346,19 @@ fun refundTransaction(
             .flatMap {
               refundService
                 .requestNpgRefund(
-                  it.operationId,
-                  transaction.transactionId.uuid,
-                  BigDecimal(transaction.transactionAuthorizationRequestData.amount)
-                    .add(BigDecimal(transaction.transactionAuthorizationRequestData.fee)),
-                  transaction.transactionAuthorizationRequestData.pspId,
-                  (transaction.transactionActivatedData.transactionGatewayActivationData
-                      as NpgTransactionGatewayActivationData)
-                    .correlationId)
+                  operationId = it.operationId,
+                  idempotenceKey = transaction.transactionId.uuid,
+                  amount =
+                    BigDecimal(transaction.transactionAuthorizationRequestData.amount)
+                      .add(BigDecimal(transaction.transactionAuthorizationRequestData.fee)),
+                  pspId = transaction.transactionAuthorizationRequestData.pspId,
+                  correlationId =
+                    (transaction.transactionActivatedData.transactionGatewayActivationData
+                        as NpgTransactionGatewayActivationData)
+                      .correlationId,
+                  paymentMethod =
+                    NpgClient.PaymentMethod.valueOf(
+                      transaction.transactionAuthorizationRequestData.paymentMethodName))
                 .map { refundResponse -> Pair(refundResponse, transaction) }
             }
         }
