@@ -1,6 +1,7 @@
 package it.pagopa.ecommerce.eventdispatcher.services
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import io.opentelemetry.api.trace.Span
 import io.opentelemetry.api.trace.SpanBuilder
 import io.opentelemetry.api.trace.Tracer
@@ -8,12 +9,12 @@ import it.pagopa.ecommerce.commons.client.NodeForwarderClient
 import it.pagopa.ecommerce.commons.client.NpgClient
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.exceptions.NodeForwarderClientException
-import it.pagopa.ecommerce.commons.exceptions.NpgApiKeyMissingPspRequestedException
+import it.pagopa.ecommerce.commons.exceptions.NpgApiKeyConfigurationException
 import it.pagopa.ecommerce.commons.exceptions.NpgResponseException
 import it.pagopa.ecommerce.commons.exceptions.RedirectConfigurationException
+import it.pagopa.ecommerce.commons.utils.NpgApiKeyConfiguration
 import it.pagopa.ecommerce.commons.v2.TransactionTestUtils
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
-import it.pagopa.ecommerce.eventdispatcher.config.NpgPspsApiKeyConfigBuilder
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadGatewayException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.RefundNotAllowedException
 import it.pagopa.ecommerce.eventdispatcher.utils.getMockedVPosRefundRequest
@@ -59,13 +60,20 @@ class RefundServiceTests {
         npgWebClientConnectionTimeout = 10000,
         npgWebClientReadTimeout = 10000)
   private val npgClient: NpgClient = spy(NpgClient(paymentServiceApi, tracer, ObjectMapper()))
-  private val npgPspApiKeys =
-    NpgPspsApiKeyConfigBuilder()
-      .npgCardsApiKeys("""
+
+  private val npgApiKeyConfiguration =
+    NpgApiKeyConfiguration.Builder()
+      .setDefaultApiKey("defaultApiKey")
+      .withMethodPspMapping(
+        NpgClient.PaymentMethod.CARDS,
+        """
       {
         "pspId1": "pspKey1"
       }
-    """, setOf("pspId1"))
+    """,
+        setOf("pspId1"),
+        jacksonObjectMapper())
+      .build()
 
   private val nodeForwarderRedirectApiClient:
     NodeForwarderClient<RedirectRefundRequestDto, RedirectRefundResponseDto> =
@@ -77,7 +85,7 @@ class RefundServiceTests {
     RefundService(
       paymentGatewayClient = paymentGatewayClient,
       npgClient = npgClient,
-      npgCardsPspApiKey = npgPspApiKeys,
+      npgApiKeyConfiguration = npgApiKeyConfiguration,
       nodeForwarderRedirectApiClient = nodeForwarderRedirectApiClient,
       redirectBeApiCallUriMap = redirectBeApiCallUriMap)
 
@@ -146,7 +154,13 @@ class RefundServiceTests {
         .setResponseCode(200))
     // Test
     StepVerifier.create(
-        refundService.requestNpgRefund(operationId, idempotenceKey, amount, pspId, correlationId))
+        refundService.requestNpgRefund(
+          operationId = operationId,
+          idempotenceKey = idempotenceKey,
+          amount = amount,
+          pspId = pspId,
+          correlationId = correlationId,
+          paymentMethod = NpgClient.PaymentMethod.CARDS))
       .assertNext { assertEquals(operationId, it.operationId) }
       .verifyComplete()
     verify(npgClient, times(1))
@@ -181,7 +195,13 @@ class RefundServiceTests {
 
     // Test
     StepVerifier.create(
-        refundService.requestNpgRefund(operationId, idempotenceKey, amount, pspId, correlationId))
+        refundService.requestNpgRefund(
+          operationId = operationId,
+          idempotenceKey = idempotenceKey,
+          amount = amount,
+          pspId = pspId,
+          correlationId = correlationId,
+          paymentMethod = NpgClient.PaymentMethod.CARDS))
       .expectError(expectedException)
       .verify()
     verify(npgClient, times(1))
@@ -208,7 +228,13 @@ class RefundServiceTests {
 
     // Test
     StepVerifier.create(
-        refundService.requestNpgRefund(operationId, idempotenceKey, amount, pspId, correlationId))
+        refundService.requestNpgRefund(
+          operationId = operationId,
+          idempotenceKey = idempotenceKey,
+          amount = amount,
+          pspId = pspId,
+          correlationId = correlationId,
+          paymentMethod = NpgClient.PaymentMethod.CARDS))
       .expectError(expectedException)
       .verify()
     verify(npgClient, times(1))
@@ -222,7 +248,7 @@ class RefundServiceTests {
       RefundService(
         paymentGatewayClient = paymentGatewayClient,
         npgClient = npgClient,
-        npgCardsPspApiKey = npgPspApiKeys,
+        npgApiKeyConfiguration = npgApiKeyConfiguration,
         nodeForwarderRedirectApiClient = nodeForwarderRedirectApiClient,
         redirectBeApiCallUriMap = redirectBeApiCallUriMap)
     val operationId = "operationID"
@@ -239,7 +265,13 @@ class RefundServiceTests {
 
     // Test
     StepVerifier.create(
-        refundService.requestNpgRefund(operationId, idempotenceKey, amount, pspId, correlationId))
+        refundService.requestNpgRefund(
+          operationId = operationId,
+          idempotenceKey = idempotenceKey,
+          amount = amount,
+          pspId = pspId,
+          correlationId = correlationId,
+          paymentMethod = NpgClient.PaymentMethod.CARDS))
       .expectError(RefundNotAllowedException::class.java)
       .verify()
     verify(npgClient, times(1))
@@ -253,7 +285,7 @@ class RefundServiceTests {
       RefundService(
         paymentGatewayClient = paymentGatewayClient,
         npgClient = npgClient,
-        npgCardsPspApiKey = npgPspApiKeys,
+        npgApiKeyConfiguration = npgApiKeyConfiguration,
         nodeForwarderRedirectApiClient = nodeForwarderRedirectApiClient,
         redirectBeApiCallUriMap = redirectBeApiCallUriMap)
     val operationId = "operationID"
@@ -265,8 +297,14 @@ class RefundServiceTests {
 
     // Test
     StepVerifier.create(
-        refundService.requestNpgRefund(operationId, idempotenceKey, amount, pspId, correlationId))
-      .expectError(NpgApiKeyMissingPspRequestedException::class.java)
+        refundService.requestNpgRefund(
+          operationId = operationId,
+          idempotenceKey = idempotenceKey,
+          amount = amount,
+          pspId = pspId,
+          correlationId = correlationId,
+          paymentMethod = NpgClient.PaymentMethod.CARDS))
+      .expectError(NpgApiKeyConfigurationException::class.java)
       .verify()
     verify(npgClient, times(0)).refundPayment(any(), any(), any(), any(), any(), any())
   }
@@ -340,7 +378,6 @@ class RefundServiceTests {
     val transactionId = TransactionTestUtils.TRANSACTION_ID
     val pspTransactionId = "pspTransactionId"
     val paymentTypeCode = "MISSING"
-    val pspId = "pspId"
     // test
     StepVerifier.create(
         refundService.requestRedirectRefund(
