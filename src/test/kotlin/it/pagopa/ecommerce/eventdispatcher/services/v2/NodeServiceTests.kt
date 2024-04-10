@@ -1044,7 +1044,7 @@ class NodeServiceTests {
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(
           NpgTransactionGatewayAuthorizationData(
-            OperationResultDto.EXECUTED, "operationId", "paymentEndTOEndId", null))
+            OperationResultDto.EXECUTED, "operationId", "paymentEndTOEndId", null, null))
       val closureRequestedEvent = transactionClosureRequestedEvent()
       val closureError = transactionClosureErrorEvent()
       val transactionId = activatedEvent.transactionId
