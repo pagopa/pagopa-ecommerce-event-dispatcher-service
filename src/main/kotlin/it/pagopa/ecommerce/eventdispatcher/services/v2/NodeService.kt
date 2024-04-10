@@ -550,8 +550,7 @@ class NodeService(
             this.mybankTransactionId = npgTransactionGatewayAuthorizationData.paymentEndToEndId
             this.totalAmount = totalAmountEuro.toString()
             this.fee = feeEuro.toString()
-            // TODO recover this field from NPG notification
-            this.validationServiceId = ""
+            this.validationServiceId = npgTransactionGatewayAuthorizationData.validationServiceId
             this.timestampOperation =
               OffsetDateTime.parse(
                 authCompleted.transactionAuthorizationCompletedData.timestampOperation,

@@ -1053,7 +1053,7 @@ class NodeServiceTests {
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(
           NpgTransactionGatewayAuthorizationData(
-            OperationResultDto.EXECUTED, "operationId", "paymentEndTOEndId", null))
+            OperationResultDto.EXECUTED, "operationId", "paymentEndTOEndId", null, null))
       val closureRequestedEvent = transactionClosureRequestedEvent()
       val closureError = transactionClosureErrorEvent()
       val transactionId = activatedEvent.transactionId
@@ -2331,7 +2331,7 @@ class NodeServiceTests {
                   .paymentEndToEndId
               this.totalAmount = totalAmountEuro.toString()
               this.fee = feeEuro.toString()
-              this.validationServiceId = ""
+              this.validationServiceId = NPG_VALIDATION_SERVICE_ID
               this.timestampOperation = OffsetDateTime.parse(expectedTimestamp)
               this.seteMail(null)
             }
