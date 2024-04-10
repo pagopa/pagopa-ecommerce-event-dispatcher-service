@@ -977,11 +977,12 @@ class TransactionsRefundEventsConsumerTests {
   @Test
   fun `consumer doesn't process refund request event correctly with unknown payment gateway`() =
     runTest {
+      val paymentMethodName = "CARDS"
       val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
       val authorizationRequestEvent =
         transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
       (authorizationRequestEvent.data as TransactionAuthorizationRequestData).paymentMethodName =
-        null
+        paymentMethodName
       (authorizationRequestEvent.data as TransactionAuthorizationRequestData).paymentGateway = null
 
       val authorizationCompleteEvent =
@@ -1049,7 +1050,9 @@ class TransactionsRefundEventsConsumerTests {
           idempotenceKey = expectedIdempotencyKey,
           amount = expectedAmount,
           pspId = expectedPspId,
-          correlationId = correlationId)
+          correlationId = correlationId,
+          paymentMethod =
+            NpgClient.PaymentMethod.valueOf(authorizationRequestEvent.data.paymentMethodName))
       verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
       verify(refundRetryService, times(1)).enqueueRetryEvent(any(), any(), any())
       val storedEvent = refundEventStoreCaptor.value
@@ -1107,7 +1110,7 @@ class TransactionsRefundEventsConsumerTests {
     given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
     given(transactionsRefundedEventStoreRepository.save(refundEventStoreCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
-    given(refundService.requestNpgRefund(any(), any(), any(), any(), any()))
+    given(refundService.requestNpgRefund(any(), any(), any(), any(), any(), any()))
       .willReturn(Mono.just(refundServiceNpgResponse))
     given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
       .willReturn(
@@ -1142,7 +1145,9 @@ class TransactionsRefundEventsConsumerTests {
         idempotenceKey = expectedIdempotencyKey,
         amount = expectedAmount,
         pspId = expectedPspId,
-        correlationId = correlationId)
+        correlationId = correlationId,
+        paymentMethod =
+          NpgClient.PaymentMethod.valueOf(authorizationRequestEvent.data.paymentMethodName))
     verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
     verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
     val storedEvent = refundEventStoreCaptor.value
@@ -1196,7 +1201,7 @@ class TransactionsRefundEventsConsumerTests {
       given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
       given(transactionsRefundedEventStoreRepository.save(refundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
-      given(refundService.requestNpgRefund(any(), any(), any(), any(), any()))
+      given(refundService.requestNpgRefund(any(), any(), any(), any(), any(), any()))
         .willThrow(RefundNotAllowedException(transaction.transactionId.uuid))
       given(refundRetryService.enqueueRetryEvent(any(), any(), any())).willReturn(Mono.empty())
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
@@ -1238,7 +1243,9 @@ class TransactionsRefundEventsConsumerTests {
           idempotenceKey = expectedIdempotencyKey,
           amount = expectedAmount,
           pspId = expectedPspId,
-          correlationId = correlationId)
+          correlationId = correlationId,
+          paymentMethod =
+            NpgClient.PaymentMethod.valueOf(authorizationRequestEvent.data.paymentMethodName))
       verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
       verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
       verify(deadLetterTracedQueueAsyncClient, times(1))

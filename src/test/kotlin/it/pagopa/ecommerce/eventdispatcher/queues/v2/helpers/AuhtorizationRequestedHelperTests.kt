@@ -3,6 +3,7 @@ package it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import io.vavr.control.Either
+import it.pagopa.ecommerce.commons.client.NpgClient
 import it.pagopa.ecommerce.commons.documents.v2.Transaction
 import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationCompletedData
 import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationRequestData
@@ -191,7 +192,7 @@ class AuhtorizationRequestedHelperTests {
               .AUTHORIZATION_REQUESTED,
             ZonedDateTime.now())))
 
-    given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any()))
+    given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any(), any()))
       .willReturn(mono { npgStateResponse })
     given(transactionsServiceClient.patchAuthRequest(any(), any()))
       .willReturn(
@@ -209,7 +210,12 @@ class AuhtorizationRequestedHelperTests {
     verify(checkpointer, times(1)).success()
     verify(authorizationStateRetrieverRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
     verify(authorizationStateRetrieverService, times(1))
-      .getStateNpg(transactionId, expectedGetStateSessionId, PSP_ID, NPG_CORRELATION_ID)
+      .getStateNpg(
+        transactionId,
+        expectedGetStateSessionId,
+        PSP_ID,
+        NPG_CORRELATION_ID,
+        NpgClient.PaymentMethod.CARDS)
     verify(transactionsServiceClient, times(1))
       .patchAuthRequest(transactionId, expectedPatchAuthRequest)
   }
@@ -273,7 +279,7 @@ class AuhtorizationRequestedHelperTests {
                 .AUTHORIZATION_REQUESTED,
               ZonedDateTime.now())))
 
-      given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any()))
+      given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any(), any()))
         .willReturn(mono { npgStateResponse })
       given(transactionsServiceClient.patchAuthRequest(any(), any()))
         .willReturn(
@@ -292,7 +298,12 @@ class AuhtorizationRequestedHelperTests {
       verify(authorizationStateRetrieverRetryService, times(1))
         .enqueueRetryEvent(any(), any(), any())
       verify(authorizationStateRetrieverService, times(1))
-        .getStateNpg(transactionId, expectedGetStateSessionId, PSP_ID, NPG_CORRELATION_ID)
+        .getStateNpg(
+          transactionId,
+          expectedGetStateSessionId,
+          PSP_ID,
+          NPG_CORRELATION_ID,
+          NpgClient.PaymentMethod.CARDS)
       verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
     }
 
@@ -355,7 +366,7 @@ class AuhtorizationRequestedHelperTests {
                 .AUTHORIZATION_REQUESTED,
               ZonedDateTime.now())))
 
-      given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any()))
+      given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any(), any()))
         .willReturn(mono { npgStateResponse })
       given(transactionsServiceClient.patchAuthRequest(any(), any()))
         .willReturn(
@@ -374,7 +385,12 @@ class AuhtorizationRequestedHelperTests {
       verify(authorizationStateRetrieverRetryService, times(1))
         .enqueueRetryEvent(any(), any(), any())
       verify(authorizationStateRetrieverService, times(1))
-        .getStateNpg(transactionId, expectedGetStateSessionId, PSP_ID, NPG_CORRELATION_ID)
+        .getStateNpg(
+          transactionId,
+          expectedGetStateSessionId,
+          PSP_ID,
+          NPG_CORRELATION_ID,
+          NpgClient.PaymentMethod.CARDS)
       verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
       verify(deadLetterTracedQueueAsyncClient, times(0))
         .sendAndTraceDeadLetterQueueEvent(any(), any())
@@ -442,7 +458,8 @@ class AuhtorizationRequestedHelperTests {
       verify(checkpointer, times(1)).success()
       verify(authorizationStateRetrieverRetryService, times(0))
         .enqueueRetryEvent(any(), any(), any())
-      verify(authorizationStateRetrieverService, times(0)).getStateNpg(any(), any(), any(), any())
+      verify(authorizationStateRetrieverService, times(0))
+        .getStateNpg(any(), any(), any(), any(), any())
       verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
       verify(deadLetterTracedQueueAsyncClient, times(0))
         .sendAndTraceDeadLetterQueueEvent(any<BinaryData>(), any())
@@ -470,7 +487,7 @@ class AuhtorizationRequestedHelperTests {
       .willReturn(Flux.fromIterable(events))
     given(authorizationStateRetrieverRetryService.enqueueRetryEvent(any(), any(), any()))
       .willReturn(Mono.empty())
-    given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any()))
+    given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any(), any()))
       .willReturn(Mono.error(NpgServerErrorException("Error retrieving transaction status")))
     given(checkpointer.success()).willReturn(Mono.empty())
     given(
@@ -488,7 +505,12 @@ class AuhtorizationRequestedHelperTests {
       .verifyComplete()
     // assertions
     verify(authorizationStateRetrieverService, times(1))
-      .getStateNpg(transactionId, expectedGetStateSessionId, PSP_ID, NPG_CORRELATION_ID)
+      .getStateNpg(
+        transactionId,
+        expectedGetStateSessionId,
+        PSP_ID,
+        NPG_CORRELATION_ID,
+        NpgClient.PaymentMethod.CARDS)
     verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
     verify(authorizationStateRetrieverRetryService, times(1)).enqueueRetryEvent(any(), any(), any())
     verify(deadLetterTracedQueueAsyncClient, times(0))
@@ -518,7 +540,7 @@ class AuhtorizationRequestedHelperTests {
       .willReturn(Flux.fromIterable(events))
     given(authorizationStateRetrieverRetryService.enqueueRetryEvent(any(), any(), any()))
       .willReturn(Mono.empty())
-    given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any()))
+    given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any(), any()))
       .willReturn(
         Mono.error(NpgBadRequestException(transactionId, "Error retrieving transaction status")))
     given(checkpointer.success()).willReturn(Mono.empty())
@@ -534,7 +556,12 @@ class AuhtorizationRequestedHelperTests {
       .verifyComplete()
     // assertions
     verify(authorizationStateRetrieverService, times(1))
-      .getStateNpg(transactionId, expectedGetStateSessionId, PSP_ID, NPG_CORRELATION_ID)
+      .getStateNpg(
+        transactionId,
+        expectedGetStateSessionId,
+        PSP_ID,
+        NPG_CORRELATION_ID,
+        NpgClient.PaymentMethod.CARDS)
     verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
     verify(authorizationStateRetrieverRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
     verify(deadLetterTracedQueueAsyncClient, times(0))
@@ -595,7 +622,7 @@ class AuhtorizationRequestedHelperTests {
         transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
           transactionId.value()))
       .willReturn(Flux.fromIterable(events))
-    given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any()))
+    given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any(), any()))
       .willReturn(mono { npgStateResponse })
     given(transactionsServiceClient.patchAuthRequest(any(), any()))
       .willReturn(Mono.error(runtimeException))
@@ -616,7 +643,12 @@ class AuhtorizationRequestedHelperTests {
       .verifyComplete()
     // assertions
     verify(authorizationStateRetrieverService, times(1))
-      .getStateNpg(transactionId, expectedGetStateSessionId, PSP_ID, NPG_CORRELATION_ID)
+      .getStateNpg(
+        transactionId,
+        expectedGetStateSessionId,
+        PSP_ID,
+        NPG_CORRELATION_ID,
+        NpgClient.PaymentMethod.CARDS)
     verify(transactionsServiceClient, times(1))
       .patchAuthRequest(transactionId, expectedPatchAuthRequest)
     verify(deadLetterTracedQueueAsyncClient, times(0))
@@ -678,7 +710,7 @@ class AuhtorizationRequestedHelperTests {
         transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
           transactionId.value()))
       .willReturn(Flux.fromIterable(events))
-    given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any()))
+    given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any(), any()))
       .willReturn(mono { npgStateResponse })
     given(transactionsServiceClient.patchAuthRequest(any(), any()))
       .willReturn(Mono.error(runtimeException))
@@ -699,7 +731,12 @@ class AuhtorizationRequestedHelperTests {
       .verifyComplete()
     // assertions
     verify(authorizationStateRetrieverService, times(1))
-      .getStateNpg(transactionId, expectedGetStateSessionId, PSP_ID, NPG_CORRELATION_ID)
+      .getStateNpg(
+        transactionId,
+        expectedGetStateSessionId,
+        PSP_ID,
+        NPG_CORRELATION_ID,
+        NpgClient.PaymentMethod.CARDS)
     verify(transactionsServiceClient, times(1))
       .patchAuthRequest(transactionId, expectedPatchAuthRequest)
     verify(deadLetterTracedQueueAsyncClient, times(0))
@@ -756,7 +793,7 @@ class AuhtorizationRequestedHelperTests {
         transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
           transactionId.value()))
       .willReturn(Flux.fromIterable(events))
-    given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any()))
+    given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any(), any()))
       .willReturn(mono { npgStateResponse })
     given(transactionsServiceClient.patchAuthRequest(any(), any()))
       .willReturn(mono { TransactionInfoDto() })
@@ -777,7 +814,12 @@ class AuhtorizationRequestedHelperTests {
       .verifyComplete()
     // assertions
     verify(authorizationStateRetrieverService, times(1))
-      .getStateNpg(transactionId, expectedGetStateSessionId, PSP_ID, NPG_CORRELATION_ID)
+      .getStateNpg(
+        transactionId,
+        expectedGetStateSessionId,
+        PSP_ID,
+        NPG_CORRELATION_ID,
+        NpgClient.PaymentMethod.CARDS)
     verify(transactionsServiceClient, times(1))
       .patchAuthRequest(transactionId, expectedPatchAuthRequest)
     verify(deadLetterTracedQueueAsyncClient, times(0))
@@ -834,7 +876,7 @@ class AuhtorizationRequestedHelperTests {
         transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
           transactionId.value()))
       .willReturn(Flux.fromIterable(events))
-    given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any()))
+    given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any(), any()))
       .willReturn(mono { npgStateResponse })
     given(transactionsServiceClient.patchAuthRequest(any(), any()))
       .willReturn(
@@ -857,7 +899,12 @@ class AuhtorizationRequestedHelperTests {
       .verifyComplete()
     // assertions
     verify(authorizationStateRetrieverService, times(1))
-      .getStateNpg(transactionId, expectedGetStateSessionId, PSP_ID, NPG_CORRELATION_ID)
+      .getStateNpg(
+        transactionId,
+        expectedGetStateSessionId,
+        PSP_ID,
+        NPG_CORRELATION_ID,
+        NpgClient.PaymentMethod.CARDS)
     verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
     verify(deadLetterTracedQueueAsyncClient, times(0))
       .sendAndTraceDeadLetterQueueEvent(any(), any())
@@ -916,7 +963,7 @@ class AuhtorizationRequestedHelperTests {
         transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
           transactionId.value()))
       .willReturn(Flux.fromIterable(events))
-    given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any()))
+    given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any(), any()))
       .willReturn(mono { npgStateResponse })
     given(transactionsServiceClient.patchAuthRequest(any(), any()))
       .willReturn(
@@ -933,7 +980,12 @@ class AuhtorizationRequestedHelperTests {
       .verifyComplete()
     // assertions
     verify(authorizationStateRetrieverService, times(1))
-      .getStateNpg(transactionId, expectedGetStateSessionId, PSP_ID, NPG_CORRELATION_ID)
+      .getStateNpg(
+        transactionId,
+        expectedGetStateSessionId,
+        PSP_ID,
+        NPG_CORRELATION_ID,
+        NpgClient.PaymentMethod.CARDS)
     verify(transactionsServiceClient, times(1))
       .patchAuthRequest(transactionId, expectedPatchAuthRequest)
     verify(deadLetterTracedQueueAsyncClient, times(0))
@@ -985,7 +1037,7 @@ class AuhtorizationRequestedHelperTests {
         transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
           transactionId.value()))
       .willReturn(Flux.fromIterable(events))
-    given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any()))
+    given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any(), any()))
       .willReturn(mono { npgStateResponse })
     given(transactionsServiceClient.patchAuthRequest(any(), any()))
       .willReturn(
@@ -1002,7 +1054,12 @@ class AuhtorizationRequestedHelperTests {
       .verifyComplete()
     // assertions
     verify(authorizationStateRetrieverService, times(1))
-      .getStateNpg(transactionId, expectedGetStateSessionId, PSP_ID, NPG_CORRELATION_ID)
+      .getStateNpg(
+        transactionId,
+        expectedGetStateSessionId,
+        PSP_ID,
+        NPG_CORRELATION_ID,
+        NpgClient.PaymentMethod.CARDS)
     verify(transactionsServiceClient, times(1))
       .patchAuthRequest(transactionId, expectedPatchAuthRequest)
     verify(deadLetterTracedQueueAsyncClient, times(0))
@@ -1034,7 +1091,8 @@ class AuhtorizationRequestedHelperTests {
       .expectNext(Unit)
       .verifyComplete()
     // assertions
-    verify(authorizationStateRetrieverService, times(0)).getStateNpg(any(), any(), any(), any())
+    verify(authorizationStateRetrieverService, times(0))
+      .getStateNpg(any(), any(), any(), any(), any())
     verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
     verify(deadLetterTracedQueueAsyncClient, times(0))
       .sendAndTraceDeadLetterQueueEvent(any(), any())
@@ -1073,7 +1131,8 @@ class AuhtorizationRequestedHelperTests {
       .expectNext(Unit)
       .verifyComplete()
     // assertions
-    verify(authorizationStateRetrieverService, times(0)).getStateNpg(any(), any(), any(), any())
+    verify(authorizationStateRetrieverService, times(0))
+      .getStateNpg(any(), any(), any(), any(), any())
     verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
     verify(deadLetterTracedQueueAsyncClient, times(0))
       .sendAndTraceDeadLetterQueueEvent(any(), any())
@@ -1099,7 +1158,7 @@ class AuhtorizationRequestedHelperTests {
       .willReturn(Flux.fromIterable(events))
     given(authorizationStateRetrieverRetryService.enqueueRetryEvent(any(), any(), any()))
       .willReturn(Mono.empty())
-    given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any()))
+    given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any(), any()))
       .willReturn(
         Mono.error(NpgBadRequestException(transactionId, "Error retrieving transaction status")))
     given(checkpointer.success()).willReturn(Mono.empty())
@@ -1118,7 +1177,12 @@ class AuhtorizationRequestedHelperTests {
       .verifyComplete()
     // assertions
     verify(authorizationStateRetrieverService, times(1))
-      .getStateNpg(transactionId, expectedGetStateSessionId, PSP_ID, NPG_CORRELATION_ID)
+      .getStateNpg(
+        transactionId,
+        expectedGetStateSessionId,
+        PSP_ID,
+        NPG_CORRELATION_ID,
+        NpgClient.PaymentMethod.CARDS)
     verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
     verify(authorizationStateRetrieverRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
     verify(deadLetterTracedQueueAsyncClient, times(0))
@@ -1146,7 +1210,7 @@ class AuhtorizationRequestedHelperTests {
       .willReturn(Flux.fromIterable(events))
     given(authorizationStateRetrieverRetryService.enqueueRetryEvent(any(), any(), any()))
       .willReturn(Mono.empty())
-    given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any()))
+    given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any(), any()))
       .willReturn(Mono.error(NpgServerErrorException("Error retrieving transaction status")))
     given(checkpointer.success()).willReturn(Mono.empty())
 
@@ -1161,7 +1225,12 @@ class AuhtorizationRequestedHelperTests {
       .verifyComplete()
     // assertions
     verify(authorizationStateRetrieverService, times(1))
-      .getStateNpg(transactionId, expectedGetStateSessionId, PSP_ID, NPG_CORRELATION_ID)
+      .getStateNpg(
+        transactionId,
+        expectedGetStateSessionId,
+        PSP_ID,
+        NPG_CORRELATION_ID,
+        NpgClient.PaymentMethod.CARDS)
     verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
     verify(authorizationStateRetrieverRetryService, times(1)).enqueueRetryEvent(any(), eq(0), any())
     verify(deadLetterTracedQueueAsyncClient, times(0))
@@ -1220,7 +1289,7 @@ class AuhtorizationRequestedHelperTests {
         transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
           transactionId.value()))
       .willReturn(Flux.fromIterable(events))
-    given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any()))
+    given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any(), any()))
       .willReturn(mono { npgStateResponse })
     given(transactionsServiceClient.patchAuthRequest(any(), any()))
       .willReturn(Mono.error(runtimeException))
@@ -1240,7 +1309,12 @@ class AuhtorizationRequestedHelperTests {
       .verifyComplete()
     // assertions
     verify(authorizationStateRetrieverService, times(1))
-      .getStateNpg(transactionId, expectedGetStateSessionId, PSP_ID, NPG_CORRELATION_ID)
+      .getStateNpg(
+        transactionId,
+        expectedGetStateSessionId,
+        PSP_ID,
+        NPG_CORRELATION_ID,
+        NpgClient.PaymentMethod.CARDS)
     verify(transactionsServiceClient, times(1))
       .patchAuthRequest(transactionId, expectedPatchAuthRequest)
     verify(deadLetterTracedQueueAsyncClient, times(0))
@@ -1300,7 +1374,7 @@ class AuhtorizationRequestedHelperTests {
         transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
           transactionId.value()))
       .willReturn(Flux.fromIterable(events))
-    given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any()))
+    given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any(), any()))
       .willReturn(mono { npgStateResponse })
     given(transactionsServiceClient.patchAuthRequest(any(), any()))
       .willReturn(Mono.error(runtimeException))
@@ -1320,7 +1394,12 @@ class AuhtorizationRequestedHelperTests {
       .verifyComplete()
     // assertions
     verify(authorizationStateRetrieverService, times(1))
-      .getStateNpg(transactionId, expectedGetStateSessionId, PSP_ID, NPG_CORRELATION_ID)
+      .getStateNpg(
+        transactionId,
+        expectedGetStateSessionId,
+        PSP_ID,
+        NPG_CORRELATION_ID,
+        NpgClient.PaymentMethod.CARDS)
     verify(transactionsServiceClient, times(1))
       .patchAuthRequest(transactionId, expectedPatchAuthRequest)
     verify(deadLetterTracedQueueAsyncClient, times(0))
@@ -1376,7 +1455,7 @@ class AuhtorizationRequestedHelperTests {
         transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
           transactionId.value()))
       .willReturn(Flux.fromIterable(events))
-    given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any()))
+    given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any(), any()))
       .willReturn(mono { npgStateResponse })
     given(transactionsServiceClient.patchAuthRequest(any(), any()))
       .willReturn(mono { TransactionInfoDto() })
@@ -1396,7 +1475,12 @@ class AuhtorizationRequestedHelperTests {
       .verifyComplete()
     // assertions
     verify(authorizationStateRetrieverService, times(1))
-      .getStateNpg(transactionId, expectedGetStateSessionId, PSP_ID, NPG_CORRELATION_ID)
+      .getStateNpg(
+        transactionId,
+        expectedGetStateSessionId,
+        PSP_ID,
+        NPG_CORRELATION_ID,
+        NpgClient.PaymentMethod.CARDS)
     verify(transactionsServiceClient, times(1))
       .patchAuthRequest(transactionId, expectedPatchAuthRequest)
     verify(deadLetterTracedQueueAsyncClient, times(0))
@@ -1452,7 +1536,7 @@ class AuhtorizationRequestedHelperTests {
         transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
           transactionId.value()))
       .willReturn(Flux.fromIterable(events))
-    given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any()))
+    given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any(), any()))
       .willReturn(mono { npgStateResponse })
     given(transactionsServiceClient.patchAuthRequest(any(), any()))
       .willReturn(
@@ -1474,7 +1558,12 @@ class AuhtorizationRequestedHelperTests {
       .verifyComplete()
     // assertions
     verify(authorizationStateRetrieverService, times(1))
-      .getStateNpg(transactionId, expectedGetStateSessionId, PSP_ID, NPG_CORRELATION_ID)
+      .getStateNpg(
+        transactionId,
+        expectedGetStateSessionId,
+        PSP_ID,
+        NPG_CORRELATION_ID,
+        NpgClient.PaymentMethod.CARDS)
     verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
     verify(deadLetterTracedQueueAsyncClient, times(0))
       .sendAndTraceDeadLetterQueueEvent(any(), any())
