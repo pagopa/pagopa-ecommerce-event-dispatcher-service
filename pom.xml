@@ -355,7 +355,7 @@
 						</goals>
 						<configuration>
 							<inputSpec>
-								https://raw.githubusercontent.com/pagopa/pagopa-infra/CHK-2675-additionalpaymentinformation-mybank/src/core/api/nodopagamenti_api/nodoPerPM/v2/_openapi.json.tpl
+								https://raw.githubusercontent.com/pagopa/pagopa-infra/CHK-2674-additionalpaymentinformation-paypal/src/core/api/nodopagamenti_api/nodoPerPM/v2/_openapi.json.tpl
 							</inputSpec>
 							<generatorName>spring</generatorName>
 							<library>spring-cloud</library>
@@ -590,6 +590,8 @@
 					<connectionUrl>scm:git:https://github.com/pagopa/pagopa-ecommerce-commons.git</connectionUrl>
 					<scmVersionType>tag</scmVersionType>
 					<scmVersion>${pagopa-ecommerce-commons.version}</scmVersion>
+					<scmVersionType>branch</scmVersionType>
+					<scmVersion>CHK-2736-wallet-details</scmVersion>
 					<goals>install -DskipTests</goals>
 				</configuration>
 				<executions>

@@ -2,6 +2,8 @@ package it.pagopa.ecommerce.eventdispatcher.services.v2
 
 import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.documents.v2.authorization.*
+import it.pagopa.ecommerce.commons.documents.v2.authorization.WalletInfo.CardWalletDetails
+import it.pagopa.ecommerce.commons.documents.v2.authorization.WalletInfo.PaypalWalletDetails
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v2.TransactionWithClosureError
@@ -188,6 +190,19 @@ class NodeService(
     val feeEuro = EuroUtils.euroCentsToEuro(fee)
     val totalAmountEuro = EuroUtils.euroCentsToEuro(totalAmount)
 
+    val walletInfo =
+      if (authRequestedData is NpgTransactionGatewayAuthorizationRequestedData) {
+        authRequestedData.walletInfo
+      } else {
+        null
+      }
+    val walletDetails = walletInfo?.walletDetails
+    val (walletBin, walletLastFourDigits, walletMaskedEmail) =
+      when (walletDetails) {
+        is CardWalletDetails -> Triple(walletDetails.bin, walletDetails.lastFourDigits, null)
+        is PaypalWalletDetails -> Triple(null, null, walletDetails.maskedEmail)
+        else -> Triple(null, null, null)
+      }
     val closePaymentTransactionDetails =
       TransactionDetailsDto().apply {
         transaction =
@@ -240,6 +255,9 @@ class NodeService(
               }
             paymentMethodName = authCompleted.transactionAuthorizationRequestData.paymentMethodName
             clientId = authCompleted.transactionActivatedData.clientId.name
+            bin = walletBin
+            lastFourDigits = walletLastFourDigits
+            maskedEmail = walletMaskedEmail
           }
         user = UserDto().apply { type = UserDto.TypeEnum.GUEST }
       }
