@@ -115,7 +115,9 @@ class UserReceiptMailBuilder(@Autowired private val confidentialMailUtils: Confi
               FeeTemplate(amountToHumanReadableString(transactionAuthorizationRequestData.fee))),
             transactionAuthorizationCompletedData.rrn
               ?: transactionAuthorizationRequestData.authorizationRequestId,
-            transactionAuthorizationCompletedData.authorizationCode,
+            // TODO: auth code is mandatory for OK mail template but not received for PAYPAL
+            // TODO task CHK-1970 will take cares of handle mail template for APM methods
+            transactionAuthorizationCompletedData.authorizationCode ?: "-",
             PaymentMethodTemplate(
               transactionAuthorizationRequestData.paymentMethodDescription,
               transactionAuthorizationRequestData.transactionGatewayAuthorizationRequestedData.logo
