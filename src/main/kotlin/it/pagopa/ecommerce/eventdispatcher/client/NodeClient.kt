@@ -32,6 +32,9 @@ class NodeClient(
       when (closePaymentRequest) {
         is CardClosePaymentRequestV2Dto -> closePaymentRequest.transactionId
         is RedirectClosePaymentRequestV2Dto -> closePaymentRequest.transactionId
+        is BancomatPayClosePaymentRequestV2Dto -> closePaymentRequest.transactionId
+        is MyBankClosePaymentRequestV2Dto -> closePaymentRequest.transactionId
+        is PayPalClosePaymentRequestV2Dto -> closePaymentRequest.transactionId
         else ->
           throw IllegalArgumentException(
             "Unhandled `ClosePaymentRequestV2Dto` implementation: ${closePaymentRequest.javaClass}")
@@ -41,6 +44,9 @@ class NodeClient(
       when (closePaymentRequest) {
         is CardClosePaymentRequestV2Dto -> closePaymentRequest.paymentTokens
         is RedirectClosePaymentRequestV2Dto -> closePaymentRequest.paymentTokens
+        is BancomatPayClosePaymentRequestV2Dto -> closePaymentRequest.paymentTokens
+        is MyBankClosePaymentRequestV2Dto -> closePaymentRequest.paymentTokens
+        is PayPalClosePaymentRequestV2Dto -> closePaymentRequest.paymentTokens
         else ->
           throw IllegalArgumentException(
             "Unhandled `ClosePaymentRequestV2Dto` implementation: ${closePaymentRequest.javaClass}")

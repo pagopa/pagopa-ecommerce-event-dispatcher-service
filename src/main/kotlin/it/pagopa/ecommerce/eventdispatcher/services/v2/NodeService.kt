@@ -272,6 +272,22 @@ class NodeService(
               totalAmountEuro,
               feeEuro,
               closePaymentTransactionDetails)
+          "BPAY" ->
+            buildAuthorizationCompletedBancomatPayClosePaymentRequest(
+              authCompleted,
+              transactionOutcome,
+              transactionId,
+              totalAmountEuro,
+              feeEuro,
+              closePaymentTransactionDetails)
+          "MYBK" ->
+            buildAuthorizationCompletedMyBankClosePaymentRequest(
+              authCompleted,
+              transactionOutcome,
+              transactionId,
+              totalAmountEuro,
+              feeEuro,
+              closePaymentTransactionDetails)
           else ->
             throw IllegalArgumentException(
               "Unhandled or invalid payment type code: '%s'".format(
@@ -434,6 +450,113 @@ class NodeService(
                 authCompleted.transactionAuthorizationCompletedData.timestampOperation,
                 DateTimeFormatter.ISO_OFFSET_DATE_TIME)
             this.totalAmount = totalAmountEuro.toString()
+          }
+        } else null
+      transactionDetails = closePaymentTransactionDetails
+    }
+
+  private fun buildAuthorizationCompletedBancomatPayClosePaymentRequest(
+    authCompleted: BaseTransactionWithCompletedAuthorization,
+    transactionOutcome: ClosePaymentOutcome,
+    transactionId: TransactionId,
+    totalAmountEuro: BigDecimal,
+    feeEuro: BigDecimal,
+    closePaymentTransactionDetails: TransactionDetailsDto
+  ) =
+    BancomatPayClosePaymentRequestV2Dto().apply {
+      paymentTokens =
+        authCompleted.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken.value }
+      outcome = BancomatPayClosePaymentRequestV2Dto.OutcomeEnum.valueOf(transactionOutcome.name)
+      this.transactionId = transactionId.value()
+
+      if (transactionOutcome == ClosePaymentOutcome.OK) {
+        timestampOperation =
+          OffsetDateTime.parse(
+            authCompleted.transactionAuthorizationCompletedData.timestampOperation)
+        this.totalAmount = totalAmountEuro
+        this.fee = feeEuro
+        this.timestampOperation =
+          OffsetDateTime.parse(
+            authCompleted.transactionAuthorizationCompletedData.timestampOperation,
+            DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+        idPSP = authCompleted.transactionAuthorizationRequestData.pspId
+        paymentMethod = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
+        idBrokerPSP = authCompleted.transactionAuthorizationRequestData.brokerName
+        idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
+      }
+
+      additionalPaymentInformations =
+        if (transactionOutcome == ClosePaymentOutcome.OK) {
+          val npgTransactionGatewayAuthorizationData =
+            authCompleted.transactionAuthorizationCompletedData.transactionGatewayAuthorizationData
+              as NpgTransactionGatewayAuthorizationData
+          BancomatPayAdditionalPaymentInformationsDto().apply {
+            this.transactionId = npgTransactionGatewayAuthorizationData.operationId
+            this.outcomePaymentGateway =
+              BancomatPayAdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.valueOf(
+                transactionOutcome.name)
+            this.totalAmount = totalAmountEuro.toString()
+            this.fee = feeEuro.toString()
+            this.timestampOperation =
+              OffsetDateTime.parse(
+                authCompleted.transactionAuthorizationCompletedData.timestampOperation,
+                DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+            this.authorizationCode = npgTransactionGatewayAuthorizationData.operationId
+            // this field is not to be set actually, here set explicitly to null as reminder
+            this.seteMail(null)
+          }
+        } else null
+      transactionDetails = closePaymentTransactionDetails
+    }
+
+  private fun buildAuthorizationCompletedMyBankClosePaymentRequest(
+    authCompleted: BaseTransactionWithCompletedAuthorization,
+    transactionOutcome: ClosePaymentOutcome,
+    transactionId: TransactionId,
+    totalAmountEuro: BigDecimal,
+    feeEuro: BigDecimal,
+    closePaymentTransactionDetails: TransactionDetailsDto
+  ) =
+    MyBankClosePaymentRequestV2Dto().apply {
+      paymentTokens =
+        authCompleted.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken.value }
+      outcome = MyBankClosePaymentRequestV2Dto.OutcomeEnum.valueOf(transactionOutcome.name)
+      this.transactionId = transactionId.value()
+
+      if (transactionOutcome == ClosePaymentOutcome.OK) {
+        timestampOperation =
+          OffsetDateTime.parse(
+            authCompleted.transactionAuthorizationCompletedData.timestampOperation)
+        this.totalAmount = totalAmountEuro
+        this.fee = feeEuro
+        this.timestampOperation =
+          OffsetDateTime.parse(
+            authCompleted.transactionAuthorizationCompletedData.timestampOperation,
+            DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+        idPSP = authCompleted.transactionAuthorizationRequestData.pspId
+        paymentMethod = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
+        idBrokerPSP = authCompleted.transactionAuthorizationRequestData.brokerName
+        idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
+      }
+
+      additionalPaymentInformations =
+        if (transactionOutcome == ClosePaymentOutcome.OK) {
+          val npgTransactionGatewayAuthorizationData =
+            authCompleted.transactionAuthorizationCompletedData.transactionGatewayAuthorizationData
+              as NpgTransactionGatewayAuthorizationData
+
+          MyBankAdditionalPaymentInformationsDto().apply {
+            this.transactionId = npgTransactionGatewayAuthorizationData.operationId
+            this.mybankTransactionId = npgTransactionGatewayAuthorizationData.paymentEndToEndId
+            this.totalAmount = totalAmountEuro.toString()
+            this.fee = feeEuro.toString()
+            this.validationServiceId = npgTransactionGatewayAuthorizationData.validationServiceId
+            this.timestampOperation =
+              OffsetDateTime.parse(
+                authCompleted.transactionAuthorizationCompletedData.timestampOperation,
+                DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+            // this field is not to be set actually, here set explicitly to null as reminder
+            this.seteMail(null)
           }
         } else null
       transactionDetails = closePaymentTransactionDetails
