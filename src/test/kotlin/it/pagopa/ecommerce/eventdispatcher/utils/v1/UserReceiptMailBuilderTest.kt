@@ -9,7 +9,7 @@ import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithRequestedU
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils
 import it.pagopa.ecommerce.eventdispatcher.client.NotificationsServiceClient
-import it.pagopa.ecommerce.eventdispatcher.utils.ConfidentialMailUtils
+import it.pagopa.ecommerce.eventdispatcher.utils.ConfidentialDataUtils
 import it.pagopa.generated.notifications.templates.ko.KoTemplate
 import it.pagopa.generated.notifications.templates.success.*
 import it.pagopa.generated.notifications.v1.dto.NotificationEmailRequestDto
@@ -30,9 +30,9 @@ import org.mockito.kotlin.mock
 @OptIn(ExperimentalCoroutinesApi::class)
 class UserReceiptMailBuilderTest {
 
-  private val confidentialMailUtils: ConfidentialMailUtils = mock()
+  private val confidentialDataUtils: ConfidentialDataUtils = mock()
 
-  private val userReceiptMailBuilder = UserReceiptMailBuilder(confidentialMailUtils)
+  private val userReceiptMailBuilder = UserReceiptMailBuilder(confidentialDataUtils)
 
   @Test
   fun `Should build success email for VPOS payments with rrn for notified transaction with send payment result outcome OK`() =
@@ -40,7 +40,7 @@ class UserReceiptMailBuilderTest {
       /*
        * Prerequisites
        */
-      given(confidentialMailUtils.toEmail(any()))
+      given(confidentialDataUtils.toEmail(any()))
         .willReturn(Email(TransactionTestUtils.EMAIL_STRING))
       val events =
         listOf<TransactionEvent<*>>(
@@ -133,7 +133,7 @@ class UserReceiptMailBuilderTest {
       /*
        * Prerequisites
        */
-      given(confidentialMailUtils.toEmail(any()))
+      given(confidentialDataUtils.toEmail(any()))
         .willReturn(Email(TransactionTestUtils.EMAIL_STRING))
       val events =
         listOf<TransactionEvent<*>>(
@@ -224,7 +224,7 @@ class UserReceiptMailBuilderTest {
       /*
        * Prerequisites
        */
-      given(confidentialMailUtils.toEmail(any()))
+      given(confidentialDataUtils.toEmail(any()))
         .willReturn(Email(TransactionTestUtils.EMAIL_STRING))
       val events =
         listOf<TransactionEvent<*>>(
@@ -283,7 +283,7 @@ class UserReceiptMailBuilderTest {
       /*
        * Prerequisites
        */
-      given(confidentialMailUtils.toEmail(any()))
+      given(confidentialDataUtils.toEmail(any()))
         .willReturn(Email(TransactionTestUtils.EMAIL_STRING))
       val events =
         listOf<TransactionEvent<*>>(

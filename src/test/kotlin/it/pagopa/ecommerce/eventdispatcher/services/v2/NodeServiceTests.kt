@@ -14,6 +14,7 @@ import it.pagopa.ecommerce.eventdispatcher.client.NodeClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.ClosePaymentOutcome
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
+import it.pagopa.ecommerce.eventdispatcher.utils.ConfidentialDataUtils
 import it.pagopa.generated.ecommerce.nodo.v2.dto.*
 import it.pagopa.generated.ecommerce.nodo.v2.dto.CardAdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum
 import java.math.BigDecimal
@@ -35,6 +36,7 @@ import org.mockito.*
 import org.mockito.BDDMockito.given
 import org.mockito.kotlin.any
 import org.mockito.kotlin.capture
+import org.mockito.kotlin.mock
 import org.springframework.test.context.junit.jupiter.SpringExtension
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toFlux
@@ -43,11 +45,17 @@ import reactor.kotlin.core.publisher.toFlux
 @OptIn(ExperimentalCoroutinesApi::class)
 class NodeServiceTests {
 
-  @InjectMocks lateinit var nodeService: NodeService
+  private val nodeClient: NodeClient = mock {}
 
-  @Mock lateinit var nodeClient: NodeClient
+  private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any> = mock {}
 
-  @Mock lateinit var transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>
+  private val confidentialDataUtils: ConfidentialDataUtils = mock {}
+
+  private val nodeService =
+    NodeService(
+      nodeClient = nodeClient,
+      transactionsEventStoreRepository = transactionsEventStoreRepository,
+      confidentialDataUtils = confidentialDataUtils)
 
   @Captor
   private lateinit var closePaymentRequestCaptor: ArgumentCaptor<CardClosePaymentRequestV2Dto>

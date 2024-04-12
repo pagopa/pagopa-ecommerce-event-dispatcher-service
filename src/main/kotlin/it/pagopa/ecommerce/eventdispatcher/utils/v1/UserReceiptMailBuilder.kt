@@ -4,7 +4,7 @@ import it.pagopa.ecommerce.commons.documents.v1.TransactionUserReceiptData
 import it.pagopa.ecommerce.commons.domain.PaymentNotice
 import it.pagopa.ecommerce.commons.domain.v1.pojos.BaseTransactionWithRequestedUserReceipt
 import it.pagopa.ecommerce.eventdispatcher.client.NotificationsServiceClient
-import it.pagopa.ecommerce.eventdispatcher.utils.ConfidentialMailUtils
+import it.pagopa.ecommerce.eventdispatcher.utils.ConfidentialDataUtils
 import it.pagopa.generated.notifications.templates.ko.KoTemplate
 import it.pagopa.generated.notifications.templates.success.*
 import it.pagopa.generated.notifications.templates.success.RefNumberTemplate.Type
@@ -17,14 +17,14 @@ import org.springframework.stereotype.Service
 
 @Service("UserReceiptMailBuilderV1")
 @Deprecated("Mark for deprecation in favor of V2 version")
-class UserReceiptMailBuilder(@Autowired private val confidentialMailUtils: ConfidentialMailUtils) {
+class UserReceiptMailBuilder(@Autowired private val confidentialDataUtils: ConfidentialDataUtils) {
 
   suspend fun buildNotificationEmailRequestDto(
     baseTransactionWithRequestedUserReceipt: BaseTransactionWithRequestedUserReceipt
   ): NotificationEmailRequestDto {
     val sendPaymentResultOutcome =
       baseTransactionWithRequestedUserReceipt.transactionUserReceiptData.responseOutcome
-    confidentialMailUtils.toEmail(baseTransactionWithRequestedUserReceipt.email).let { email ->
+    confidentialDataUtils.toEmail(baseTransactionWithRequestedUserReceipt.email).let { email ->
       return when (sendPaymentResultOutcome!!) {
         TransactionUserReceiptData.Outcome.OK ->
           buildOkMail(baseTransactionWithRequestedUserReceipt, email.value).let { okMail ->

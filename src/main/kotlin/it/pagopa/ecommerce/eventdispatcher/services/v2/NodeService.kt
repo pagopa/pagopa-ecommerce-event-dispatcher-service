@@ -19,6 +19,7 @@ import it.pagopa.ecommerce.eventdispatcher.queues.v2.getAuthorizationOutcome
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.ClosePaymentOutcome
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.reduceEvents
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
+import it.pagopa.ecommerce.eventdispatcher.utils.ConfidentialDataUtils
 import it.pagopa.generated.ecommerce.nodo.v2.dto.*
 import java.math.BigDecimal
 import java.time.OffsetDateTime
@@ -27,6 +28,7 @@ import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.util.*
 import kotlinx.coroutines.reactor.awaitSingle
+import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -44,7 +46,8 @@ enum class TransactionDetailsStatusEnum(val status: String) {
 @Service("NodeServiceV2")
 class NodeService(
   @Autowired private val nodeClient: NodeClient,
-  @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>
+  @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,
+  @Autowired private val confidentialDataUtils: ConfidentialDataUtils
 ) {
   var logger: Logger = LoggerFactory.getLogger(NodeService::class.java)
 
@@ -57,62 +60,80 @@ class NodeService(
       reduceEvents(
         Mono.just(transactionId.value()), transactionsEventStoreRepository, EmptyTransaction())
     val closePaymentRequest =
-      baseTransaction.map {
-        when (it.status) {
-          TransactionStatusDto.CLOSURE_REQUESTED,
-          TransactionStatusDto.CLOSURE_ERROR -> {
-            val transactionAtPreviousState =
-              when (it) {
-                is TransactionWithClosureError -> it.transactionAtPreviousState()
-                is TransactionWithClosureRequested ->
-                  Optional.of(Either.right(it as BaseTransactionWithClosureRequested))
-                else ->
-                  /*
-                   * We should never go into this else branch because it will mean that transaction status is not
-                   * coherent with reduced domain object!
-                   */
-                  throw RuntimeException(
-                    "Mismatching between transaction status and reduced transaction object detected!")
-              }
-            transactionAtPreviousState
-              .map { trxPreviousStatus ->
-                when (transactionOutcome) {
-                  ClosePaymentOutcome.KO -> {
-                    trxPreviousStatus.fold(
-                      { transactionWithCancellation ->
-                        buildClosePaymentForCancellationRequest(
-                          transactionWithCancellation, transactionId)
-                      },
-                      { transactionWithCompletedAuthorization ->
-                        buildAuthorizationCompletedClosePaymentRequest(
-                          transactionWithCompletedAuthorization, transactionOutcome, transactionId)
-                      })
-                  }
-                  ClosePaymentOutcome.OK -> {
-                    val authCompleted = trxPreviousStatus.get()
-                    buildAuthorizationCompletedClosePaymentRequest(
-                      authCompleted, transactionOutcome, transactionId)
+      baseTransaction
+        .cast(BaseTransactionWithPaymentToken::class.java)
+        .flatMap { trx ->
+          buildUserInfo(trx, transactionOutcome).map { userInfo -> trx to userInfo }
+        }
+        .map { (baseTransaction, userInfo) ->
+          when (baseTransaction.status) {
+            TransactionStatusDto.CLOSURE_REQUESTED,
+            TransactionStatusDto.CLOSURE_ERROR -> {
+              val transactionAtPreviousState =
+                when (baseTransaction) {
+                  is TransactionWithClosureError -> baseTransaction.transactionAtPreviousState()
+                  is TransactionWithClosureRequested ->
+                    Optional.of(
+                      Either.right(baseTransaction as BaseTransactionWithClosureRequested))
+                  else ->
+                    /*
+                     * We should never go into this else branch because it will mean that transaction status is not
+                     * coherent with reduced domain object!
+                     */
+                    throw RuntimeException(
+                      "Mismatching between transaction status and reduced transaction object detected!")
+                }
+              transactionAtPreviousState
+                .map { trxPreviousStatus ->
+                  when (transactionOutcome) {
+                    ClosePaymentOutcome.KO -> {
+                      trxPreviousStatus.fold(
+                        { transactionWithCancellation ->
+                          buildClosePaymentForCancellationRequest(
+                            transactionWithCancellation = transactionWithCancellation,
+                            transactionId = transactionId,
+                            userDto = userInfo)
+                        },
+                        { transactionWithCompletedAuthorization ->
+                          buildAuthorizationCompletedClosePaymentRequest(
+                            authCompleted = transactionWithCompletedAuthorization,
+                            transactionOutcome = transactionOutcome,
+                            transactionId = transactionId,
+                            userDto = userInfo)
+                        })
+                    }
+                    ClosePaymentOutcome.OK -> {
+                      val authCompleted = trxPreviousStatus.get()
+                      buildAuthorizationCompletedClosePaymentRequest(
+                        authCompleted = authCompleted,
+                        transactionOutcome = transactionOutcome,
+                        transactionId = transactionId,
+                        userDto = userInfo)
+                    }
                   }
                 }
-              }
-              .orElseThrow {
-                RuntimeException(
-                  "Unexpected transactionAtPreviousStep: $transactionAtPreviousState")
-              }
-          }
-          TransactionStatusDto.CANCELLATION_REQUESTED ->
-            buildClosePaymentForCancellationRequest(
-              it as BaseTransactionWithCancellationRequested, transactionId)
-          else -> {
-            throw BadTransactionStatusException(
-              transactionId = it.transactionId,
-              expected =
-                listOf(
-                  TransactionStatusDto.CLOSURE_ERROR, TransactionStatusDto.CANCELLATION_REQUESTED),
-              actual = it.status)
+                .orElseThrow {
+                  RuntimeException(
+                    "Unexpected transactionAtPreviousStep: $transactionAtPreviousState")
+                }
+            }
+            TransactionStatusDto.CANCELLATION_REQUESTED ->
+              buildClosePaymentForCancellationRequest(
+                transactionWithCancellation =
+                  baseTransaction as BaseTransactionWithCancellationRequested,
+                transactionId = transactionId,
+                userDto = userInfo)
+            else -> {
+              throw BadTransactionStatusException(
+                transactionId = baseTransaction.transactionId,
+                expected =
+                  listOf(
+                    TransactionStatusDto.CLOSURE_ERROR,
+                    TransactionStatusDto.CANCELLATION_REQUESTED),
+                actual = baseTransaction.status)
+            }
           }
         }
-      }
     return nodeClient.closePayment(closePaymentRequest.awaitSingle()).awaitSingle()
   }
 
@@ -135,7 +156,8 @@ class NodeService(
 
   private fun buildClosePaymentForCancellationRequest(
     transactionWithCancellation: BaseTransactionWithCancellationRequested,
-    transactionId: TransactionId
+    transactionId: TransactionId,
+    userDto: UserDto
   ): ClosePaymentRequestV2Dto {
     val amountEuroCents =
       BigDecimal(
@@ -166,7 +188,7 @@ class NodeService(
               type = getPaymentTypeCode(transactionWithCancellation)
               clientId = transactionWithCancellation.clientId.name
             }
-          user = UserDto().apply { type = UserDto.TypeEnum.GUEST }
+          user = userDto
         }
     }
   }
@@ -174,7 +196,8 @@ class NodeService(
   private fun buildAuthorizationCompletedClosePaymentRequest(
     authCompleted: BaseTransactionWithCompletedAuthorization,
     transactionOutcome: ClosePaymentOutcome,
-    transactionId: TransactionId
+    transactionId: TransactionId,
+    userDto: UserDto
   ): ClosePaymentRequestV2Dto {
     val authRequestedData =
       authCompleted.transactionAuthorizationRequestData.transactionGatewayAuthorizationRequestedData
@@ -259,7 +282,7 @@ class NodeService(
             lastFourDigits = walletLastFourDigits
             maskedEmail = walletMaskedEmail
           }
-        user = UserDto().apply { type = UserDto.TypeEnum.GUEST }
+        user = userDto
       }
 
     return when (authRequestedData.type!!) {
@@ -612,5 +635,35 @@ class NodeService(
       is PgsTransactionGatewayAuthorizationData -> transactionGatewayAuthData.errorCode
       is NpgTransactionGatewayAuthorizationData -> transactionGatewayAuthData.errorCode
       is RedirectTransactionGatewayAuthorizationData -> transactionGatewayAuthData.errorCode
+    }
+
+  private fun buildUserInfo(
+    baseTransaction: BaseTransactionWithPaymentToken,
+    outcome: ClosePaymentOutcome
+  ): Mono<UserDto> =
+    when (baseTransaction.clientId) {
+      it.pagopa.ecommerce.commons.documents.v2.Transaction.ClientId.CHECKOUT,
+      it.pagopa.ecommerce.commons.documents.v2.Transaction.ClientId.CHECKOUT_CART ->
+        mono { UserDto().apply { type = UserDto.TypeEnum.GUEST } }
+      it.pagopa.ecommerce.commons.documents.v2.Transaction.ClientId.IO -> {
+        val userId = baseTransaction.transactionActivatedData.userId
+        if (userId != null) {
+          if (outcome == ClosePaymentOutcome.OK) {
+            confidentialDataUtils.decryptGenericToken(userId).map {
+              UserDto().apply {
+                type = UserDto.TypeEnum.REGISTERED
+                fiscalCode = it
+              }
+            }
+          } else {
+            mono { UserDto().apply { type = UserDto.TypeEnum.REGISTERED } }
+          }
+        } else {
+          Mono.error(
+            RuntimeException(
+              "Invalid user id null for transaction with clientId: [${baseTransaction.clientId}]"))
+        }
+      }
+      else -> Mono.error(RuntimeException("Unhandled client id: [${baseTransaction.clientId}]"))
     }
 }
