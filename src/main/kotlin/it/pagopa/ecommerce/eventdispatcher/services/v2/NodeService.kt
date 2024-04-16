@@ -551,7 +551,7 @@ class NodeService(
                 DateTimeFormatter.ISO_OFFSET_DATE_TIME)
             this.authorizationCode = npgTransactionGatewayAuthorizationData.operationId
             // this field is not to be set actually, here set explicitly to null as reminder
-            this.seteMail(null)
+            this.email = null
           }
         } else null
       transactionDetails = closePaymentTransactionDetails
@@ -604,7 +604,7 @@ class NodeService(
                 authCompleted.transactionAuthorizationCompletedData.timestampOperation,
                 DateTimeFormatter.ISO_OFFSET_DATE_TIME)
             // this field is not to be set actually, here set explicitly to null as reminder
-            this.seteMail(null)
+            this.email = null
           }
         } else null
       transactionDetails = closePaymentTransactionDetails

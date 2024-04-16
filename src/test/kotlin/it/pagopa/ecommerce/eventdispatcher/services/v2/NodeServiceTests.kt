@@ -1981,7 +1981,7 @@ class NodeServiceTests {
                 (authCompletedEvent.data.transactionGatewayAuthorizationData
                     as NpgTransactionGatewayAuthorizationData)
                   .operationId
-              this.seteMail(null)
+              this.email = null
             }
         }
 
@@ -2371,7 +2371,7 @@ class NodeServiceTests {
               this.fee = feeEuro.toString()
               this.validationServiceId = NPG_VALIDATION_SERVICE_ID
               this.timestampOperation = OffsetDateTime.parse(expectedTimestamp)
-              this.seteMail(null)
+              this.email = null
             }
         }
 
