@@ -1,6 +1,7 @@
 package it.pagopa.ecommerce.eventdispatcher.services.v2
 
 import io.vavr.control.Either
+import it.pagopa.ecommerce.commons.client.NpgClient
 import it.pagopa.ecommerce.commons.documents.v2.authorization.*
 import it.pagopa.ecommerce.commons.documents.v2.authorization.WalletInfo.CardWalletDetails
 import it.pagopa.ecommerce.commons.documents.v2.authorization.WalletInfo.PaypalWalletDetails
@@ -269,7 +270,13 @@ class NodeService(
                 .toString()
             brand =
               when (authRequestedData) {
-                is NpgTransactionGatewayAuthorizationRequestedData -> authRequestedData.brand
+                is NpgTransactionGatewayAuthorizationRequestedData ->
+                  if (authCompleted.transactionAuthorizationRequestData.paymentMethodName ==
+                    NpgClient.PaymentMethod.CARDS.toString()) {
+                    authRequestedData.brand
+                  } else {
+                    authCompleted.transactionAuthorizationRequestData.paymentTypeCode
+                  }
                 is PgsTransactionGatewayAuthorizationRequestedData ->
                   authRequestedData.brand?.toString()
                 is RedirectTransactionGatewayAuthorizationRequestedData ->
@@ -649,7 +656,7 @@ class NodeService(
         val userId = baseTransaction.transactionActivatedData.userId
         if (userId != null) {
           if (outcome == ClosePaymentOutcome.OK) {
-            confidentialDataUtils.decryptGenericToken(userId).map {
+            confidentialDataUtils.decryptToken(userId).map {
               UserDto().apply {
                 type = UserDto.TypeEnum.REGISTERED
                 fiscalCode = it

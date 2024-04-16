@@ -1,5 +1,6 @@
 package it.pagopa.ecommerce.eventdispatcher.services.v2
 
+import it.pagopa.ecommerce.commons.client.NpgClient
 import it.pagopa.ecommerce.commons.documents.v2.Transaction
 import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationRequestData
 import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationRequestedEvent
@@ -1456,7 +1457,11 @@ class NodeServiceTests {
       val transactionOutcome = ClosePaymentOutcome.OK
       val paypalTransactionGatewayAuthorizationRequestedData =
         NpgTransactionGatewayAuthorizationRequestedData(
-          LOGO_URI, "PPAL", "npgSessionId", "npgConfirmPaymentSessionId", null)
+          LOGO_URI,
+          NpgClient.PaymentMethod.PAYPAL.toString(),
+          "npgSessionId",
+          "npgConfirmPaymentSessionId",
+          null)
       val paypalTransactionGatewayAuthorizationData =
         npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)
 
@@ -1598,7 +1603,11 @@ class NodeServiceTests {
       val transactionOutcome = ClosePaymentOutcome.KO
       val paypalTransactionGatewayAuthorizationRequestedData =
         NpgTransactionGatewayAuthorizationRequestedData(
-          LOGO_URI, "PPAL", "npgSessionId", "npgConfirmPaymentSessionId", null)
+          LOGO_URI,
+          NpgClient.PaymentMethod.PAYPAL.toString(),
+          "npgSessionId",
+          "npgConfirmPaymentSessionId",
+          null)
       val paypalTransactionGatewayAuthorizationData =
         npgTransactionGatewayAuthorizationData(OperationResultDto.DECLINED)
 
@@ -1715,7 +1724,11 @@ class NodeServiceTests {
       val transactionOutcome = ClosePaymentOutcome.KO
       val paypalTransactionGatewayAuthorizationRequestedData =
         NpgTransactionGatewayAuthorizationRequestedData(
-          LOGO_URI, "PPAL", "npgSessionId", "npgConfirmPaymentSessionId", null)
+          LOGO_URI,
+          NpgClient.PaymentMethod.PAYPAL.toString(),
+          "npgSessionId",
+          "npgConfirmPaymentSessionId",
+          null)
       val paypalTransactionGatewayAuthorizationData =
         npgTransactionGatewayAuthorizationData(OperationResultDto.DECLINED)
 
@@ -1832,7 +1845,11 @@ class NodeServiceTests {
       val transactionOutcome = ClosePaymentOutcome.OK
       val bancomatPayTransactionGatewayAuthorizationRequestedData =
         NpgTransactionGatewayAuthorizationRequestedData(
-          LOGO_URI, "BPAY", "npgSessionId", "npgConfirmPaymentSessionId", null)
+          LOGO_URI,
+          NpgClient.PaymentMethod.BANCOMATPAY.toString(),
+          "npgSessionId",
+          "npgConfirmPaymentSessionId",
+          null)
       val bancomatPayTransactionGatewayAuthorizationData =
         npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)
 
@@ -1977,7 +1994,11 @@ class NodeServiceTests {
       val transactionOutcome = ClosePaymentOutcome.KO
       val bancomatPayTransactionGatewayAuthorizationRequestedData =
         NpgTransactionGatewayAuthorizationRequestedData(
-          LOGO_URI, "BPAY", "npgSessionId", "npgConfirmPaymentSessionId", null)
+          LOGO_URI,
+          NpgClient.PaymentMethod.BANCOMATPAY.toString(),
+          "npgSessionId",
+          "npgConfirmPaymentSessionId",
+          null)
       val bancomatPayTransactionGatewayAuthorizationData =
         npgTransactionGatewayAuthorizationData(OperationResultDto.DECLINED)
 
@@ -2094,7 +2115,11 @@ class NodeServiceTests {
       val transactionOutcome = ClosePaymentOutcome.KO
       val bancomatPayTransactionGatewayAuthorizationRequestedData =
         NpgTransactionGatewayAuthorizationRequestedData(
-          LOGO_URI, "BPAY", "npgSessionId", "npgConfirmPaymentSessionId", null)
+          LOGO_URI,
+          NpgClient.PaymentMethod.BANCOMATPAY.toString(),
+          "npgSessionId",
+          "npgConfirmPaymentSessionId",
+          null)
       val bancomatPayTransactionGatewayAuthorizationData =
         npgTransactionGatewayAuthorizationData(OperationResultDto.DECLINED)
 
@@ -2211,7 +2236,11 @@ class NodeServiceTests {
       val transactionOutcome = ClosePaymentOutcome.OK
       val myBankTransactionGatewayAuthorizationRequestedData =
         NpgTransactionGatewayAuthorizationRequestedData(
-          LOGO_URI, "MYBK", "npgSessionId", "npgConfirmPaymentSessionId", null)
+          LOGO_URI,
+          NpgClient.PaymentMethod.MYBANK.toString(),
+          "npgSessionId",
+          "npgConfirmPaymentSessionId",
+          null)
       val myBankTransactionGatewayAuthorizationData =
         npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)
 
@@ -2355,7 +2384,11 @@ class NodeServiceTests {
       val transactionOutcome = ClosePaymentOutcome.KO
       val myBankTransactionGatewayAuthorizationRequestedData =
         NpgTransactionGatewayAuthorizationRequestedData(
-          LOGO_URI, "MYBK", "npgSessionId", "npgConfirmPaymentSessionId", null)
+          LOGO_URI,
+          NpgClient.PaymentMethod.MYBANK.toString(),
+          "npgSessionId",
+          "npgConfirmPaymentSessionId",
+          null)
       val myBankTransactionGatewayAuthorizationData =
         npgTransactionGatewayAuthorizationData(OperationResultDto.DECLINED)
 
@@ -2472,7 +2505,11 @@ class NodeServiceTests {
       val transactionOutcome = ClosePaymentOutcome.KO
       val myBankTransactionGatewayAuthorizationRequestedData =
         NpgTransactionGatewayAuthorizationRequestedData(
-          LOGO_URI, "MYBK", "npgSessionId", "npgConfirmPaymentSessionId", null)
+          LOGO_URI,
+          NpgClient.PaymentMethod.MYBANK.toString(),
+          "npgSessionId",
+          "npgConfirmPaymentSessionId",
+          null)
       val myBankTransactionGatewayAuthorizationData =
         npgTransactionGatewayAuthorizationData(OperationResultDto.DECLINED)
 
@@ -2589,7 +2626,11 @@ class NodeServiceTests {
       val transactionOutcome = ClosePaymentOutcome.OK
       val authRequestedData =
         NpgTransactionGatewayAuthorizationRequestedData(
-          LOGO_URI, "PPAL", "npgSessionId", "npgConfirmPaymentSessionId", cardsWalletInfo())
+          LOGO_URI,
+          NpgClient.PaymentMethod.PAYPAL.toString(),
+          "npgSessionId",
+          "npgConfirmPaymentSessionId",
+          cardsWalletInfo())
       val authData = npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)
 
       val activatedEvent = transactionActivateEvent()
@@ -2731,7 +2772,11 @@ class NodeServiceTests {
       val transactionOutcome = ClosePaymentOutcome.KO
       val authRequestedData =
         NpgTransactionGatewayAuthorizationRequestedData(
-          LOGO_URI, "PPAL", "npgSessionId", "npgConfirmPaymentSessionId", cardsWalletInfo())
+          LOGO_URI,
+          NpgClient.PaymentMethod.PAYPAL.toString(),
+          "npgSessionId",
+          "npgConfirmPaymentSessionId",
+          cardsWalletInfo())
       val authCompletedData = npgTransactionGatewayAuthorizationData(OperationResultDto.DECLINED)
 
       val activatedEvent = transactionActivateEvent()
@@ -2848,7 +2893,11 @@ class NodeServiceTests {
       val transactionOutcome = ClosePaymentOutcome.KO
       val authRequestedData =
         NpgTransactionGatewayAuthorizationRequestedData(
-          LOGO_URI, "PPAL", "npgSessionId", "npgConfirmPaymentSessionId", cardsWalletInfo())
+          LOGO_URI,
+          NpgClient.PaymentMethod.PAYPAL.toString(),
+          "npgSessionId",
+          "npgConfirmPaymentSessionId",
+          cardsWalletInfo())
       val authCompletedData = npgTransactionGatewayAuthorizationData(OperationResultDto.DECLINED)
 
       val activatedEvent = transactionActivateEvent()
@@ -2965,7 +3014,11 @@ class NodeServiceTests {
       val transactionOutcome = ClosePaymentOutcome.OK
       val authRequestedData =
         NpgTransactionGatewayAuthorizationRequestedData(
-          LOGO_URI, "PPAL", "npgSessionId", "npgConfirmPaymentSessionId", paypalWalletInfo())
+          LOGO_URI,
+          NpgClient.PaymentMethod.PAYPAL.toString(),
+          "npgSessionId",
+          "npgConfirmPaymentSessionId",
+          paypalWalletInfo())
       val authData = npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)
 
       val activatedEvent = transactionActivateEvent()
@@ -3106,7 +3159,11 @@ class NodeServiceTests {
       val transactionOutcome = ClosePaymentOutcome.KO
       val authRequestedData =
         NpgTransactionGatewayAuthorizationRequestedData(
-          LOGO_URI, "PPAL", "npgSessionId", "npgConfirmPaymentSessionId", paypalWalletInfo())
+          LOGO_URI,
+          NpgClient.PaymentMethod.PAYPAL.toString(),
+          "npgSessionId",
+          "npgConfirmPaymentSessionId",
+          paypalWalletInfo())
       val authCompletedData = npgTransactionGatewayAuthorizationData(OperationResultDto.DECLINED)
 
       val activatedEvent = transactionActivateEvent()
@@ -3222,7 +3279,11 @@ class NodeServiceTests {
       val transactionOutcome = ClosePaymentOutcome.KO
       val authRequestedData =
         NpgTransactionGatewayAuthorizationRequestedData(
-          LOGO_URI, "PPAL", "npgSessionId", "npgConfirmPaymentSessionId", paypalWalletInfo())
+          LOGO_URI,
+          NpgClient.PaymentMethod.PAYPAL.toString(),
+          "npgSessionId",
+          "npgConfirmPaymentSessionId",
+          paypalWalletInfo())
       val authCompletedData = npgTransactionGatewayAuthorizationData(OperationResultDto.DECLINED)
 
       val activatedEvent = transactionActivateEvent()
@@ -3364,7 +3425,7 @@ class NodeServiceTests {
       val userFiscalCode = "userFiscalCode"
 
       /* preconditions */
-      given(confidentialDataUtils.decryptGenericToken(any())).willReturn(mono { userFiscalCode })
+      given(confidentialDataUtils.decryptToken(any())).willReturn(mono { userFiscalCode })
       given(
           transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             TRANSACTION_ID))
@@ -3682,7 +3743,11 @@ class NodeServiceTests {
       val transactionOutcome = ClosePaymentOutcome.OK
       val paypalTransactionGatewayAuthorizationRequestedData =
         NpgTransactionGatewayAuthorizationRequestedData(
-          LOGO_URI, "PPAL", "npgSessionId", "npgConfirmPaymentSessionId", null)
+          LOGO_URI,
+          NpgClient.PaymentMethod.PAYPAL.toString(),
+          "npgSessionId",
+          "npgConfirmPaymentSessionId",
+          null)
       val paypalTransactionGatewayAuthorizationData =
         npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)
 
@@ -3720,7 +3785,7 @@ class NodeServiceTests {
       val userFiscalCode = "userFiscalCode"
 
       /* preconditions */
-      given(confidentialDataUtils.decryptGenericToken(any())).willReturn(mono { userFiscalCode })
+      given(confidentialDataUtils.decryptToken(any())).willReturn(mono { userFiscalCode })
       given(
           transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             TRANSACTION_ID))
@@ -3831,7 +3896,11 @@ class NodeServiceTests {
       val transactionOutcome = ClosePaymentOutcome.KO
       val paypalTransactionGatewayAuthorizationRequestedData =
         NpgTransactionGatewayAuthorizationRequestedData(
-          LOGO_URI, "PPAL", "npgSessionId", "npgConfirmPaymentSessionId", null)
+          LOGO_URI,
+          NpgClient.PaymentMethod.PAYPAL.toString(),
+          "npgSessionId",
+          "npgConfirmPaymentSessionId",
+          null)
       val paypalTransactionGatewayAuthorizationData =
         npgTransactionGatewayAuthorizationData(OperationResultDto.DECLINED)
 
@@ -3949,7 +4018,11 @@ class NodeServiceTests {
       val transactionOutcome = ClosePaymentOutcome.KO
       val paypalTransactionGatewayAuthorizationRequestedData =
         NpgTransactionGatewayAuthorizationRequestedData(
-          LOGO_URI, "PPAL", "npgSessionId", "npgConfirmPaymentSessionId", null)
+          LOGO_URI,
+          NpgClient.PaymentMethod.PAYPAL.toString(),
+          "npgSessionId",
+          "npgConfirmPaymentSessionId",
+          null)
       val paypalTransactionGatewayAuthorizationData =
         npgTransactionGatewayAuthorizationData(OperationResultDto.DECLINED)
 
@@ -4067,7 +4140,11 @@ class NodeServiceTests {
       val transactionOutcome = ClosePaymentOutcome.OK
       val bancomatPayTransactionGatewayAuthorizationRequestedData =
         NpgTransactionGatewayAuthorizationRequestedData(
-          LOGO_URI, "BPAY", "npgSessionId", "npgConfirmPaymentSessionId", null)
+          LOGO_URI,
+          NpgClient.PaymentMethod.BANCOMATPAY.toString(),
+          "npgSessionId",
+          "npgConfirmPaymentSessionId",
+          null)
       val bancomatPayTransactionGatewayAuthorizationData =
         npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)
 
@@ -4106,7 +4183,7 @@ class NodeServiceTests {
       val userFiscalCode = "userFiscalCode"
 
       /* preconditions */
-      given(confidentialDataUtils.decryptGenericToken(any())).willReturn(mono { userFiscalCode })
+      given(confidentialDataUtils.decryptToken(any())).willReturn(mono { userFiscalCode })
       given(
           transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             TRANSACTION_ID))
@@ -4220,7 +4297,11 @@ class NodeServiceTests {
       val transactionOutcome = ClosePaymentOutcome.KO
       val bancomatPayTransactionGatewayAuthorizationRequestedData =
         NpgTransactionGatewayAuthorizationRequestedData(
-          LOGO_URI, "BPAY", "npgSessionId", "npgConfirmPaymentSessionId", null)
+          LOGO_URI,
+          NpgClient.PaymentMethod.BANCOMATPAY.toString(),
+          "npgSessionId",
+          "npgConfirmPaymentSessionId",
+          null)
       val bancomatPayTransactionGatewayAuthorizationData =
         npgTransactionGatewayAuthorizationData(OperationResultDto.DECLINED)
 
@@ -4338,7 +4419,11 @@ class NodeServiceTests {
       val transactionOutcome = ClosePaymentOutcome.KO
       val bancomatPayTransactionGatewayAuthorizationRequestedData =
         NpgTransactionGatewayAuthorizationRequestedData(
-          LOGO_URI, "BPAY", "npgSessionId", "npgConfirmPaymentSessionId", null)
+          LOGO_URI,
+          NpgClient.PaymentMethod.BANCOMATPAY.toString(),
+          "npgSessionId",
+          "npgConfirmPaymentSessionId",
+          null)
       val bancomatPayTransactionGatewayAuthorizationData =
         npgTransactionGatewayAuthorizationData(OperationResultDto.DECLINED)
 
@@ -4456,7 +4541,11 @@ class NodeServiceTests {
       val transactionOutcome = ClosePaymentOutcome.OK
       val myBankTransactionGatewayAuthorizationRequestedData =
         NpgTransactionGatewayAuthorizationRequestedData(
-          LOGO_URI, "MYBK", "npgSessionId", "npgConfirmPaymentSessionId", null)
+          LOGO_URI,
+          NpgClient.PaymentMethod.MYBANK.toString(),
+          "npgSessionId",
+          "npgConfirmPaymentSessionId",
+          null)
       val myBankTransactionGatewayAuthorizationData =
         npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)
 
@@ -4495,7 +4584,7 @@ class NodeServiceTests {
       val userFiscalCode = "userFiscalCode"
 
       /* preconditions */
-      given(confidentialDataUtils.decryptGenericToken(any())).willReturn(mono { userFiscalCode })
+      given(confidentialDataUtils.decryptToken(any())).willReturn(mono { userFiscalCode })
       given(
           transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             TRANSACTION_ID))
@@ -4607,7 +4696,11 @@ class NodeServiceTests {
       val transactionOutcome = ClosePaymentOutcome.KO
       val myBankTransactionGatewayAuthorizationRequestedData =
         NpgTransactionGatewayAuthorizationRequestedData(
-          LOGO_URI, "MYBK", "npgSessionId", "npgConfirmPaymentSessionId", null)
+          LOGO_URI,
+          NpgClient.PaymentMethod.MYBANK.toString(),
+          "npgSessionId",
+          "npgConfirmPaymentSessionId",
+          null)
       val myBankTransactionGatewayAuthorizationData =
         npgTransactionGatewayAuthorizationData(OperationResultDto.DECLINED)
 
@@ -4725,7 +4818,11 @@ class NodeServiceTests {
       val transactionOutcome = ClosePaymentOutcome.KO
       val myBankTransactionGatewayAuthorizationRequestedData =
         NpgTransactionGatewayAuthorizationRequestedData(
-          LOGO_URI, "MYBK", "npgSessionId", "npgConfirmPaymentSessionId", null)
+          LOGO_URI,
+          NpgClient.PaymentMethod.MYBANK.toString(),
+          "npgSessionId",
+          "npgConfirmPaymentSessionId",
+          null)
       val myBankTransactionGatewayAuthorizationData =
         npgTransactionGatewayAuthorizationData(OperationResultDto.DECLINED)
 
@@ -4843,7 +4940,11 @@ class NodeServiceTests {
       val transactionOutcome = ClosePaymentOutcome.OK
       val authRequestedData =
         NpgTransactionGatewayAuthorizationRequestedData(
-          LOGO_URI, "PPAL", "npgSessionId", "npgConfirmPaymentSessionId", cardsWalletInfo())
+          LOGO_URI,
+          NpgClient.PaymentMethod.PAYPAL.toString(),
+          "npgSessionId",
+          "npgConfirmPaymentSessionId",
+          cardsWalletInfo())
       val authData = npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)
 
       val activatedEvent = transactionActivateEvent()
@@ -4879,7 +4980,7 @@ class NodeServiceTests {
       val userFiscalCode = "userFiscalCode"
 
       /* preconditions */
-      given(confidentialDataUtils.decryptGenericToken(any())).willReturn(mono { userFiscalCode })
+      given(confidentialDataUtils.decryptToken(any())).willReturn(mono { userFiscalCode })
       given(
           transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             TRANSACTION_ID))
@@ -4992,7 +5093,11 @@ class NodeServiceTests {
       val transactionOutcome = ClosePaymentOutcome.KO
       val authRequestedData =
         NpgTransactionGatewayAuthorizationRequestedData(
-          LOGO_URI, "PPAL", "npgSessionId", "npgConfirmPaymentSessionId", cardsWalletInfo())
+          LOGO_URI,
+          NpgClient.PaymentMethod.PAYPAL.toString(),
+          "npgSessionId",
+          "npgConfirmPaymentSessionId",
+          cardsWalletInfo())
       val authCompletedData = npgTransactionGatewayAuthorizationData(OperationResultDto.DECLINED)
 
       val activatedEvent = transactionActivateEvent()
@@ -5110,7 +5215,11 @@ class NodeServiceTests {
       val transactionOutcome = ClosePaymentOutcome.KO
       val authRequestedData =
         NpgTransactionGatewayAuthorizationRequestedData(
-          LOGO_URI, "PPAL", "npgSessionId", "npgConfirmPaymentSessionId", cardsWalletInfo())
+          LOGO_URI,
+          NpgClient.PaymentMethod.PAYPAL.toString(),
+          "npgSessionId",
+          "npgConfirmPaymentSessionId",
+          cardsWalletInfo())
       val authCompletedData = npgTransactionGatewayAuthorizationData(OperationResultDto.DECLINED)
 
       val activatedEvent = transactionActivateEvent()
@@ -5228,7 +5337,11 @@ class NodeServiceTests {
       val transactionOutcome = ClosePaymentOutcome.OK
       val authRequestedData =
         NpgTransactionGatewayAuthorizationRequestedData(
-          LOGO_URI, "PPAL", "npgSessionId", "npgConfirmPaymentSessionId", cardsWalletInfo())
+          LOGO_URI,
+          NpgClient.PaymentMethod.PAYPAL.toString(),
+          "npgSessionId",
+          "npgConfirmPaymentSessionId",
+          cardsWalletInfo())
       val authData = npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)
 
       val activatedEvent = transactionActivateEvent()
@@ -5265,7 +5378,7 @@ class NodeServiceTests {
       val userFiscalCode = "userFiscalCode"
 
       /* preconditions */
-      given(confidentialDataUtils.decryptGenericToken(any())).willReturn(mono { userFiscalCode })
+      given(confidentialDataUtils.decryptToken(any())).willReturn(mono { userFiscalCode })
       given(
           transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             TRANSACTION_ID))
@@ -5290,7 +5403,11 @@ class NodeServiceTests {
       val transactionOutcome = ClosePaymentOutcome.OK
       val authRequestedData =
         NpgTransactionGatewayAuthorizationRequestedData(
-          LOGO_URI, "PPAL", "npgSessionId", "npgConfirmPaymentSessionId", cardsWalletInfo())
+          LOGO_URI,
+          NpgClient.PaymentMethod.PAYPAL.toString(),
+          "npgSessionId",
+          "npgConfirmPaymentSessionId",
+          cardsWalletInfo())
       val authData = npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)
 
       val activatedEvent = transactionActivateEvent()
@@ -5327,7 +5444,7 @@ class NodeServiceTests {
       val userFiscalCode = "userFiscalCode"
 
       /* preconditions */
-      given(confidentialDataUtils.decryptGenericToken(any())).willReturn(mono { userFiscalCode })
+      given(confidentialDataUtils.decryptToken(any())).willReturn(mono { userFiscalCode })
       given(
           transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             TRANSACTION_ID))

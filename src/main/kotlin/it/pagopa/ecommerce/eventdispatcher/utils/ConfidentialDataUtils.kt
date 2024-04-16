@@ -20,7 +20,7 @@ class ConfidentialDataUtils(
   suspend fun toEmail(encrypted: Confidential<Email>): Email =
     decrypt(encrypted) { Email(it) }.awaitSingle()
 
-  fun decryptGenericToken(opaqueToken: String): Mono<String> =
+  fun decryptToken(opaqueToken: String): Mono<String> =
     decrypt(Confidential<StringConfidentialData>(opaqueToken)) { StringConfidentialData(it) }
       .map { it.clearValue }
 
