@@ -125,7 +125,6 @@ microservice-chart:
     MONGO_SERVER_SELECTION_TIMEOUT_MS: "30000"
     MONGO_WAITING_QUEUE_MS: "30000" # must be greater than or equal to server selection timeout
     MONGO_HEARTBEAT_FREQUENCY_MS: "5000"
-    REDIS_HOST: pagopa-p-weu-ecommerce-redis.redis.cache.windows.net
     REDIS_PORT: "6380"
     REDIS_SSL_ENABLED: "true"
     ECOMMERCE_STORAGE_TRANSIENT_QUEUE_ACCOUNT_NAME: pagopapweuecommercetrsa
@@ -175,7 +174,8 @@ microservice-chart:
   envSecret:
     ECOMMERCE_STORAGE_TRANSIENT_QUEUE_KEY: ecommerce-storage-transient-account-key
     MONGO_PASSWORD: mongo-ecommerce-password
-    REDIS_PASSWORD: redis-ecommerce-password
+    REDIS_PASSWORD: redis-ecommerce-access-key
+    REDIS_HOST: redis-ecommerce-hostname
     NODO_CONNECTION_STRING: nodo-connection-string
     QUEUE_TRANSIENT_CONNECTION_STRING: ecommerce-storage-transient-connection-string
     QUEUE_DEADLETTER_CONNECTION_STRING: ecommerce-storage-deadletter-connection-string
