@@ -2,6 +2,7 @@ package it.pagopa.ecommerce.eventdispatcher.services
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.trace.Span
 import io.opentelemetry.api.trace.SpanBuilder
 import io.opentelemetry.api.trace.Tracer
@@ -139,7 +140,8 @@ class RefundServiceTests {
     // Precondition
     given(tracer.spanBuilder(any())).willReturn(spanBuilder)
     given(spanBuilder.setParent(any())).willReturn(spanBuilder)
-    given(spanBuilder.setAttribute(any<String>(), any<String>())).willReturn(spanBuilder)
+    given(spanBuilder.setAttribute(eq(AttributeKey.stringKey("npg.correlation_id")), any()))
+      .willReturn(spanBuilder)
     given(spanBuilder.startSpan()).willReturn(span)
     mockWebServer.enqueue(
       MockResponse()
@@ -190,7 +192,8 @@ class RefundServiceTests {
         .setResponseCode(errorHttpStatusCode.value()))
     given(tracer.spanBuilder(any())).willReturn(spanBuilder)
     given(spanBuilder.setParent(any())).willReturn(spanBuilder)
-    given(spanBuilder.setAttribute(any<String>(), any<String>())).willReturn(spanBuilder)
+    given(spanBuilder.setAttribute(eq(AttributeKey.stringKey("npg.correlation_id")), any()))
+      .willReturn(spanBuilder)
     given(spanBuilder.startSpan()).willReturn(span)
 
     // Test
@@ -223,7 +226,8 @@ class RefundServiceTests {
     mockWebServer.enqueue(MockResponse().setResponseCode(errorHttpStatusCode.value()))
     given(tracer.spanBuilder(any())).willReturn(spanBuilder)
     given(spanBuilder.setParent(any())).willReturn(spanBuilder)
-    given(spanBuilder.setAttribute(any<String>(), any<String>())).willReturn(spanBuilder)
+    given(spanBuilder.setAttribute(eq(AttributeKey.stringKey("npg.correlation_id")), any()))
+      .willReturn(spanBuilder)
     given(spanBuilder.startSpan()).willReturn(span)
 
     // Test
