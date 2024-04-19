@@ -292,7 +292,6 @@ class ClosePaymentHelper(
       .publishOn(Schedulers.boundedElastic())
       .doOnError(NoRetryAttemptsLeftException::class.java) { exception ->
         logger.error("No more attempts left for closure retry", exception)
-        refundTransactionPipeline(baseTransaction, TransactionClosureData.Outcome.KO, tracingInfo)
       }
 
   private fun updateTransactionToClosureError(baseTransaction: BaseTransaction) =
