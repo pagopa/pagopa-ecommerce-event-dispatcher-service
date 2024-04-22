@@ -689,7 +689,7 @@ private fun getNpgTransactionAuthorizationData(
       operationResult == OperationResultDto.EXECUTED ->
         operationId?.let {
           NpgTransactionGatewayAuthorizationData(
-              operationResult, it, operation.paymentEndToEndId, null)
+              operationResult, it, operation.paymentEndToEndId, null, null)
             .toMono()
         }
           ?: Mono.error(InvalidNPGResponseException())
