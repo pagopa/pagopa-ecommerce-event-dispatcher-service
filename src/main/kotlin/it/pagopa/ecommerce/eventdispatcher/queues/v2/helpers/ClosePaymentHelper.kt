@@ -239,58 +239,60 @@ class ClosePaymentHelper(
     retryCount: Int,
     tracingInfo: TracingInfo,
   ) =
-    baseTransaction.publishOn(Schedulers.boundedElastic()).flatMap { tx ->
-      logger.error(
-        "Got exception while retrying closePaymentV2 for transaction with id ${tx.transactionId}!",
-        exception)
-      val (statusCode, errorDescription) =
-        if (exception is ClosePaymentErrorResponseException) {
-          Pair(exception.statusCode, exception.errorResponse?.description)
+    baseTransaction
+      .publishOn(Schedulers.boundedElastic())
+      .flatMap { tx ->
+        logger.error(
+          "Got exception while processing closePaymentV2 for transaction with id ${tx.transactionId.value()}!",
+          exception)
+        updateTransactionToClosureError(tx)
+      }
+      .flatMap { tx ->
+        val (statusCode, errorDescription) =
+          if (exception is ClosePaymentErrorResponseException) {
+            Pair(exception.statusCode, exception.errorResponse?.description)
+          } else {
+            Pair(null, null)
+          }
+        // transaction can be refund only for HTTP status code 422 and error response description
+        // equals to "Node did not receive RPT yet"
+        val refundTransaction =
+          statusCode == HttpStatus.UNPROCESSABLE_ENTITY &&
+            errorDescription == NodeClient.NODE_DID_NOT_RECEIVE_RPT_YET_ERROR
+        // retry event enqueued only for 5xx error responses or for other exceptions that might
+        // happen
+        // during communication such as read timeout
+        val enqueueRetryEvent =
+          !refundTransaction && (statusCode == null || statusCode.is5xxServerError)
+        logger.info(
+          "Handling Nodo close payment error response. Status code: [{}], error description: [{}] -> refund transaction: [{}], enqueue retry event: [{}]",
+          statusCode,
+          errorDescription,
+          refundTransaction,
+          enqueueRetryEvent)
+        if (refundTransaction) {
+          refundTransactionPipeline(tx, TransactionClosureData.Outcome.KO, tracingInfo).then()
         } else {
-          Pair(null, null)
-        }
-      // transaction can be refund only for HTTP status code 422 and error response description
-      // equals to "Node did not receive RPT yet"
-      val refundTransaction =
-        statusCode == HttpStatus.UNPROCESSABLE_ENTITY &&
-          errorDescription == NodeClient.NODE_DID_NOT_RECEIVE_RPT_YET_ERROR
-      // retry event enqueued only for 5xx error responses or for other exceptions that might happen
-      // during communication such as read timeout
-      val enqueueRetryEvent =
-        !refundTransaction && (statusCode == null || statusCode.is5xxServerError)
-      logger.info(
-        "Handling Nodo close payment error response. Status code: [{}], error description: [{}] -> refund transaction: [{}], enqueue retry event: [{}]",
-        statusCode,
-        errorDescription,
-        refundTransaction,
-        enqueueRetryEvent)
-      if (refundTransaction) {
-        refundTransactionPipeline(tx, TransactionClosureData.Outcome.KO, tracingInfo).then()
-      } else {
-        if (enqueueRetryEvent) {
-          enqueueClosureRetryEventPipeline(
-            baseTransaction = tx, retryCount = retryCount, tracingInfo = tracingInfo)
-        } else {
-          updateTransactionToClosureError(tx).then()
+          if (enqueueRetryEvent) {
+            enqueueClosureRetryEventPipeline(
+              baseTransaction = tx, retryCount = retryCount, tracingInfo = tracingInfo)
+          } else {
+            Mono.empty()
+          }
         }
       }
-    }
 
   private fun enqueueClosureRetryEventPipeline(
     baseTransaction: BaseTransaction,
     retryCount: Int,
     tracingInfo: TracingInfo
   ) =
-    updateTransactionToClosureError(baseTransaction)
-      .then(
-        closureRetryService
-          .enqueueRetryEvent(baseTransaction, retryCount, tracingInfo)
-          .publishOn(Schedulers.boundedElastic())
-          .doOnError(NoRetryAttemptsLeftException::class.java) { exception ->
-            logger.error("No more attempts left for closure retry", exception)
-            refundTransactionPipeline(
-              baseTransaction, TransactionClosureData.Outcome.KO, tracingInfo)
-          })
+    closureRetryService
+      .enqueueRetryEvent(baseTransaction, retryCount, tracingInfo)
+      .publishOn(Schedulers.boundedElastic())
+      .doOnError(NoRetryAttemptsLeftException::class.java) { exception ->
+        logger.error("No more attempts left for closure retry", exception)
+      }
 
   private fun updateTransactionToClosureError(baseTransaction: BaseTransaction) =
     if (baseTransaction.status != TransactionStatusDto.CLOSURE_ERROR) {
