@@ -55,7 +55,7 @@ class UserReceiptMailBuilderTest {
             as TransactionEvent<*>,
           TransactionTestUtils.transactionAuthorizationCompletedEvent(
             NpgTransactionGatewayAuthorizationData(
-              OperationResultDto.EXECUTED, "operationId", "paymentEndToEndId", null))
+              OperationResultDto.EXECUTED, "operationId", "paymentEndToEndId", null, null))
             as TransactionEvent<*>,
           TransactionTestUtils.transactionClosureRequestedEvent() as TransactionEvent<*>,
           TransactionTestUtils.transactionClosedEvent(TransactionClosureData.Outcome.OK)
