@@ -23,6 +23,7 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRe
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.RefundService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
+import it.pagopa.ecommerce.eventdispatcher.services.v2.AuthorizationStateRetrieverService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.ecommerce.eventdispatcher.utils.TRANSIENT_QUEUE_TTL_SECONDS
 import it.pagopa.ecommerce.eventdispatcher.utils.queueSuccessfulResponse
@@ -70,6 +71,8 @@ class TransactionExpirationQueueConsumerTests {
   private val refundService: RefundService = mock()
 
   private val refundRetryService: RefundRetryService = mock()
+
+  private val authorizationStateRetrieverService: AuthorizationStateRetrieverService = mock()
 
   @Captor private lateinit var transactionViewRepositoryCaptor: ArgumentCaptor<Transaction>
 
@@ -121,7 +124,9 @@ class TransactionExpirationQueueConsumerTests {
       sendPaymentResultTimeoutOffsetSeconds = sendPaymentResultOffset,
       transientQueueTTLSeconds = TRANSIENT_QUEUE_TTL_SECONDS,
       tracingUtils = tracingUtils,
-      strictSerializerProviderV2 = strictJsonSerializerProviderV2)
+      strictSerializerProviderV2 = strictJsonSerializerProviderV2,
+      authorizationStateRetrieverService = authorizationStateRetrieverService,
+    )
 
   @Test
   fun `messageReceiver receives activated messages successfully`() {

@@ -27,6 +27,7 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewReposito
 import it.pagopa.ecommerce.eventdispatcher.services.RefundService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.ClosureRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
+import it.pagopa.ecommerce.eventdispatcher.services.v2.AuthorizationStateRetrieverService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.NodeService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
@@ -83,6 +84,8 @@ class ClosePaymentHelperTests {
 
   private val refundRetryService: RefundRetryService = mock()
 
+  private val authorizationStateRetrieverService: AuthorizationStateRetrieverService = mock()
+
   private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient = mock()
 
   private val tracingUtils = TracingUtilsTests.getMock()
@@ -123,7 +126,9 @@ class ClosePaymentHelperTests {
       deadLetterTracedQueueAsyncClient = deadLetterTracedQueueAsyncClient,
       tracingUtils = tracingUtils,
       paymentRequestInfoRedisTemplateWrapper = paymentRequestInfoRedisTemplateWrapper,
-      strictSerializerProviderV2 = strictJsonSerializerProviderV2)
+      strictSerializerProviderV2 = strictJsonSerializerProviderV2,
+      authorizationStateRetrieverService = authorizationStateRetrieverService,
+    )
 
   @Test
   fun `consumer processes bare closure error message correctly with OK closure outcome for authorization completed transaction`() =

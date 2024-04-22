@@ -30,12 +30,12 @@ import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftExcepti
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.reduceEvents
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.refundTransaction
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.runTracedPipelineWithDeadLetterQueue
-import it.pagopa.ecommerce.eventdispatcher.queues.v2.updateTransactionToRefundRequested
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.RefundService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.ClosureRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
+import it.pagopa.ecommerce.eventdispatcher.services.v2.AuthorizationStateRetrieverService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.NodeService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
@@ -132,6 +132,7 @@ class ClosePaymentHelper(
   @Autowired
   private val paymentRequestInfoRedisTemplateWrapper: PaymentRequestInfoRedisTemplateWrapper,
   @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider,
+  @Autowired private val authorizationStateRetrieverService: AuthorizationStateRetrieverService,
 ) {
   val logger: Logger = LoggerFactory.getLogger(ClosePaymentHelper::class.java)
 
@@ -559,10 +560,6 @@ class ClosePaymentHelper(
 
     return Mono.just(transactionWithCompletedAuthorization)
       .filter { it.isPresent && toBeRefunded }
-      .flatMap { tx ->
-        updateTransactionToRefundRequested(
-          tx.get(), transactionsRefundedEventStoreRepository, transactionsViewRepository)
-      }
       .flatMap {
         refundTransaction(
           transactionWithCompletedAuthorization.get(),
@@ -571,7 +568,9 @@ class ClosePaymentHelper(
           paymentGatewayClient,
           refundService,
           refundRetryService,
-          tracingInfo)
+          authorizationStateRetrieverService,
+          tracingInfo,
+        )
       }
   }
 
