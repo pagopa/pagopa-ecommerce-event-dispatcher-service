@@ -331,14 +331,15 @@ fun refundTransaction(
   tracingInfo: TracingInfo?,
   retryCount: Int = 0
 ): Mono<BaseTransaction> {
-  val appendRefundedRequestEvent by lazy {
+  val appendRefundedRequestEvent =
     if (tx !is BaseTransactionWithRefundRequested) {
-      updateTransactionToRefundRequested(
-        tx, transactionsEventStoreRepository, transactionsViewRepository)
+      Mono.just(tx).flatMap {
+        updateTransactionToRefundRequested(
+          it, transactionsEventStoreRepository, transactionsViewRepository)
+      }
     } else {
       Mono.just(tx)
     }
-  }
 
   return Mono.just(tx)
     .cast(BaseTransactionWithRequestedAuthorization::class.java)
@@ -361,7 +362,7 @@ fun refundTransaction(
         TransactionAuthorizationRequestData.PaymentGateway.NPG ->
           refundTransactionNPG(
             transaction,
-            { appendRefundedRequestEvent },
+            appendRefundedRequestEvent,
             authorizationStateRetrieverService,
             refundService,
           )
@@ -441,13 +442,13 @@ fun refundTransaction(
 
 private fun refundTransactionNPG(
   transaction: BaseTransactionWithRequestedAuthorization,
-  appendRefundedRequestEvent: () -> Mono<out BaseTransaction>,
+  appendRefundedRequestEvent: Mono<out BaseTransaction>,
   authorizationStateRetrieverService: AuthorizationStateRetrieverService,
   refundService: RefundService
 ): Mono<Pair<RefundResponseDto, BaseTransactionWithRequestedAuthorization>> {
   return getAuthorizationCompletedData(transaction, authorizationStateRetrieverService)
     .onErrorResume { exception ->
-      appendRefundedRequestEvent().flatMap {
+      appendRefundedRequestEvent.flatMap {
         when (exception) {
           is InvalidNPGResponseException,
           is NpgBadRequestException ->
@@ -460,7 +461,7 @@ private fun refundTransactionNPG(
       }
     }
     .flatMap { authorizationData ->
-      appendRefundedRequestEvent()
+      appendRefundedRequestEvent
         .map { authorizationData }
         .cast(NpgTransactionGatewayAuthorizationData::class.java)
         .flatMap {
