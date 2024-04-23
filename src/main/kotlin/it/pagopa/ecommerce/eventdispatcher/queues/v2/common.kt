@@ -332,13 +332,14 @@ fun refundTransaction(
   tracingInfo: TracingInfo?,
   retryCount: Int = 0
 ): Mono<BaseTransaction> {
-  val appendRefundedRequestEvent =
+  val appendRefundedRequestEvent by lazy {
     if (tx !is BaseTransactionWithRefundRequested) {
       updateTransactionToRefundRequested(
         tx, transactionsEventStoreRepository, transactionsViewRepository)
     } else {
       Mono.just(tx)
     }
+  }
 
   return Mono.just(tx)
     .cast(BaseTransactionWithRequestedAuthorization::class.java)
