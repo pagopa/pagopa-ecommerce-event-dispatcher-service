@@ -269,7 +269,6 @@ fun patchAuthRequestByState(
     tx.transactionId.value(),
     stateResponseDto.state?.value ?: "N/A")
   // invoke transaction service patch
-  // TODO: refactor point
   return Mono.just(stateResponseDto)
     .filter { s ->
       s.operation != null &&
@@ -359,45 +358,13 @@ fun refundTransaction(
               paymentGatewayClient.requestVPosRefund(UUID.fromString(authorizationRequestId))
             }
             .map { refundResponse -> Pair(refundResponse, transaction) }
-        TransactionAuthorizationRequestData.PaymentGateway.NPG -> {
-          getAuthorizationCompletedData(transaction, authorizationStateRetrieverService)
-            .onErrorResume { exception ->
-              appendRefundedRequestEvent.flatMap {
-                when (exception) {
-                  is InvalidNPGResponseException,
-                  is NpgBadRequestException ->
-                    Mono.error(
-                      RefundError.UnexpectedPaymentGatewayResponse(
-                        tx.transactionId,
-                        "Failed to get authorization data from NPG payment gateway"))
-                  else -> Mono.error(exception)
-                }
-              }
-            }
-            .flatMap { authorizationData ->
-              appendRefundedRequestEvent
-                .map { authorizationData }
-                .cast(NpgTransactionGatewayAuthorizationData::class.java)
-                .flatMap {
-                  refundService
-                    .requestNpgRefund(
-                      operationId = it.operationId,
-                      idempotenceKey = transaction.transactionId.uuid,
-                      amount =
-                        BigDecimal(transaction.transactionAuthorizationRequestData.amount)
-                          .add(BigDecimal(transaction.transactionAuthorizationRequestData.fee)),
-                      pspId = transaction.transactionAuthorizationRequestData.pspId,
-                      correlationId =
-                        (transaction.transactionActivatedData.transactionGatewayActivationData
-                            as NpgTransactionGatewayActivationData)
-                          .correlationId,
-                      paymentMethod =
-                        NpgClient.PaymentMethod.valueOf(
-                          transaction.transactionAuthorizationRequestData.paymentMethodName))
-                    .map { refundResponse -> Pair(refundResponse, transaction) }
-                }
-            }
-        }
+        TransactionAuthorizationRequestData.PaymentGateway.NPG ->
+          refundTransactionNPG(
+            transaction,
+            { appendRefundedRequestEvent },
+            authorizationStateRetrieverService,
+            refundService,
+          )
         TransactionAuthorizationRequestData.PaymentGateway.REDIRECT -> {
           appendRefundedRequestEvent
             .flatMap {
@@ -469,6 +436,51 @@ fun refundTransaction(
           }
         }
         .thenReturn(tx)
+    }
+}
+
+private fun refundTransactionNPG(
+  transaction: BaseTransactionWithRequestedAuthorization,
+  appendRefundedRequestEvent: () -> Mono<out BaseTransaction>,
+  authorizationStateRetrieverService: AuthorizationStateRetrieverService,
+  refundService: RefundService
+): Mono<Pair<RefundResponseDto, BaseTransactionWithRequestedAuthorization>> {
+  return getAuthorizationCompletedData(transaction, authorizationStateRetrieverService)
+    .onErrorResume { exception ->
+      appendRefundedRequestEvent().flatMap {
+        when (exception) {
+          is InvalidNPGResponseException,
+          is NpgBadRequestException ->
+            Mono.error(
+              RefundError.UnexpectedPaymentGatewayResponse(
+                transaction.transactionId,
+                "Failed to get authorization data from NPG payment gateway"))
+          else -> Mono.error(exception)
+        }
+      }
+    }
+    .flatMap { authorizationData ->
+      appendRefundedRequestEvent()
+        .map { authorizationData }
+        .cast(NpgTransactionGatewayAuthorizationData::class.java)
+        .flatMap {
+          refundService
+            .requestNpgRefund(
+              operationId = it.operationId,
+              idempotenceKey = transaction.transactionId.uuid,
+              amount =
+                BigDecimal(transaction.transactionAuthorizationRequestData.amount)
+                  .add(BigDecimal(transaction.transactionAuthorizationRequestData.fee)),
+              pspId = transaction.transactionAuthorizationRequestData.pspId,
+              correlationId =
+                (transaction.transactionActivatedData.transactionGatewayActivationData
+                    as NpgTransactionGatewayActivationData)
+                  .correlationId,
+              paymentMethod =
+                NpgClient.PaymentMethod.valueOf(
+                  transaction.transactionAuthorizationRequestData.paymentMethodName))
+            .map { refundResponse -> Pair(refundResponse, transaction) }
+        }
     }
 }
 
