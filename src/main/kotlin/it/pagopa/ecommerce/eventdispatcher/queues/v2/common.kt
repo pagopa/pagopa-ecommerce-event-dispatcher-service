@@ -873,12 +873,6 @@ fun <T> runTracedPipelineWithDeadLetterQueue(
     .then(Mono.just(Unit))
 }
 
-private fun RefundError.toDeadLetterErrorCategory() =
-  when (this) {
-    is RefundError.UnexpectedPaymentGatewayResponse ->
-      DeadLetterTracedQueueAsyncClient.ErrorCategory.REFUND_MANUAL_CHECK_REQUIRED
-  }
-
 fun getClosePaymentOutcome(tx: BaseTransaction): TransactionClosureData.Outcome? =
   when (tx) {
     is BaseTransactionClosed -> tx.transactionClosureData.responseOutcome
