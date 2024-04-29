@@ -22,12 +22,6 @@ import it.pagopa.ecommerce.eventdispatcher.queues.v2.reduceEvents
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.utils.ConfidentialDataUtils
 import it.pagopa.generated.ecommerce.nodo.v2.dto.*
-import java.math.BigDecimal
-import java.time.OffsetDateTime
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoUnit
-import java.util.*
 import kotlinx.coroutines.reactor.awaitSingle
 import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
@@ -35,6 +29,12 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
+import java.math.BigDecimal
+import java.time.OffsetDateTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
+import java.util.*
 
 const val TIPO_VERSAMENTO_CP = "CP"
 
@@ -293,7 +293,6 @@ class NodeService(
       }
 
     return when (authRequestedData.type!!) {
-      // TODO: Add here support for APM methods and wallet
       TransactionGatewayAuthorizationRequestedData.AuthorizationDataType.PGS ->
         buildAuthorizationCompletedCardClosePaymentRequest(
           authCompleted,
