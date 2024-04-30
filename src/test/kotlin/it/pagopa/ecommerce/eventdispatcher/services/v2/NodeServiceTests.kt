@@ -19,6 +19,12 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRe
 import it.pagopa.ecommerce.eventdispatcher.utils.ConfidentialDataUtils
 import it.pagopa.generated.ecommerce.nodo.v2.dto.*
 import it.pagopa.generated.ecommerce.nodo.v2.dto.CardAdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum
+import java.math.BigDecimal
+import java.time.OffsetDateTime
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
+import java.util.stream.Stream
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.reactor.mono
 import kotlinx.coroutines.test.runTest
@@ -38,12 +44,6 @@ import org.mockito.kotlin.mock
 import org.springframework.test.context.junit.jupiter.SpringExtension
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toFlux
-import java.math.BigDecimal
-import java.time.OffsetDateTime
-import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoUnit
-import java.util.stream.Stream
 
 @ExtendWith(SpringExtension::class)
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -262,7 +262,8 @@ class NodeServiceTests {
     given(nodeClient.closePayment(capture(closePaymentRequestCaptor)))
       .willReturn(Mono.just(closePaymentResponse))
 
-    given(confidentialDataUtils.decrypt(eq(activatedEvent.data.email), any())).willReturn(Mono.just(Email(EMAIL_STRING)))
+    given(confidentialDataUtils.decrypt(eq(activatedEvent.data.email), any()))
+      .willReturn(Mono.just(Email(EMAIL_STRING)))
 
     /* test */
     assertEquals(
@@ -404,7 +405,8 @@ class NodeServiceTests {
       given(nodeClient.closePayment(capture(closePaymentRequestCaptor)))
         .willReturn(Mono.just(closePaymentResponse))
 
-      given(confidentialDataUtils.decrypt(eq(activatedEvent.data.email), any())).willReturn(Mono.just(Email(EMAIL_STRING)))
+      given(confidentialDataUtils.decrypt(eq(activatedEvent.data.email), any()))
+        .willReturn(Mono.just(Email(EMAIL_STRING)))
 
       /* test */
       assertEquals(
@@ -525,24 +527,7 @@ class NodeServiceTests {
         listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent, closureError)
           as List<TransactionEvent<Any>>
 
-      val closePaymentResponse =
-        ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
-
-      /* preconditions */
-      given(
-          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
-            TRANSACTION_ID))
-        .willReturn(events.toFlux())
-
-      given(nodeClient.closePayment(capture(closePaymentRequestCaptor)))
-        .willReturn(Mono.just(closePaymentResponse))
-
-      /* test */
-      assertEquals(
-        closePaymentResponse,
-        nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
-      val additionalPaymentInfo = closePaymentRequestCaptor.value.additionalPaymentInformations!!
-      val expectedTimestamp =
+      val expectedLocalDate =
         OffsetDateTime.parse(
             authCompletedEvent.data.timestampOperation, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
           .truncatedTo(ChronoUnit.SECONDS)
@@ -579,87 +564,95 @@ class NodeServiceTests {
       val amountEuroCents = BigDecimal(amount)
       val totalAmountEuroCents = BigDecimal(totalAmount)
 
-      val expectedFee = feeEuro.toString()
-      val expectedTotalAmount = totalAmountEuro.toString()
+      val expected =
+        CardClosePaymentRequestV2Dto().apply {
+          outcome = CardClosePaymentRequestV2Dto.OutcomeEnum.OK
+          this.transactionId = transactionId
+          paymentTokens =
+            activatedEvent.data.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken }
+          this.timestampOperation = OffsetDateTime.parse(authCompletedEvent.data.timestampOperation)
+          this.fee = feeEuro
+          idPSP = authEvent.data.pspId
+          idChannel = authEvent.data.pspChannelCode
+          idBrokerPSP = authEvent.data.brokerName
+          paymentMethod = authEvent.data.paymentTypeCode
+          this.totalAmount = totalAmountEuro
+          transactionDetails =
+            TransactionDetailsDto().apply {
+              transaction =
+                TransactionDto().apply {
+                  transactionStatus =
+                    TransactionDetailsStatusEnum.TRANSACTION_DETAILS_STATUS_DENIED.status
+                  this.transactionId = transactionId
+                  this.fee = feeEuroCents
+                  this.amount = amountEuroCents
+                  grandTotal = totalAmountEuroCents
+                  this.errorCode = errorCode
+                  rrn = authCompletedEvent.data.rrn
+                  creationDate = ZonedDateTime.parse(activatedEvent.creationDate).toOffsetDateTime()
+                  psp =
+                    PspDto().apply {
+                      idPsp = authEvent.data.pspId
+                      brokerName = authEvent.data.brokerName
+                      idChannel = authEvent.data.pspChannelCode
+                      businessName = authEvent.data.pspBusinessName
+                      pspOnUs = authEvent.data.isPspOnUs
+                    }
+                  authorizationCode = authCompletedEvent.data.authorizationCode
+                  this.timestampOperation = authCompletedEvent.data.timestampOperation
+                  paymentGateway = authEvent.data.paymentGateway.name
+                }
+              user = UserDto().apply { type = UserDto.TypeEnum.GUEST }
+              info =
+                InfoDto().apply {
+                  type = authEvent.data.paymentTypeCode
+                  clientId = Transaction.ClientId.CHECKOUT.name
+                  brand =
+                    (authEvent.data.transactionGatewayAuthorizationRequestedData
+                        as PgsTransactionGatewayAuthorizationRequestedData)
+                      .brand!!
+                      .name
+                  brandLogo =
+                    (authEvent.data.transactionGatewayAuthorizationRequestedData
+                        as PgsTransactionGatewayAuthorizationRequestedData)
+                      .logo
+                      .toString()
+                  paymentMethodName = authEvent.data.paymentMethodName
+                }
+            }
+          additionalPaymentInformations =
+            CardAdditionalPaymentInformationsDto().apply {
+              authorizationCode = authCompletedEvent.data.authorizationCode
+              this.fee = feeEuro.toString()
+              outcomePaymentGateway = expectedOutcome
+              rrn = authCompletedEvent.data.rrn
+              this.timestampOperation = expectedLocalDate
+              this.totalAmount = totalAmountEuro.toString()
+              this.email = EMAIL_STRING
+            }
+        }
 
-      // Check Transaction Details
-      assertEquals(
-        TransactionDetailsStatusEnum.TRANSACTION_DETAILS_STATUS_DENIED.status,
-        closePaymentRequestCaptor.value.transactionDetails.transaction.transactionStatus)
-      assertEquals(
-        transactionId, closePaymentRequestCaptor.value.transactionDetails.transaction.transactionId)
-      assertEquals(feeEuroCents, closePaymentRequestCaptor.value.transactionDetails.transaction.fee)
-      assertEquals(
-        amountEuroCents, closePaymentRequestCaptor.value.transactionDetails.transaction.amount)
-      assertEquals(
-        totalAmountEuroCents,
-        closePaymentRequestCaptor.value.transactionDetails.transaction.grandTotal)
-      assertEquals(
-        authCompletedEvent.data.authorizationCode,
-        closePaymentRequestCaptor.value.transactionDetails.transaction.authorizationCode)
-      assertEquals(
-        ZonedDateTime.parse(activatedEvent.creationDate).toOffsetDateTime(),
-        closePaymentRequestCaptor.value.transactionDetails.transaction.creationDate)
-      assertEquals(
-        authEvent.data.pspId,
-        closePaymentRequestCaptor.value.transactionDetails.transaction.psp!!.idPsp)
-      assertEquals(
-        authEvent.data.brokerName,
-        closePaymentRequestCaptor.value.transactionDetails.transaction.psp!!.brokerName)
-      assertEquals(
-        authEvent.data.pspChannelCode,
-        closePaymentRequestCaptor.value.transactionDetails.transaction.psp!!.idChannel)
-      assertEquals(
-        authEvent.data.pspBusinessName,
-        closePaymentRequestCaptor.value.transactionDetails.transaction.psp!!.businessName)
-      assertEquals(
-        authEvent.data.isPspOnUs,
-        closePaymentRequestCaptor.value.transactionDetails.transaction.psp!!.pspOnUs)
-      assertNull(closePaymentRequestCaptor.value.transactionDetails.transaction.errorCode)
-      assertNotNull(
-        closePaymentRequestCaptor.value.transactionDetails.transaction.timestampOperation)
-      assertEquals(
-        authEvent.data.paymentGateway.name,
-        closePaymentRequestCaptor.value.transactionDetails.transaction.paymentGateway)
-      assertEquals(
-        UserDto.TypeEnum.GUEST, closePaymentRequestCaptor.value.transactionDetails.user.type)
-      assertEquals(
-        Transaction.ClientId.CHECKOUT.name,
-        closePaymentRequestCaptor.value.transactionDetails.info.clientId)
-      assertEquals(
-        authEvent.data.paymentTypeCode,
-        closePaymentRequestCaptor.value.transactionDetails.info.type)
-      assertEquals(
-        (authEvent.data.transactionGatewayAuthorizationRequestedData
-            as PgsTransactionGatewayAuthorizationRequestedData)
-          .brand!!
-          .name,
-        closePaymentRequestCaptor.value.transactionDetails.info.brand)
-      assertEquals(
-        authEvent.data.paymentMethodName,
-        closePaymentRequestCaptor.value.transactionDetails.info.paymentMethodName)
-      assertEquals(
-        (authEvent.data.transactionGatewayAuthorizationRequestedData
-            as PgsTransactionGatewayAuthorizationRequestedData)
-          .logo
-          .toString(),
-        closePaymentRequestCaptor.value.transactionDetails.info.brandLogo)
-      // Check additionalPaymentInfo
-      assertEquals(expectedTimestamp, additionalPaymentInfo.timestampOperation)
-      // check that timestampOperation is in yyyy-MM-ddThh:mm:ss format
-      assertTrue(
-        additionalPaymentInfo.timestampOperation.matches(
-          Regex("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}$")))
-      assertEquals(RRN, additionalPaymentInfo.rrn)
-      assertEquals(expectedFee, additionalPaymentInfo.fee)
-      assertEquals(expectedTotalAmount, additionalPaymentInfo.totalAmount)
-      given(confidentialDataUtils.decrypt(eq(activatedEvent.data.email), any())).willReturn(Mono.just(Email(EMAIL_STRING)))
-      assertEquals(
-        authCompletedEvent.data.authorizationCode, additionalPaymentInfo.authorizationCode)
-      assertEquals(expectedOutcome, additionalPaymentInfo.outcomePaymentGateway)
+      val closePaymentResponse =
+        ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
 
-      assertEquals(feeEuro, closePaymentRequestCaptor.value.fee)
-      assertEquals(totalAmountEuro, closePaymentRequestCaptor.value.totalAmount)
+      /* preconditions */
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
+        .willReturn(events.toFlux())
+
+      given(nodeClient.closePayment(capture(closePaymentRequestCaptor)))
+        .willReturn(Mono.just(closePaymentResponse))
+
+      given(confidentialDataUtils.decrypt(eq(activatedEvent.data.email), any()))
+        .willReturn(Mono.just(Email(EMAIL_STRING)))
+
+      /* test */
+      assertEquals(
+        closePaymentResponse,
+        nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
+
+      assertEquals(expected, closePaymentRequestCaptor.value)
     }
 
   @Test
@@ -1093,7 +1086,8 @@ class NodeServiceTests {
 
       given(nodeClient.closePayment(any())).willReturn(Mono.just(closePaymentResponse))
 
-      given(confidentialDataUtils.decrypt(eq(activatedEvent.data.email), any())).willReturn(Mono.just(Email(EMAIL_STRING)))
+      given(confidentialDataUtils.decrypt(eq(activatedEvent.data.email), any()))
+        .willReturn(Mono.just(Email(EMAIL_STRING)))
 
       /* test */
       assertEquals(
