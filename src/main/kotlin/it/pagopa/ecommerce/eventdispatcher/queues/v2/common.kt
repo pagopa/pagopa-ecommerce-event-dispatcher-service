@@ -447,18 +447,15 @@ private fun refundTransactionNPG(
   refundService: RefundService
 ): Mono<Pair<RefundResponseDto, BaseTransactionWithRequestedAuthorization>> {
   return getAuthorizationCompletedData(transaction, authorizationStateRetrieverService)
-    .onErrorResume { exception ->
-      appendRefundedRequestEvent.flatMap {
-        when (exception) {
-          is InvalidNPGResponseException,
-          is NpgBadRequestException ->
-            Mono.error(
-              RefundError.UnexpectedPaymentGatewayResponse(
-                transaction.transactionId,
-                "Failed to get authorization data from NPG payment gateway"))
-          else -> Mono.error(exception)
-        }
-      }
+    .onErrorResume { error ->
+      // add refund requested event even the NPG return errors. If empty it doesn't
+      appendRefundedRequestEvent.flatMap { Mono.error(error) }
+    }
+    .onErrorMap({ error ->
+      error is InvalidNPGResponseException || error is NpgBadRequestException
+    },) {
+      RefundError.UnexpectedPaymentGatewayResponse(
+        transaction.transactionId, "Failed to get authorization data from NPG payment gateway")
     }
     .flatMap { authorizationData ->
       appendRefundedRequestEvent
