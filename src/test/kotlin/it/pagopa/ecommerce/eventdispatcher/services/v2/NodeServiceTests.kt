@@ -19,12 +19,6 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRe
 import it.pagopa.ecommerce.eventdispatcher.utils.ConfidentialDataUtils
 import it.pagopa.generated.ecommerce.nodo.v2.dto.*
 import it.pagopa.generated.ecommerce.nodo.v2.dto.CardAdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum
-import java.math.BigDecimal
-import java.time.OffsetDateTime
-import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoUnit
-import java.util.stream.Stream
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.reactor.mono
 import kotlinx.coroutines.test.runTest
@@ -44,6 +38,12 @@ import org.mockito.kotlin.mock
 import org.springframework.test.context.junit.jupiter.SpringExtension
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toFlux
+import java.math.BigDecimal
+import java.time.OffsetDateTime
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
+import java.util.stream.Stream
 
 @ExtendWith(SpringExtension::class)
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -1896,6 +1896,8 @@ class NodeServiceTests {
           transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             TRANSACTION_ID))
         .willReturn(events.toFlux())
+      given(confidentialDataUtils.decrypt(eq(activatedEvent.data.email), any()))
+        .willReturn(Mono.just(Email(EMAIL_STRING)))
 
       given(nodeClient.closePayment(capture(bancomatPayClosePaymentRequestCaptor)))
         .willReturn(Mono.just(closePaymentResponse))
@@ -1988,7 +1990,7 @@ class NodeServiceTests {
                 (authCompletedEvent.data.transactionGatewayAuthorizationData
                     as NpgTransactionGatewayAuthorizationData)
                   .operationId
-              this.email = null
+              this.email = EMAIL_STRING
             }
         }
 
@@ -2822,7 +2824,7 @@ class NodeServiceTests {
             TRANSACTION_ID))
         .willReturn(events.toFlux())
 
-      given(nodeClient.closePayment(capture(paypalClosePaymentRequestCaptor)))
+      given(nodeClient.closePayment(capture(closePaymentRequestCaptor)))
         .willReturn(Mono.just(closePaymentResponse))
 
       val fee = authEvent.data.fee
@@ -2839,8 +2841,8 @@ class NodeServiceTests {
         nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
 
       val expected =
-        PayPalClosePaymentRequestV2Dto().apply {
-          outcome = PayPalClosePaymentRequestV2Dto.OutcomeEnum.KO
+        CardClosePaymentRequestV2Dto().apply {
+          outcome = CardClosePaymentRequestV2Dto.OutcomeEnum.KO
           this.transactionId = transactionId
           paymentTokens =
             activatedEvent.data.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken }
@@ -2891,7 +2893,7 @@ class NodeServiceTests {
           additionalPaymentInformations = null
         }
 
-      assertEquals(expected, paypalClosePaymentRequestCaptor.value)
+      assertEquals(expected, closePaymentRequestCaptor.value)
     }
 
   @Test
@@ -4199,6 +4201,8 @@ class NodeServiceTests {
           transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             TRANSACTION_ID))
         .willReturn(events.toFlux())
+      given(confidentialDataUtils.decrypt(eq(activatedEvent.data.email), any()))
+        .willReturn(Mono.just(Email(EMAIL_STRING)))
 
       given(nodeClient.closePayment(capture(bancomatPayClosePaymentRequestCaptor)))
         .willReturn(Mono.just(closePaymentResponse))
@@ -4295,7 +4299,7 @@ class NodeServiceTests {
                 (authCompletedEvent.data.transactionGatewayAuthorizationData
                     as NpgTransactionGatewayAuthorizationData)
                   .operationId
-              this.email = null
+              this.email = EMAIL_STRING
             }
         }
 
