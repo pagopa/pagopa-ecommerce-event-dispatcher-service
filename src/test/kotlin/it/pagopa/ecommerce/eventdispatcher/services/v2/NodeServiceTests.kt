@@ -1506,6 +1506,8 @@ class NodeServiceTests {
           transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             TRANSACTION_ID))
         .willReturn(events.toFlux())
+      given(confidentialDataUtils.decrypt(eq(activatedEvent.data.email), any()))
+        .willReturn(Mono.just(Email(EMAIL_STRING)))
 
       given(nodeClient.closePayment(capture(paypalClosePaymentRequestCaptor)))
         .willReturn(Mono.just(closePaymentResponse))
@@ -2632,7 +2634,7 @@ class NodeServiceTests {
       val authRequestedData =
         NpgTransactionGatewayAuthorizationRequestedData(
           LOGO_URI,
-          NpgClient.PaymentMethod.PAYPAL.toString(),
+          NpgClient.PaymentMethod.CARDS.toString(),
           "npgSessionId",
           "npgConfirmPaymentSessionId",
           cardsWalletInfo())
@@ -2647,7 +2649,7 @@ class NodeServiceTests {
             10,
             "paymentInstrumentId",
             "pspId",
-            "PPAL",
+            "CP",
             "brokerName",
             "pspChannelCode",
             "paymentMethodName",
@@ -2674,8 +2676,11 @@ class NodeServiceTests {
             TRANSACTION_ID))
         .willReturn(events.toFlux())
 
-      given(nodeClient.closePayment(capture(paypalClosePaymentRequestCaptor)))
+      given(nodeClient.closePayment(capture(closePaymentRequestCaptor)))
         .willReturn(Mono.just(closePaymentResponse))
+
+      given(confidentialDataUtils.decrypt(eq(activatedEvent.data.email), any()))
+        .willReturn(Mono.just(Email(EMAIL_STRING)))
 
       val fee = authEvent.data.fee
       val amount = authEvent.data.amount
@@ -2696,11 +2701,11 @@ class NodeServiceTests {
         OffsetDateTime.parse(
             authCompletedEvent.data.timestampOperation, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
           .truncatedTo(ChronoUnit.SECONDS)
-          .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+          .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
 
       val expected =
-        PayPalClosePaymentRequestV2Dto().apply {
-          outcome = PayPalClosePaymentRequestV2Dto.OutcomeEnum.OK
+        CardClosePaymentRequestV2Dto().apply {
+          outcome = CardClosePaymentRequestV2Dto.OutcomeEnum.OK
           this.transactionId = transactionId
           paymentTokens =
             activatedEvent.data.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken }
@@ -2753,22 +2758,19 @@ class NodeServiceTests {
                 }
             }
           additionalPaymentInformations =
-            PayPalAdditionalPaymentInformationsDto().apply {
-              this.transactionId =
-                (authCompletedEvent.data.transactionGatewayAuthorizationData
-                    as NpgTransactionGatewayAuthorizationData)
-                  .operationId
-              this.pspTransactionId =
-                (authCompletedEvent.data.transactionGatewayAuthorizationData
-                    as NpgTransactionGatewayAuthorizationData)
-                  .paymentEndToEndId
-              timestampOperation = OffsetDateTime.parse(expectedTimestamp)
+            CardAdditionalPaymentInformationsDto().apply {
+              this.authorizationCode = authCompletedEvent.data.authorizationCode
+              this.fee = feeEuro.toString()
+              this.outcomePaymentGateway = OutcomePaymentGatewayEnum.OK
+              this.rrn = authCompletedEvent.data.rrn
+              this.timestampOperation = expectedTimestamp
               this.fee = feeEuro.toString()
               this.totalAmount = totalAmountEuro.toString()
+              this.email = EMAIL_STRING
             }
         }
 
-      assertEquals(expected, paypalClosePaymentRequestCaptor.value)
+      assertEquals(expected, closePaymentRequestCaptor.value)
     }
 
   @Test
@@ -2778,7 +2780,7 @@ class NodeServiceTests {
       val authRequestedData =
         NpgTransactionGatewayAuthorizationRequestedData(
           LOGO_URI,
-          NpgClient.PaymentMethod.PAYPAL.toString(),
+          NpgClient.PaymentMethod.CARDS.toString(),
           "npgSessionId",
           "npgConfirmPaymentSessionId",
           cardsWalletInfo())
@@ -2793,7 +2795,7 @@ class NodeServiceTests {
             10,
             "paymentInstrumentId",
             "pspId",
-            "PPAL",
+            "CP",
             "brokerName",
             "pspChannelCode",
             "paymentMethodName",
@@ -3061,6 +3063,8 @@ class NodeServiceTests {
           transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             TRANSACTION_ID))
         .willReturn(events.toFlux())
+      given(confidentialDataUtils.decrypt(eq(activatedEvent.data.email), any()))
+        .willReturn(Mono.just(Email(EMAIL_STRING)))
 
       given(nodeClient.closePayment(capture(paypalClosePaymentRequestCaptor)))
         .willReturn(Mono.just(closePaymentResponse))
@@ -3795,6 +3799,8 @@ class NodeServiceTests {
           transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             TRANSACTION_ID))
         .willReturn(events.toFlux())
+      given(confidentialDataUtils.decrypt(eq(activatedEvent.data.email), any()))
+        .willReturn(Mono.just(Email(EMAIL_STRING)))
 
       given(nodeClient.closePayment(capture(paypalClosePaymentRequestCaptor)))
         .willReturn(Mono.just(closePaymentResponse))
@@ -4946,7 +4952,7 @@ class NodeServiceTests {
       val authRequestedData =
         NpgTransactionGatewayAuthorizationRequestedData(
           LOGO_URI,
-          NpgClient.PaymentMethod.PAYPAL.toString(),
+          NpgClient.PaymentMethod.CARDS.toString(),
           "npgSessionId",
           "npgConfirmPaymentSessionId",
           cardsWalletInfo())
@@ -4962,7 +4968,7 @@ class NodeServiceTests {
             10,
             "paymentInstrumentId",
             "pspId",
-            "PPAL",
+            "CP",
             "brokerName",
             "pspChannelCode",
             "paymentMethodName",
@@ -4990,8 +4996,10 @@ class NodeServiceTests {
           transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             TRANSACTION_ID))
         .willReturn(events.toFlux())
+      given(confidentialDataUtils.decrypt(eq(activatedEvent.data.email), any()))
+        .willReturn(Mono.just(Email(EMAIL_STRING)))
 
-      given(nodeClient.closePayment(capture(paypalClosePaymentRequestCaptor)))
+      given(nodeClient.closePayment(capture(closePaymentRequestCaptor)))
         .willReturn(Mono.just(closePaymentResponse))
 
       val fee = authEvent.data.fee
@@ -5013,11 +5021,11 @@ class NodeServiceTests {
         OffsetDateTime.parse(
             authCompletedEvent.data.timestampOperation, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
           .truncatedTo(ChronoUnit.SECONDS)
-          .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+          .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
 
       val expected =
-        PayPalClosePaymentRequestV2Dto().apply {
-          outcome = PayPalClosePaymentRequestV2Dto.OutcomeEnum.OK
+        CardClosePaymentRequestV2Dto().apply {
+          outcome = CardClosePaymentRequestV2Dto.OutcomeEnum.OK
           this.transactionId = transactionId
           paymentTokens =
             activatedEvent.data.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken }
@@ -5074,22 +5082,19 @@ class NodeServiceTests {
                 }
             }
           additionalPaymentInformations =
-            PayPalAdditionalPaymentInformationsDto().apply {
-              this.transactionId =
-                (authCompletedEvent.data.transactionGatewayAuthorizationData
-                    as NpgTransactionGatewayAuthorizationData)
-                  .operationId
-              this.pspTransactionId =
-                (authCompletedEvent.data.transactionGatewayAuthorizationData
-                    as NpgTransactionGatewayAuthorizationData)
-                  .paymentEndToEndId
-              timestampOperation = OffsetDateTime.parse(expectedTimestamp)
+            CardAdditionalPaymentInformationsDto().apply {
+              this.authorizationCode = authCompletedEvent.data.authorizationCode
+              this.fee = feeEuro.toString()
+              this.outcomePaymentGateway = OutcomePaymentGatewayEnum.OK
+              this.rrn = authCompletedEvent.data.rrn
+              this.timestampOperation = expectedTimestamp
               this.fee = feeEuro.toString()
               this.totalAmount = totalAmountEuro.toString()
+              this.email = EMAIL_STRING
             }
         }
 
-      assertEquals(expected, paypalClosePaymentRequestCaptor.value)
+      assertEquals(expected, closePaymentRequestCaptor.value)
     }
 
   @Test
