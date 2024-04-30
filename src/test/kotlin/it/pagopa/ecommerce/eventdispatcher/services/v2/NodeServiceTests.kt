@@ -19,6 +19,12 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRe
 import it.pagopa.ecommerce.eventdispatcher.utils.ConfidentialDataUtils
 import it.pagopa.generated.ecommerce.nodo.v2.dto.*
 import it.pagopa.generated.ecommerce.nodo.v2.dto.CardAdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum
+import java.math.BigDecimal
+import java.time.OffsetDateTime
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
+import java.util.stream.Stream
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.reactor.mono
 import kotlinx.coroutines.test.runTest
@@ -38,12 +44,6 @@ import org.mockito.kotlin.mock
 import org.springframework.test.context.junit.jupiter.SpringExtension
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toFlux
-import java.math.BigDecimal
-import java.time.OffsetDateTime
-import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoUnit
-import java.util.stream.Stream
 
 @ExtendWith(SpringExtension::class)
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -75,6 +75,10 @@ class NodeServiceTests {
   @Captor
   private lateinit var bancomatPayClosePaymentRequestCaptor:
     ArgumentCaptor<BancomatPayClosePaymentRequestV2Dto>
+
+  @Captor
+  private lateinit var myBankClosePaymentRequestCaptor:
+    ArgumentCaptor<MyBankClosePaymentRequestV2Dto>
 
   @Test
   fun `closePayment returns successfully for close payment on user cancel request transaction`() =
@@ -2289,8 +2293,10 @@ class NodeServiceTests {
           transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             TRANSACTION_ID))
         .willReturn(events.toFlux())
+      given(confidentialDataUtils.decrypt(eq(activatedEvent.data.email), any()))
+        .willReturn(Mono.just(Email(EMAIL_STRING)))
 
-      given(nodeClient.closePayment(capture(bancomatPayClosePaymentRequestCaptor)))
+      given(nodeClient.closePayment(capture(myBankClosePaymentRequestCaptor)))
         .willReturn(Mono.just(closePaymentResponse))
 
       val fee = authEvent.data.fee
@@ -2380,11 +2386,11 @@ class NodeServiceTests {
               this.fee = feeEuro.toString()
               this.validationServiceId = NPG_VALIDATION_SERVICE_ID
               this.timestampOperation = OffsetDateTime.parse(expectedTimestamp)
-              this.email = null
+              this.email = EMAIL_STRING
             }
         }
 
-      assertEquals(expected, bancomatPayClosePaymentRequestCaptor.value)
+      assertEquals(expected, myBankClosePaymentRequestCaptor.value)
     }
 
   @Test
@@ -4604,8 +4610,10 @@ class NodeServiceTests {
           transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             TRANSACTION_ID))
         .willReturn(events.toFlux())
+      given(confidentialDataUtils.decrypt(eq(activatedEvent.data.email), any()))
+        .willReturn(Mono.just(Email(EMAIL_STRING)))
 
-      given(nodeClient.closePayment(capture(bancomatPayClosePaymentRequestCaptor)))
+      given(nodeClient.closePayment(capture(myBankClosePaymentRequestCaptor)))
         .willReturn(Mono.just(closePaymentResponse))
       val fee = authEvent.data.fee
       val amount = authEvent.data.amount
@@ -4698,11 +4706,11 @@ class NodeServiceTests {
               this.fee = feeEuro.toString()
               this.validationServiceId = NPG_VALIDATION_SERVICE_ID
               this.timestampOperation = OffsetDateTime.parse(expectedTimestamp)
-              this.email = null
+              this.email = EMAIL_STRING
             }
         }
 
-      assertEquals(expected, bancomatPayClosePaymentRequestCaptor.value)
+      assertEquals(expected, myBankClosePaymentRequestCaptor.value)
     }
 
   @Test
