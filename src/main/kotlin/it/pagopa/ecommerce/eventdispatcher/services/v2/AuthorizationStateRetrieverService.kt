@@ -41,7 +41,7 @@ class AuthorizationStateRetrieverService(
                 NpgBadRequestException(transactionId, errorCodeReason)
               }
             }
-            .orElse(NpgBadRequestException(transactionId, "Unknown NPG HTTP response code"))
+            .orElse(exception)
         }
       })
   }
