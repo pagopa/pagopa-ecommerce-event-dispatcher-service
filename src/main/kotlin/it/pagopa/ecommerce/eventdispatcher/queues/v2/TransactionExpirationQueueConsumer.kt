@@ -12,10 +12,12 @@ import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.commons.utils.v2.TransactionUtils
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
+import it.pagopa.ecommerce.eventdispatcher.exceptions.*
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.RefundService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
+import it.pagopa.ecommerce.eventdispatcher.services.v2.AuthorizationStateRetrieverService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import java.time.Duration
 import java.util.*
@@ -55,6 +57,7 @@ class TransactionExpirationQueueConsumer(
   private val transientQueueTTLSeconds: Int,
   @Autowired private val tracingUtils: TracingUtils,
   @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider,
+  @Autowired private val authorizationStateRetrieverService: AuthorizationStateRetrieverService,
 ) {
 
   val logger: Logger = LoggerFactory.getLogger(TransactionExpirationQueueConsumer::class.java)
@@ -152,10 +155,6 @@ class TransactionExpirationQueueConsumer(
             Mono.just(refundableWithoutCheck)
           }
         }
-        .flatMap {
-          updateTransactionToRefundRequested(
-            it, transactionsRefundedEventStoreRepository, transactionsViewRepository)
-        }
         .flatMap { tx ->
           val tracingInfo = queueEvent.fold({ it.tracingInfo }, { it.tracingInfo })
           val transaction =
@@ -171,7 +170,9 @@ class TransactionExpirationQueueConsumer(
             paymentGatewayClient,
             refundService,
             refundRetryService,
-            tracingInfo)
+            authorizationStateRetrieverService,
+            tracingInfo,
+          )
         }
 
     return runTracedPipelineWithDeadLetterQueue(

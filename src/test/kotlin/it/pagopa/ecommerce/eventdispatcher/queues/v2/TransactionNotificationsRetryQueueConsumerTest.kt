@@ -24,6 +24,7 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewReposito
 import it.pagopa.ecommerce.eventdispatcher.services.RefundService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.NotificationRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
+import it.pagopa.ecommerce.eventdispatcher.services.v2.AuthorizationStateRetrieverService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.ecommerce.eventdispatcher.utils.v2.UserReceiptMailBuilder
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
@@ -72,6 +73,8 @@ class TransactionNotificationsRetryQueueConsumerTest {
 
   private val refundRetryService: RefundRetryService = mock()
 
+  private val authorizationStateRetrieverService: AuthorizationStateRetrieverService = mock()
+
   private val notificationsServiceClient: NotificationsServiceClient = mock()
 
   private val userReceiptMailBuilder: UserReceiptMailBuilder = mock()
@@ -110,7 +113,9 @@ class TransactionNotificationsRetryQueueConsumerTest {
       notificationsServiceClient = notificationsServiceClient,
       deadLetterTracedQueueAsyncClient = deadLetterTracedQueueAsyncClient,
       tracingUtils = tracingUtils,
-      strictSerializerProviderV2 = strictJsonSerializerProviderV2)
+      strictSerializerProviderV2 = strictJsonSerializerProviderV2,
+      authorizationStateRetrieverService = authorizationStateRetrieverService,
+    )
 
   @Test
   fun `Should successfully retry send user email for send payment result outcome OK`() = runTest {

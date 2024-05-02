@@ -26,6 +26,7 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRe
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.RefundService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
+import it.pagopa.ecommerce.eventdispatcher.services.v2.AuthorizationStateRetrieverService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
@@ -60,6 +61,8 @@ import reactor.test.StepVerifier
 @OptIn(ExperimentalCoroutinesApi::class)
 class TransactionsRefundEventsConsumerTests {
   private val checkpointer: Checkpointer = mock()
+
+  private val authorizationStateRetrieverService: AuthorizationStateRetrieverService = mock()
 
   private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any> = mock()
 
@@ -96,7 +99,9 @@ class TransactionsRefundEventsConsumerTests {
       refundRetryService = refundRetryService,
       deadLetterTracedQueueAsyncClient = deadLetterTracedQueueAsyncClient,
       tracingUtils = tracingUtils,
-      strictSerializerProviderV2 = strictJsonSerializerProviderV2)
+      strictSerializerProviderV2 = strictJsonSerializerProviderV2,
+      authorizationStateRetrieverService = authorizationStateRetrieverService,
+    )
 
   private val jsonSerializerV2 = strictJsonSerializerProviderV2.createInstance()
 
@@ -1303,7 +1308,9 @@ class TransactionsRefundEventsConsumerTests {
 
     val transaction = reduceEvents(*events.toTypedArray()) as BaseTransactionWithRefundRequested
 
-    assertEquals(getAuthorizationCompletedData(transaction), transactionGatewayAuthorizationData)
+    assertEquals(
+      getAuthorizationCompletedData(transaction, authorizationStateRetrieverService).block(),
+      transactionGatewayAuthorizationData)
   }
 
   @Test
@@ -1327,7 +1334,9 @@ class TransactionsRefundEventsConsumerTests {
       val transaction =
         reduceEvents(*events.toTypedArray()) as BaseTransactionWithCompletedAuthorization
 
-      assertEquals(getAuthorizationCompletedData(transaction), transactionGatewayAuthorizationData)
+      assertEquals(
+        getAuthorizationCompletedData(transaction, authorizationStateRetrieverService).block(),
+        transactionGatewayAuthorizationData)
     }
 
   @Test
@@ -1357,7 +1366,9 @@ class TransactionsRefundEventsConsumerTests {
 
     val transaction = reduceEvents(*events.toTypedArray()) as BaseTransactionWithClosureError
 
-    assertEquals(getAuthorizationCompletedData(transaction), transactionGatewayAuthorizationData)
+    assertEquals(
+      getAuthorizationCompletedData(transaction, authorizationStateRetrieverService).block(),
+      transactionGatewayAuthorizationData)
   }
 
   @Test
@@ -1385,7 +1396,9 @@ class TransactionsRefundEventsConsumerTests {
 
     val transaction = reduceEvents(*events.toTypedArray()) as BaseTransactionExpired
 
-    assertEquals(getAuthorizationCompletedData(transaction), transactionGatewayAuthorizationData)
+    assertEquals(
+      getAuthorizationCompletedData(transaction, authorizationStateRetrieverService).block(),
+      transactionGatewayAuthorizationData)
   }
 
   @Test
@@ -1395,14 +1408,15 @@ class TransactionsRefundEventsConsumerTests {
       val authorizationRequestEvent =
         transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
       (authorizationRequestEvent.data as TransactionAuthorizationRequestData).paymentGateway =
-        TransactionAuthorizationRequestData.PaymentGateway.NPG
+        TransactionAuthorizationRequestData.PaymentGateway.VPOS
 
       val events = listOf(activationEvent, authorizationRequestEvent)
 
       val transaction =
         reduceEvents(*events.toTypedArray()) as BaseTransactionWithRequestedAuthorization
 
-      assertNull(getAuthorizationCompletedData(transaction))
+      assertNull(
+        getAuthorizationCompletedData(transaction, authorizationStateRetrieverService).block())
     }
 
   @Test

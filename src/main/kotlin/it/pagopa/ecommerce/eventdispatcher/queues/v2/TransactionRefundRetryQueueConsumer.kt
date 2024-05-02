@@ -1,7 +1,8 @@
 package it.pagopa.ecommerce.eventdispatcher.queues.v2
 
 import com.azure.spring.messaging.checkpoint.Checkpointer
-import it.pagopa.ecommerce.commons.documents.v2.*
+import it.pagopa.ecommerce.commons.documents.v2.TransactionRefundRetriedEvent
+import it.pagopa.ecommerce.commons.documents.v2.TransactionRefundedData
 import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v2.Transaction
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransaction
@@ -15,8 +16,8 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRe
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.RefundService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
+import it.pagopa.ecommerce.eventdispatcher.services.v2.AuthorizationStateRetrieverService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
-import java.util.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -40,6 +41,7 @@ class TransactionRefundRetryQueueConsumer(
   @Autowired private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient,
   @Autowired private val tracingUtils: TracingUtils,
   @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider,
+  @Autowired private val authorizationStateRetrieverService: AuthorizationStateRetrieverService,
 ) {
 
   var logger: Logger = LoggerFactory.getLogger(TransactionRefundRetryQueueConsumer::class.java)
@@ -78,8 +80,10 @@ class TransactionRefundRetryQueueConsumer(
             paymentGatewayClient,
             refundService,
             refundRetryService,
+            authorizationStateRetrieverService,
             tracingInfo,
-            event.data.retryCount)
+            event.data.retryCount,
+          )
         }
     return runTracedPipelineWithDeadLetterQueue(
       checkPointer,

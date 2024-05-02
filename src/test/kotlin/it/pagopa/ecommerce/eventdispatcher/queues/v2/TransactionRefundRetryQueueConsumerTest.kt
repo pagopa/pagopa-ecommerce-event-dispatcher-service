@@ -18,6 +18,7 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRe
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.RefundService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
+import it.pagopa.ecommerce.eventdispatcher.services.v2.AuthorizationStateRetrieverService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import java.time.ZonedDateTime
@@ -50,6 +51,7 @@ class TransactionRefundRetryQueueConsumerTest {
   private val checkpointer: Checkpointer = mock()
   private val refundService: RefundService = mock()
   private val refundRetryService: RefundRetryService = mock()
+  private val authorizationStateRetrieverService: AuthorizationStateRetrieverService = mock()
 
   private val tracingUtils = TracingUtilsTests.getMock()
 
@@ -75,7 +77,9 @@ class TransactionRefundRetryQueueConsumerTest {
       refundRetryService = refundRetryService,
       deadLetterTracedQueueAsyncClient = deadLetterTracedQueueAsyncClient,
       tracingUtils = tracingUtils,
-      strictSerializerProviderV2 = strictJsonSerializerProviderV2)
+      strictSerializerProviderV2 = strictJsonSerializerProviderV2,
+      authorizationStateRetrieverService = authorizationStateRetrieverService,
+    )
 
   @Test
   fun `messageReceiver consume event correctly with OK outcome from gateway`() = runTest {
