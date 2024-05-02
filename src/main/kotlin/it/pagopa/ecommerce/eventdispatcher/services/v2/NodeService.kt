@@ -514,6 +514,7 @@ class NodeService(
                 authCompleted.transactionAuthorizationCompletedData.timestampOperation,
                 DateTimeFormatter.ISO_OFFSET_DATE_TIME)
             this.totalAmount = totalAmountEuro.toString()
+            this.email = it
           }
         }
         .map { Optional.of(it) }
