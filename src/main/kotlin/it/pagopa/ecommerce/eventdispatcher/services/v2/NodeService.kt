@@ -1,7 +1,11 @@
 package it.pagopa.ecommerce.eventdispatcher.services.v2
 
 import io.vavr.control.Either
+import it.pagopa.ecommerce.commons.client.NpgClient
 import it.pagopa.ecommerce.commons.documents.v2.authorization.*
+import it.pagopa.ecommerce.commons.documents.v2.authorization.WalletInfo.CardWalletDetails
+import it.pagopa.ecommerce.commons.documents.v2.authorization.WalletInfo.PaypalWalletDetails
+import it.pagopa.ecommerce.commons.domain.Email
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v2.TransactionWithClosureError
@@ -17,6 +21,7 @@ import it.pagopa.ecommerce.eventdispatcher.queues.v2.getAuthorizationOutcome
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.ClosePaymentOutcome
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.reduceEvents
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
+import it.pagopa.ecommerce.eventdispatcher.utils.ConfidentialDataUtils
 import it.pagopa.generated.ecommerce.nodo.v2.dto.*
 import java.math.BigDecimal
 import java.time.OffsetDateTime
@@ -25,6 +30,7 @@ import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.util.*
 import kotlinx.coroutines.reactor.awaitSingle
+import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -42,7 +48,8 @@ enum class TransactionDetailsStatusEnum(val status: String) {
 @Service("NodeServiceV2")
 class NodeService(
   @Autowired private val nodeClient: NodeClient,
-  @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>
+  @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,
+  @Autowired private val confidentialDataUtils: ConfidentialDataUtils
 ) {
   var logger: Logger = LoggerFactory.getLogger(NodeService::class.java)
 
@@ -55,62 +62,84 @@ class NodeService(
       reduceEvents(
         Mono.just(transactionId.value()), transactionsEventStoreRepository, EmptyTransaction())
     val closePaymentRequest =
-      baseTransaction.map {
-        when (it.status) {
-          TransactionStatusDto.CLOSURE_REQUESTED,
-          TransactionStatusDto.CLOSURE_ERROR -> {
-            val transactionAtPreviousState =
-              when (it) {
-                is TransactionWithClosureError -> it.transactionAtPreviousState()
-                is TransactionWithClosureRequested ->
-                  Optional.of(Either.right(it as BaseTransactionWithClosureRequested))
-                else ->
-                  /*
-                   * We should never go into this else branch because it will mean that transaction status is not
-                   * coherent with reduced domain object!
-                   */
-                  throw RuntimeException(
-                    "Mismatching between transaction status and reduced transaction object detected!")
-              }
-            transactionAtPreviousState
-              .map { trxPreviousStatus ->
-                when (transactionOutcome) {
-                  ClosePaymentOutcome.KO -> {
-                    trxPreviousStatus.fold(
-                      { transactionWithCancellation ->
-                        buildClosePaymentForCancellationRequest(
-                          transactionWithCancellation, transactionId)
-                      },
-                      { transactionWithCompletedAuthorization ->
-                        buildAuthorizationCompletedClosePaymentRequest(
-                          transactionWithCompletedAuthorization, transactionOutcome, transactionId)
-                      })
-                  }
-                  ClosePaymentOutcome.OK -> {
-                    val authCompleted = trxPreviousStatus.get()
-                    buildAuthorizationCompletedClosePaymentRequest(
-                      authCompleted, transactionOutcome, transactionId)
+      baseTransaction
+        .cast(BaseTransactionWithPaymentToken::class.java)
+        .flatMap { trx ->
+          buildUserInfo(trx, transactionOutcome).map { userInfo -> trx to userInfo }
+        }
+        .flatMap { (baseTransaction, userInfo) ->
+          when (baseTransaction.status) {
+            TransactionStatusDto.CLOSURE_REQUESTED,
+            TransactionStatusDto.CLOSURE_ERROR -> {
+              val transactionAtPreviousState =
+                when (baseTransaction) {
+                  is TransactionWithClosureError -> baseTransaction.transactionAtPreviousState()
+                  is TransactionWithClosureRequested ->
+                    Optional.of(
+                      Either.right(baseTransaction as BaseTransactionWithClosureRequested))
+                  else ->
+                    /*
+                     * We should never go into this else branch because it will mean that transaction status is not
+                     * coherent with reduced domain object!
+                     */
+                    throw RuntimeException(
+                      "Mismatching between transaction status and reduced transaction object detected!")
+                }
+              transactionAtPreviousState
+                .map { trxPreviousStatus ->
+                  when (transactionOutcome) {
+                    ClosePaymentOutcome.KO -> {
+                      trxPreviousStatus.fold(
+                        { transactionWithCancellation ->
+                          Mono.just(
+                            buildClosePaymentForCancellationRequest(
+                              transactionWithCancellation = transactionWithCancellation,
+                              transactionId = transactionId,
+                              userDto = userInfo))
+                        },
+                        { transactionWithCompletedAuthorization ->
+                          buildAuthorizationCompletedClosePaymentRequest(
+                            authCompleted = transactionWithCompletedAuthorization,
+                            transactionOutcome = transactionOutcome,
+                            transactionId = transactionId,
+                            userDto = userInfo)
+                        })
+                    }
+                    ClosePaymentOutcome.OK -> {
+                      val authCompleted = trxPreviousStatus.get()
+                      buildAuthorizationCompletedClosePaymentRequest(
+                        authCompleted = authCompleted,
+                        transactionOutcome = transactionOutcome,
+                        transactionId = transactionId,
+                        userDto = userInfo)
+                    }
                   }
                 }
-              }
-              .orElseThrow {
-                RuntimeException(
-                  "Unexpected transactionAtPreviousStep: $transactionAtPreviousState")
-              }
-          }
-          TransactionStatusDto.CANCELLATION_REQUESTED ->
-            buildClosePaymentForCancellationRequest(
-              it as BaseTransactionWithCancellationRequested, transactionId)
-          else -> {
-            throw BadTransactionStatusException(
-              transactionId = it.transactionId,
-              expected =
-                listOf(
-                  TransactionStatusDto.CLOSURE_ERROR, TransactionStatusDto.CANCELLATION_REQUESTED),
-              actual = it.status)
+                .map { it.map { c -> c } }
+                .orElseThrow {
+                  RuntimeException(
+                    "Unexpected transactionAtPreviousStep: $transactionAtPreviousState")
+                }
+            }
+            TransactionStatusDto.CANCELLATION_REQUESTED ->
+              Mono.just(
+                buildClosePaymentForCancellationRequest(
+                  transactionWithCancellation =
+                    baseTransaction as BaseTransactionWithCancellationRequested,
+                  transactionId = transactionId,
+                  userDto = userInfo))
+            else -> {
+              throw BadTransactionStatusException(
+                transactionId = baseTransaction.transactionId,
+                expected =
+                  listOf(
+                    TransactionStatusDto.CLOSURE_ERROR,
+                    TransactionStatusDto.CANCELLATION_REQUESTED),
+                actual = baseTransaction.status)
+            }
           }
         }
-      }
+        .map { it }
     return nodeClient.closePayment(closePaymentRequest.awaitSingle()).awaitSingle()
   }
 
@@ -133,7 +162,8 @@ class NodeService(
 
   private fun buildClosePaymentForCancellationRequest(
     transactionWithCancellation: BaseTransactionWithCancellationRequested,
-    transactionId: TransactionId
+    transactionId: TransactionId,
+    userDto: UserDto
   ): ClosePaymentRequestV2Dto {
     val amountEuroCents =
       BigDecimal(
@@ -164,7 +194,7 @@ class NodeService(
               type = getPaymentTypeCode(transactionWithCancellation)
               clientId = transactionWithCancellation.clientId.name
             }
-          user = UserDto().apply { type = UserDto.TypeEnum.GUEST }
+          user = userDto
         }
     }
   }
@@ -172,8 +202,9 @@ class NodeService(
   private fun buildAuthorizationCompletedClosePaymentRequest(
     authCompleted: BaseTransactionWithCompletedAuthorization,
     transactionOutcome: ClosePaymentOutcome,
-    transactionId: TransactionId
-  ): ClosePaymentRequestV2Dto {
+    transactionId: TransactionId,
+    userDto: UserDto
+  ): Mono<ClosePaymentRequestV2Dto> {
     val authRequestedData =
       authCompleted.transactionAuthorizationRequestData.transactionGatewayAuthorizationRequestedData
 
@@ -188,6 +219,19 @@ class NodeService(
     val feeEuro = EuroUtils.euroCentsToEuro(fee)
     val totalAmountEuro = EuroUtils.euroCentsToEuro(totalAmount)
 
+    val walletInfo =
+      if (authRequestedData is NpgTransactionGatewayAuthorizationRequestedData) {
+        authRequestedData.walletInfo
+      } else {
+        null
+      }
+    val walletDetails = walletInfo?.walletDetails
+    val (walletBin, walletLastFourDigits, walletMaskedEmail) =
+      when (walletDetails) {
+        is CardWalletDetails -> Triple(walletDetails.bin, walletDetails.lastFourDigits, null)
+        is PaypalWalletDetails -> Triple(null, null, walletDetails.maskedEmail)
+        else -> Triple(null, null, null)
+      }
     val closePaymentTransactionDetails =
       TransactionDetailsDto().apply {
         transaction =
@@ -231,7 +275,13 @@ class NodeService(
                 .toString()
             brand =
               when (authRequestedData) {
-                is NpgTransactionGatewayAuthorizationRequestedData -> authRequestedData.brand
+                is NpgTransactionGatewayAuthorizationRequestedData ->
+                  if (authCompleted.transactionAuthorizationRequestData.paymentMethodName ==
+                    NpgClient.PaymentMethod.CARDS.toString()) {
+                    authRequestedData.brand
+                  } else {
+                    authCompleted.transactionAuthorizationRequestData.paymentTypeCode
+                  }
                 is PgsTransactionGatewayAuthorizationRequestedData ->
                   authRequestedData.brand?.toString()
                 is RedirectTransactionGatewayAuthorizationRequestedData ->
@@ -240,98 +290,401 @@ class NodeService(
               }
             paymentMethodName = authCompleted.transactionAuthorizationRequestData.paymentMethodName
             clientId = authCompleted.transactionActivatedData.clientId.name
+            bin = walletBin
+            lastFourDigits = walletLastFourDigits
+            maskedEmail = walletMaskedEmail
           }
-        user = UserDto().apply { type = UserDto.TypeEnum.GUEST }
+        user = userDto
       }
 
     return when (authRequestedData.type!!) {
-      // TODO: Add here support for APM methods and wallet
-      TransactionGatewayAuthorizationRequestedData.AuthorizationDataType.PGS,
+      TransactionGatewayAuthorizationRequestedData.AuthorizationDataType.PGS ->
+        buildAuthorizationCompletedCardClosePaymentRequest(
+            authCompleted,
+            transactionOutcome,
+            transactionId,
+            totalAmountEuro,
+            feeEuro,
+            closePaymentTransactionDetails)
+          .cast(ClosePaymentRequestV2Dto::class.java)
       TransactionGatewayAuthorizationRequestedData.AuthorizationDataType.NPG ->
-        CardClosePaymentRequestV2Dto().apply {
-          paymentTokens =
-            authCompleted.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken.value }
-          outcome = CardClosePaymentRequestV2Dto.OutcomeEnum.valueOf(transactionOutcome.name)
-          this.transactionId = transactionId.value()
-
-          if (transactionOutcome == ClosePaymentOutcome.OK) {
-            timestampOperation =
-              OffsetDateTime.parse(
-                authCompleted.transactionAuthorizationCompletedData.timestampOperation)
-            this.totalAmount = totalAmountEuro
-            this.fee = feeEuro
-            this.timestampOperation =
-              OffsetDateTime.parse(
-                authCompleted.transactionAuthorizationCompletedData.timestampOperation,
-                DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-            idPSP = authCompleted.transactionAuthorizationRequestData.pspId
-            paymentMethod = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
-            idBrokerPSP = authCompleted.transactionAuthorizationRequestData.brokerName
-            idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
-          }
-
-          additionalPaymentInformations =
-            if (transactionOutcome == ClosePaymentOutcome.OK)
-              CardAdditionalPaymentInformationsDto().apply {
-                outcomePaymentGateway =
-                  getOutcomePaymentGateway(
-                    authCompleted.transactionAuthorizationCompletedData
-                      .transactionGatewayAuthorizationData)
-                this.authorizationCode =
-                  authCompleted.transactionAuthorizationCompletedData.authorizationCode
-                this.fee = feeEuro.toString()
-                this.timestampOperation =
-                  OffsetDateTime.parse(
-                      authCompleted.transactionAuthorizationCompletedData.timestampOperation,
-                      DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-                    .atZoneSameInstant(ZoneId.of("Europe/Paris"))
-                    .truncatedTo(ChronoUnit.SECONDS)
-                    .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
-                    .toString()
-                this.rrn = authCompleted.transactionAuthorizationCompletedData.rrn
-                this.totalAmount = totalAmountEuro.toString()
-              }
-            else null
-          transactionDetails = closePaymentTransactionDetails
+        when (authCompleted.transactionAuthorizationRequestData.paymentTypeCode) {
+          "CP" ->
+            buildAuthorizationCompletedCardClosePaymentRequest(
+                authCompleted,
+                transactionOutcome,
+                transactionId,
+                totalAmountEuro,
+                feeEuro,
+                closePaymentTransactionDetails)
+              .cast(ClosePaymentRequestV2Dto::class.java)
+          "PPAL" ->
+            buildAuthorizationCompletedPayPalClosePaymentRequest(
+                authCompleted,
+                transactionOutcome,
+                transactionId,
+                totalAmountEuro,
+                feeEuro,
+                closePaymentTransactionDetails)
+              .cast(ClosePaymentRequestV2Dto::class.java)
+          "BPAY" ->
+            buildAuthorizationCompletedBancomatPayClosePaymentRequest(
+                authCompleted,
+                transactionOutcome,
+                transactionId,
+                totalAmountEuro,
+                feeEuro,
+                closePaymentTransactionDetails)
+              .cast(ClosePaymentRequestV2Dto::class.java)
+          "MYBK" ->
+            buildAuthorizationCompletedMyBankClosePaymentRequest(
+                authCompleted,
+                transactionOutcome,
+                transactionId,
+                totalAmountEuro,
+                feeEuro,
+                closePaymentTransactionDetails)
+              .cast(ClosePaymentRequestV2Dto::class.java)
+          else ->
+            throw IllegalArgumentException(
+              "Unhandled or invalid payment type code: '%s'".format(
+                authCompleted.transactionAuthorizationRequestData.paymentTypeCode))
         }
       TransactionGatewayAuthorizationRequestedData.AuthorizationDataType.REDIRECT ->
-        RedirectClosePaymentRequestV2Dto().apply {
-          paymentTokens =
-            authCompleted.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken.value }
-          outcome = RedirectClosePaymentRequestV2Dto.OutcomeEnum.valueOf(transactionOutcome.name)
-          this.transactionId = transactionId.value()
+        Mono.just(
+          buildAuthorizationCompletedRedirectClosePaymentRequest(
+            authCompleted,
+            transactionOutcome,
+            transactionId,
+            totalAmountEuro,
+            feeEuro,
+            closePaymentTransactionDetails))
+    }
+  }
 
-          if (transactionOutcome == ClosePaymentOutcome.OK) {
-            this.totalAmount = totalAmountEuro
-            this.fee = feeEuro
+  private fun buildAuthorizationCompletedRedirectClosePaymentRequest(
+    authCompleted: BaseTransactionWithCompletedAuthorization,
+    transactionOutcome: ClosePaymentOutcome,
+    transactionId: TransactionId,
+    totalAmountEuro: BigDecimal,
+    feeEuro: BigDecimal,
+    closePaymentTransactionDetails: TransactionDetailsDto
+  ) =
+    RedirectClosePaymentRequestV2Dto().apply {
+      paymentTokens =
+        authCompleted.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken.value }
+      outcome = RedirectClosePaymentRequestV2Dto.OutcomeEnum.valueOf(transactionOutcome.name)
+      this.transactionId = transactionId.value()
+
+      if (transactionOutcome == ClosePaymentOutcome.OK) {
+        this.totalAmount = totalAmountEuro
+        this.fee = feeEuro
+        this.timestampOperation =
+          OffsetDateTime.parse(
+            authCompleted.transactionAuthorizationCompletedData.timestampOperation,
+            DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+        idPSP = authCompleted.transactionAuthorizationRequestData.pspId
+        paymentMethod = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
+        idBrokerPSP = authCompleted.transactionAuthorizationRequestData.brokerName
+        idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
+      }
+
+      additionalPaymentInformations =
+        if (transactionOutcome == ClosePaymentOutcome.OK) {
+          RedirectAdditionalPaymentInformationsDto().apply {
+            idTransaction = transactionId.value()
+            idPSPTransaction =
+              authCompleted.transactionAuthorizationRequestData.authorizationRequestId
+            this.totalAmount = totalAmountEuro.toString()
+            this.authorizationCode =
+              authCompleted.transactionAuthorizationCompletedData.authorizationCode
+            this.fee = feeEuro.toString()
+            timestampOperation =
+              OffsetDateTime.parse(
+                authCompleted.transactionAuthorizationCompletedData.timestampOperation,
+                DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+          }
+        } else null
+      transactionDetails = closePaymentTransactionDetails
+    }
+
+  private fun buildAuthorizationCompletedCardClosePaymentRequest(
+    authCompleted: BaseTransactionWithCompletedAuthorization,
+    transactionOutcome: ClosePaymentOutcome,
+    transactionId: TransactionId,
+    totalAmountEuro: BigDecimal,
+    feeEuro: BigDecimal,
+    closePaymentTransactionDetails: TransactionDetailsDto
+  ): Mono<CardClosePaymentRequestV2Dto> {
+    val email =
+      Mono.defer {
+        confidentialDataUtils
+          .decrypt(authCompleted.transactionActivatedData.email) { Email(it) }
+          .map { it.value }
+      }
+
+    val additionalPaymentInformations =
+      Mono.just(0)
+        .filter { transactionOutcome == ClosePaymentOutcome.OK }
+        .flatMap { email }
+        .map {
+          CardAdditionalPaymentInformationsDto().apply {
+            outcomePaymentGateway =
+              getOutcomePaymentGateway(
+                authCompleted.transactionAuthorizationCompletedData
+                  .transactionGatewayAuthorizationData)
+            this.authorizationCode =
+              authCompleted.transactionAuthorizationCompletedData.authorizationCode
+            this.fee = feeEuro.toString()
+            this.timestampOperation =
+              OffsetDateTime.parse(
+                  authCompleted.transactionAuthorizationCompletedData.timestampOperation,
+                  DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                .atZoneSameInstant(ZoneId.of("Europe/Paris"))
+                .truncatedTo(ChronoUnit.SECONDS)
+                .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                .toString()
+            this.rrn = authCompleted.transactionAuthorizationCompletedData.rrn
+            this.totalAmount = totalAmountEuro.toString()
+            this.email = it
+          }
+        }
+        .map { Optional.of(it) }
+        .defaultIfEmpty(Optional.empty())
+
+    return additionalPaymentInformations.map {
+      CardClosePaymentRequestV2Dto().apply {
+        paymentTokens =
+          authCompleted.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken.value }
+        outcome = CardClosePaymentRequestV2Dto.OutcomeEnum.valueOf(transactionOutcome.name)
+        this.transactionId = transactionId.value()
+
+        if (transactionOutcome == ClosePaymentOutcome.OK) {
+          timestampOperation =
+            OffsetDateTime.parse(
+              authCompleted.transactionAuthorizationCompletedData.timestampOperation)
+          this.totalAmount = totalAmountEuro
+          this.fee = feeEuro
+          this.timestampOperation =
+            OffsetDateTime.parse(
+              authCompleted.transactionAuthorizationCompletedData.timestampOperation,
+              DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+          idPSP = authCompleted.transactionAuthorizationRequestData.pspId
+          paymentMethod = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
+          idBrokerPSP = authCompleted.transactionAuthorizationRequestData.brokerName
+          idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
+        }
+
+        this.additionalPaymentInformations = it.orElse(null)
+        transactionDetails = closePaymentTransactionDetails
+      }
+    }
+  }
+
+  private fun buildAuthorizationCompletedPayPalClosePaymentRequest(
+    authCompleted: BaseTransactionWithCompletedAuthorization,
+    transactionOutcome: ClosePaymentOutcome,
+    transactionId: TransactionId,
+    totalAmountEuro: BigDecimal,
+    feeEuro: BigDecimal,
+    closePaymentTransactionDetails: TransactionDetailsDto
+  ): Mono<PayPalClosePaymentRequestV2Dto> {
+    val npgTransactionGatewayAuthorizationData =
+      authCompleted.transactionAuthorizationCompletedData.transactionGatewayAuthorizationData
+        as NpgTransactionGatewayAuthorizationData
+
+    val email =
+      Mono.defer {
+        confidentialDataUtils
+          .decrypt(authCompleted.transactionActivatedData.email) { Email(it) }
+          .map { it.value }
+      }
+
+    val additionalPaymentInformations =
+      Mono.just(0)
+        .filter { transactionOutcome == ClosePaymentOutcome.OK }
+        .flatMap { email }
+        .map {
+          PayPalAdditionalPaymentInformationsDto().apply {
+            this.transactionId = npgTransactionGatewayAuthorizationData.operationId
+            this.pspTransactionId = npgTransactionGatewayAuthorizationData.paymentEndToEndId
+            this.fee = feeEuro.toString()
             this.timestampOperation =
               OffsetDateTime.parse(
                 authCompleted.transactionAuthorizationCompletedData.timestampOperation,
                 DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-            idPSP = authCompleted.transactionAuthorizationRequestData.pspId
-            paymentMethod = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
-            idBrokerPSP = authCompleted.transactionAuthorizationRequestData.brokerName
-            idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
+            this.totalAmount = totalAmountEuro.toString()
           }
-
-          additionalPaymentInformations =
-            if (transactionOutcome == ClosePaymentOutcome.OK) {
-              RedirectAdditionalPaymentInformationsDto().apply {
-                idTransaction = transactionId.value()
-                idPSPTransaction =
-                  authCompleted.transactionAuthorizationRequestData.authorizationRequestId
-                this.totalAmount = totalAmountEuro.toString()
-                this.authorizationCode =
-                  authCompleted.transactionAuthorizationCompletedData.authorizationCode
-                this.fee = feeEuro.toString()
-                timestampOperation =
-                  OffsetDateTime.parse(
-                    authCompleted.transactionAuthorizationCompletedData.timestampOperation,
-                    DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-              }
-            } else null
-          transactionDetails = closePaymentTransactionDetails
         }
+        .map { Optional.of(it) }
+        .defaultIfEmpty(Optional.empty())
+
+    return additionalPaymentInformations.map {
+      PayPalClosePaymentRequestV2Dto().apply {
+        paymentTokens =
+          authCompleted.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken.value }
+        outcome = PayPalClosePaymentRequestV2Dto.OutcomeEnum.valueOf(transactionOutcome.name)
+        this.transactionId = transactionId.value()
+
+        if (transactionOutcome == ClosePaymentOutcome.OK) {
+          timestampOperation =
+            OffsetDateTime.parse(
+              authCompleted.transactionAuthorizationCompletedData.timestampOperation)
+          this.totalAmount = totalAmountEuro
+          this.fee = feeEuro
+          this.timestampOperation =
+            OffsetDateTime.parse(
+              authCompleted.transactionAuthorizationCompletedData.timestampOperation,
+              DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+          idPSP = authCompleted.transactionAuthorizationRequestData.pspId
+          paymentMethod = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
+          idBrokerPSP = authCompleted.transactionAuthorizationRequestData.brokerName
+          idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
+        }
+
+        this.additionalPaymentInformations = it.orElse(null)
+        transactionDetails = closePaymentTransactionDetails
+      }
+    }
+  }
+
+  private fun buildAuthorizationCompletedBancomatPayClosePaymentRequest(
+    authCompleted: BaseTransactionWithCompletedAuthorization,
+    transactionOutcome: ClosePaymentOutcome,
+    transactionId: TransactionId,
+    totalAmountEuro: BigDecimal,
+    feeEuro: BigDecimal,
+    closePaymentTransactionDetails: TransactionDetailsDto
+  ): Mono<BancomatPayClosePaymentRequestV2Dto> {
+    val email =
+      Mono.defer {
+        confidentialDataUtils
+          .decrypt(authCompleted.transactionActivatedData.email) { Email(it) }
+          .map { it.value }
+      }
+
+    val npgTransactionGatewayAuthorizationData =
+      authCompleted.transactionAuthorizationCompletedData.transactionGatewayAuthorizationData
+        as NpgTransactionGatewayAuthorizationData
+
+    val additionalPaymentInformations =
+      Mono.just(0)
+        .filter { transactionOutcome == ClosePaymentOutcome.OK }
+        .flatMap { email }
+        .map {
+          BancomatPayAdditionalPaymentInformationsDto().apply {
+            this.transactionId = npgTransactionGatewayAuthorizationData.operationId
+            this.outcomePaymentGateway =
+              BancomatPayAdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.valueOf(
+                transactionOutcome.name)
+            this.totalAmount = totalAmountEuro.toString()
+            this.fee = feeEuro.toString()
+            this.timestampOperation =
+              OffsetDateTime.parse(
+                authCompleted.transactionAuthorizationCompletedData.timestampOperation,
+                DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+            this.authorizationCode = npgTransactionGatewayAuthorizationData.operationId
+            this.email = it
+          }
+        }
+        .map { Optional.of(it) }
+        .defaultIfEmpty(Optional.empty())
+
+    return additionalPaymentInformations.map {
+      BancomatPayClosePaymentRequestV2Dto().apply {
+        paymentTokens =
+          authCompleted.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken.value }
+        outcome = BancomatPayClosePaymentRequestV2Dto.OutcomeEnum.valueOf(transactionOutcome.name)
+        this.transactionId = transactionId.value()
+
+        if (transactionOutcome == ClosePaymentOutcome.OK) {
+          timestampOperation =
+            OffsetDateTime.parse(
+              authCompleted.transactionAuthorizationCompletedData.timestampOperation)
+          this.totalAmount = totalAmountEuro
+          this.fee = feeEuro
+          this.timestampOperation =
+            OffsetDateTime.parse(
+              authCompleted.transactionAuthorizationCompletedData.timestampOperation,
+              DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+          idPSP = authCompleted.transactionAuthorizationRequestData.pspId
+          paymentMethod = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
+          idBrokerPSP = authCompleted.transactionAuthorizationRequestData.brokerName
+          idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
+        }
+
+        this.additionalPaymentInformations = it.orElse(null)
+        transactionDetails = closePaymentTransactionDetails
+      }
+    }
+  }
+
+  private fun buildAuthorizationCompletedMyBankClosePaymentRequest(
+    authCompleted: BaseTransactionWithCompletedAuthorization,
+    transactionOutcome: ClosePaymentOutcome,
+    transactionId: TransactionId,
+    totalAmountEuro: BigDecimal,
+    feeEuro: BigDecimal,
+    closePaymentTransactionDetails: TransactionDetailsDto
+  ): Mono<MyBankClosePaymentRequestV2Dto> {
+    val email =
+      Mono.defer {
+        confidentialDataUtils
+          .decrypt(authCompleted.transactionActivatedData.email) { Email(it) }
+          .map { it.value }
+      }
+
+    val npgTransactionGatewayAuthorizationData =
+      authCompleted.transactionAuthorizationCompletedData.transactionGatewayAuthorizationData
+        as NpgTransactionGatewayAuthorizationData
+
+    val additionalPaymentInformations =
+      Mono.just(0)
+        .filter { transactionOutcome == ClosePaymentOutcome.OK }
+        .flatMap { email }
+        .map {
+          MyBankAdditionalPaymentInformationsDto().apply {
+            this.transactionId = npgTransactionGatewayAuthorizationData.operationId
+            this.mybankTransactionId = npgTransactionGatewayAuthorizationData.paymentEndToEndId
+            this.totalAmount = totalAmountEuro.toString()
+            this.fee = feeEuro.toString()
+            this.validationServiceId = npgTransactionGatewayAuthorizationData.validationServiceId
+            this.timestampOperation =
+              OffsetDateTime.parse(
+                authCompleted.transactionAuthorizationCompletedData.timestampOperation,
+                DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+            this.email = it
+          }
+        }
+        .map { Optional.of(it) }
+        .defaultIfEmpty(Optional.empty())
+
+    return additionalPaymentInformations.map {
+      MyBankClosePaymentRequestV2Dto().apply {
+        paymentTokens =
+          authCompleted.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken.value }
+        outcome = MyBankClosePaymentRequestV2Dto.OutcomeEnum.valueOf(transactionOutcome.name)
+        this.transactionId = transactionId.value()
+
+        if (transactionOutcome == ClosePaymentOutcome.OK) {
+          timestampOperation =
+            OffsetDateTime.parse(
+              authCompleted.transactionAuthorizationCompletedData.timestampOperation)
+          this.totalAmount = totalAmountEuro
+          this.fee = feeEuro
+          this.timestampOperation =
+            OffsetDateTime.parse(
+              authCompleted.transactionAuthorizationCompletedData.timestampOperation,
+              DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+          idPSP = authCompleted.transactionAuthorizationRequestData.pspId
+          paymentMethod = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
+          idBrokerPSP = authCompleted.transactionAuthorizationRequestData.brokerName
+          idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
+        }
+
+        this.additionalPaymentInformations = it.orElse(null)
+        transactionDetails = closePaymentTransactionDetails
+      }
     }
   }
 
@@ -367,5 +720,35 @@ class NodeService(
       is PgsTransactionGatewayAuthorizationData -> transactionGatewayAuthData.errorCode
       is NpgTransactionGatewayAuthorizationData -> transactionGatewayAuthData.errorCode
       is RedirectTransactionGatewayAuthorizationData -> transactionGatewayAuthData.errorCode
+    }
+
+  private fun buildUserInfo(
+    baseTransaction: BaseTransactionWithPaymentToken,
+    outcome: ClosePaymentOutcome
+  ): Mono<UserDto> =
+    when (baseTransaction.clientId) {
+      it.pagopa.ecommerce.commons.documents.v2.Transaction.ClientId.CHECKOUT,
+      it.pagopa.ecommerce.commons.documents.v2.Transaction.ClientId.CHECKOUT_CART ->
+        mono { UserDto().apply { type = UserDto.TypeEnum.GUEST } }
+      it.pagopa.ecommerce.commons.documents.v2.Transaction.ClientId.IO -> {
+        val userId = baseTransaction.transactionActivatedData.userId
+        if (userId != null) {
+          if (outcome == ClosePaymentOutcome.OK) {
+            confidentialDataUtils.decryptToken(userId).map {
+              UserDto().apply {
+                type = UserDto.TypeEnum.REGISTERED
+                fiscalCode = it
+              }
+            }
+          } else {
+            mono { UserDto().apply { type = UserDto.TypeEnum.REGISTERED } }
+          }
+        } else {
+          Mono.error(
+            RuntimeException(
+              "Invalid user id null for transaction with clientId: [${baseTransaction.clientId}]"))
+        }
+      }
+      else -> Mono.error(RuntimeException("Unhandled client id: [${baseTransaction.clientId}]"))
     }
 }
