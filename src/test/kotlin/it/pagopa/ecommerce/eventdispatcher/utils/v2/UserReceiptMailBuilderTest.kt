@@ -1,6 +1,7 @@
 package it.pagopa.ecommerce.eventdispatcher.utils.v2
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import it.pagopa.ecommerce.commons.documents.PaymentNotice
 import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationRequestData
 import it.pagopa.ecommerce.commons.documents.v2.TransactionClosureData
 import it.pagopa.ecommerce.commons.documents.v2.TransactionEvent
@@ -109,8 +110,8 @@ class UserReceiptMailBuilderTest {
                 ItemTemplate(
                   RefNumberTemplate(RefNumberTemplate.Type.CODICE_AVVISO, it.rptId.noticeId),
                   null,
-                  PayeeTemplate(TransactionTestUtils.RECEIVING_OFFICE_NAME, it.rptId.fiscalCode),
-                  TransactionTestUtils.PAYMENT_DESCRIPTION,
+                  PayeeTemplate(it.companyName.value, it.rptId.fiscalCode),
+                  it.transactionDescription.value,
                   userReceiptMailBuilder.amountToHumanReadableString(it.transactionAmount.value))
               },
               totalAmount),
@@ -204,8 +205,8 @@ class UserReceiptMailBuilderTest {
                 ItemTemplate(
                   RefNumberTemplate(RefNumberTemplate.Type.CODICE_AVVISO, it.rptId.noticeId),
                   null,
-                  PayeeTemplate(TransactionTestUtils.RECEIVING_OFFICE_NAME, it.rptId.fiscalCode),
-                  TransactionTestUtils.PAYMENT_DESCRIPTION,
+                  PayeeTemplate(it.companyName.value, it.rptId.fiscalCode),
+                  it.transactionDescription.value,
                   userReceiptMailBuilder.amountToHumanReadableString(it.transactionAmount.value))
               },
               totalAmount),
@@ -299,8 +300,8 @@ class UserReceiptMailBuilderTest {
                 ItemTemplate(
                   RefNumberTemplate(RefNumberTemplate.Type.CODICE_AVVISO, it.rptId.noticeId),
                   null,
-                  PayeeTemplate(TransactionTestUtils.RECEIVING_OFFICE_NAME, it.rptId.fiscalCode),
-                  TransactionTestUtils.PAYMENT_DESCRIPTION,
+                  PayeeTemplate(it.companyName.value, it.rptId.fiscalCode),
+                  it.transactionDescription.value,
                   userReceiptMailBuilder.amountToHumanReadableString(it.transactionAmount.value))
               },
               totalAmount),
@@ -436,5 +437,117 @@ class UserReceiptMailBuilderTest {
     val humanReadableDate =
       userReceiptMailBuilder.dateTimeToHumanReadableString(offsetDateTime, locale)
     assertEquals("01 gennaio 2023, 01:00:00", humanReadableDate)
+  }
+
+  @Test
+  fun `Should build success email for transaction with a cart`() = runTest {
+    /*
+     * Prerequisites
+     */
+    given(confidentialDataUtils.toEmail(any())).willReturn(Email(TransactionTestUtils.EMAIL_STRING))
+    val transactionActivatedEvent = TransactionTestUtils.transactionActivateEvent()
+    val paymentNotices = mutableListOf<PaymentNotice>()
+    repeat(5) {
+      paymentNotices.add(
+        PaymentNotice().apply {
+          paymentToken = UUID.randomUUID().toString().replace("-", "")
+          rptId = TransactionTestUtils.RPT_ID
+          description = "description_$it"
+          amount = it * 100
+          paymentContextCode = null
+          transferList = listOf()
+          isAllCCP = false
+          companyName = "companyName_$it"
+        })
+    }
+    transactionActivatedEvent.data.paymentNotices = paymentNotices
+    val events =
+      listOf<TransactionEvent<*>>(
+        transactionActivatedEvent as TransactionEvent<*>,
+        TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<*>,
+        TransactionTestUtils.transactionAuthorizationCompletedEvent(
+          PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
+          as TransactionEvent<*>,
+        TransactionTestUtils.transactionClosureRequestedEvent() as TransactionEvent<*>,
+        TransactionTestUtils.transactionClosedEvent(TransactionClosureData.Outcome.OK)
+          as TransactionEvent<*>,
+        TransactionTestUtils.transactionUserReceiptRequestedEvent(
+          TransactionTestUtils.transactionUserReceiptData(TransactionUserReceiptData.Outcome.OK)),
+      )
+    val baseTransaction =
+      TransactionTestUtils.reduceEvents(*events.toTypedArray())
+        as BaseTransactionWithRequestedUserReceipt
+    val totalAmountWithFeeString =
+      userReceiptMailBuilder.amountToHumanReadableString(
+        baseTransaction.paymentNotices.map { it.transactionAmount.value }.reduce { a, b -> a + b } +
+          baseTransaction.transactionAuthorizationRequestData.fee)
+
+    val totalAmount =
+      userReceiptMailBuilder.amountToHumanReadableString(
+        baseTransaction.paymentNotices.map { it.transactionAmount.value }.reduce { a, b -> a + b })
+    val feeString =
+      userReceiptMailBuilder.amountToHumanReadableString(
+        baseTransaction.transactionAuthorizationRequestData.fee)
+    val dateString =
+      userReceiptMailBuilder.dateTimeToHumanReadableString(
+        ZonedDateTime.parse(baseTransaction.transactionUserReceiptData.paymentDate),
+        Locale.forLanguageTag(TransactionTestUtils.LANGUAGE))
+    val successTemplateRequest =
+      NotificationsServiceClient.SuccessTemplateRequest(
+        TransactionTestUtils.EMAIL_STRING,
+        "Il riepilogo del tuo pagamento",
+        TransactionTestUtils.LANGUAGE,
+        SuccessTemplate(
+          TransactionTemplate(
+            baseTransaction.transactionId.value(),
+            dateString,
+            totalAmountWithFeeString,
+            PspTemplate(TransactionTestUtils.PSP_BUSINESS_NAME, FeeTemplate(feeString)),
+            baseTransaction.transactionAuthorizationCompletedData.rrn,
+            baseTransaction.transactionAuthorizationCompletedData.authorizationCode,
+            PaymentMethodTemplate(
+              TransactionTestUtils.PAYMENT_METHOD_DESCRIPTION,
+              TransactionTestUtils.LOGO_URI.toString(),
+              null,
+              false)),
+          UserTemplate(null, TransactionTestUtils.EMAIL_STRING),
+          CartTemplate(
+            baseTransaction.paymentNotices.map {
+              ItemTemplate(
+                RefNumberTemplate(RefNumberTemplate.Type.CODICE_AVVISO, it.rptId.noticeId),
+                null,
+                PayeeTemplate(it.companyName.value, it.rptId.fiscalCode),
+                it.transactionDescription.value,
+                userReceiptMailBuilder.amountToHumanReadableString(it.transactionAmount.value))
+            },
+            totalAmount),
+        ))
+    val expected =
+      NotificationEmailRequestDto()
+        .language(successTemplateRequest.language)
+        .subject(successTemplateRequest.subject)
+        .to(successTemplateRequest.to)
+        .templateId(NotificationsServiceClient.SuccessTemplateRequest.TEMPLATE_ID)
+        .parameters(successTemplateRequest.templateParameters)
+    /*
+     * Test
+     */
+    val notificationEmailRequest =
+      userReceiptMailBuilder.buildNotificationEmailRequestDto(baseTransaction)
+    /*
+     * Assertions
+     */
+    val objectMapper = ObjectMapper()
+    assertEquals(
+      objectMapper.writeValueAsString(expected),
+      objectMapper.writeValueAsString(notificationEmailRequest))
+    repeat(5) {
+      assertEquals(
+        "companyName_$it",
+        (notificationEmailRequest.parameters as SuccessTemplate).cart.items[it].payee.name)
+      assertEquals(
+        "description_$it",
+        (notificationEmailRequest.parameters as SuccessTemplate).cart.items[it].subject)
+    }
   }
 }
