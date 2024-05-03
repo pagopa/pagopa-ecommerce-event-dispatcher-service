@@ -299,6 +299,8 @@ fun patchAuthRequestByState(
                   authorizationCode =
                     stateResponseDto.operation!!.additionalData!!["authorizationCode"] as String?
                   rrn = stateResponseDto.operation!!.additionalData!!["rrn"] as String?
+                  validationServiceId =
+                    stateResponseDto.operation!!.additionalData!!["validationServiceId"] as String?
                 }
                 paymentEndToEndId = stateResponseDto.operation!!.paymentEndToEndId
               }
