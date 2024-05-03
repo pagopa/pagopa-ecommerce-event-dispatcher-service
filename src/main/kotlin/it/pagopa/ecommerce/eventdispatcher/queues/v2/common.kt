@@ -323,6 +323,16 @@ fun getTimeStampOperation(operationTime: String): OffsetDateTime {
   return zonedDateTime.toOffsetDateTime()
 }
 
+/*
+ * @formatter:off
+ *
+ * Warning kotlin:S107 - Functions should not have too many parameters
+ * Suppressed because the inner business logic is complex
+ * TODO: will refactor into separate functions down the line
+ *
+ * @formatter:on
+ */
+@SuppressWarnings("kotlin:S107")
 fun refundTransaction(
   tx: BaseTransaction,
   transactionsEventStoreRepository: TransactionsEventStoreRepository<TransactionRefundedData>,
@@ -799,6 +809,16 @@ fun updateNotificationErrorTransactionStatus(
     .flatMap { transactionUserReceiptRepository.save(event) }
 }
 
+/*
+ * @formatter:off
+ *
+ * Warning kotlin:S107 - Functions should not have too many parameters
+ * Suppressed because the inner business logic is complex
+ * TODO: will refactor into separate functions down the line
+ *
+ * @formatter:on
+ */
+@SuppressWarnings("kotlin:S107")
 fun notificationRefundTransactionPipeline(
   transaction: BaseTransactionWithRequestedUserReceipt,
   transactionsRefundedEventStoreRepository:
