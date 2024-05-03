@@ -301,6 +301,7 @@ fun patchAuthRequestByState(
                   rrn = stateResponseDto.operation!!.additionalData!!["rrn"] as String?
                   validationServiceId =
                     stateResponseDto.operation!!.additionalData!!["validationServiceId"] as String?
+                  errorCode = stateResponseDto.operation!!.additionalData!!["errorCode"] as String?
                 }
                 paymentEndToEndId = stateResponseDto.operation!!.paymentEndToEndId
               }
