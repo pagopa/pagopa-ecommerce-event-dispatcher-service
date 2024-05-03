@@ -670,6 +670,15 @@ fun getAuthorizationOutcome(tx: BaseTransaction): AuthorizationResultDto? =
     else -> null
   }
 
+/*
+ * @formatter:off
+ *
+ * Warning kotlin:S1871 - Two branches in a conditional structure should not have exactly the same implementation
+ * Suppressed because different branches correspond to different types and cannot be unified
+ *
+ * @formatter:on
+ */
+@SuppressWarnings("kotlin:S1871")
 fun getAuthorizationCompletedData(
   tx: BaseTransaction,
   authorizationStateRetrieverService: AuthorizationStateRetrieverService
