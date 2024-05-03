@@ -4,7 +4,10 @@ import com.azure.core.http.rest.Response
 import com.azure.core.http.rest.ResponseBase
 import com.azure.storage.queue.models.SendMessageResult
 import it.pagopa.ecommerce.commons.documents.v1.TransactionAuthorizationRequestData
+import it.pagopa.ecommerce.commons.documents.v2.Transaction
+import it.pagopa.ecommerce.commons.documents.v2.TransactionEvent
 import it.pagopa.ecommerce.commons.domain.TransactionId
+import it.pagopa.ecommerce.commons.domain.v2.TransactionEventCode
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.RefundResponseDto
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.ClosePaymentOutcome
@@ -17,6 +20,7 @@ import it.pagopa.generated.transactionauthrequests.v1.dto.TransactionInfoDto
 import it.pagopa.generated.transactionauthrequests.v1.dto.TransactionStatusDto
 import java.time.OffsetDateTime
 import java.util.*
+import org.junit.jupiter.api.Assertions
 import reactor.core.publisher.Mono
 
 fun getMockedCardClosePaymentRequest(
@@ -113,3 +117,18 @@ fun getMockedNpgRefundResponse(operationId: String?): RefundResponseDto {
 const val TRANSIENT_QUEUE_TTL_SECONDS = 30
 
 const val DEAD_LETTER_QUEUE_TTL_SECONDS = -1
+
+fun assertEventCodesEquals(
+  expectedEvents: List<TransactionEventCode>,
+  actual: List<TransactionEvent<*>>
+) {
+  Assertions.assertIterableEquals(
+    expectedEvents, actual.map { TransactionEventCode.valueOf(it.eventCode) })
+}
+
+fun assetTransactionStatusEquals(
+  expectedStatus: List<it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto>,
+  actual: List<Transaction>
+) {
+  Assertions.assertIterableEquals(expectedStatus, actual.map { it.status })
+}

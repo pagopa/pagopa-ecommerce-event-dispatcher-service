@@ -35,7 +35,7 @@ microservice-chart:
     create: true
   image:
     repository: pagopadcommonacr.azurecr.io/pagopaecommerceeventdispatcherservice
-    tag: "1.10.2"
+    tag: "1.11.0"
     pullPolicy: Always
   livenessProbe:
     httpGet:
@@ -74,10 +74,10 @@ microservice-chart:
   resources:
     requests:
       memory: "512Mi"
-      cpu: "200m"
+      cpu: "300m"
     limits:
       memory: "512Mi"
-      cpu: "200m"
+      cpu: "400m"
   autoscaling:
     minReplica: 1
     maxReplica: 2

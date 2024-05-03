@@ -12,6 +12,7 @@ import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.client.TransactionsServiceClient
+import it.pagopa.ecommerce.eventdispatcher.exceptions.*
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.*
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.AuthorizationStateRetrieverRetryService
@@ -79,7 +80,7 @@ class AuthorizationRequestedHelper(
         }
         .cast(BaseTransactionWithRequestedAuthorization::class.java)
         .flatMap { tx ->
-          handleGetState(
+          handleGetStateByPatchTransactionService(
             tx = tx,
             authorizationStateRetrieverRetryService = authorizationStateRetrieverRetryService,
             authorizationStateRetrieverService = authorizationStateRetrieverService,

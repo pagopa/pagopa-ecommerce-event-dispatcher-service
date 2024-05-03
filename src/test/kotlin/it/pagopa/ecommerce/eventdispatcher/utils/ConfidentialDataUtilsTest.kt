@@ -15,11 +15,11 @@ import org.mockito.kotlin.mock
 import reactor.core.publisher.Mono
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class ConfidentialMailUtilsTest {
+class ConfidentialDataUtilsTest {
 
   private val confidentialDataManager: ConfidentialDataManager = mock()
 
-  private val confidentialMailUtils = ConfidentialMailUtils(confidentialDataManager)
+  private val confidentialDataUtils = ConfidentialDataUtils(confidentialDataManager)
 
   @Test
   fun `Should decrypt email correctly`() = runTest {
@@ -32,7 +32,7 @@ class ConfidentialMailUtilsTest {
     /*
      * Test
      */
-    val email = confidentialMailUtils.toEmail(TransactionTestUtils.EMAIL)
+    val email = confidentialDataUtils.toEmail(TransactionTestUtils.EMAIL)
     /*
      * Assertions
      */
@@ -50,7 +50,7 @@ class ConfidentialMailUtilsTest {
     /*
      * Test
      */
-    val email = confidentialMailUtils.toEmail(TransactionTestUtils.EMAIL)
+    val email = confidentialDataUtils.toEmail(TransactionTestUtils.EMAIL)
     /*
      * Assertions
      */
@@ -68,6 +68,6 @@ class ConfidentialMailUtilsTest {
     /*
      * Test
      */
-    assertThrows<RuntimeException> { confidentialMailUtils.toEmail(TransactionTestUtils.EMAIL) }
+    assertThrows<RuntimeException> { confidentialDataUtils.toEmail(TransactionTestUtils.EMAIL) }
   }
 }

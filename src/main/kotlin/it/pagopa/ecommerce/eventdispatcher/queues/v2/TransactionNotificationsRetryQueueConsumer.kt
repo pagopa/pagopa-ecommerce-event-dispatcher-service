@@ -20,6 +20,7 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewReposito
 import it.pagopa.ecommerce.eventdispatcher.services.RefundService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.NotificationRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
+import it.pagopa.ecommerce.eventdispatcher.services.v2.AuthorizationStateRetrieverService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.ecommerce.eventdispatcher.utils.v2.UserReceiptMailBuilder
 import java.util.*
@@ -49,6 +50,7 @@ class TransactionNotificationsRetryQueueConsumer(
   @Autowired private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient,
   @Autowired private val tracingUtils: TracingUtils,
   @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider,
+  @Autowired private val authorizationStateRetrieverService: AuthorizationStateRetrieverService,
 ) {
   var logger: Logger =
     LoggerFactory.getLogger(TransactionNotificationsRetryQueueConsumer::class.java)
@@ -109,6 +111,7 @@ class TransactionNotificationsRetryQueueConsumer(
                     paymentGatewayClient,
                     refundService,
                     refundRetryService,
+                    authorizationStateRetrieverService,
                     tracingInfo)
                 }
             }
@@ -144,6 +147,7 @@ class TransactionNotificationsRetryQueueConsumer(
                         paymentGatewayClient,
                         refundService,
                         refundRetryService,
+                        authorizationStateRetrieverService,
                         tracingInfo))
                     .then()
                 }

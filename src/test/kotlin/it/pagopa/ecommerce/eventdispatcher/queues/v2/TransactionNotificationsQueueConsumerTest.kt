@@ -23,6 +23,7 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewReposito
 import it.pagopa.ecommerce.eventdispatcher.services.RefundService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.NotificationRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
+import it.pagopa.ecommerce.eventdispatcher.services.v2.AuthorizationStateRetrieverService
 import it.pagopa.ecommerce.eventdispatcher.utils.*
 import it.pagopa.ecommerce.eventdispatcher.utils.v2.UserReceiptMailBuilder
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
@@ -71,6 +72,7 @@ class TransactionNotificationsQueueConsumerTest {
   private val paymentGatewayClient: PaymentGatewayClient = mock()
   private val refundService: RefundService = mock()
   private val refundRetryService: RefundRetryService = mock()
+  private val authorizationStateRetrieverService: AuthorizationStateRetrieverService = mock()
 
   private val tracingUtils = TracingUtilsTests.getMock()
 
@@ -106,7 +108,9 @@ class TransactionNotificationsQueueConsumerTest {
       refundRetryService = refundRetryService,
       deadLetterTracedQueueAsyncClient = deadLetterTracedQueueAsyncClient,
       tracingUtils = tracingUtils,
-      strictSerializerProviderV2 = strictJsonSerializerProviderV2)
+      strictSerializerProviderV2 = strictJsonSerializerProviderV2,
+      authorizationStateRetrieverService = authorizationStateRetrieverService,
+    )
 
   @Test
   fun `Should successfully send user email for send payment result outcome OK`() = runTest {
@@ -788,9 +792,9 @@ class TransactionNotificationsQueueConsumerTest {
   @Test
   fun `Should set right value string to payee template name field when TransactionUserReceiptData receivingOfficeName is not null`() =
     runTest {
-      val confidentialMailUtils: ConfidentialMailUtils = mock()
-      given(confidentialMailUtils.toEmail(any())).willReturn(Email("to@to.it"))
-      val userReceiptBuilder = UserReceiptMailBuilder(confidentialMailUtils)
+      val confidentialDataUtils: ConfidentialDataUtils = mock()
+      given(confidentialDataUtils.toEmail(any())).willReturn(Email("to@to.it"))
+      val userReceiptBuilder = UserReceiptMailBuilder(confidentialDataUtils)
       val transactionUserReceiptData =
         TransactionUserReceiptData(
           TransactionUserReceiptData.Outcome.OK,
@@ -833,9 +837,9 @@ class TransactionNotificationsQueueConsumerTest {
   @Test
   fun `Should set empty string to payee template name field when TransactionUserReceiptData receivingOfficeName is null`() =
     runTest {
-      val confidentialMailUtils: ConfidentialMailUtils = mock()
-      given(confidentialMailUtils.toEmail(any())).willReturn(Email("to@to.it"))
-      val userReceiptBuilder = UserReceiptMailBuilder(confidentialMailUtils)
+      val confidentialDataUtils: ConfidentialDataUtils = mock()
+      given(confidentialDataUtils.toEmail(any())).willReturn(Email("to@to.it"))
+      val userReceiptBuilder = UserReceiptMailBuilder(confidentialDataUtils)
       val transactionUserReceiptData =
         TransactionUserReceiptData(
           TransactionUserReceiptData.Outcome.OK, "it-IT", PAYMENT_DATE, null, "paymentDescription")

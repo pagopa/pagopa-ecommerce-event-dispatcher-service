@@ -79,7 +79,7 @@ class AuthorizationStateRetrieverServiceTest {
             "Received HTTP error code from NPG: ${HttpStatus.INTERNAL_SERVER_ERROR}")),
         Arguments.of(
           Optional.empty<HttpStatus>(),
-          NpgBadRequestException(transactionId, "Unknown NPG HTTP response code")),
+          NpgResponseException("Error communicating with NPG", Optional.empty(), Error())),
       )
   }
 
