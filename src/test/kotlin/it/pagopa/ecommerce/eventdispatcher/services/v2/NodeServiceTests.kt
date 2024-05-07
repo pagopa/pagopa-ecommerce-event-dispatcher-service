@@ -1602,6 +1602,7 @@ class NodeServiceTests {
               timestampOperation = OffsetDateTime.parse(expectedTimestamp)
               this.fee = feeEuro.toString()
               this.totalAmount = totalAmountEuro.toString()
+              this.email = EMAIL_STRING
             }
         }
 
@@ -3164,6 +3165,7 @@ class NodeServiceTests {
               timestampOperation = OffsetDateTime.parse(expectedTimestamp)
               this.fee = feeEuro.toString()
               this.totalAmount = totalAmountEuro.toString()
+              this.email = EMAIL_STRING
             }
         }
 
@@ -3903,6 +3905,7 @@ class NodeServiceTests {
               timestampOperation = OffsetDateTime.parse(expectedTimestamp)
               this.fee = feeEuro.toString()
               this.totalAmount = totalAmountEuro.toString()
+              this.email = EMAIL_STRING
             }
         }
 
