@@ -796,16 +796,14 @@ class TransactionNotificationsQueueConsumerTest {
       given(confidentialDataUtils.toEmail(any())).willReturn(Email("to@to.it"))
       val userReceiptBuilder = UserReceiptMailBuilder(confidentialDataUtils)
       val transactionUserReceiptData =
-        TransactionUserReceiptData(
-          TransactionUserReceiptData.Outcome.OK,
-          "it-IT",
-          PAYMENT_DATE,
-          "testValue",
-          "paymentDescription")
+        TransactionUserReceiptData(TransactionUserReceiptData.Outcome.OK, "it-IT", PAYMENT_DATE)
+      val companyName = "testCompanyName"
+      val transactionActivatedEvent = transactionActivateEvent()
+      transactionActivatedEvent.data.paymentNotices.forEach { it.companyName = companyName }
       val notificationRequested = transactionUserReceiptRequestedEvent(transactionUserReceiptData)
       val events =
         listOf(
-          transactionActivateEvent(),
+          transactionActivatedEvent,
           transactionAuthorizationRequestedEvent(),
           transactionAuthorizationCompletedEvent(
             PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
@@ -825,7 +823,7 @@ class TransactionNotificationsQueueConsumerTest {
       val notificationEmailRequestDto =
         userReceiptBuilder.buildNotificationEmailRequestDto(baseTransaction)
       assertEquals(
-        "testValue",
+        companyName,
         (notificationEmailRequestDto.parameters as SuccessTemplate)
           .cart
           .items
@@ -841,12 +839,13 @@ class TransactionNotificationsQueueConsumerTest {
       given(confidentialDataUtils.toEmail(any())).willReturn(Email("to@to.it"))
       val userReceiptBuilder = UserReceiptMailBuilder(confidentialDataUtils)
       val transactionUserReceiptData =
-        TransactionUserReceiptData(
-          TransactionUserReceiptData.Outcome.OK, "it-IT", PAYMENT_DATE, null, "paymentDescription")
+        TransactionUserReceiptData(TransactionUserReceiptData.Outcome.OK, "it-IT", PAYMENT_DATE)
       val notificationRequested = transactionUserReceiptRequestedEvent(transactionUserReceiptData)
+      val transactionActivatedEvent = transactionActivateEvent()
+      transactionActivatedEvent.data.paymentNotices.forEach { it.companyName = null }
       val events =
         listOf(
-          transactionActivateEvent(),
+          transactionActivatedEvent,
           transactionAuthorizationRequestedEvent(),
           transactionAuthorizationCompletedEvent(
             PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
