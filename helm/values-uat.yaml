@@ -1,7 +1,7 @@
 microservice-chart:
   namespace: "ecommerce"
-  nameOverride: ""
-  fullnameOverride: ""
+  nameOverride: "b-pagopa-ecommerce-event-dispatcher"
+  fullnameOverride: "b-pagopaecommerceeventdispatcher"
   canaryDelivery:
     create: false
     ingress:
@@ -56,7 +56,7 @@ microservice-chart:
   ingress:
     create: true
     host: "weuuat.ecommerce.internal.uat.platform.pagopa.it"
-    path: /pagopa-ecommerce-event-dispatcher/(.*)
+    path: /beta/pagopa-ecommerce-event-dispatcher/(.*)
     servicePort: 9000
   serviceAccount:
     create: false
@@ -75,6 +75,14 @@ microservice-chart:
     limits:
       memory: "512Mi"
       cpu: "500m"
+  deployment:
+    create: true
+    replicas: 3
+  strategy:
+    type: "RollingUpdate"
+    rollingUpdate:
+      maxSurge: "100%"
+      maxUnavailable: "100%"
   autoscaling:
     minReplica: 1
     maxReplica: 2
@@ -94,20 +102,20 @@ microservice-chart:
           metricAggregationType: Count
           targetValue: "30"
   envConfig:
-    TRANSACTIONS_CLOSE_PAYMENT_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-close-payment-queue
-    TRANSACTIONS_CLOSE_PAYMENT_RETRY_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-close-payment-retry-queue
-    TRANSACTIONS_EXPIRATION_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-expiration-queue
-    TRANSACTIONS_REFUND_RETRY_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-refund-retry-queue
-    TRANSACTIONS_REFUND_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-refund-queue
-    TRANSACTIONS_NOTIFICATIONS_RETRY_QUEUE_NAME: pagopa-u-weu-ecommerce-transaction-notifications-retry-queue
-    TRANSACTIONS_NOTIFICATIONS_QUEUE_NAME: pagopa-u-weu-ecommerce-transaction-notifications-queue
-    TRANSACTIONS_DEAD_LETTER_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-dead-letter-queue
-    TRANSACTIONS_AUTHORIZATION_REQUESTED_QUEUE_NAME: pagopa-u-weu-ecommerce-transaction-auth-requested-queue
-    TRANSACTIONS_AUTHORIZATION_OUTCOME_WAITING_QUEUE_NAME: pagopa-u-weu-ecommerce-transaction-auth-outcome-waiting-queue
+    TRANSACTIONS_CLOSE_PAYMENT_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-close-payment-queue-b
+    TRANSACTIONS_CLOSE_PAYMENT_RETRY_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-close-payment-retry-queue-b
+    TRANSACTIONS_EXPIRATION_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-expiration-queue-b
+    TRANSACTIONS_REFUND_RETRY_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-refund-retry-queue-b
+    TRANSACTIONS_REFUND_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-refund-queue-b
+    TRANSACTIONS_NOTIFICATIONS_RETRY_QUEUE_NAME: pagopa-u-weu-ecommerce-transaction-notifications-retry-queue-b
+    TRANSACTIONS_NOTIFICATIONS_QUEUE_NAME: pagopa-u-weu-ecommerce-transaction-notifications-queue-b
+    TRANSACTIONS_DEAD_LETTER_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-dead-letter-queue-b
+    TRANSACTIONS_AUTHORIZATION_REQUESTED_QUEUE_NAME: pagopa-u-weu-ecommerce-transaction-auth-requested-queue-b
+    TRANSACTIONS_AUTHORIZATION_OUTCOME_WAITING_QUEUE_NAME: pagopa-u-weu-ecommerce-transaction-auth-outcome-waiting-queue-b
     PAYMENT_TRANSACTIONS_GATEWAY_URI: https://api.uat.platform.pagopa.it/payment-transactions-gateway/internal/v1
     PAYMENT_TRANSACTIONS_GATEWAY_READ_TIMEOUT: "10000"
     PAYMENT_TRANSACTIONS_GATEWAY_CONNECTION_TIMEOUT: "10000"
-    NODO_URI: https://api.uat.platform.pagopa.it/nodo/nodo-per-pm/v2
+    NODO_URI: https://api.uat.platform.pagopa.it/ecommerce/mock/nodoPerPM/v1
     NODO_READ_TIMEOUT: "14000"
     NODO_CONNECTION_TIMEOUT: "14000"
     NODO_ECOMMERCE_CLIENT_ID: ecomm
@@ -141,7 +149,7 @@ microservice-chart:
     TRANSACTIONS_SERVICE_URI: https://api.uat.platform.pagopa.it/ecommerce/transaction-auth-requests-service/v1
     TRANSACTIONS_SERVICE_READ_TIMEOUT: "10000"
     TRANSACTIONS_SERVICE_CONNECTION_TIMEOUT: "10000"
-    PERSONAL_DATA_VAULT_API_BASE_PATH: "https://api.uat.tokenizer.pdv.pagopa.it/tokenizer/v1"
+    PERSONAL_DATA_VAULT_API_BASE_PATH: "https://api.uat.platform.pagopa.it/ecommerce/mock/pdv/v1"
     OTEL_RESOURCE_ATTRIBUTES: "service.name=pagopa-ecommerce-event-dispatcher-service,service.deployment.environment=uat"
     OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.elastic-system.svc:4317"
     OTEL_EXPORTER_OTLP_PROTOCOL: grpc
@@ -151,7 +159,7 @@ microservice-chart:
     OTEL_TRACES_SAMPLER: "always_on"
     SEND_PAYMENT_RESULT_TIMEOUT_SECONDS: "3900"
     SEND_PAYMENT_RESULT_EXPIRATION_OFFSET_SECONDS: "5"
-    NPG_URI: https://stg-ta.nexigroup.com/api/phoenix-0.0
+    NPG_URI: https://api.dev.platform.pagopa.it/ecommerce/mock/npg/v1
     NPG_READ_TIMEOUT: "10000"
     NPG_CONNECTION_TIMEOUT: "10000"
     NPG_CARDS_PSP_LIST: "BCITITMM,CIPBITMM,BIC36019,UNCRITMM,BPPIITRRXXX,PPAYITR1XXX,BNLIITRR"
