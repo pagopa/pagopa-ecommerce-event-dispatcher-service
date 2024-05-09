@@ -150,7 +150,7 @@ microservice-chart:
     TRANSACTIONS_SERVICE_READ_TIMEOUT: "10000"
     TRANSACTIONS_SERVICE_CONNECTION_TIMEOUT: "10000"
     PERSONAL_DATA_VAULT_API_BASE_PATH: "https://api.uat.platform.pagopa.it/ecommerce/mock/pdv/v1"
-    OTEL_RESOURCE_ATTRIBUTES: "service.name=pagopa-ecommerce-event-dispatcher-service,service.deployment.environment=uat"
+    OTEL_RESOURCE_ATTRIBUTES: "service.name=pagopa-ecommerce-event-dispatcher-service-blue,service.deployment.environment=uat"
     OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.elastic-system.svc:4317"
     OTEL_EXPORTER_OTLP_PROTOCOL: grpc
     OTEL_TRACES_EXPORTER: otlp
@@ -166,13 +166,13 @@ microservice-chart:
     NPG_PAYPAL_PSP_LIST: "BCITITMM,SIGPITM1XXX"
     NPG_MYBANK_PSP_LIST: "BCITITMM"
     NPG_BANCOMATPAY_PSP_LIST: "BCITITMM"
-    ECS_SERVICE_NAME: pagopa-ecommerce-event-dispatcher-service
+    ECS_SERVICE_NAME: pagopa-ecommerce-event-dispatcher-service-blue
     ECS_SERVICE_ENVIRONMENT: uat
     REDIS_STREAM_EVENT_CONTROLLER_STREAM_KEY: "event-dispatcher-commands"
     REDIS_STREAM_EVENT_CONTROLLER_CONSUMER_GROUP_PREFIX: "event-dispatcher"
     REDIS_STREAM_EVENT_CONTROLLER_CONSUMER_NAME_PREFIX: "event-dispatcher"
     EVENT_CONTROLLER_STATUS_POLLING_CHRON: "*/10 * * * * *"
-    NODE_FORWARDER_URL: "https://api.uat.platform.pagopa.it/pagopa-node-forwarder/api/v1"
+    NODE_FORWARDER_URL: "https://api.uat.platform.pagopa.it/ecommerce/mock/node-forwader/v1/forward"
     NODE_FORWARDER_READ_TIMEOUT: "10000"
     NODE_FORWARDER_CONNECTION_TIMEOUT: "10000"
     REDIRECT_PAYMENT_TYPE_CODES: "BCITITMM-RPIC,POSOIT22XXX-RBPS,PPAYITR1XXX-RBPB,PPAYITR1XXX-RBPP,PPAYITR1XXX-RBPR,BPPIITRRXXX-RBPR,BPPIITRRXXX-RBPP,BPPIITRRXXX-RBPB"
