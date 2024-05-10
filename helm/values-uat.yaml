@@ -159,7 +159,7 @@ microservice-chart:
     OTEL_TRACES_SAMPLER: "always_on"
     SEND_PAYMENT_RESULT_TIMEOUT_SECONDS: "3900"
     SEND_PAYMENT_RESULT_EXPIRATION_OFFSET_SECONDS: "5"
-    NPG_URI: https://api.dev.platform.pagopa.it/ecommerce/mock/npg/v1
+    NPG_URI: https://api.uat.platform.pagopa.it/ecommerce/mock/npg/v1
     NPG_READ_TIMEOUT: "10000"
     NPG_CONNECTION_TIMEOUT: "10000"
     NPG_CARDS_PSP_LIST: "BCITITMM,CIPBITMM,BIC36019,UNCRITMM,BPPIITRRXXX,PPAYITR1XXX,BNLIITRR"
