@@ -646,7 +646,7 @@ class NodeService(
         .map {
           MyBankAdditionalPaymentInformationsDto().apply {
             this.transactionId = npgTransactionGatewayAuthorizationData.operationId
-            this.mybankTransactionId = npgTransactionGatewayAuthorizationData.paymentEndToEndId
+            this.myBankTransactionId = npgTransactionGatewayAuthorizationData.paymentEndToEndId
             this.totalAmount = totalAmountEuro.toString()
             this.fee = feeEuro.toString()
             this.validationServiceId = npgTransactionGatewayAuthorizationData.validationServiceId
