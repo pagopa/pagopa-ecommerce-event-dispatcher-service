@@ -301,6 +301,7 @@ fun patchAuthRequestByState(
                   rrn = stateResponseDto.operation!!.additionalData!!["rrn"] as String?
                   validationServiceId =
                     stateResponseDto.operation!!.additionalData!!["validationServiceId"] as String?
+                  errorCode = stateResponseDto.operation!!.additionalData!!["errorCode"] as String?
                 }
                 paymentEndToEndId = stateResponseDto.operation!!.paymentEndToEndId
               }
@@ -322,6 +323,16 @@ fun getTimeStampOperation(operationTime: String): OffsetDateTime {
   return zonedDateTime.toOffsetDateTime()
 }
 
+/*
+ * @formatter:off
+ *
+ * Warning kotlin:S107 - Functions should not have too many parameters
+ * Suppressed because the inner business logic is complex
+ * TODO: will refactor into separate functions down the line
+ *
+ * @formatter:on
+ */
+@SuppressWarnings("kotlin:S107")
 fun refundTransaction(
   tx: BaseTransaction,
   transactionsEventStoreRepository: TransactionsEventStoreRepository<TransactionRefundedData>,
@@ -659,6 +670,15 @@ fun getAuthorizationOutcome(tx: BaseTransaction): AuthorizationResultDto? =
     else -> null
   }
 
+/*
+ * @formatter:off
+ *
+ * Warning kotlin:S1871 - Two branches in a conditional structure should not have exactly the same implementation
+ * Suppressed because different branches correspond to different types and cannot be unified
+ *
+ * @formatter:on
+ */
+@SuppressWarnings("kotlin:S1871")
 fun getAuthorizationCompletedData(
   tx: BaseTransaction,
   authorizationStateRetrieverService: AuthorizationStateRetrieverService
@@ -798,6 +818,16 @@ fun updateNotificationErrorTransactionStatus(
     .flatMap { transactionUserReceiptRepository.save(event) }
 }
 
+/*
+ * @formatter:off
+ *
+ * Warning kotlin:S107 - Functions should not have too many parameters
+ * Suppressed because the inner business logic is complex
+ * TODO: will refactor into separate functions down the line
+ *
+ * @formatter:on
+ */
+@SuppressWarnings("kotlin:S107")
 fun notificationRefundTransactionPipeline(
   transaction: BaseTransactionWithRequestedUserReceipt,
   transactionsRefundedEventStoreRepository:
