@@ -11,10 +11,7 @@ import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v2.TransactionEventCode
 import it.pagopa.ecommerce.commons.domain.v2.TransactionWithClosureError
 import it.pagopa.ecommerce.commons.domain.v2.pojos.*
-import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
-import it.pagopa.ecommerce.commons.generated.npg.v1.dto.RefundResponseDto
-import it.pagopa.ecommerce.commons.generated.npg.v1.dto.StateResponseDto
-import it.pagopa.ecommerce.commons.generated.npg.v1.dto.WorkflowStateDto
+import it.pagopa.ecommerce.commons.generated.npg.v1.dto.*
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
@@ -698,38 +695,71 @@ fun getAuthorizationCompletedData(
     is BaseTransactionWithRequestedAuthorization ->
       if (tx.transactionAuthorizationRequestData.paymentGateway ==
         TransactionAuthorizationRequestData.PaymentGateway.NPG) {
-        getNpgTransactionAuthorizationData(tx, authorizationStateRetrieverService)
+        getAuthorizationData(tx, authorizationStateRetrieverService)
       } else Mono.empty()
     else -> Mono.empty()
   }
 
-private fun getNpgTransactionAuthorizationData(
-  trx: BaseTransaction,
+fun getAuthorizationData(
+  transaction: BaseTransaction,
   authorizationStateRetrieverService: AuthorizationStateRetrieverService
 ): Mono<TransactionGatewayAuthorizationData> {
-  return retrieveAuthorizationState(trx, authorizationStateRetrieverService).flatMap { stateResponse
-    ->
-    val operation = stateResponse.operation
-    val operationResult = operation?.operationResult
-    val operationId = operation?.operationId
-    logger.info(
-      "Performed get state for transaction with id: [{}], received operations state: [{}], operation result: [{}] and operation id: [{}]",
-      trx.transactionId.value(),
-      stateResponse.state,
-      operationResult,
-      operationId)
-    when {
-      operationResult == OperationResultDto.EXECUTED ->
-        operationId?.let {
-          NpgTransactionGatewayAuthorizationData(
-              operationResult, it, operation.paymentEndToEndId, null, null)
-            .toMono()
-        }
-          ?: Mono.error(InvalidNPGResponseException())
-      else -> Mono.empty()
+  return authorizationStateRetrieverService
+    .getOrder(transaction)
+    .doOnNext { order ->
+      logger.info(
+        "Performed get order for transaction with id: [{}], last operation result: [{}], operations: [{}]",
+        transaction.transactionId,
+        order.orderStatus?.lastOperationType,
+        order.operations?.joinToString { "${it.operationType}-${it.operationResult}" },
+      )
     }
-  }
+    .flatMap {
+      it.operations
+        ?.fold(NpgOrderOperations(null, null)) { a, b -> reduceOperations(a, b) }
+        ?.toMono()
+        ?: Mono.error(InvalidNPGResponseException())
+    }
+    .flatMap {
+      when {
+        it.refund != null -> {
+          logger.info(
+            "Transaction with id [{}] in refund state, ignoring it", transaction.transactionId)
+          Mono.empty()
+        }
+        it.authorization != null ->
+          it.authorization.operationId?.let { operationId ->
+            NpgTransactionGatewayAuthorizationData(
+                it.authorization.operationResult,
+                operationId,
+                it.authorization.paymentEndToEndId,
+                null,
+                null)
+              .toMono()
+          }
+            ?: Mono.error(InvalidNPGResponseException())
+        else -> Mono.empty()
+      }
+    }
 }
+
+private fun reduceOperations(
+  operations: NpgOrderOperations,
+  operation: OperationDto
+): NpgOrderOperations =
+  when {
+    operation.operationType == OperationTypeDto.AUTHORIZATION &&
+      operation.operationResult == OperationResultDto.EXECUTED ->
+      operations.copy(authorization = operation)
+    operation.operationType == OperationTypeDto.REFUND &&
+      operation.operationResult == OperationResultDto.VOIDED -> operations.copy(refund = operation)
+    else -> operations
+  }
+
+private data class NpgOrderOperations(
+  val authorization: OperationDto?,
+  val refund: OperationDto?
+) {}
 
 fun wasAuthorizationDenied(tx: BaseTransaction): Boolean =
   getAuthorizationOutcome(tx) == AuthorizationResultDto.KO

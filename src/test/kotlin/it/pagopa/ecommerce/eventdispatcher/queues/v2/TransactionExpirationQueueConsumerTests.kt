@@ -11,11 +11,7 @@ import it.pagopa.ecommerce.commons.documents.v2.authorization.PgsTransactionGate
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v2.TransactionEventCode
-import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationDto
-import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
-import it.pagopa.ecommerce.commons.generated.npg.v1.dto.RefundResponseDto
-import it.pagopa.ecommerce.commons.generated.npg.v1.dto.StateResponseDto
-import it.pagopa.ecommerce.commons.generated.npg.v1.dto.WorkflowStateDto
+import it.pagopa.ecommerce.commons.generated.npg.v1.dto.*
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
@@ -3293,14 +3289,15 @@ class TransactionExpirationQueueConsumerTests {
             npgTransactionGatewayAuthorizationRequestedData()))
       given(checkpointer.success()).willReturn(Mono.empty())
       setupTransactionStorageMock(events)
-      given { authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any(), any()) }
+      given { authorizationStateRetrieverService.getOrder(any()) }
         .willAnswer {
-          StateResponseDto()
-            .state(WorkflowStateDto.PAYMENT_COMPLETE)
-            .operation(
+          OrderResponseDto()
+            .orderStatus(OrderStatusDto().lastOperationType(OperationTypeDto.AUTHORIZATION))
+            .addOperationsItem(
               OperationDto()
                 .operationId(operationId)
                 .orderId(UUID.randomUUID().toString())
+                .operationType(OperationTypeDto.AUTHORIZATION)
                 .operationResult(OperationResultDto.EXECUTED)
                 .paymentEndToEndId(UUID.randomUUID().toString())
                 .operationTime(ZonedDateTime.now().toString()))
@@ -3369,14 +3366,15 @@ class TransactionExpirationQueueConsumerTests {
           transactionExpiredEvent(TransactionStatusDto.AUTHORIZATION_REQUESTED))
       setupTransactionStorageMock(events)
       given(checkpointer.success()).willReturn(Mono.empty())
-      given { authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any(), any()) }
+      given { authorizationStateRetrieverService.getOrder(any()) }
         .willAnswer {
-          StateResponseDto()
-            .state(WorkflowStateDto.PAYMENT_COMPLETE)
-            .operation(
+          OrderResponseDto()
+            .orderStatus(OrderStatusDto().lastOperationType(OperationTypeDto.AUTHORIZATION))
+            .addOperationsItem(
               OperationDto()
                 .operationId(operationId)
                 .orderId(UUID.randomUUID().toString())
+                .operationType(OperationTypeDto.AUTHORIZATION)
                 .operationResult(OperationResultDto.EXECUTED)
                 .paymentEndToEndId(UUID.randomUUID().toString())
                 .operationTime(ZonedDateTime.now().toString()))
@@ -3435,14 +3433,78 @@ class TransactionExpirationQueueConsumerTests {
             npgTransactionGatewayAuthorizationRequestedData()))
       setupTransactionStorageMock(events)
       given(checkpointer.success()).willReturn(Mono.empty())
-      given { authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any(), any()) }
+      given { authorizationStateRetrieverService.getOrder(any()) }
         .willAnswer {
-          StateResponseDto()
-            .state(WorkflowStateDto.PAYMENT_COMPLETE)
-            .operation(
+          OrderResponseDto()
+            .orderStatus(OrderStatusDto().lastOperationType(OperationTypeDto.AUTHORIZATION))
+            .addOperationsItem(
               OperationDto()
                 .orderId(UUID.randomUUID().toString())
+                .operationType(OperationTypeDto.AUTHORIZATION)
                 .operationResult(OperationResultDto.CANCELED)
+                .paymentEndToEndId(UUID.randomUUID().toString())
+                .operationTime(ZonedDateTime.now().toString()))
+            .toMono()
+        }
+
+      transactionExpirationQueueConsumer
+        .messageReceiver(
+          Either.right(
+            QueueEvent(
+              transactionExpiredEvent(TransactionStatusDto.AUTHORIZATION_REQUESTED),
+              MOCK_TRACING_INFO)),
+          checkpointer,
+          MessageHeaders(mapOf()),
+        )
+        .test()
+        .expectNext(Unit)
+        .verifyComplete()
+
+      verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
+      verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
+      verify(transactionsViewRepository, times(1)).save(any())
+
+      assertEventCodesEquals(
+        listOf(TransactionEventCode.TRANSACTION_EXPIRED_EVENT),
+        transactionExpiredEventStoreCaptor.allValues)
+      assetTransactionStatusEquals(
+        listOf(
+          TransactionStatusDto.EXPIRED,
+        ),
+        transactionViewRepositoryCaptor.allValues)
+      verify(refundService, times(0)).requestNpgRefund(any(), any(), any(), any(), any(), any())
+
+      verify(deadLetterTracedQueueAsyncClient, times(0))
+        .sendAndTraceDeadLetterQueueEvent(any(), any())
+      verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
+    }
+
+    @Test
+    fun `messageReceiver should not perform REFUND when NPG has already refund the transaction`() {
+      val events =
+        listOf(
+          transactionActivateEvent(npgTransactionGatewayActivationData()),
+          transactionAuthorizationRequestedEvent(
+            TransactionAuthorizationRequestData.PaymentGateway.NPG,
+            npgTransactionGatewayAuthorizationRequestedData()))
+      setupTransactionStorageMock(events)
+      given(checkpointer.success()).willReturn(Mono.empty())
+      given { authorizationStateRetrieverService.getOrder(any()) }
+        .willAnswer {
+          OrderResponseDto()
+            .orderStatus(OrderStatusDto().lastOperationType(OperationTypeDto.REFUND))
+            .addOperationsItem(
+              OperationDto()
+                .orderId(UUID.randomUUID().toString())
+                .operationType(OperationTypeDto.AUTHORIZATION)
+                .operationResult(OperationResultDto.AUTHORIZED)
+                .paymentEndToEndId(UUID.randomUUID().toString())
+                .operationTime(ZonedDateTime.now().toString()))
+            .addOperationsItem(
+              OperationDto()
+                .orderId(UUID.randomUUID().toString())
+                .operationType(OperationTypeDto.REFUND)
+                .operationResult(OperationResultDto.VOIDED)
                 .paymentEndToEndId(UUID.randomUUID().toString())
                 .operationTime(ZonedDateTime.now().toString()))
             .toMono()
@@ -3484,7 +3546,7 @@ class TransactionExpirationQueueConsumerTests {
     @MethodSource(
       "it.pagopa.ecommerce.eventdispatcher.queues.v2.TransactionExpirationQueueConsumerTests#manualCheckRequiredNPGResponses")
     fun `messageReceiver should require manual check refund for EXPIRED stuck transaction when NPG has inconsistent state or response`(
-      npgResponse: Either<Exception, StateResponseDto>
+      npgResponse: Either<Exception, OrderResponseDto>
     ) {
       val events =
         listOf(
@@ -3495,7 +3557,7 @@ class TransactionExpirationQueueConsumerTests {
           transactionExpiredEvent(TransactionStatusDto.EXPIRED))
       setupTransactionStorageMock(events)
       given(checkpointer.success()).willReturn(Mono.empty())
-      given { authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any(), any()) }
+      given { authorizationStateRetrieverService.getOrder(any()) }
         .willAnswer { npgResponse.fold({ Mono.error(it) }, { Mono.just(it) }) }
 
       val errorContextCaptor = argumentCaptor<DeadLetterTracedQueueAsyncClient.ErrorContext>()
@@ -3552,7 +3614,7 @@ class TransactionExpirationQueueConsumerTests {
     @MethodSource(
       "it.pagopa.ecommerce.eventdispatcher.queues.v2.TransactionExpirationQueueConsumerTests#manualCheckRequiredNPGResponses")
     fun `messageReceiver should require manual check refund for AUTHORIZATION_REQUESTED stuck transaction when NPG has inconsistent state or response`(
-      npgResponse: Either<Exception, StateResponseDto>
+      npgResponse: Either<Exception, OrderResponseDto>
     ) {
       val events =
         listOf(
@@ -3562,7 +3624,7 @@ class TransactionExpirationQueueConsumerTests {
             npgTransactionGatewayAuthorizationRequestedData()))
       setupTransactionStorageMock(events)
       given(checkpointer.success()).willReturn(Mono.empty())
-      given { authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any(), any()) }
+      given { authorizationStateRetrieverService.getOrder(any()) }
         .willAnswer { npgResponse.fold({ Mono.error(it) }, { Mono.just(it) }) }
 
       val errorContextCaptor = argumentCaptor<DeadLetterTracedQueueAsyncClient.ErrorContext>()
@@ -3627,7 +3689,7 @@ class TransactionExpirationQueueConsumerTests {
           transactionExpiredEvent(TransactionStatusDto.EXPIRED))
       setupTransactionStorageMock(events)
       given(checkpointer.success()).willReturn(Mono.empty())
-      given { authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any(), any()) }
+      given { authorizationStateRetrieverService.getOrder(any()) }
         .willAnswer { Mono.error<StateResponseDto>(NpgServerErrorException("Any 5xx error")) }
 
       given { refundRetryService.enqueueRetryEvent(any(), any(), any()) }.willAnswer { mono {} }
@@ -3691,13 +3753,14 @@ class TransactionExpirationQueueConsumerTests {
   companion object {
     @JvmStatic
     fun manualCheckRequiredNPGResponses(): Stream<Arguments> =
-      Stream.of<Either<Exception, StateResponseDto>>(
+      Stream.of<Either<Exception, OrderResponseDto>>(
           Either.right(
-            StateResponseDto() // executed without operationId
-              .state(WorkflowStateDto.PAYMENT_COMPLETE)
-              .operation(
+            OrderResponseDto() // executed without operationId
+              .orderStatus(OrderStatusDto().lastOperationType(OperationTypeDto.AUTHORIZATION))
+              .addOperationsItem(
                 OperationDto()
                   .orderId(UUID.randomUUID().toString())
+                  .operationType(OperationTypeDto.AUTHORIZATION)
                   .operationResult(OperationResultDto.EXECUTED)
                   .paymentEndToEndId(UUID.randomUUID().toString())
                   .operationTime(ZonedDateTime.now().toString()))),
