@@ -121,6 +121,14 @@ stages:
                     script: |
                       helm repo add microservice-chart https://pagopa.github.io/aks-microservice-chart-blueprint
                       helm dep build helm
+                - task: Kubernetes@1
+                  displayName: (workaround) Delete old beta deployment
+                  inputs:
+                    kubernetesServiceEndpoint: $(DEV_KUBERNETES_SERVICE_CONN)
+                    kubernetesCluster: $(kubernetesCluster)
+                    namespace: ecommerce
+                    command: delete
+                    arguments: deployment beta-pagopaecommerceeventdispatcherservice-microservice-chart
                 - template: azure-templates/helm-microservice-chart-deploy.yml
                   parameters:
                     DO_DEPLOY: true
