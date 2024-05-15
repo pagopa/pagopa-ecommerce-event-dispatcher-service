@@ -1,5 +1,6 @@
 package it.pagopa.ecommerce.eventdispatcher.config
 
+import com.azure.core.http.netty.NettyAsyncHttpClientBuilder
 import com.azure.core.util.serializer.JsonSerializer
 import com.azure.storage.queue.QueueAsyncClient
 import com.azure.storage.queue.QueueClientBuilder
@@ -10,6 +11,7 @@ import it.pagopa.ecommerce.commons.queues.mixin.serialization.v2.QueueEventMixIn
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import reactor.netty.http.client.HttpClient
 
 @Configuration
 class QueuesProducerConfig {
@@ -90,5 +92,6 @@ class QueuesProducerConfig {
     QueueClientBuilder()
       .connectionString(storageConnectionString)
       .queueName(queueName)
+      .httpClient(NettyAsyncHttpClientBuilder(HttpClient.create().resolver { it.ndots(1) }).build())
       .buildAsyncClient()
 }

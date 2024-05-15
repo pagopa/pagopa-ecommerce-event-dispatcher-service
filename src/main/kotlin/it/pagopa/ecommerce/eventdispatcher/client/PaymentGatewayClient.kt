@@ -47,6 +47,7 @@ class PaymentGatewayClient {
   ): PaymentServicesApi {
     val httpClient =
       HttpClient.create()
+        .resolver { it.ndots(1) }
         .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, npgWebClientConnectionTimeout)
         .doOnConnected { connection: Connection ->
           connection.addHandlerLast(
