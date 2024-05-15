@@ -29,6 +29,7 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewReposito
 import it.pagopa.ecommerce.eventdispatcher.services.RefundService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.AuthorizationStateRetrieverService
+import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgService
 import it.pagopa.ecommerce.eventdispatcher.utils.*
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import java.time.Duration
@@ -137,7 +138,7 @@ class TransactionExpirationQueueConsumerTests {
       transientQueueTTLSeconds = TRANSIENT_QUEUE_TTL_SECONDS,
       tracingUtils = tracingUtils,
       strictSerializerProviderV2 = strictJsonSerializerProviderV2,
-      authorizationStateRetrieverService = authorizationStateRetrieverService,
+      npgService = NpgService(authorizationStateRetrieverService),
     )
 
   @Test

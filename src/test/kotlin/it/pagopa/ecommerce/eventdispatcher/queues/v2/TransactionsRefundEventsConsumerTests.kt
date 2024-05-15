@@ -27,6 +27,7 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewReposito
 import it.pagopa.ecommerce.eventdispatcher.services.RefundService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.AuthorizationStateRetrieverService
+import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
@@ -62,7 +63,7 @@ import reactor.test.StepVerifier
 class TransactionsRefundEventsConsumerTests {
   private val checkpointer: Checkpointer = mock()
 
-  private val authorizationStateRetrieverService: AuthorizationStateRetrieverService = mock()
+  private val npgService: NpgService = NpgService(mock<AuthorizationStateRetrieverService>())
 
   private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any> = mock()
 
@@ -100,7 +101,7 @@ class TransactionsRefundEventsConsumerTests {
       deadLetterTracedQueueAsyncClient = deadLetterTracedQueueAsyncClient,
       tracingUtils = tracingUtils,
       strictSerializerProviderV2 = strictJsonSerializerProviderV2,
-      authorizationStateRetrieverService = authorizationStateRetrieverService,
+      npgService = npgService,
     )
 
   private val jsonSerializerV2 = strictJsonSerializerProviderV2.createInstance()
@@ -1309,7 +1310,7 @@ class TransactionsRefundEventsConsumerTests {
     val transaction = reduceEvents(*events.toTypedArray()) as BaseTransactionWithRefundRequested
 
     assertEquals(
-      getAuthorizationCompletedData(transaction, authorizationStateRetrieverService).block(),
+      getAuthorizationCompletedData(transaction, npgService).block(),
       transactionGatewayAuthorizationData)
   }
 
@@ -1335,7 +1336,7 @@ class TransactionsRefundEventsConsumerTests {
         reduceEvents(*events.toTypedArray()) as BaseTransactionWithCompletedAuthorization
 
       assertEquals(
-        getAuthorizationCompletedData(transaction, authorizationStateRetrieverService).block(),
+        getAuthorizationCompletedData(transaction, npgService).block(),
         transactionGatewayAuthorizationData)
     }
 
@@ -1367,7 +1368,7 @@ class TransactionsRefundEventsConsumerTests {
     val transaction = reduceEvents(*events.toTypedArray()) as BaseTransactionWithClosureError
 
     assertEquals(
-      getAuthorizationCompletedData(transaction, authorizationStateRetrieverService).block(),
+      getAuthorizationCompletedData(transaction, npgService).block(),
       transactionGatewayAuthorizationData)
   }
 
@@ -1397,7 +1398,7 @@ class TransactionsRefundEventsConsumerTests {
     val transaction = reduceEvents(*events.toTypedArray()) as BaseTransactionExpired
 
     assertEquals(
-      getAuthorizationCompletedData(transaction, authorizationStateRetrieverService).block(),
+      getAuthorizationCompletedData(transaction, npgService).block(),
       transactionGatewayAuthorizationData)
   }
 
@@ -1415,8 +1416,7 @@ class TransactionsRefundEventsConsumerTests {
       val transaction =
         reduceEvents(*events.toTypedArray()) as BaseTransactionWithRequestedAuthorization
 
-      assertNull(
-        getAuthorizationCompletedData(transaction, authorizationStateRetrieverService).block())
+      assertNull(getAuthorizationCompletedData(transaction, npgService).block())
     }
 
   @Test

@@ -18,7 +18,7 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRe
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.RefundService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
-import it.pagopa.ecommerce.eventdispatcher.services.v2.AuthorizationStateRetrieverService
+import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -44,7 +44,7 @@ class TransactionsRefundQueueConsumer(
   @Autowired private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient,
   @Autowired private val tracingUtils: TracingUtils,
   @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider,
-  @Autowired private val authorizationStateRetrieverService: AuthorizationStateRetrieverService,
+  @Autowired private val npgService: NpgService,
 ) {
 
   var logger: Logger = LoggerFactory.getLogger(TransactionsRefundQueueConsumer::class.java)
@@ -86,7 +86,7 @@ class TransactionsRefundQueueConsumer(
             paymentGatewayClient,
             refundService,
             refundRetryService,
-            authorizationStateRetrieverService,
+            npgService,
             tracingInfo,
           )
         }

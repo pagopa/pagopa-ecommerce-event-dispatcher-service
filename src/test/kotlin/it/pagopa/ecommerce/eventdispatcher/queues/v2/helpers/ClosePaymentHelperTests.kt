@@ -29,6 +29,7 @@ import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.ClosureRetrySe
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.AuthorizationStateRetrieverService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.NodeService
+import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
@@ -127,7 +128,7 @@ class ClosePaymentHelperTests {
       tracingUtils = tracingUtils,
       paymentRequestInfoRedisTemplateWrapper = paymentRequestInfoRedisTemplateWrapper,
       strictSerializerProviderV2 = strictJsonSerializerProviderV2,
-      authorizationStateRetrieverService = authorizationStateRetrieverService,
+      npgService = NpgService(authorizationStateRetrieverService),
     )
 
   @Test

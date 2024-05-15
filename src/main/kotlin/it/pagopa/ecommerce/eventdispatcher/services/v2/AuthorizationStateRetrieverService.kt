@@ -5,7 +5,6 @@ import it.pagopa.ecommerce.commons.client.NpgClient.PaymentMethod
 import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationRequestData
 import it.pagopa.ecommerce.commons.documents.v2.activation.NpgTransactionGatewayActivationData
 import it.pagopa.ecommerce.commons.domain.TransactionId
-import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithRequestedAuthorization
 import it.pagopa.ecommerce.commons.exceptions.NpgResponseException
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OrderResponseDto
@@ -57,10 +56,9 @@ class AuthorizationStateRetrieverService(
   }
 
   fun getOrder(
-    trx: BaseTransaction,
+    trx: BaseTransactionWithRequestedAuthorization,
   ): Mono<OrderResponseDto> {
     return Mono.just(trx)
-      .cast(BaseTransactionWithRequestedAuthorization::class.java)
       .filter { transaction ->
         transaction.transactionAuthorizationRequestData.paymentGateway ==
           TransactionAuthorizationRequestData.PaymentGateway.NPG
