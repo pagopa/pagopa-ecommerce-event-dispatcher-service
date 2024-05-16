@@ -24,6 +24,10 @@ data class NgpOrderAuthorized(
 
 data class NpgOrderRefunded(val refundOperation: OperationDto) : NpgOrderStatus
 
+data class NgpOrderNotAuthorized(
+  val operation: OperationDto,
+) : NpgOrderStatus
+
 @Service
 class NpgService(
   private val authorizationStateRetrieverService: AuthorizationStateRetrieverService
@@ -41,6 +45,11 @@ class NpgService(
             "Transaction with id [{}] in refund state, doing nothing", transaction.transactionId)
           Mono.empty()
         }
+        is NgpOrderNotAuthorized -> {
+          logger.info(
+            "Transaction with id [{}] not authorized, doing nothing", transaction.transactionId)
+          Mono.empty()
+        }
         is NgpOrderAuthorized ->
           it.authorization.operationId?.let { operationId ->
             NpgTransactionGatewayAuthorizationData(
@@ -52,9 +61,11 @@ class NpgService(
               .toMono()
           }
             ?: Mono.error(InvalidNPGResponseException())
-        is UnknownNpgOrderStatus ->
-          if (it.order.operations.isNullOrEmpty()) Mono.error(InvalidNPGResponseException())
-          else Mono.empty()
+        is UnknownNpgOrderStatus -> {
+          logger.error(
+            "Cannot establish Npg Order status for transaction [{}]", transaction.transactionId)
+          Mono.error(InvalidNPGResponseException())
+        }
       }
     }
   }
@@ -86,6 +97,10 @@ class NpgService(
     operation: OperationDto
   ): NpgOrderStatus =
     when {
+      operation.operationType == OperationTypeDto.AUTHORIZATION &&
+        operation.operationResult != OperationResultDto.EXECUTED &&
+        orderState !is NpgOrderRefunded &&
+        orderState !is NgpOrderAuthorized -> NgpOrderNotAuthorized(operation)
       operation.operationType == OperationTypeDto.AUTHORIZATION &&
         operation.operationResult == OperationResultDto.EXECUTED &&
         orderState !is NpgOrderRefunded -> NgpOrderAuthorized(operation)
