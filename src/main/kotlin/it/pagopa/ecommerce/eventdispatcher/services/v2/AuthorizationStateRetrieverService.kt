@@ -19,6 +19,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
+import reactor.kotlin.core.publisher.switchIfEmpty
 
 @Service
 class AuthorizationStateRetrieverService(
@@ -63,7 +64,12 @@ class AuthorizationStateRetrieverService(
         transaction.transactionAuthorizationRequestData.paymentGateway ==
           TransactionAuthorizationRequestData.PaymentGateway.NPG
       }
-      .switchIfEmpty(Mono.error(InvalidNPGPaymentGatewayException(trx.transactionId)))
+      .switchIfEmpty {
+        logger.info(
+          "Trying get order for invalid payment gateway: [{}]",
+          trx.transactionAuthorizationRequestData.paymentGateway.name)
+        Mono.error(InvalidNPGPaymentGatewayException(trx.transactionId))
+      }
       .flatMap { transaction ->
         val activationData =
           (transaction.transactionActivatedData.transactionGatewayActivationData
@@ -86,6 +92,14 @@ class AuthorizationStateRetrieverService(
     correlationId: String,
     paymentMethod: PaymentMethod
   ): Mono<OrderResponseDto> {
+    logger.info(
+      "Performing get order for transaction with id: [{}], orderId [{}], pspId: [{}], correlationId: [{}], paymentMethod: [{}]",
+      transactionId.value(),
+      orderId,
+      pspId,
+      correlationId,
+      paymentMethod.serviceName,
+    )
     return npgApiKeyConfiguration[paymentMethod, pspId].fold(
       { ex -> Mono.error(ex) },
       { apiKey ->
