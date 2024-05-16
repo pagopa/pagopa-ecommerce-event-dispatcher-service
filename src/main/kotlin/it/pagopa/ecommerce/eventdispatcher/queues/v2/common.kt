@@ -464,7 +464,7 @@ private fun refundTransactionNPG(
     }
     .onErrorMap({ error ->
       error is InvalidNPGResponseException || error is NpgBadRequestException
-    },) {
+    }) {
       RefundError.UnexpectedPaymentGatewayResponse(
         transaction.transactionId, "Failed to get authorization data from NPG payment gateway")
     }

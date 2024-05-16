@@ -38,13 +38,8 @@ class NpgService(
   fun getAuthorizationDataFromNpgOrder(
     transaction: BaseTransactionWithRequestedAuthorization
   ): Mono<TransactionGatewayAuthorizationData> {
-    return getNpgOrderStatus(transaction, authorizationStateRetrieverService).flatMap {
+    return getNpgOrderStatus(transaction).flatMap {
       when (it) {
-        is NpgOrderRefunded -> {
-          logger.info(
-            "Transaction with id [{}] in refund state, doing nothing", transaction.transactionId)
-          Mono.empty()
-        }
         is NgpOrderNotAuthorized -> {
           logger.info(
             "Transaction with id [{}] not authorized, doing nothing", transaction.transactionId)
@@ -61,6 +56,11 @@ class NpgService(
               .toMono()
           }
             ?: Mono.error(InvalidNPGResponseException())
+        is NpgOrderRefunded -> {
+          logger.info(
+            "Unexpected order refunded for transaction with id [{}]", transaction.transactionId)
+          Mono.error(InvalidNPGResponseException())
+        }
         is UnknownNpgOrderStatus -> {
           logger.error(
             "Cannot establish Npg Order status for transaction [{}]", transaction.transactionId)
@@ -71,8 +71,7 @@ class NpgService(
   }
 
   fun getNpgOrderStatus(
-    transaction: BaseTransactionWithRequestedAuthorization,
-    authorizationStateRetrieverService: AuthorizationStateRetrieverService
+    transaction: BaseTransactionWithRequestedAuthorization
   ): Mono<NpgOrderStatus> {
     return authorizationStateRetrieverService
       .getOrder(transaction)
