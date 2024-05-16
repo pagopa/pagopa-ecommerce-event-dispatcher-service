@@ -3480,7 +3480,9 @@ class TransactionExpirationQueueConsumerTests {
       verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
     }
 
-    @Test
+    @ParameterizedTest()
+    @MethodSource(
+      "it.pagopa.ecommerce.eventdispatcher.queues.v2.TransactionExpirationQueueConsumerTests#npgAlreadyRefundResponses")
     fun `messageReceiver should not perform REFUND when NPG has already refund the transaction`() {
       val events =
         listOf(
@@ -3776,6 +3778,43 @@ class TransactionExpirationQueueConsumerTests {
             NpgBadRequestException(TransactionId(TRANSACTION_ID), "N/A")), // 4xx error code
           Either.left(InvalidNPGResponseException()), // a generic invalid response
         )
+        .map { Arguments.of(it) }
+
+    @JvmStatic
+    fun npgAlreadyRefundResponses(): Stream<Arguments> =
+      Stream.of(
+          OrderResponseDto()
+            .orderStatus(OrderStatusDto().lastOperationType(OperationTypeDto.REFUND))
+            .addOperationsItem(
+              OperationDto()
+                .orderId(UUID.randomUUID().toString())
+                .operationType(OperationTypeDto.AUTHORIZATION)
+                .operationResult(OperationResultDto.AUTHORIZED)
+                .paymentEndToEndId(UUID.randomUUID().toString())
+                .operationTime(ZonedDateTime.now().toString()))
+            .addOperationsItem(
+              OperationDto()
+                .orderId(UUID.randomUUID().toString())
+                .operationType(OperationTypeDto.REFUND)
+                .operationResult(OperationResultDto.VOIDED)
+                .paymentEndToEndId(UUID.randomUUID().toString())
+                .operationTime(ZonedDateTime.now().toString())),
+          OrderResponseDto()
+            .orderStatus(OrderStatusDto().lastOperationType(OperationTypeDto.REFUND))
+            .addOperationsItem(
+              OperationDto()
+                .orderId(UUID.randomUUID().toString())
+                .operationType(OperationTypeDto.REFUND)
+                .operationResult(OperationResultDto.VOIDED)
+                .paymentEndToEndId(UUID.randomUUID().toString())
+                .operationTime(ZonedDateTime.now().toString()))
+            .addOperationsItem(
+              OperationDto()
+                .orderId(UUID.randomUUID().toString())
+                .operationType(OperationTypeDto.AUTHORIZATION)
+                .operationResult(OperationResultDto.AUTHORIZED)
+                .paymentEndToEndId(UUID.randomUUID().toString())
+                .operationTime(ZonedDateTime.now().toString())))
         .map { Arguments.of(it) }
   }
 }
