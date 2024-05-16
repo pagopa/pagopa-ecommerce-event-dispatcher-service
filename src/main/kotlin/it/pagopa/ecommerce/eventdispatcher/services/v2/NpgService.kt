@@ -14,6 +14,16 @@ import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toMono
 
+sealed interface NpgOrderStatus
+
+data class UnknownNpgOrderStatus(val order: OrderResponseDto) : NpgOrderStatus
+
+data class NgpOrderAuthorized(
+  val authorization: OperationDto,
+) : NpgOrderStatus
+
+data class NpgOrderRefunded(val refundOperation: OperationDto) : NpgOrderStatus
+
 @Service
 class NpgService(
   private val authorizationStateRetrieverService: AuthorizationStateRetrieverService
@@ -83,14 +93,4 @@ class NpgService(
         operation.operationResult == OperationResultDto.VOIDED -> NpgOrderRefunded(operation)
       else -> orderState
     }
-
-  sealed interface NpgOrderStatus
-
-  data class UnknownNpgOrderStatus(val order: OrderResponseDto) : NpgOrderStatus
-
-  data class NgpOrderAuthorized(
-    val authorization: OperationDto,
-  ) : NpgOrderStatus
-
-  data class NpgOrderRefunded(val refundOperation: OperationDto) : NpgOrderStatus
 }
