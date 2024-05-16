@@ -3765,6 +3765,13 @@ class TransactionExpirationQueueConsumerTests {
                   .operationResult(OperationResultDto.EXECUTED)
                   .paymentEndToEndId(UUID.randomUUID().toString())
                   .operationTime(ZonedDateTime.now().toString()))),
+          Either.right(
+            OrderResponseDto()
+              .orderStatus(OrderStatusDto().lastOperationType(OperationTypeDto.AUTHORIZATION))),
+          Either.right(
+            OrderResponseDto()
+              .orderStatus(OrderStatusDto().lastOperationType(OperationTypeDto.AUTHORIZATION))
+              .operations(emptyList())),
           Either.left(
             NpgBadRequestException(TransactionId(TRANSACTION_ID), "N/A")), // 4xx error code
           Either.left(InvalidNPGResponseException()), // a generic invalid response

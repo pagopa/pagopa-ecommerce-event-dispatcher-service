@@ -42,7 +42,9 @@ class NpgService(
               .toMono()
           }
             ?: Mono.error(InvalidNPGResponseException())
-        else -> Mono.empty()
+        is UnknownNpgOrderStatus ->
+          if (it.order.operations.isNullOrEmpty()) Mono.error(InvalidNPGResponseException())
+          else Mono.empty()
       }
     }
   }
