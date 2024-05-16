@@ -3483,7 +3483,9 @@ class TransactionExpirationQueueConsumerTests {
     @ParameterizedTest()
     @MethodSource(
       "it.pagopa.ecommerce.eventdispatcher.queues.v2.TransactionExpirationQueueConsumerTests#npgAlreadyRefundResponses")
-    fun `messageReceiver should not perform REFUND when NPG has already refund the transaction`() {
+    fun `messageReceiver should not perform REFUND when NPG has already refund the transaction`(
+      orderResponseDto: OrderResponseDto
+    ) {
       val events =
         listOf(
           transactionActivateEvent(npgTransactionGatewayActivationData()),
@@ -3493,25 +3495,7 @@ class TransactionExpirationQueueConsumerTests {
       setupTransactionStorageMock(events)
       given(checkpointer.success()).willReturn(Mono.empty())
       given { authorizationStateRetrieverService.getOrder(any()) }
-        .willAnswer {
-          OrderResponseDto()
-            .orderStatus(OrderStatusDto().lastOperationType(OperationTypeDto.REFUND))
-            .addOperationsItem(
-              OperationDto()
-                .orderId(UUID.randomUUID().toString())
-                .operationType(OperationTypeDto.AUTHORIZATION)
-                .operationResult(OperationResultDto.AUTHORIZED)
-                .paymentEndToEndId(UUID.randomUUID().toString())
-                .operationTime(ZonedDateTime.now().toString()))
-            .addOperationsItem(
-              OperationDto()
-                .orderId(UUID.randomUUID().toString())
-                .operationType(OperationTypeDto.REFUND)
-                .operationResult(OperationResultDto.VOIDED)
-                .paymentEndToEndId(UUID.randomUUID().toString())
-                .operationTime(ZonedDateTime.now().toString()))
-            .toMono()
-        }
+        .willAnswer { orderResponseDto.toMono() }
 
       transactionExpirationQueueConsumer
         .messageReceiver(
