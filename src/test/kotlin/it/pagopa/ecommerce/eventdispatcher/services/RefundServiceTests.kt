@@ -276,7 +276,7 @@ class RefundServiceTests {
           pspId = pspId,
           correlationId = correlationId,
           paymentMethod = NpgClient.PaymentMethod.CARDS))
-      .expectError(RefundNotAllowedException::class.java)
+      .expectError(NpgResponseException::class.java)
       .verify()
     verify(npgClient, times(1))
       .refundPayment(any(), eq(operationId), eq(idempotenceKey), eq(amount), eq("pspKey1"), any())

@@ -1,5 +1,6 @@
 package it.pagopa.ecommerce.eventdispatcher.exceptions
 
+import it.pagopa.ecommerce.commons.documents.v2.authorization.TransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 
@@ -8,10 +9,17 @@ sealed class RefundError : Exception() {
     val transactionId: TransactionId,
     override val message: String
   ) : RefundError()
+
+  data class RefundFailed(
+    val transactionId: TransactionId,
+    val authorizationData: TransactionGatewayAuthorizationData,
+    override val message: String
+  ) : RefundError()
 }
 
-fun RefundError.toDeadLetterErrorCategory() =
+fun RefundError.toDeadLetterErrorCategory(): DeadLetterTracedQueueAsyncClient.ErrorCategory? =
   when (this) {
     is RefundError.UnexpectedPaymentGatewayResponse ->
       DeadLetterTracedQueueAsyncClient.ErrorCategory.REFUND_MANUAL_CHECK_REQUIRED
+    is RefundError.RefundFailed -> null
   }
