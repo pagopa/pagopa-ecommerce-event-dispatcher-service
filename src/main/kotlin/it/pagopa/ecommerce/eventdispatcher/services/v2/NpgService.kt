@@ -119,7 +119,7 @@ class NpgService(
   companion object {
     private val IS_AUTHORIZED: (OperationDto) -> Boolean = {
       it.operationType == OperationTypeDto.AUTHORIZATION &&
-        it.operationResult != OperationResultDto.EXECUTED
+        it.operationResult == OperationResultDto.EXECUTED
     }
     private val IS_REFUNDED: (OperationDto) -> Boolean = {
       it.operationType == OperationTypeDto.REFUND && it.operationResult == OperationResultDto.VOIDED
