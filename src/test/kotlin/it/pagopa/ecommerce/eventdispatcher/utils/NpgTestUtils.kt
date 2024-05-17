@@ -21,11 +21,3 @@ fun npgAuthorizedOperation(operationId: String, paymentEndToEndId: String) =
     .operationResult(OperationResultDto.EXECUTED)
     .paymentEndToEndId(paymentEndToEndId)
     .operationTime(ZonedDateTime.now().toString())
-
-fun npgRefundOperation(operationId: String, paymentEndToEndId: String) =
-  OperationDto()
-    .orderId(operationId)
-    .operationType(OperationTypeDto.REFUND)
-    .operationResult(OperationResultDto.VOIDED)
-    .paymentEndToEndId(paymentEndToEndId)
-    .operationTime(ZonedDateTime.now().toString())

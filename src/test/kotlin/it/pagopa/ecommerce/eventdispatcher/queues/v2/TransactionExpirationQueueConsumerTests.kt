@@ -3787,8 +3787,12 @@ class TransactionExpirationQueueConsumerTests {
             OrderResponseDto() // executed without operationId
               .orderStatus(OrderStatusDto().lastOperationType(OperationTypeDto.AUTHORIZATION))
               .addOperationsItem(
-                npgAuthorizedOperation(
-                  UUID.randomUUID().toString(), UUID.randomUUID().toString()))),
+                OperationDto()
+                  .orderId(UUID.randomUUID().toString())
+                  .operationType(OperationTypeDto.AUTHORIZATION)
+                  .operationResult(OperationResultDto.EXECUTED)
+                  .paymentEndToEndId(UUID.randomUUID().toString())
+                  .operationTime(ZonedDateTime.now().toString()))),
           Either.right(
             OrderResponseDto()
               .orderStatus(OrderStatusDto().lastOperationType(OperationTypeDto.AUTHORIZATION))
@@ -3810,17 +3814,36 @@ class TransactionExpirationQueueConsumerTests {
             OrderResponseDto()
               .orderStatus(OrderStatusDto().lastOperationType(OperationTypeDto.REFUND))
               .addOperationsItem(
-                npgAuthorizedOperation(UUID.randomUUID().toString(), UUID.randomUUID().toString()))
+                OperationDto()
+                  .orderId(UUID.randomUUID().toString())
+                  .operationType(OperationTypeDto.AUTHORIZATION)
+                  .operationResult(OperationResultDto.AUTHORIZED)
+                  .paymentEndToEndId(UUID.randomUUID().toString())
+                  .operationTime(ZonedDateTime.now().toString()))
               .addOperationsItem(
-                npgRefundOperation(UUID.randomUUID().toString(), UUID.randomUUID().toString()))),
+                OperationDto()
+                  .orderId(UUID.randomUUID().toString())
+                  .operationType(OperationTypeDto.REFUND)
+                  .operationResult(OperationResultDto.VOIDED)
+                  .paymentEndToEndId(UUID.randomUUID().toString())
+                  .operationTime(ZonedDateTime.now().toString()))),
           Either.right(
             OrderResponseDto() // Unexpected NPG already refunded
               .orderStatus(OrderStatusDto().lastOperationType(OperationTypeDto.REFUND))
               .addOperationsItem(
-                npgRefundOperation(UUID.randomUUID().toString(), UUID.randomUUID().toString()))
+                OperationDto()
+                  .orderId(UUID.randomUUID().toString())
+                  .operationType(OperationTypeDto.REFUND)
+                  .operationResult(OperationResultDto.VOIDED)
+                  .paymentEndToEndId(UUID.randomUUID().toString())
+                  .operationTime(ZonedDateTime.now().toString()))
               .addOperationsItem(
-                npgAuthorizedOperation(
-                  UUID.randomUUID().toString(), UUID.randomUUID().toString()))),
+                OperationDto()
+                  .orderId(UUID.randomUUID().toString())
+                  .operationType(OperationTypeDto.AUTHORIZATION)
+                  .operationResult(OperationResultDto.AUTHORIZED)
+                  .paymentEndToEndId(UUID.randomUUID().toString())
+                  .operationTime(ZonedDateTime.now().toString()))),
           Either.left(
             NpgBadRequestException(TransactionId(TRANSACTION_ID), "N/A")), // 4xx error code
           Either.left(InvalidNPGResponseException()), // a generic invalid response
