@@ -176,7 +176,7 @@ class AuthorizationStateRetrieverServiceTest {
 
       // test
       StepVerifier.create(
-          authorizationStateRetrieverService.getOrder(
+          authorizationStateRetrieverService.performGetOrder(
             transaction as BaseTransactionWithRequestedAuthorization))
         .expectNext(stateResponse)
         .verifyComplete()
@@ -203,7 +203,7 @@ class AuthorizationStateRetrieverServiceTest {
               "Error communicating with NPG", npgHttpErrorStatus, RuntimeException())))
       // test
       StepVerifier.create(
-          authorizationStateRetrieverService.getOrder(
+          authorizationStateRetrieverService.performGetOrder(
             transactionWithAuthRequested("npgOrderId", correlationId)))
         .expectErrorMatches {
           assertEquals(expectedExceptionToBeThrown::class.java, it::class.java)

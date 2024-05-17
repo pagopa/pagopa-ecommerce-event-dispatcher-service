@@ -56,7 +56,7 @@ class AuthorizationStateRetrieverService(
       })
   }
 
-  fun getOrder(
+  fun performGetOrder(
     trx: BaseTransactionWithRequestedAuthorization,
   ): Mono<OrderResponseDto> {
     return Mono.just(trx)
@@ -74,7 +74,7 @@ class AuthorizationStateRetrieverService(
         val activationData =
           (transaction.transactionActivatedData.transactionGatewayActivationData
             as NpgTransactionGatewayActivationData)
-        getOrder(
+        performGetOrder(
           transactionId = trx.transactionId,
           pspId = transaction.transactionAuthorizationRequestData.pspId,
           paymentMethod =
@@ -85,7 +85,7 @@ class AuthorizationStateRetrieverService(
       }
   }
 
-  private fun getOrder(
+  private fun performGetOrder(
     transactionId: TransactionId,
     orderId: String,
     pspId: String,

@@ -3306,7 +3306,7 @@ class TransactionExpirationQueueConsumerTests {
             npgTransactionGatewayAuthorizationRequestedData()))
       given(checkpointer.success()).willReturn(Mono.empty())
       setupTransactionStorageMock(events)
-      given { authorizationStateRetrieverService.getOrder(any()) }
+      given { authorizationStateRetrieverService.performGetOrder(any()) }
         .willAnswer { npgAuthorizedOrderResponse(operationId, paymentEndToEndId).toMono() }
 
       given { refundService.requestNpgRefund(any(), any(), any(), any(), any(), any()) }
@@ -3388,7 +3388,7 @@ class TransactionExpirationQueueConsumerTests {
           transactionExpiredEvent(TransactionStatusDto.AUTHORIZATION_REQUESTED))
       setupTransactionStorageMock(events)
       given(checkpointer.success()).willReturn(Mono.empty())
-      given { authorizationStateRetrieverService.getOrder(any()) }
+      given { authorizationStateRetrieverService.performGetOrder(any()) }
         .willAnswer { npgAuthorizedOrderResponse(operationId, paymentEndToEndId).toMono() }
 
       given { refundService.requestNpgRefund(any(), any(), any(), any(), any(), any()) }
@@ -3459,7 +3459,7 @@ class TransactionExpirationQueueConsumerTests {
             npgTransactionGatewayAuthorizationRequestedData()))
       setupTransactionStorageMock(events)
       given(checkpointer.success()).willReturn(Mono.empty())
-      given { authorizationStateRetrieverService.getOrder(any()) }
+      given { authorizationStateRetrieverService.performGetOrder(any()) }
         .willAnswer {
           OrderResponseDto()
             .orderStatus(OrderStatusDto().lastOperationType(OperationTypeDto.AUTHORIZATION))
@@ -3520,7 +3520,7 @@ class TransactionExpirationQueueConsumerTests {
           transactionExpiredEvent(TransactionStatusDto.EXPIRED))
       setupTransactionStorageMock(events)
       given(checkpointer.success()).willReturn(Mono.empty())
-      given { authorizationStateRetrieverService.getOrder(any()) }
+      given { authorizationStateRetrieverService.performGetOrder(any()) }
         .willAnswer { npgResponse.fold({ Mono.error(it) }, { Mono.just(it) }) }
 
       val errorContextCaptor = argumentCaptor<DeadLetterTracedQueueAsyncClient.ErrorContext>()
@@ -3587,7 +3587,7 @@ class TransactionExpirationQueueConsumerTests {
             npgTransactionGatewayAuthorizationRequestedData()))
       setupTransactionStorageMock(events)
       given(checkpointer.success()).willReturn(Mono.empty())
-      given { authorizationStateRetrieverService.getOrder(any()) }
+      given { authorizationStateRetrieverService.performGetOrder(any()) }
         .willAnswer { npgResponse.fold({ Mono.error(it) }, { Mono.just(it) }) }
 
       val errorContextCaptor = argumentCaptor<DeadLetterTracedQueueAsyncClient.ErrorContext>()
@@ -3652,7 +3652,7 @@ class TransactionExpirationQueueConsumerTests {
           transactionExpiredEvent(TransactionStatusDto.EXPIRED))
       setupTransactionStorageMock(events)
       given(checkpointer.success()).willReturn(Mono.empty())
-      given { authorizationStateRetrieverService.getOrder(any()) }
+      given { authorizationStateRetrieverService.performGetOrder(any()) }
         .willAnswer { Mono.error<StateResponseDto>(NpgServerErrorException("Any 5xx error")) }
 
       given { refundRetryService.enqueueRetryEvent(any(), any(), any(), anyOrNull()) }
@@ -3705,7 +3705,7 @@ class TransactionExpirationQueueConsumerTests {
           transactionExpiredEvent(TransactionStatusDto.EXPIRED))
       setupTransactionStorageMock(events)
       given(checkpointer.success()).willReturn(Mono.empty())
-      given { authorizationStateRetrieverService.getOrder(any()) }
+      given { authorizationStateRetrieverService.performGetOrder(any()) }
         .willAnswer { npgAuthorizedOrderResponse(operationId, paymentEndToEndId).toMono() }
 
       given { refundService.requestNpgRefund(any(), any(), any(), any(), any(), any()) }

@@ -73,7 +73,7 @@ class NpgService(
     transaction: BaseTransactionWithRequestedAuthorization
   ): Mono<NpgOrderStatus> {
     return authorizationStateRetrieverService
-      .getOrder(transaction)
+      .performGetOrder(transaction)
       .doOnNext { order ->
         logger.info(
           "Performed get order for transaction with id: [{}], last operation result: [{}], operations: [{}]",
