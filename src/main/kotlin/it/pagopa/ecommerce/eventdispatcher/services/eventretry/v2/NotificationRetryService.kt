@@ -1,8 +1,11 @@
 package it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2
 
 import com.azure.storage.queue.QueueAsyncClient
+import it.pagopa.ecommerce.commons.documents.v2.BaseTransactionRetriedData
+import it.pagopa.ecommerce.commons.documents.v2.TransactionEvent
 import it.pagopa.ecommerce.commons.documents.v2.TransactionRetriedData
 import it.pagopa.ecommerce.commons.documents.v2.TransactionUserReceiptAddRetriedEvent
+import it.pagopa.ecommerce.commons.documents.v2.authorization.TransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
@@ -21,12 +24,12 @@ class NotificationRetryService(
   @Value("\${notificationRetry.maxAttempts}") private val maxAttempts: Int,
   @Autowired private val viewRepository: TransactionsViewRepository,
   @Autowired
-  private val eventStoreRepository: TransactionsEventStoreRepository<TransactionRetriedData>,
+  private val eventStoreRepository: TransactionsEventStoreRepository<BaseTransactionRetriedData>,
   @Value("\${azurestorage.queues.transientQueues.ttlSeconds}")
   private val transientQueuesTTLSeconds: Int,
   @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider
 ) :
-  RetryEventService<TransactionUserReceiptAddRetriedEvent>(
+  RetryEventService<TransactionEvent<BaseTransactionRetriedData>>(
     queueAsyncClient = notificationRetryQueueAsyncClient,
     retryOffset = notificationRetryOffset,
     maxAttempts = maxAttempts,
@@ -41,9 +44,11 @@ class NotificationRetryService(
 
   override fun buildRetryEvent(
     transactionId: TransactionId,
-    transactionRetriedData: TransactionRetriedData
-  ): TransactionUserReceiptAddRetriedEvent =
+    transactionRetriedData: TransactionRetriedData,
+    transactionGatewayAuthorizationData: TransactionGatewayAuthorizationData?
+  ): TransactionEvent<BaseTransactionRetriedData> =
     TransactionUserReceiptAddRetriedEvent(transactionId.value(), transactionRetriedData)
+      as TransactionEvent<BaseTransactionRetriedData>
 
   override fun newTransactionStatus(): TransactionStatusDto =
     TransactionStatusDto.NOTIFICATION_ERROR

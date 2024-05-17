@@ -1,8 +1,8 @@
 package it.pagopa.ecommerce.eventdispatcher.queues.v2
 
 import com.azure.spring.messaging.checkpoint.Checkpointer
+import it.pagopa.ecommerce.commons.documents.v2.BaseTransactionRefundedData
 import it.pagopa.ecommerce.commons.documents.v2.TransactionRefundRetriedEvent
-import it.pagopa.ecommerce.commons.documents.v2.TransactionRefundedData
 import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v2.Transaction
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransaction
@@ -34,7 +34,7 @@ class TransactionRefundRetryQueueConsumer(
   @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,
   @Autowired
   private val transactionsRefundedEventStoreRepository:
-    TransactionsEventStoreRepository<TransactionRefundedData>,
+    TransactionsEventStoreRepository<BaseTransactionRefundedData>,
   @Autowired private val transactionsViewRepository: TransactionsViewRepository,
   @Autowired private val refundService: RefundService,
   @Autowired private val refundRetryService: RefundRetryService,

@@ -123,7 +123,7 @@ class ClosePaymentHelper(
   @Autowired private val closureRetryService: ClosureRetryService,
   @Autowired
   private val transactionsRefundedEventStoreRepository:
-    TransactionsEventStoreRepository<TransactionRefundedData>,
+    TransactionsEventStoreRepository<BaseTransactionRefundedData>,
   @Autowired private val paymentGatewayClient: PaymentGatewayClient,
   @Autowired private val refundService: RefundService,
   @Autowired private val refundRetryService: RefundRetryService,

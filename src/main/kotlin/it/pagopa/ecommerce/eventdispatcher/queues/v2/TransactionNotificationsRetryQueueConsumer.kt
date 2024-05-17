@@ -41,7 +41,7 @@ class TransactionNotificationsRetryQueueConsumer(
   @Autowired private val notificationRetryService: NotificationRetryService,
   @Autowired
   private val transactionsRefundedEventStoreRepository:
-    TransactionsEventStoreRepository<TransactionRefundedData>,
+    TransactionsEventStoreRepository<BaseTransactionRefundedData>,
   @Autowired private val paymentGatewayClient: PaymentGatewayClient,
   @Autowired private val refundService: RefundService,
   @Autowired private val refundRetryService: RefundRetryService,

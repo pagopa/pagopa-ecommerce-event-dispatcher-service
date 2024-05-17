@@ -43,7 +43,7 @@ class TransactionExpirationQueueConsumer(
     TransactionsEventStoreRepository<TransactionExpiredData>,
   @Autowired
   private val transactionsRefundedEventStoreRepository:
-    TransactionsEventStoreRepository<TransactionRefundedData>,
+    TransactionsEventStoreRepository<BaseTransactionRefundedData>,
   @Autowired private val transactionsViewRepository: TransactionsViewRepository,
   @Autowired private val transactionUtils: TransactionUtils,
   @Autowired private val refundService: RefundService,

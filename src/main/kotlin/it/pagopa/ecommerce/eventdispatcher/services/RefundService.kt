@@ -83,7 +83,9 @@ class RefundService(
                   RefundNotAllowedException(idempotenceKey, errorCodeReason)
                 }
               }
-              .orElse(RefundNotAllowedException(idempotenceKey, "Unknown NPG HTTP response code"))
+              .orElse(
+                RefundNotAllowedException(
+                  idempotenceKey, "Unknown NPG HTTP response code")) // TODO: handle timeout
           }
       })
   }
