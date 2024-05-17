@@ -8,6 +8,7 @@ import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationTypeDto
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OrderResponseDto
 import it.pagopa.ecommerce.eventdispatcher.exceptions.InvalidNPGResponseException
+import it.pagopa.ecommerce.eventdispatcher.exceptions.InvalidNpgOrderStateException
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -22,7 +23,10 @@ data class NgpOrderAuthorized(
   val authorization: OperationDto,
 ) : NpgOrderStatus
 
-data class NpgOrderRefunded(val refundOperation: OperationDto) : NpgOrderStatus
+data class NpgOrderRefunded(
+  val refundOperation: OperationDto,
+  val authorization: OperationDto? = null
+) : NpgOrderStatus
 
 data class NgpOrderNotAuthorized(
   val operation: OperationDto,
@@ -38,33 +42,26 @@ class NpgService(
   fun getAuthorizationDataFromNpgOrder(
     transaction: BaseTransactionWithRequestedAuthorization
   ): Mono<TransactionGatewayAuthorizationData> {
-    return getNpgOrderStatus(transaction).flatMap {
-      when (it) {
+    return getNpgOrderStatus(transaction).flatMap { orderStatus ->
+      when (orderStatus) {
         is NgpOrderNotAuthorized -> {
           logger.info(
             "Transaction with id [{}] not authorized, doing nothing", transaction.transactionId)
           Mono.empty()
         }
-        is NgpOrderAuthorized ->
-          it.authorization.operationId?.let { operationId ->
-            NpgTransactionGatewayAuthorizationData(
-                it.authorization.operationResult,
-                operationId,
-                it.authorization.paymentEndToEndId,
-                null,
-                null)
-              .toMono()
-          }
-            ?: Mono.error(InvalidNPGResponseException())
+        is NgpOrderAuthorized -> orderStatus.authorization.toAuthorizationData()?.toMono()
+            ?: Mono.error(InvalidNPGResponseException("Missing mandatory transactionId"))
         is NpgOrderRefunded -> {
           logger.info(
             "Unexpected order refunded for transaction with id [{}]", transaction.transactionId)
-          Mono.error(InvalidNPGResponseException())
+          Mono.error(
+            InvalidNpgOrderStateException.OrderAlreadyRefunded(
+              orderStatus.refundOperation, orderStatus.authorization?.toAuthorizationData()))
         }
         is UnknownNpgOrderStatus -> {
           logger.error(
             "Cannot establish Npg Order status for transaction [{}]", transaction.transactionId)
-          Mono.error(InvalidNPGResponseException())
+          Mono.error(InvalidNpgOrderStateException.UnknownOrderStatus(orderStatus.order))
         }
       }
     }
@@ -78,16 +75,24 @@ class NpgService(
       .doOnNext { order ->
         logger.info(
           "Performed get order for transaction with id: [{}], last operation result: [{}], operations: [{}]",
-          transaction.transactionId,
+          transaction.transactionId.value(),
           order.orderStatus?.lastOperationType,
           order.operations?.joinToString { "${it.operationType}-${it.operationResult}" },
         )
       }
-      .flatMap {
-        it.operations
-          ?.fold(UnknownNpgOrderStatus(it) as NpgOrderStatus, this::reduceOperations)
+      .flatMap { orderResponse ->
+        orderResponse.operations
+          ?.fold(UnknownNpgOrderStatus(orderResponse) as NpgOrderStatus, this::reduceOperations)
           ?.toMono()
-          ?: Mono.error(InvalidNPGResponseException())
+          ?.map {
+            if (it is NpgOrderRefunded) {
+              it.copy(authorization = orderResponse?.operations?.find(IS_AUTHORIZED))
+            } else {
+              it
+            }
+          }
+          ?: Mono.error(
+            InvalidNpgOrderStateException.UnknownOrderStatus(orderResponse, "No operations"))
       }
   }
 
@@ -100,11 +105,24 @@ class NpgService(
         operation.operationResult != OperationResultDto.EXECUTED &&
         orderState !is NpgOrderRefunded &&
         orderState !is NgpOrderAuthorized -> NgpOrderNotAuthorized(operation)
-      operation.operationType == OperationTypeDto.AUTHORIZATION &&
-        operation.operationResult == OperationResultDto.EXECUTED &&
-        orderState !is NpgOrderRefunded -> NgpOrderAuthorized(operation)
-      operation.operationType == OperationTypeDto.REFUND &&
-        operation.operationResult == OperationResultDto.VOIDED -> NpgOrderRefunded(operation)
+      IS_AUTHORIZED(operation) && orderState !is NpgOrderRefunded -> NgpOrderAuthorized(operation)
+      IS_REFUNDED(operation) -> NpgOrderRefunded(operation)
       else -> orderState
     }
+
+  private fun OperationDto.toAuthorizationData(): NpgTransactionGatewayAuthorizationData? =
+    operationId?.let {
+      NpgTransactionGatewayAuthorizationData(
+        this.operationResult, it, this.paymentEndToEndId, null, null)
+    }
+
+  companion object {
+    private val IS_AUTHORIZED: (OperationDto) -> Boolean = {
+      it.operationType == OperationTypeDto.AUTHORIZATION &&
+        it.operationResult != OperationResultDto.EXECUTED
+    }
+    private val IS_REFUNDED: (OperationDto) -> Boolean = {
+      it.operationType == OperationTypeDto.REFUND && it.operationResult == OperationResultDto.VOIDED
+    }
+  }
 }

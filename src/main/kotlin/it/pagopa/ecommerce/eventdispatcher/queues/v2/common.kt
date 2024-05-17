@@ -14,7 +14,11 @@ import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v2.TransactionEventCode
 import it.pagopa.ecommerce.commons.domain.v2.TransactionWithClosureError
 import it.pagopa.ecommerce.commons.domain.v2.pojos.*
-import it.pagopa.ecommerce.commons.generated.npg.v1.dto.*
+import it.pagopa.ecommerce.commons.exceptions.NpgResponseException
+import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
+import it.pagopa.ecommerce.commons.generated.npg.v1.dto.RefundResponseDto
+import it.pagopa.ecommerce.commons.generated.npg.v1.dto.StateResponseDto
+import it.pagopa.ecommerce.commons.generated.npg.v1.dto.WorkflowStateDto
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
@@ -40,14 +44,14 @@ import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundOutcomeDto
 import it.pagopa.generated.transactionauthrequests.v1.dto.OutcomeNpgGatewayDto
 import it.pagopa.generated.transactionauthrequests.v1.dto.TransactionInfoDto
 import it.pagopa.generated.transactionauthrequests.v1.dto.UpdateAuthorizationRequestDto
-import java.math.BigDecimal
-import java.time.*
-import java.util.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toMono
+import java.math.BigDecimal
+import java.time.*
+import java.util.*
 
 object QueueCommonsLogger {
   val logger: Logger = LoggerFactory.getLogger(QueueCommonsLogger::class.java)
@@ -483,16 +487,33 @@ private fun refundTransactionNPG(
 ): Mono<Pair<RefundResponseDto, BaseTransactionWithRequestedAuthorization>> {
   return getAuthorizationCompletedData(transaction, npgService)
     .onErrorResume { error ->
+      val authorizationData =
+        when (error) {
+          is InvalidNpgOrderStateException.OrderAlreadyRefunded -> error.authorizationData
+          else -> null
+        }
       // add refund requested event even the NPG return errors. If empty it doesn't
       appendRefundRequestedEventIfNeeded(
-          transaction, transactionsEventStoreRepository, transactionsViewRepository)
+          transaction,
+          transactionsEventStoreRepository,
+          transactionsViewRepository,
+          authorizationData)
         .flatMap { Mono.error(error) }
     }
-    .onErrorMap({ error ->
-      error is InvalidNPGResponseException || error is NpgBadRequestException
-    }) {
+    .onErrorMap(InvalidNPGResponseException::class.java) {
       RefundError.UnexpectedPaymentGatewayResponse(
-        transaction.transactionId, "Failed to get authorization data from NPG payment gateway")
+        transaction.transactionId,
+        "Failed to get authorization data from NPG payment gateway, reason: [${it.message}]")
+    }
+    .onErrorMap(InvalidNpgOrderStateException::class.java) {
+      RefundError.UnexpectedPaymentGatewayResponse(
+        transaction.transactionId,
+        "Failed to get authorization data due to invalid NPG order state, reason: [${it.message}]")
+    }
+    .onErrorMap(NpgBadRequestException::class.java) {
+      RefundError.UnexpectedPaymentGatewayResponse(
+        transaction.transactionId,
+        "Failed to get authorization data due bad request from NPG payment gateway")
     }
     .flatMap { authorizationData ->
       appendRefundRequestedEventIfNeeded(
@@ -519,11 +540,14 @@ private fun refundTransactionNPG(
                 NpgClient.PaymentMethod.valueOf(
                   transaction.transactionAuthorizationRequestData.paymentMethodName))
             .map { refundResponse -> Pair(refundResponse, transaction) }
-            .onErrorMap(BadGatewayException::class.java) {
+            .onErrorMap({ e -> e is BadGatewayException || e is NpgResponseException }) { e ->
+              logger.error(
+                "Error during refund NPG for transaction [{}]",
+                transaction.transactionId.value(),
+                e)
               RefundError.RefundFailed(
                 transaction.transactionId, authorizationData, "Error during refund NPG")
             }
-          // TODO: handle timeout
         }
     }
 }
