@@ -46,21 +46,23 @@ class NpgService(
       when (orderStatus) {
         is NgpOrderNotAuthorized -> {
           logger.info(
-            "Transaction with id [{}] not authorized, doing nothing", transaction.transactionId.value())
+            "Transaction with id [{}] not authorized, doing nothing",
+            transaction.transactionId.value())
           Mono.empty()
         }
         is NgpOrderAuthorized -> orderStatus.authorization.toAuthorizationData()?.toMono()
             ?: Mono.error(InvalidNPGResponseException("Missing mandatory transactionId"))
         is NpgOrderRefunded -> {
           logger.info(
-            "Unexpected order refunded for transaction with id [{}]", transaction.transactionId.value())
+            "Unexpected order refunded for transaction: [{}]", transaction.transactionId.value())
           Mono.error(
             InvalidNpgOrderStateException.OrderAlreadyRefunded(
               orderStatus.refundOperation, orderStatus.authorization?.toAuthorizationData()))
         }
         is UnknownNpgOrderStatus -> {
           logger.error(
-            "Cannot establish Npg Order status for transaction: [{}]", transaction.transactionId.value())
+            "Cannot establish Npg Order status for transaction: [{}]",
+            transaction.transactionId.value())
           Mono.error(InvalidNpgOrderStateException.UnknownOrderStatus(orderStatus.order))
         }
       }

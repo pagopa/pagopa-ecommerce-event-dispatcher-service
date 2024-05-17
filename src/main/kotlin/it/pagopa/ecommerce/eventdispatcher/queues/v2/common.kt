@@ -44,14 +44,14 @@ import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundOutcomeDto
 import it.pagopa.generated.transactionauthrequests.v1.dto.OutcomeNpgGatewayDto
 import it.pagopa.generated.transactionauthrequests.v1.dto.TransactionInfoDto
 import it.pagopa.generated.transactionauthrequests.v1.dto.UpdateAuthorizationRequestDto
+import java.math.BigDecimal
+import java.time.*
+import java.util.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toMono
-import java.math.BigDecimal
-import java.time.*
-import java.util.*
 
 object QueueCommonsLogger {
   val logger: Logger = LoggerFactory.getLogger(QueueCommonsLogger::class.java)
@@ -127,7 +127,8 @@ fun updateTransactionToRefundError(
     transaction,
     transactionsRefundedEventStoreRepository,
     transactionsViewRepository,
-    TransactionRefundErrorEvent(transaction.transactionId.value(), TransactionRefundErrorData())
+    TransactionRefundErrorEvent(
+      transaction.transactionId.value(), TransactionRefundErrorData(transaction.status))
       as TransactionEvent<BaseTransactionRefundedData>,
     TransactionStatusDto.REFUND_ERROR)
 }
