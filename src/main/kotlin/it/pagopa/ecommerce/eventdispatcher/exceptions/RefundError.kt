@@ -17,9 +17,9 @@ sealed class RefundError : Exception() {
   ) : RefundError()
 }
 
-fun RefundError.toDeadLetterErrorCategory() =
+fun RefundError.toDeadLetterErrorCategory(): DeadLetterTracedQueueAsyncClient.ErrorCategory? =
   when (this) {
     is RefundError.UnexpectedPaymentGatewayResponse ->
       DeadLetterTracedQueueAsyncClient.ErrorCategory.REFUND_MANUAL_CHECK_REQUIRED
-    is RefundError.RefundFailed -> TODO()
+    is RefundError.RefundFailed -> null
   }

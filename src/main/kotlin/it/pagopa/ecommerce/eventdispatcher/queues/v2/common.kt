@@ -891,6 +891,7 @@ fun <T> runTracedPipelineWithDeadLetterQueue(
               DeadLetterTracedQueueAsyncClient.ErrorCategory.RETRY_EVENT_NO_ATTEMPTS_LEFT
             is RefundError.UnexpectedPaymentGatewayResponse ->
               pipelineException.toDeadLetterErrorCategory()
+                ?: DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR
             else -> DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR
           }
         logger.error("Exception processing event $eventLogString", pipelineException)
