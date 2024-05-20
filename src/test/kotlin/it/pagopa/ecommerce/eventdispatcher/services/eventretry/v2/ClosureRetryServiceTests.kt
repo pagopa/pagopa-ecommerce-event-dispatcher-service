@@ -41,11 +41,12 @@ class ClosureRetryServiceTests {
 
   private val transactionsViewRepository: TransactionsViewRepository = mock()
 
-  private val eventStoreRepository: TransactionsEventStoreRepository<TransactionRetriedData> =
+  private val eventStoreRepository: TransactionsEventStoreRepository<BaseTransactionRetriedData> =
     mock()
 
   @Captor
-  private lateinit var eventStoreCaptor: ArgumentCaptor<TransactionEvent<TransactionRetriedData>>
+  private lateinit var eventStoreCaptor:
+    ArgumentCaptor<TransactionEvent<BaseTransactionRetriedData>>
 
   @Captor private lateinit var viewRepositoryCaptor: ArgumentCaptor<Transaction>
 

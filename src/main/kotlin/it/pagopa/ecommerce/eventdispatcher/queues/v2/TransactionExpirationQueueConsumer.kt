@@ -17,7 +17,7 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRe
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.RefundService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
-import it.pagopa.ecommerce.eventdispatcher.services.v2.AuthorizationStateRetrieverService
+import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import java.time.Duration
 import java.util.*
@@ -43,7 +43,7 @@ class TransactionExpirationQueueConsumer(
     TransactionsEventStoreRepository<TransactionExpiredData>,
   @Autowired
   private val transactionsRefundedEventStoreRepository:
-    TransactionsEventStoreRepository<TransactionRefundedData>,
+    TransactionsEventStoreRepository<BaseTransactionRefundedData>,
   @Autowired private val transactionsViewRepository: TransactionsViewRepository,
   @Autowired private val transactionUtils: TransactionUtils,
   @Autowired private val refundService: RefundService,
@@ -57,7 +57,7 @@ class TransactionExpirationQueueConsumer(
   private val transientQueueTTLSeconds: Int,
   @Autowired private val tracingUtils: TracingUtils,
   @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider,
-  @Autowired private val authorizationStateRetrieverService: AuthorizationStateRetrieverService,
+  @Autowired private val npgService: NpgService,
 ) {
 
   val logger: Logger = LoggerFactory.getLogger(TransactionExpirationQueueConsumer::class.java)
@@ -170,7 +170,7 @@ class TransactionExpirationQueueConsumer(
             paymentGatewayClient,
             refundService,
             refundRetryService,
-            authorizationStateRetrieverService,
+            npgService,
             tracingInfo,
           )
         }
