@@ -44,14 +44,14 @@ import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundOutcomeDto
 import it.pagopa.generated.transactionauthrequests.v1.dto.OutcomeNpgGatewayDto
 import it.pagopa.generated.transactionauthrequests.v1.dto.TransactionInfoDto
 import it.pagopa.generated.transactionauthrequests.v1.dto.UpdateAuthorizationRequestDto
-import java.math.BigDecimal
-import java.time.*
-import java.util.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toMono
+import java.math.BigDecimal
+import java.time.*
+import java.util.*
 
 object QueueCommonsLogger {
   val logger: Logger = LoggerFactory.getLogger(QueueCommonsLogger::class.java)
@@ -351,6 +351,13 @@ fun appendRefundRequestedEventIfNeeded(
   }
 }
 
+
+fun requestRefundTransaction(
+
+) {
+
+}
+
 /*
  * @formatter:off
  *
@@ -490,13 +497,12 @@ fun refundTransaction(
     }
 }
 
-private fun refundTransactionNPG(
+private fun appendNpgRefundRequestedEventIfNeeded(
   transaction: BaseTransactionWithRequestedAuthorization,
   transactionsEventStoreRepository: TransactionsEventStoreRepository<BaseTransactionRefundedData>,
   transactionsViewRepository: TransactionsViewRepository,
   npgService: NpgService,
-  refundService: RefundService
-): Mono<Pair<RefundResponseDto, BaseTransactionWithRequestedAuthorization>> {
+): Mono<Pair<BaseTransaction, NpgTransactionGatewayAuthorizationData>> {
   return getAuthorizationCompletedData(transaction, npgService)
     .onErrorResume { error ->
       val authorizationData =
@@ -506,11 +512,20 @@ private fun refundTransactionNPG(
         }
       // add refund requested event even the NPG return errors. If empty it doesn't
       appendRefundRequestedEventIfNeeded(
-          transaction,
-          transactionsEventStoreRepository,
-          transactionsViewRepository,
-          authorizationData)
+        transaction,
+        transactionsEventStoreRepository,
+        transactionsViewRepository,
+        authorizationData)
         .flatMap { Mono.error(error) }
+    }
+    .flatMap { authorizationData ->
+      appendRefundRequestedEventIfNeeded(
+        transaction,
+        transactionsEventStoreRepository,
+        transactionsViewRepository,
+        authorizationData
+      )
+        .map { it to authorizationData as NpgTransactionGatewayAuthorizationData }
     }
     .onErrorMap(InvalidNPGResponseException::class.java) {
       RefundError.UnexpectedPaymentGatewayResponse(
@@ -527,41 +542,47 @@ private fun refundTransactionNPG(
         transaction.transactionId,
         "Failed to get authorization data due bad request from NPG payment gateway")
     }
-    .flatMap { authorizationData ->
-      appendRefundRequestedEventIfNeeded(
-          transaction,
-          transactionsEventStoreRepository,
-          transactionsViewRepository,
-          authorizationData)
-        .map { authorizationData }
-        .cast(NpgTransactionGatewayAuthorizationData::class.java)
-        .flatMap {
-          refundService
-            .requestNpgRefund(
-              operationId = it.operationId,
-              idempotenceKey = transaction.transactionId.uuid,
-              amount =
-                BigDecimal(transaction.transactionAuthorizationRequestData.amount)
-                  .add(BigDecimal(transaction.transactionAuthorizationRequestData.fee)),
-              pspId = transaction.transactionAuthorizationRequestData.pspId,
-              correlationId =
-                (transaction.transactionActivatedData.transactionGatewayActivationData
-                    as NpgTransactionGatewayActivationData)
-                  .correlationId,
-              paymentMethod =
-                NpgClient.PaymentMethod.valueOf(
-                  transaction.transactionAuthorizationRequestData.paymentMethodName))
-            .map { refundResponse -> Pair(refundResponse, transaction) }
-            .onErrorMap({ e -> e is BadGatewayException || e is NpgResponseException }) { e ->
-              logger.error(
-                "Error during refund NPG for transaction [{}]",
-                transaction.transactionId.value(),
-                e)
-              RefundError.RefundFailed(
-                transaction.transactionId, authorizationData, "Error during refund NPG")
-            }
-        }
-    }
+}
+
+private fun refundTransactionNPG(
+  transaction: BaseTransactionWithRequestedAuthorization,
+  transactionsEventStoreRepository: TransactionsEventStoreRepository<BaseTransactionRefundedData>,
+  transactionsViewRepository: TransactionsViewRepository,
+  npgService: NpgService,
+  refundService: RefundService
+): Mono<Pair<RefundResponseDto, BaseTransactionWithRequestedAuthorization>> {
+  return appendNpgRefundRequestedEventIfNeeded(
+    transaction,
+    transactionsEventStoreRepository,
+    transactionsViewRepository,
+    npgService
+  )
+  .flatMap { (_, authorizationData) ->
+    refundService
+      .requestNpgRefund(
+        operationId = authorizationData.operationId,
+        idempotenceKey = transaction.transactionId.uuid,
+        amount =
+          BigDecimal(transaction.transactionAuthorizationRequestData.amount)
+            .add(BigDecimal(transaction.transactionAuthorizationRequestData.fee)),
+        pspId = transaction.transactionAuthorizationRequestData.pspId,
+        correlationId =
+          (transaction.transactionActivatedData.transactionGatewayActivationData
+              as NpgTransactionGatewayActivationData)
+            .correlationId,
+        paymentMethod =
+          NpgClient.PaymentMethod.valueOf(
+            transaction.transactionAuthorizationRequestData.paymentMethodName))
+      .map { refundResponse -> Pair(refundResponse, transaction) }
+      .onErrorMap({ e -> e is BadGatewayException || e is NpgResponseException }) { e ->
+        logger.error(
+          "Error during refund NPG for transaction [{}]",
+          transaction.transactionId.value(),
+          e)
+        RefundError.RefundFailed(
+          transaction.transactionId, authorizationData, "Error during refund NPG")
+      }
+  }
 }
 
 fun handleVposRefundResponse(
