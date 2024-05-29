@@ -31,9 +31,6 @@ import it.pagopa.ecommerce.eventdispatcher.utils.v2.UserReceiptMailBuilder
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.notifications.v1.dto.NotificationEmailRequestDto
 import it.pagopa.generated.notifications.v1.dto.NotificationEmailResponseDto
-import java.nio.charset.StandardCharsets
-import java.time.ZonedDateTime
-import java.util.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.reactor.mono
 import kotlinx.coroutines.test.runTest
@@ -48,6 +45,9 @@ import reactor.core.publisher.Flux
 import reactor.core.publisher.Hooks
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
+import java.nio.charset.StandardCharsets
+import java.time.ZonedDateTime
+import java.util.*
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @ExtendWith(MockitoExtension::class)
@@ -265,7 +265,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
         eventCode,
         TransactionEventCode.valueOf(transactionRefundEventStoreCaptor.allValues[index].eventCode))
       assertEquals(
-        TransactionStatusDto.NOTIFICATION_ERROR,
+        TransactionStatusDto.NOTIFIED_KO,
         transactionRefundEventStoreCaptor.allValues[index].data.statusBeforeRefunded)
     }
     expectedStatuses.forEachIndexed { index, transactionStatus ->
@@ -424,7 +424,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
           TransactionEventCode.valueOf(
             transactionRefundEventStoreCaptor.allValues[index].eventCode))
         assertEquals(
-          TransactionStatusDto.NOTIFICATION_ERROR,
+          TransactionStatusDto.NOTIFIED_KO,
           transactionRefundEventStoreCaptor.allValues[index].data.statusBeforeRefunded)
       }
       expectedStatuses.forEachIndexed { index, transactionStatus ->

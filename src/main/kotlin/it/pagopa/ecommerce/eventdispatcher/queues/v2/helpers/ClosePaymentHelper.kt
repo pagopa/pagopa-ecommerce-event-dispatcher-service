@@ -1,20 +1,15 @@
 package it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers
 
 import com.azure.spring.messaging.checkpoint.Checkpointer
-import com.azure.storage.queue.QueueAsyncClient
 import io.vavr.control.Either
+import it.pagopa.ecommerce.commons.client.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v2.*
+import it.pagopa.ecommerce.commons.documents.v2.Transaction
 import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.PgsTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.RedirectTransactionGatewayAuthorizationData
-import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
-import it.pagopa.ecommerce.commons.domain.v2.TransactionWithCancellationRequested
-import it.pagopa.ecommerce.commons.domain.v2.TransactionWithClosureError
-import it.pagopa.ecommerce.commons.domain.v2.TransactionWithClosureRequested
-import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransaction
-import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithCancellationRequested
-import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithClosureRequested
-import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithCompletedAuthorization
+import it.pagopa.ecommerce.commons.domain.v2.*
+import it.pagopa.ecommerce.commons.domain.v2.pojos.*
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
@@ -213,7 +208,10 @@ class ClosePaymentHelper(
                 { Mono.empty() },
                 { transactionClosedEvent ->
                   refundTransactionPipeline(
-                    tx, transactionClosedEvent.data.responseOutcome, tracingInfo)
+                    (tx as it.pagopa.ecommerce.commons.domain.v2.Transaction).applyEvent(transactionClosedEvent) as BaseTransaction,
+                    transactionClosedEvent.data.responseOutcome,
+                    tracingInfo
+                  )
                 })
             }
             .then()
@@ -299,14 +297,13 @@ class ClosePaymentHelper(
         logger.error("No more attempts left for closure retry", exception)
       }
 
-  private fun updateTransactionToClosureError(baseTransaction: BaseTransaction) =
+  private fun updateTransactionToClosureError(baseTransaction: BaseTransaction): Mono<BaseTransactionWithClosureError> =
     if (baseTransaction.status != TransactionStatusDto.CLOSURE_ERROR) {
       logger.info(
         "Updating transaction with id: [${baseTransaction.transactionId.value()}] to ${TransactionStatusDto.CLOSURE_ERROR} status")
-      mono { TransactionClosureErrorEvent(baseTransaction.transactionId.value()) }
-        .flatMap { transactionClosureErrorEvent ->
-          transactionClosureErrorEventStoreRepository.save(transactionClosureErrorEvent)
-        }
+      val event = TransactionClosureErrorEvent(baseTransaction.transactionId.value())
+
+      transactionClosureErrorEventStoreRepository.save(event)
         .flatMap {
           transactionsViewRepository.findByTransactionId(baseTransaction.transactionId.value())
         }
@@ -315,11 +312,11 @@ class ClosePaymentHelper(
           trx.status = TransactionStatusDto.CLOSURE_ERROR
           transactionsViewRepository.save(trx)
         }
-        .thenReturn(baseTransaction)
+        .thenReturn((baseTransaction as it.pagopa.ecommerce.commons.domain.v2.Transaction).applyEvent(event) as BaseTransactionWithClosureError)
     } else {
       logger.info(
         "Transaction with id: [${baseTransaction.transactionId.value()}] already in ${TransactionStatusDto.CLOSURE_ERROR} status")
-      Mono.just(baseTransaction)
+      Mono.just(baseTransaction as BaseTransactionWithClosureError)
     }
 
   private fun updateTransactionStatus(
@@ -532,7 +529,7 @@ class ClosePaymentHelper(
     tracingInfo: TracingInfo
   ): Mono<BaseTransaction> =
     when (transaction) {
-      is TransactionWithClosureRequested ->
+      is TransactionClosed ->
         refundTransactionPipeline(Either.right(transaction), closureOutcome, tracingInfo)
       is TransactionWithClosureError ->
         refundTransactionPipeline(Either.left(transaction), closureOutcome, tracingInfo)
@@ -540,7 +537,7 @@ class ClosePaymentHelper(
     }
 
   private fun refundTransactionPipeline(
-    transaction: Either<TransactionWithClosureError, TransactionWithClosureRequested>,
+    transaction: Either<TransactionWithClosureError, TransactionClosed>,
     closureOutcome: TransactionClosureData.Outcome,
     tracingInfo: TracingInfo
   ): Mono<BaseTransaction> {
@@ -552,13 +549,13 @@ class ClosePaymentHelper(
           val transactionWithCompletedAuthorization =
             getBaseTransactionWithCompletedAuthorization(transactionAtPreviousState)
 
-          Pair(wasAuthorized, transactionWithCompletedAuthorization)
+          Pair(wasAuthorized, Optional.of(it))
         },
         {
           val wasAuthorized = wasTransactionAuthorized(it)
           val transactionWithCompletedAuthorization = Optional.of(it)
 
-          Pair(wasAuthorized, transactionWithCompletedAuthorization)
+          Pair(wasAuthorized, Optional.of(it))
         })
     val toBeRefunded = wasAuthorized && closureOutcome == TransactionClosureData.Outcome.KO
     logger.info(

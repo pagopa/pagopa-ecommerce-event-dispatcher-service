@@ -91,7 +91,7 @@ class TransactionNotificationsQueueConsumer(
             }
             .flatMap {
               notificationRefundTransactionPipeline(
-                tx,
+                it,
                 transactionsRefundedEventStoreRepository,
                 transactionsViewRepository,
                 paymentGatewayClient,

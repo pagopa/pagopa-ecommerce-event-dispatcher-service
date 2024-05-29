@@ -3,6 +3,7 @@ package it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers
 import com.azure.core.util.BinaryData
 import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.checkpoint.Checkpointer
+import it.pagopa.ecommerce.commons.client.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.documents.v2.authorization.PgsTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.RedirectTransactionGatewayAuthorizationData
@@ -34,9 +35,6 @@ import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClien
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ErrorDto
-import java.time.ZonedDateTime
-import java.util.*
-import java.util.stream.Stream
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.reactor.mono
 import kotlinx.coroutines.test.runTest
@@ -55,6 +53,9 @@ import reactor.core.publisher.Hooks
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toFlux
 import reactor.test.StepVerifier
+import java.time.ZonedDateTime
+import java.util.*
+import java.util.stream.Stream
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @ExtendWith(MockitoExtension::class)
@@ -94,6 +95,8 @@ class ClosePaymentHelperTests {
   private val paymentRequestInfoRedisTemplateWrapper: PaymentRequestInfoRedisTemplateWrapper =
     mock()
 
+  private val refundQueueAsyncClient: QueueAsyncClient = mock()
+
   @Captor private lateinit var viewArgumentCaptor: ArgumentCaptor<Transaction>
 
   @Captor
@@ -129,6 +132,7 @@ class ClosePaymentHelperTests {
       paymentRequestInfoRedisTemplateWrapper = paymentRequestInfoRedisTemplateWrapper,
       strictSerializerProviderV2 = strictJsonSerializerProviderV2,
       npgService = NpgService(authorizationStateRetrieverService),
+      refundQueueAsyncClient = refundQueueAsyncClient
     )
 
   @Test
