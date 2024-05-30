@@ -25,7 +25,9 @@ internal class RedirectConfigurationBuilderTest {
   @ValueSource(strings = ["key1", "key2", "key3"])
   fun shouldBuildPspBackendUriMapSuccessfully(pspId: String) {
     val mapping: Map<String, URI> = assertDoesNotThrow {
-      checkoutRedirectConfigurationBuilder.redirectBeApiCallUriMap(pspToHandle, pspUriMap)
+      checkoutRedirectConfigurationBuilder
+        .redirectBeApiCallUriMap(pspToHandle, pspUriMap)
+        .redirectBeApiCallUriMap
     }
     assertEquals(
       "http://localhost/%s/redirections/refunds".format(pspId), mapping[pspId].toString())

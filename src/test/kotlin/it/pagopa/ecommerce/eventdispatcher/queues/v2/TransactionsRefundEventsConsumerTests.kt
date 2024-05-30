@@ -1481,7 +1481,7 @@ class TransactionsRefundEventsConsumerTests {
       given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
       given(transactionsRefundedEventStoreRepository.save(refundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
-      given(refundService.requestRedirectRefund(any(), any(), any(), any()))
+      given(refundService.requestRedirectRefund(any(), any(), any(), any(), any()))
         .willReturn(Mono.just(refundRedirectResponse))
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(
@@ -1508,6 +1508,7 @@ class TransactionsRefundEventsConsumerTests {
       verify(refundService, Mockito.times(1))
         .requestRedirectRefund(
           transactionId = TransactionId(expectedTransactionId),
+          touchpoint = Transaction.ClientId.CHECKOUT,
           pspTransactionId = expectedPspTransactionId,
           paymentTypeCode = expectedPaymentTypeCode,
           pspId = expectedPspId)

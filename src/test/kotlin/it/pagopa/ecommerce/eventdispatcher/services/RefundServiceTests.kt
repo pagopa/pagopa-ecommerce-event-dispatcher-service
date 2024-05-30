@@ -8,6 +8,7 @@ import io.opentelemetry.api.trace.SpanBuilder
 import io.opentelemetry.api.trace.Tracer
 import it.pagopa.ecommerce.commons.client.NodeForwarderClient
 import it.pagopa.ecommerce.commons.client.NpgClient
+import it.pagopa.ecommerce.commons.documents.v2.Transaction
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.exceptions.NodeForwarderClientException
 import it.pagopa.ecommerce.commons.exceptions.NpgApiKeyConfigurationException
@@ -363,6 +364,7 @@ class RefundServiceTests {
     StepVerifier.create(
         refundService.requestRedirectRefund(
           transactionId = TransactionId(transactionId),
+          touchpoint = Transaction.ClientId.CHECKOUT,
           pspTransactionId = pspTransactionId,
           paymentTypeCode = paymentTypeCode,
           pspId = pspId))
@@ -382,10 +384,12 @@ class RefundServiceTests {
     val transactionId = TransactionTestUtils.TRANSACTION_ID
     val pspTransactionId = "pspTransactionId"
     val paymentTypeCode = "MISSING"
+    val touchpoint = Transaction.ClientId.CHECKOUT
     // test
     StepVerifier.create(
         refundService.requestRedirectRefund(
           transactionId = TransactionId(transactionId),
+          touchpoint = touchpoint,
           pspTransactionId = pspTransactionId,
           paymentTypeCode = paymentTypeCode,
           pspId = "pspId"))
@@ -409,6 +413,7 @@ class RefundServiceTests {
     // pre-requisites
     val transactionId = TransactionTestUtils.TRANSACTION_ID
     val pspTransactionId = "pspTransactionId"
+    val touchpoint = Transaction.ClientId.CHECKOUT
     val paymentTypeCode = "RPIC"
     val pspId = "pspId"
     val expectedRequest =
@@ -436,6 +441,7 @@ class RefundServiceTests {
     StepVerifier.create(
         refundService.requestRedirectRefund(
           transactionId = TransactionId(transactionId),
+          touchpoint = touchpoint,
           pspTransactionId = pspTransactionId,
           paymentTypeCode = paymentTypeCode,
           pspId = pspId))

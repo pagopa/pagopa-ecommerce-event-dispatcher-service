@@ -2,6 +2,7 @@ package it.pagopa.ecommerce.eventdispatcher.config
 
 import it.pagopa.ecommerce.commons.exceptions.RedirectConfigurationException
 import it.pagopa.ecommerce.commons.exceptions.RedirectConfigurationType
+import it.pagopa.ecommerce.commons.utils.RedirectConfigurationKeysConfig
 import java.net.URI
 import lombok.extern.slf4j.Slf4j
 import org.springframework.beans.factory.annotation.Value
@@ -29,7 +30,7 @@ class RedirectConfigurationBuilder {
   fun redirectBeApiCallUriMap(
     @Value("\${redirect.paymentTypeCodes}") paymentTypeCodes: Set<String>,
     @Value("#{\${redirect.pspUrlMapping}}") pspUrlMapping: Map<String, String>
-  ): Map<String, URI> {
+  ): RedirectConfigurationKeysConfig {
     // URI.create throws IllegalArgumentException that will prevent module load for
     // invalid PSP URI configuration
     // the redirect url configuration map is in common and it's used to configure both redirections
@@ -44,6 +45,6 @@ class RedirectConfigurationBuilder {
           missingKeys),
         RedirectConfigurationType.BACKEND_URLS)
     }
-    return redirectUriMap
+    return RedirectConfigurationKeysConfig(redirectUriMap)
   }
 }

@@ -407,6 +407,7 @@ fun refundTransaction(
             .flatMap {
               refundService.requestRedirectRefund(
                 transactionId = transaction.transactionId,
+                touchpoint = transaction.clientId,
                 pspTransactionId =
                   transaction.transactionAuthorizationRequestData.authorizationRequestId,
                 paymentTypeCode = transaction.transactionAuthorizationRequestData.paymentTypeCode,
