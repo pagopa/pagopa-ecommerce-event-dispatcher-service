@@ -42,7 +42,7 @@ internal class RedirectConfigurationBuilderTest {
         checkoutRedirectConfigurationBuilder.redirectBeApiCallUriMap(pspToHandle, missingKeyPspMap)
       }
     assertEquals(
-      "Error parsing Redirect PSP BACKEND_URLS configuration, cause: Misconfigured redirect.pspUrlMapping, the following redirect payment type codes backend URIs are not configured: [key1]",
+      "Error parsing Redirect PSP BACKEND_URLS configuration, cause: Misconfigured redirect.pspUrlMapping, the following redirect payment type code b.e. URIs are not configured: [key1]",
       e.message)
   }
 

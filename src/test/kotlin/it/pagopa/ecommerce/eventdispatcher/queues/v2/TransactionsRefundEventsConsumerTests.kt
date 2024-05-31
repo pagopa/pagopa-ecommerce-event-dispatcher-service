@@ -1508,7 +1508,7 @@ class TransactionsRefundEventsConsumerTests {
       verify(refundService, Mockito.times(1))
         .requestRedirectRefund(
           transactionId = TransactionId(expectedTransactionId),
-          touchpoint = Transaction.ClientId.CHECKOUT,
+          touchpoint = Transaction.ClientId.CHECKOUT.name,
           pspTransactionId = expectedPspTransactionId,
           paymentTypeCode = expectedPaymentTypeCode,
           pspId = expectedPspId)
