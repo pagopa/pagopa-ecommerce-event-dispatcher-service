@@ -271,7 +271,7 @@ class RefundServiceTests {
         npgClient = npgClient,
         npgApiKeyConfiguration = npgApiKeyConfiguration,
         nodeForwarderRedirectApiClient = nodeForwarderRedirectApiClient,
-        redirectKeysConfiguration = redirectKeysConfiguration)
+        redirectBeApiCallUriConf = redirectKeysConfiguration)
     val operationId = "operationID"
     val idempotenceKey = UUID.randomUUID()
     val correlationId = UUID.randomUUID().toString()
@@ -308,7 +308,7 @@ class RefundServiceTests {
         npgClient = npgClient,
         npgApiKeyConfiguration = npgApiKeyConfiguration,
         nodeForwarderRedirectApiClient = nodeForwarderRedirectApiClient,
-        redirectKeysConfiguration = redirectKeysConfiguration)
+        redirectBeApiCallUriConf = redirectKeysConfiguration)
     val operationId = "operationID"
     val idempotenceKey = UUID.randomUUID()
     val correlationId = UUID.randomUUID().toString()
@@ -502,8 +502,8 @@ class RefundServiceTests {
         npgClient = npgClient,
         npgApiKeyConfiguration = npgApiKeyConfiguration,
         nodeForwarderRedirectApiClient = nodeForwarderRedirectApiClient,
-        redirectKeysConfiguration =
-          RedirectConfigurationBuilder().redirectBeApiCallUriMap(codeTypeList, redirectUrlMapping))
+        redirectBeApiCallUriConf =
+          RedirectConfigurationBuilder().redirectBeApiCallUriConf(redirectUrlMapping, codeTypeList))
 
     given(nodeForwarderRedirectApiClient.proxyRequest(any(), any(), any(), any()))
       .willReturn(
@@ -551,8 +551,8 @@ class RefundServiceTests {
         npgClient = npgClient,
         npgApiKeyConfiguration = npgApiKeyConfiguration,
         nodeForwarderRedirectApiClient = nodeForwarderRedirectApiClient,
-        redirectKeysConfiguration =
-          RedirectConfigurationBuilder().redirectBeApiCallUriMap(codeTypeList, redirectUrlMapping))
+        redirectBeApiCallUriConf =
+          RedirectConfigurationBuilder().redirectBeApiCallUriConf(redirectUrlMapping, codeTypeList))
 
     given(nodeForwarderRedirectApiClient.proxyRequest(any(), any(), any(), any()))
       .willReturn(
