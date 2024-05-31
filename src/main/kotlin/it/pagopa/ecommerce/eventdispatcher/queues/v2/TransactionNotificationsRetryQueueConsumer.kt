@@ -23,13 +23,13 @@ import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetrySer
 import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.ecommerce.eventdispatcher.utils.v2.UserReceiptMailBuilder
+import java.util.*
 import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
-import java.util.*
 
 @Service("TransactionNotificationsRetryQueueConsumerV2")
 class TransactionNotificationsRetryQueueConsumer(

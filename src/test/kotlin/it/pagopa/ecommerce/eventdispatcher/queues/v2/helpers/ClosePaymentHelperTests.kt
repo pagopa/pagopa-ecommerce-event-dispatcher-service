@@ -32,9 +32,14 @@ import it.pagopa.ecommerce.eventdispatcher.services.v2.AuthorizationStateRetriev
 import it.pagopa.ecommerce.eventdispatcher.services.v2.NodeService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
+import it.pagopa.ecommerce.eventdispatcher.utils.TRANSIENT_QUEUE_TTL_SECONDS
+import it.pagopa.ecommerce.eventdispatcher.utils.queueSuccessfulResponse
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ErrorDto
+import java.time.ZonedDateTime
+import java.util.*
+import java.util.stream.Stream
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.reactor.mono
 import kotlinx.coroutines.test.runTest
@@ -53,9 +58,6 @@ import reactor.core.publisher.Hooks
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toFlux
 import reactor.test.StepVerifier
-import java.time.ZonedDateTime
-import java.util.*
-import java.util.stream.Stream
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @ExtendWith(MockitoExtension::class)
@@ -132,8 +134,8 @@ class ClosePaymentHelperTests {
       paymentRequestInfoRedisTemplateWrapper = paymentRequestInfoRedisTemplateWrapper,
       strictSerializerProviderV2 = strictJsonSerializerProviderV2,
       npgService = NpgService(authorizationStateRetrieverService),
-      refundQueueAsyncClient = refundQueueAsyncClient
-    )
+      refundQueueAsyncClient = refundQueueAsyncClient,
+      transientQueueTTLSeconds = TRANSIENT_QUEUE_TTL_SECONDS)
 
   @Test
   fun `consumer processes bare closure error message correctly with OK closure outcome for authorization completed transaction`() =
@@ -639,6 +641,10 @@ class ClosePaymentHelperTests {
       given(nodeService.closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK))
         .willReturn(
           ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.KO })
+      given(
+          refundQueueAsyncClient.sendMessageWithResponse(
+            any<QueueEvent<TransactionRefundRequestedEvent>>(), any(), any()))
+        .willReturn(queueSuccessfulResponse())
 
       /* test */
 
@@ -655,22 +661,20 @@ class ClosePaymentHelperTests {
       verify(checkpointer, Mockito.times(1)).success()
       verify(nodeService, Mockito.times(1))
         .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK)
-      verify(paymentGatewayClient, times(1)).requestVPosRefund(any())
+      verify(refundQueueAsyncClient, times(1))
+        .sendMessageWithResponse(any<QueueEvent<TransactionRefundRequestedEvent>>(), any(), any())
       verify(transactionClosedEventRepository, Mockito.times(1)).save(any())
       verify(paymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never()).deleteById(any())
-      verify(transactionsRefundedEventStoreRepository, Mockito.times(2)).save(any())
-      verify(transactionsViewRepository, Mockito.times(3)).save(any())
+      verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
+      verify(transactionsViewRepository, Mockito.times(2)).save(any())
       verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
 
       val expectedViewUpdateStatuses =
-        listOf(
-          TransactionStatusDto.CLOSED,
-          TransactionStatusDto.REFUND_REQUESTED,
-          TransactionStatusDto.REFUNDED)
+        listOf(TransactionStatusDto.CLOSED, TransactionStatusDto.REFUND_REQUESTED)
       val expectedEventsCodes =
         listOf(
           TransactionEventCode.TRANSACTION_REFUND_REQUESTED_EVENT,
-          TransactionEventCode.TRANSACTION_REFUNDED_EVENT)
+        )
       expectedViewUpdateStatuses.forEachIndexed { idx, transactionStatusDto ->
         assertEquals(
           transactionStatusDto,
@@ -1618,9 +1622,10 @@ class ClosePaymentHelperTests {
           transactionsRefundedEventStoreRepository.save(
             refundedEventStoreRepositoryCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
-      given(paymentGatewayClient.requestVPosRefund(any()))
-        .willReturn(
-          Mono.just(VposDeleteResponseDto().status(VposDeleteResponseDto.StatusEnum.CANCELLED)))
+      given(
+          refundQueueAsyncClient.sendMessageWithResponse(
+            any<QueueEvent<TransactionRefundRequestedEvent>>(), any(), any()))
+        .willReturn(queueSuccessfulResponse())
       given(nodeService.closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK))
         .willThrow(
           ClosePaymentErrorResponseException(
@@ -1642,19 +1647,16 @@ class ClosePaymentHelperTests {
       verify(checkpointer, Mockito.times(1)).success()
       verify(nodeService, Mockito.times(1))
         .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK)
-      verify(paymentGatewayClient, times(1)).requestVPosRefund(any())
+      verify(refundQueueAsyncClient, times(1))
+        .sendMessageWithResponse(any<QueueEvent<TransactionRefundRequestedEvent>>(), any(), any())
       verify(paymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never()).deleteById(any())
       verify(transactionClosedEventRepository, Mockito.times(0)).save(any())
-      verify(transactionsRefundedEventStoreRepository, Mockito.times(2)).save(any())
-      verify(transactionsViewRepository, Mockito.times(2)).save(any())
+      verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
+      verify(transactionsViewRepository, Mockito.times(1)).save(any())
       verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
 
-      val expectedViewUpdateStatuses =
-        listOf(TransactionStatusDto.REFUND_REQUESTED, TransactionStatusDto.REFUNDED)
-      val expectedEventsCodes =
-        listOf(
-          TransactionEventCode.TRANSACTION_REFUND_REQUESTED_EVENT,
-          TransactionEventCode.TRANSACTION_REFUNDED_EVENT)
+      val expectedViewUpdateStatuses = listOf(TransactionStatusDto.REFUND_REQUESTED)
+      val expectedEventsCodes = listOf(TransactionEventCode.TRANSACTION_REFUND_REQUESTED_EVENT)
       expectedViewUpdateStatuses.forEachIndexed { idx, transactionStatusDto ->
         assertEquals(
           transactionStatusDto,
@@ -2066,9 +2068,10 @@ class ClosePaymentHelperTests {
           transactionsRefundedEventStoreRepository.save(
             refundedEventStoreRepositoryCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
-      given(paymentGatewayClient.requestVPosRefund(any()))
-        .willReturn(
-          Mono.just(VposDeleteResponseDto().status(VposDeleteResponseDto.StatusEnum.CANCELLED)))
+      given(
+          refundQueueAsyncClient.sendMessageWithResponse(
+            any<QueueEvent<TransactionRefundRequestedEvent>>(), any(), any()))
+        .willReturn(queueSuccessfulResponse())
       given(nodeService.closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK))
         .willThrow(
           ClosePaymentErrorResponseException(
@@ -2091,23 +2094,21 @@ class ClosePaymentHelperTests {
       verify(checkpointer, Mockito.times(1)).success()
       verify(nodeService, Mockito.times(1))
         .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK)
-      verify(paymentGatewayClient, times(1)).requestVPosRefund(any())
+      verify(refundQueueAsyncClient, times(1))
+        .sendMessageWithResponse(any<QueueEvent<TransactionRefundRequestedEvent>>(), any(), any())
       verify(paymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never()).deleteById(any())
       verify(transactionClosedEventRepository, Mockito.times(0)).save(any())
       verify(transactionClosureErrorEventStoreRepository, Mockito.times(1)).save(any())
-      verify(transactionsRefundedEventStoreRepository, Mockito.times(2)).save(any())
-      verify(transactionsViewRepository, Mockito.times(3)).save(any())
+      verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
+      verify(transactionsViewRepository, Mockito.times(2)).save(any())
       verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
 
       val expectedViewUpdateStatuses =
         listOf(
           TransactionStatusDto.CLOSURE_ERROR,
           TransactionStatusDto.REFUND_REQUESTED,
-          TransactionStatusDto.REFUNDED)
-      val expectedEventsCodes =
-        listOf(
-          TransactionEventCode.TRANSACTION_REFUND_REQUESTED_EVENT,
-          TransactionEventCode.TRANSACTION_REFUNDED_EVENT)
+        )
+      val expectedEventsCodes = listOf(TransactionEventCode.TRANSACTION_REFUND_REQUESTED_EVENT)
       expectedViewUpdateStatuses.forEachIndexed { idx, transactionStatusDto ->
         assertEquals(
           transactionStatusDto,
@@ -2444,9 +2445,10 @@ class ClosePaymentHelperTests {
           transactionsRefundedEventStoreRepository.save(
             refundedEventStoreRepositoryCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
-      given(paymentGatewayClient.requestVPosRefund(any()))
-        .willReturn(
-          Mono.just(VposDeleteResponseDto().status(VposDeleteResponseDto.StatusEnum.CANCELLED)))
+      given(
+          refundQueueAsyncClient.sendMessageWithResponse(
+            any<QueueEvent<TransactionRefundRequestedEvent>>(), any(), any()))
+        .willReturn(queueSuccessfulResponse())
       given(nodeService.closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK))
         .willReturn(
           ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.KO })
@@ -2467,22 +2469,17 @@ class ClosePaymentHelperTests {
       verify(checkpointer, Mockito.times(1)).success()
       verify(nodeService, Mockito.times(1))
         .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK)
-      verify(paymentGatewayClient, times(1)).requestVPosRefund(any())
+      verify(refundQueueAsyncClient, times(1))
+        .sendMessageWithResponse(any<QueueEvent<TransactionRefundRequestedEvent>>(), any(), any())
       verify(transactionClosedEventRepository, Mockito.times(1)).save(any())
       verify(paymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never()).deleteById(any())
-      verify(transactionsRefundedEventStoreRepository, Mockito.times(2)).save(any())
-      verify(transactionsViewRepository, Mockito.times(3)).save(any())
+      verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
+      verify(transactionsViewRepository, Mockito.times(2)).save(any())
       verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
 
       val expectedViewUpdateStatuses =
-        listOf(
-          TransactionStatusDto.CLOSED,
-          TransactionStatusDto.REFUND_REQUESTED,
-          TransactionStatusDto.REFUNDED)
-      val expectedEventsCodes =
-        listOf(
-          TransactionEventCode.TRANSACTION_REFUND_REQUESTED_EVENT,
-          TransactionEventCode.TRANSACTION_REFUNDED_EVENT)
+        listOf(TransactionStatusDto.CLOSED, TransactionStatusDto.REFUND_REQUESTED)
+      val expectedEventsCodes = listOf(TransactionEventCode.TRANSACTION_REFUND_REQUESTED_EVENT)
       expectedViewUpdateStatuses.forEachIndexed { idx, transactionStatusDto ->
         assertEquals(
           transactionStatusDto,
