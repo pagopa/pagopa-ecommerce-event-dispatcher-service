@@ -151,7 +151,9 @@ class ClosePaymentHelper(
     val transactionId = getTransactionId(queueEvent)
     val retryCount = getRetryCount(queueEvent)
     val baseTransaction =
-      reduceEvents(mono { transactionId }, transactionsEventStoreRepository, emptyTransaction)
+      Mono.defer {
+        reduceEvents(mono { transactionId }, transactionsEventStoreRepository, emptyTransaction)
+      }
     val closurePipeline =
       baseTransaction
         .flatMap {
