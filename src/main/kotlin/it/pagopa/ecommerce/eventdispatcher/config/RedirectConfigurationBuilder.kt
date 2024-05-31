@@ -14,8 +14,9 @@ import org.springframework.context.annotation.Configuration
 @Slf4j
 class RedirectConfigurationBuilder {
   /**
-   * Create a {@code Map<String,URI>} that will associate, to every handled PSP, the backend URI to
-   * be used to perform Redirect payment flow api call
+   * Create a {@code RedirectKeysConfiguration} that will contain to every handled PSP, the backend
+   * URI to be used to perform Redirect payment flow api call, then provides a method to search
+   * based on the touchpoint key - pspId - paymentTypeCode keys
    *
    * @param paymentTypeCodes
    * - set of all redirect payment type codes to be handled flow
@@ -24,9 +25,9 @@ class RedirectConfigurationBuilder {
    * @return a configuration map for every PSPs
    */
   @Bean
-  fun redirectBeApiCallUriMap(
-    @Value("\${redirect.paymentTypeCodes}") paymentTypeCodes: Set<String>,
-    @Value("#{\${redirect.pspUrlMapping}}") pspUrlMapping: Map<String, String>
+  fun redirectBeApiCallUriConf(
+    @Value("#{\${redirect.pspUrlMapping}}") pspUrlMapping: Map<String, String>,
+    @Value("\${redirect.paymentTypeCodes}") paymentTypeCodes: Set<String>
   ): RedirectKeysConfiguration {
     // URI.create throws IllegalArgumentException that will prevent module load for
     // invalid PSP URI configuration

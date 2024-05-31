@@ -34,7 +34,7 @@ class RefundService(
   @Autowired
   private val nodeForwarderRedirectApiClient:
     NodeForwarderClient<RedirectRefundRequestDto, RedirectRefundResponseDto>,
-  private val redirectKeysConfiguration: RedirectKeysConfiguration
+  @Autowired private val redirectBeApiCallUriConf: RedirectKeysConfiguration
 ) {
 
   private val logger: Logger = LoggerFactory.getLogger(javaClass)
@@ -100,7 +100,7 @@ class RefundService(
     paymentTypeCode: String,
     pspId: String
   ): Mono<RedirectRefundResponseDto> =
-    redirectKeysConfiguration
+    redirectBeApiCallUriConf
       .getRedirectUrlForPsp(touchpoint, pspId, paymentTypeCode)
       .fold(
         { Mono.error(it) },

@@ -26,7 +26,7 @@ internal class RedirectConfigurationBuilderTest {
   fun shouldBuildPspBackendUriMapSuccessfully(pspId: String) {
     val mapping: Map<String, URI> = assertDoesNotThrow {
       checkoutRedirectConfigurationBuilder
-        .redirectBeApiCallUriMap(pspToHandle, pspUriMap)
+        .redirectBeApiCallUriConf(pspUriMap, pspToHandle)
         .redirectBeApiCallUriMap
     }
     assertEquals(
@@ -39,7 +39,7 @@ internal class RedirectConfigurationBuilderTest {
     missingKeyPspMap.remove("key1")
     val e: RedirectConfigurationException =
       assertThrows(RedirectConfigurationException::class.java) {
-        checkoutRedirectConfigurationBuilder.redirectBeApiCallUriMap(pspToHandle, missingKeyPspMap)
+        checkoutRedirectConfigurationBuilder.redirectBeApiCallUriConf(missingKeyPspMap, pspToHandle)
       }
     assertEquals(
       "Error parsing Redirect PSP BACKEND_URLS configuration, cause: Misconfigured redirect.pspUrlMapping, the following redirect payment type code b.e. URIs are not configured: [key1]",
@@ -51,7 +51,7 @@ internal class RedirectConfigurationBuilderTest {
     val missingKeyPspMap: MutableMap<String, String> = HashMap(pspUriMap)
     missingKeyPspMap["key1"] = "http:\\\\localhost"
     assertThrows(IllegalArgumentException::class.java) {
-      checkoutRedirectConfigurationBuilder.redirectBeApiCallUriMap(pspToHandle, missingKeyPspMap)
+      checkoutRedirectConfigurationBuilder.redirectBeApiCallUriConf(missingKeyPspMap, pspToHandle)
     }
   }
 }
