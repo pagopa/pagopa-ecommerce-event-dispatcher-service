@@ -271,7 +271,7 @@ class RefundServiceTests {
         npgClient = npgClient,
         npgApiKeyConfiguration = npgApiKeyConfiguration,
         nodeForwarderRedirectApiClient = nodeForwarderRedirectApiClient,
-        redirectBeApiCallUriConf = redirectKeysConfiguration)
+        redirectKeysConfiguration = redirectKeysConfiguration)
     val operationId = "operationID"
     val idempotenceKey = UUID.randomUUID()
     val correlationId = UUID.randomUUID().toString()
@@ -308,7 +308,7 @@ class RefundServiceTests {
         npgClient = npgClient,
         npgApiKeyConfiguration = npgApiKeyConfiguration,
         nodeForwarderRedirectApiClient = nodeForwarderRedirectApiClient,
-        redirectBeApiCallUriConf = redirectKeysConfiguration)
+        redirectKeysConfiguration = redirectKeysConfiguration)
     val operationId = "operationID"
     val idempotenceKey = UUID.randomUUID()
     val correlationId = UUID.randomUUID().toString()
@@ -502,8 +502,8 @@ class RefundServiceTests {
         npgClient = npgClient,
         npgApiKeyConfiguration = npgApiKeyConfiguration,
         nodeForwarderRedirectApiClient = nodeForwarderRedirectApiClient,
-        redirectBeApiCallUriConf =
-          RedirectConfigurationBuilder().redirectBeApiCallUriConf(redirectUrlMapping, codeTypeList))
+        redirectKeysConfiguration =
+          RedirectConfigurationBuilder().redirectBeApiCallUriMap(codeTypeList, redirectUrlMapping))
 
     given(nodeForwarderRedirectApiClient.proxyRequest(any(), any(), any(), any()))
       .willReturn(
@@ -525,7 +525,7 @@ class RefundServiceTests {
   }
 
   @Test
-  fun `shouldReturnErrorDuringSearchRedirectURLforInvalidSearchKey`() {
+  fun `Should return error during search redirect URL for invalid search key`() {
     val redirectUrlMapping =
       java.util.Map.of(
         "CHECKOUT-psp1-RBPR",
@@ -551,8 +551,8 @@ class RefundServiceTests {
         npgClient = npgClient,
         npgApiKeyConfiguration = npgApiKeyConfiguration,
         nodeForwarderRedirectApiClient = nodeForwarderRedirectApiClient,
-        redirectBeApiCallUriConf =
-          RedirectConfigurationBuilder().redirectBeApiCallUriConf(redirectUrlMapping, codeTypeList))
+        redirectKeysConfiguration =
+          RedirectConfigurationBuilder().redirectBeApiCallUriMap(codeTypeList, redirectUrlMapping))
 
     given(nodeForwarderRedirectApiClient.proxyRequest(any(), any(), any(), any()))
       .willReturn(
