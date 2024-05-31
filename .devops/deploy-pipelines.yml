@@ -123,6 +123,7 @@ stages:
                       helm dep build helm
                 - task: Kubernetes@1
                   displayName: (workaround) Delete old beta deployment
+                  continueOnError: true
                   inputs:
                     kubernetesServiceEndpoint: $(DEV_KUBERNETES_SERVICE_CONN)
                     kubernetesCluster: $(kubernetesCluster)
