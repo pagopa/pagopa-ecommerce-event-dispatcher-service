@@ -82,11 +82,12 @@ class RefundServiceTests {
     NodeForwarderClient<RedirectRefundRequestDto, RedirectRefundResponseDto> =
     mock()
 
-  private val redirectBeApiCallUriMap: Map<String, String> =
-    mapOf("pspId-RPIC" to "http://redirect/RPIC")
+  private val redirectBeApiCallUriMap: Map<String, URI> =
+    mapOf("pspId-RPIC" to URI.create("http://redirect/RPIC"))
   private val redirectBeAoiCallUriSet: Set<String> = setOf("pspId-RPIC")
   private val redirectKeysConfiguration: RedirectKeysConfiguration =
-    RedirectKeysConfiguration(redirectBeApiCallUriMap, redirectBeAoiCallUriSet)
+    RedirectKeysConfiguration(
+      mapOf("pspId-RPIC" to "http://redirect/RPIC"), redirectBeAoiCallUriSet)
   private val refundService: RefundService =
     RefundService(
       paymentGatewayClient = paymentGatewayClient,
@@ -390,7 +391,7 @@ class RefundServiceTests {
     verify(nodeForwarderRedirectApiClient, times(1))
       .proxyRequest(
         expectedRequest,
-        redirectBeApiCallUriMap["pspId-$paymentTypeCode"]?.let { URI(it) },
+        redirectBeApiCallUriMap["pspId-$paymentTypeCode"],
         transactionId,
         RedirectRefundResponseDto::class.java)
   }
@@ -467,7 +468,7 @@ class RefundServiceTests {
     verify(nodeForwarderRedirectApiClient, times(1))
       .proxyRequest(
         expectedRequest,
-        redirectBeApiCallUriMap["pspId-$paymentTypeCode"]?.let { URI(it) },
+        redirectBeApiCallUriMap["pspId-$paymentTypeCode"],
         transactionId,
         RedirectRefundResponseDto::class.java)
   }
