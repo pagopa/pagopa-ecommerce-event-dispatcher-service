@@ -32,7 +32,7 @@ microservice-chart:
         ECS_SERVICE_NAME: pagopa-ecommerce-event-dispatcher-service-blue
   image:
     repository: pagopaucommonacr.azurecr.io/pagopaecommerceeventdispatcherservice
-    tag: "1.13.3"
+    tag: "1.13.5"
     pullPolicy: Always
   livenessProbe:
     httpGet:
@@ -149,6 +149,9 @@ microservice-chart:
     OTEL_METRICS_EXPORTER: otlp
     OTEL_LOGS_EXPORTER: none
     OTEL_TRACES_SAMPLER: "always_on"
+    OTEL_INSTRUMENTATION_SPRING_INTEGRATION_ENABLED: "true"
+    OTEL_INSTRUMENTATION_SPRING_SCHEDULING_ENABLED: "false"
+    OTEL_INSTRUMENTATION_SPRING_INTEGRATION_GLOBAL_CHANNEL_INTERCEPTOR_PATTERNS: "controlBusInputChannel, transaction*"
     SEND_PAYMENT_RESULT_TIMEOUT_SECONDS: "3900"
     SEND_PAYMENT_RESULT_EXPIRATION_OFFSET_SECONDS: "5"
     NPG_URI: https://stg-ta.nexigroup.com/api/phoenix-0.0
