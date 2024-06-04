@@ -106,11 +106,12 @@ class RefundService(
         { Mono.error(it) },
         { uri ->
           logger.info(
-            "Processing Redirect transaction refund. TransactionId: [{}], pspTransactionId: [{}], payment type code: [{}], pspId: [{}]",
+            "Processing Redirect transaction refund. TransactionId: [{}], pspTransactionId: [{}], payment type code: [{}], pspId: [{}], touchpoint: [{}]",
             transactionId.value(),
             pspTransactionId,
             paymentTypeCode,
-            pspId)
+            pspId,
+            touchpoint)
           nodeForwarderRedirectApiClient
             .proxyRequest(
               RedirectRefundRequestDto()
