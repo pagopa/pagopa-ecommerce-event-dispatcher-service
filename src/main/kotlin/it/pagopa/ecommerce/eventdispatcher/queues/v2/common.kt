@@ -407,7 +407,17 @@ fun refundTransaction(
             .flatMap {
               refundService.requestRedirectRefund(
                 transactionId = transaction.transactionId,
-                touchpoint = transaction.clientId.name,
+                touchpoint =
+                  transaction.clientId.let {
+                    when (it) {
+                      Transaction.ClientId.CHECKOUT_CART -> Transaction.ClientId.CHECKOUT.name
+                      Transaction.ClientId.CHECKOUT,
+                      Transaction.ClientId.IO -> it.name
+                      else ->
+                        throw IllegalArgumentException(
+                          "Cannot determine touch point: [$it] for redirect transaction refund")
+                    }
+                  },
                 pspTransactionId =
                   transaction.transactionAuthorizationRequestData.authorizationRequestId,
                 paymentTypeCode = transaction.transactionAuthorizationRequestData.paymentTypeCode,

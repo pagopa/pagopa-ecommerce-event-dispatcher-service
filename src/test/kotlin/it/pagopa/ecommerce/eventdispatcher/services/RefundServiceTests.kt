@@ -127,12 +127,12 @@ class RefundServiceTests {
     @JvmStatic
     private fun `Redirect refund errors method source`(): Stream<Arguments> =
       Stream.of(
-        Arguments.of(HttpStatus.BAD_REQUEST, RefundNotAllowedException::class.java),
-        Arguments.of(HttpStatus.UNAUTHORIZED, RefundNotAllowedException::class.java),
-        Arguments.of(HttpStatus.NOT_FOUND, RefundNotAllowedException::class.java),
-        Arguments.of(HttpStatus.INTERNAL_SERVER_ERROR, BadGatewayException::class.java),
-        Arguments.of(HttpStatus.GATEWAY_TIMEOUT, BadGatewayException::class.java),
-        Arguments.of(null, BadGatewayException::class.java),
+        Arguments.of(HttpStatus.BAD_REQUEST, RefundNotAllowedException::class.java, "CHECKOUT"),
+        Arguments.of(HttpStatus.UNAUTHORIZED, RefundNotAllowedException::class.java, "IO"),
+        Arguments.of(HttpStatus.NOT_FOUND, RefundNotAllowedException::class.java, "CHECKOUT_CART"),
+        Arguments.of(HttpStatus.INTERNAL_SERVER_ERROR, BadGatewayException::class.java, "CHECKOUT"),
+        Arguments.of(HttpStatus.GATEWAY_TIMEOUT, BadGatewayException::class.java, "IO"),
+        Arguments.of(null, BadGatewayException::class.java, "CHECKOUT_CART"),
       )
 
     @JvmStatic
@@ -144,8 +144,13 @@ class RefundServiceTests {
         Arguments.of("CHECKOUT", "psp2", "RBPB", URI("http://localhost:8096/redirections2")),
         Arguments.of("IO", "psp2", "RBPB", URI("http://localhost:8096/redirections2")),
         Arguments.of("CHECKOUT", "psp3", "RBPS", URI("http://localhost:8096/redirections3")),
+        Arguments.of("CHECKOUT_CART", "psp3", "RBPS", URI("http://localhost:8096/redirections3")),
         Arguments.of("IO", "psp3", "RBPS", URI("http://localhost:8096/redirections3")))
     }
+
+    @JvmStatic
+    private fun touchpoints(): Stream<Arguments> =
+      Stream.of(Arguments.of("CHECKOUT"), Arguments.of("CHECKOUT_CART"), Arguments.of("IO"))
   }
 
   @Test
@@ -359,14 +364,14 @@ class RefundServiceTests {
     assertEquals("CANCELLED", response?.status?.value)
   }
 
-  @Test
-  fun `Should perform redirect refund successfully`() {
+  @ParameterizedTest()
+  @MethodSource("touchpoints")
+  fun `Should perform redirect refund successfully`(touchpoint: String) {
     // pre-requisites
     val transactionId = TransactionTestUtils.TRANSACTION_ID
     val pspTransactionId = "pspTransactionId"
     val paymentTypeCode = "RPIC"
     val pspId = "pspId"
-    val touchpoint = "CHECKOUT"
     val redirectRefundResponse =
       RedirectRefundResponseDto().idTransaction(transactionId).outcome(RefundOutcomeDto.OK)
     val expectedRequest =
@@ -396,13 +401,13 @@ class RefundServiceTests {
         RedirectRefundResponseDto::class.java)
   }
 
-  @Test
-  fun `Should return error performing redirect refund for missing backend URL`() {
+  @ParameterizedTest()
+  @MethodSource("touchpoints")
+  fun `Should return error performing redirect refund for missing backend URL`(touchpoint: String) {
     // pre-requisites
     val transactionId = TransactionTestUtils.TRANSACTION_ID
     val pspTransactionId = "pspTransactionId"
     val paymentTypeCode = "MISSING"
-    val touchpoint = "CHECKOUT"
     // test
     StepVerifier.create(
         refundService.requestRedirectRefund(
@@ -414,7 +419,7 @@ class RefundServiceTests {
       .expectErrorMatches {
         assertTrue(it is RedirectConfigurationException)
         assertEquals(
-          "Error parsing Redirect PSP BACKEND_URLS configuration, cause: Missing key for redirect return url with following search parameters: touchpoint: [CHECKOUT] pspId: [pspId] paymentTypeCode: [MISSING]",
+          "Error parsing Redirect PSP BACKEND_URLS configuration, cause: Missing key for redirect return url with following search parameters: touchpoint: [${touchpoint}] pspId: [pspId] paymentTypeCode: [MISSING]",
           it.message)
         true
       }
@@ -426,12 +431,12 @@ class RefundServiceTests {
   @MethodSource("Redirect refund errors method source")
   fun `Should handle returned error performing redirect refund call`(
     httpErrorCode: HttpStatus?,
-    expectedErrorClass: Class<Exception>
+    expectedErrorClass: Class<Exception>,
+    touchpoint: String
   ) {
     // pre-requisites
     val transactionId = TransactionTestUtils.TRANSACTION_ID
     val pspTransactionId = "pspTransactionId"
-    val touchpoint = "CHECKOUT"
     val paymentTypeCode = "RPIC"
     val pspId = "pspId"
     val expectedRequest =
