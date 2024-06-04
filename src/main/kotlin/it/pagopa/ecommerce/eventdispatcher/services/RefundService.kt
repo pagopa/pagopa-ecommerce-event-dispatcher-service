@@ -1,16 +1,14 @@
 package it.pagopa.ecommerce.eventdispatcher.services
 
-import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.client.NodeForwarderClient
 import it.pagopa.ecommerce.commons.client.NpgClient
 import it.pagopa.ecommerce.commons.client.NpgClient.PaymentMethod
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.exceptions.NodeForwarderClientException
 import it.pagopa.ecommerce.commons.exceptions.NpgResponseException
-import it.pagopa.ecommerce.commons.exceptions.RedirectConfigurationException
-import it.pagopa.ecommerce.commons.exceptions.RedirectConfigurationType
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.RefundResponseDto
 import it.pagopa.ecommerce.commons.utils.NpgApiKeyConfiguration
+import it.pagopa.ecommerce.commons.utils.RedirectKeysConfiguration
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadGatewayException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.RefundNotAllowedException
@@ -19,7 +17,6 @@ import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
 import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundRequestDto as RedirectRefundRequestDto
 import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundResponseDto as RedirectRefundResponseDto
 import java.math.BigDecimal
-import java.net.URI
 import java.util.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -37,7 +34,7 @@ class RefundService(
   @Autowired
   private val nodeForwarderRedirectApiClient:
     NodeForwarderClient<RedirectRefundRequestDto, RedirectRefundResponseDto>,
-  @Autowired private val redirectBeApiCallUriMap: Map<String, URI>
+  @Autowired private val redirectBeApiCallUriConf: RedirectKeysConfiguration
 ) {
 
   private val logger: Logger = LoggerFactory.getLogger(javaClass)
@@ -98,20 +95,23 @@ class RefundService(
 
   fun requestRedirectRefund(
     transactionId: TransactionId,
+    touchpoint: String,
     pspTransactionId: String,
     paymentTypeCode: String,
     pspId: String
   ): Mono<RedirectRefundResponseDto> =
-    getRedirectUri(pspId, paymentTypeCode)
+    redirectBeApiCallUriConf
+      .getRedirectUrlForPsp(touchpoint, pspId, paymentTypeCode)
       .fold(
         { Mono.error(it) },
         { uri ->
           logger.info(
-            "Processing Redirect transaction refund. TransactionId: [{}], pspTransactionId: [{}], payment type code: [{}], pspId: [{}]",
+            "Processing Redirect transaction refund. TransactionId: [{}], pspTransactionId: [{}], payment type code: [{}], pspId: [{}], touchpoint: [{}]",
             transactionId.value(),
             pspTransactionId,
             paymentTypeCode,
-            pspId)
+            pspId,
+            touchpoint)
           nodeForwarderRedirectApiClient
             .proxyRequest(
               RedirectRefundRequestDto()
@@ -152,18 +152,4 @@ class RefundService(
             }
             .map { it.body }
         })
-
-  private fun getRedirectUri(
-    pspId: String,
-    paymentTypeCode: String
-  ): Either<RedirectConfigurationException, URI> {
-    val urlKey = "$pspId-$paymentTypeCode"
-    return Optional.ofNullable(redirectBeApiCallUriMap[urlKey])
-      .map { Either.right<RedirectConfigurationException, URI>(it) }
-      .orElse(
-        Either.left(
-          RedirectConfigurationException(
-            "Missing key for redirect return url with key: [$urlKey]",
-            RedirectConfigurationType.BACKEND_URLS)))
-  }
 }
