@@ -148,6 +148,14 @@ class TransactionsRefundEventsConsumerTests {
           false,
           TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT),
       )
+
+    @JvmStatic
+    private fun touchpoints() =
+      Stream.of(
+        Arguments.of(
+          Transaction.ClientId.CHECKOUT,
+          Transaction.ClientId.CHECKOUT_CART,
+          Transaction.ClientId.IO))
   }
 
   @Test
@@ -1433,90 +1441,88 @@ class TransactionsRefundEventsConsumerTests {
       assertNull(getAuthorizationCompletedData(transaction, npgService).block())
     }
 
-  @Test
-  fun `consumer processes refund request event correctly with for redirect transaction`() =
-    runTest {
-      val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
-      val authorizationRequestEvent =
-        transactionAuthorizationRequestedEvent(
-          TransactionAuthorizationRequestData.PaymentGateway.REDIRECT,
-          redirectTransactionGatewayAuthorizationRequestedData())
-          as TransactionEvent<Any>
+  @ParameterizedTest
+  @MethodSource("touchpoints")
+  fun `consumer processes refund request event correctly with for redirect transaction`(
+    touchpoint: Transaction.ClientId
+  ) = runTest {
+    val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
+    val authorizationRequestEvent =
+      transactionAuthorizationRequestedEvent(
+        TransactionAuthorizationRequestData.PaymentGateway.REDIRECT,
+        redirectTransactionGatewayAuthorizationRequestedData())
+        as TransactionEvent<Any>
 
-      val authorizationCompleteEvent =
-        transactionAuthorizationCompletedEvent(
-          redirectTransactionGatewayAuthorizationData(
-            RedirectTransactionGatewayAuthorizationData.Outcome.OK, null))
-          as TransactionEvent<Any>
-      val closureRequestedEvent = transactionClosureRequestedEvent() as TransactionEvent<Any>
-      val closedEvent =
-        transactionClosedEvent(TransactionClosureData.Outcome.KO) as TransactionEvent<Any>
-      val refundRequestedEvent =
-        TransactionRefundRequestedEvent(
-          TRANSACTION_ID,
-          TransactionRefundRequestedData(null, TransactionStatusDto.REFUND_REQUESTED))
-          as TransactionEvent<Any>
+    val authorizationCompleteEvent =
+      transactionAuthorizationCompletedEvent(
+        redirectTransactionGatewayAuthorizationData(
+          RedirectTransactionGatewayAuthorizationData.Outcome.OK, null))
+        as TransactionEvent<Any>
+    val closureRequestedEvent = transactionClosureRequestedEvent() as TransactionEvent<Any>
+    val closedEvent =
+      transactionClosedEvent(TransactionClosureData.Outcome.KO) as TransactionEvent<Any>
+    val refundRequestedEvent =
+      TransactionRefundRequestedEvent(
+        TRANSACTION_ID, TransactionRefundRequestedData(null, TransactionStatusDto.REFUND_REQUESTED))
+        as TransactionEvent<Any>
 
-      val refundRedirectResponse =
-        RedirectRefundResponseDto().apply {
-          idTransaction = TRANSACTION_ID
-          outcome = RefundOutcomeDto.OK
-        }
+    val refundRedirectResponse =
+      RedirectRefundResponseDto().apply {
+        idTransaction = TRANSACTION_ID
+        outcome = RefundOutcomeDto.OK
+      }
 
-      val events =
-        listOf(
-          activationEvent,
-          authorizationRequestEvent,
-          authorizationCompleteEvent,
-          closureRequestedEvent,
-          closedEvent,
-          refundRequestedEvent)
+    val events =
+      listOf(
+        activationEvent,
+        authorizationRequestEvent,
+        authorizationCompleteEvent,
+        closureRequestedEvent,
+        closedEvent,
+        refundRequestedEvent)
 
-      /* preconditions */
-      given(checkpointer.success()).willReturn(Mono.empty())
-      given(
-          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
-            TRANSACTION_ID))
-        .willReturn(events.toFlux())
-      given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
-      given(transactionsRefundedEventStoreRepository.save(refundEventStoreCaptor.capture()))
-        .willAnswer { Mono.just(it.arguments[0]) }
-      given(refundService.requestRedirectRefund(any(), any(), any(), any(), any()))
-        .willReturn(Mono.just(refundRedirectResponse))
-      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
-        .willReturn(
-          mono { transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now()) })
+    /* preconditions */
+    given(checkpointer.success()).willReturn(Mono.empty())
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
+      .willReturn(events.toFlux())
+    given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
+    given(transactionsRefundedEventStoreRepository.save(refundEventStoreCaptor.capture()))
+      .willAnswer { Mono.just(it.arguments[0]) }
+    given(refundService.requestRedirectRefund(any(), any(), any(), any(), any()))
+      .willReturn(Mono.just(refundRedirectResponse))
+    given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+      .willReturn(
+        mono { transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now()) })
 
-      /* test */
-      StepVerifier.create(
-          transactionRefundedEventsConsumer.messageReceiver(
-            Either.right(
-              QueueEvent(
-                refundRequestedEvent as TransactionRefundRequestedEvent, MOCK_TRACING_INFO)),
-            checkpointer))
-        .expectNext(Unit)
-        .verifyComplete()
+    /* test */
+    StepVerifier.create(
+        transactionRefundedEventsConsumer.messageReceiver(
+          Either.right(
+            QueueEvent(refundRequestedEvent as TransactionRefundRequestedEvent, MOCK_TRACING_INFO)),
+          checkpointer))
+      .expectNext(Unit)
+      .verifyComplete()
 
-      /* Asserts */
-      val expectedTransactionId = TRANSACTION_ID
-      val expectedPspTransactionId = AUTHORIZATION_REQUEST_ID
-      val expectedPaymentTypeCode =
-        (authorizationRequestEvent as TransactionAuthorizationRequestedEvent).data.paymentTypeCode
-      val expectedPspId =
-        (authorizationRequestEvent as TransactionAuthorizationRequestedEvent).data.pspId
-      verify(checkpointer, Mockito.times(1)).success()
-      verify(refundService, Mockito.times(1))
-        .requestRedirectRefund(
-          transactionId = TransactionId(expectedTransactionId),
-          touchpoint = Transaction.ClientId.CHECKOUT.name,
-          pspTransactionId = expectedPspTransactionId,
-          paymentTypeCode = expectedPaymentTypeCode,
-          pspId = expectedPspId)
-      verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
-      verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
-      val storedEvent = refundEventStoreCaptor.value
-      assertEquals(
-        TransactionEventCode.TRANSACTION_REFUNDED_EVENT.toString(), storedEvent.eventCode)
-      assertEquals(TransactionStatusDto.REFUND_REQUESTED, storedEvent.data.statusBeforeRefunded)
-    }
+    /* Asserts */
+    val expectedTransactionId = TRANSACTION_ID
+    val expectedPspTransactionId = AUTHORIZATION_REQUEST_ID
+    val expectedPaymentTypeCode =
+      (authorizationRequestEvent as TransactionAuthorizationRequestedEvent).data.paymentTypeCode
+    val expectedPspId =
+      (authorizationRequestEvent as TransactionAuthorizationRequestedEvent).data.pspId
+    verify(checkpointer, Mockito.times(1)).success()
+    verify(refundService, Mockito.times(1))
+      .requestRedirectRefund(
+        transactionId = TransactionId(expectedTransactionId),
+        touchpoint = touchpoint.name,
+        pspTransactionId = expectedPspTransactionId,
+        paymentTypeCode = expectedPaymentTypeCode,
+        pspId = expectedPspId)
+    verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
+    verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+    val storedEvent = refundEventStoreCaptor.value
+    assertEquals(TransactionEventCode.TRANSACTION_REFUNDED_EVENT.toString(), storedEvent.eventCode)
+    assertEquals(TransactionStatusDto.REFUND_REQUESTED, storedEvent.data.statusBeforeRefunded)
+  }
 }
