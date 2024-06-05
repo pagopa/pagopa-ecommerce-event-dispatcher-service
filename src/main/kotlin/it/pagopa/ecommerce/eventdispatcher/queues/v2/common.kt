@@ -45,14 +45,14 @@ import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundOutcomeDto
 import it.pagopa.generated.transactionauthrequests.v1.dto.OutcomeNpgGatewayDto
 import it.pagopa.generated.transactionauthrequests.v1.dto.TransactionInfoDto
 import it.pagopa.generated.transactionauthrequests.v1.dto.UpdateAuthorizationRequestDto
+import java.math.BigDecimal
+import java.time.*
+import java.util.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toMono
-import java.math.BigDecimal
-import java.time.*
-import java.util.*
 
 object QueueCommonsLogger {
   val logger: Logger = LoggerFactory.getLogger(QueueCommonsLogger::class.java)
@@ -68,14 +68,20 @@ fun updateTransactionToExpired(
     .save(
       TransactionExpiredEvent(
         transaction.transactionId.value(), TransactionExpiredData(transaction.status)))
-    .then(
+    .map {
+      (transaction as it.pagopa.ecommerce.commons.domain.v2.Transaction).applyEvent(it)
+        as BaseTransaction
+    }
+    .flatMap {
       transactionsViewRepository
         .findByTransactionId(transaction.transactionId.value())
         .cast(Transaction::class.java)
         .flatMap { tx ->
           tx.status = getExpiredTransactionStatus(transaction)
           transactionsViewRepository.save(tx)
-        })
+        }
+        .thenReturn(it)
+    }
     .doOnSuccess {
       logger.info("Transaction expired for transaction ${transaction.transactionId.value()}")
     }
@@ -83,7 +89,6 @@ fun updateTransactionToExpired(
       logger.error(
         "Transaction expired error for transaction ${transaction.transactionId.value()} : ${it.message}")
     }
-    .thenReturn(transaction)
 }
 
 fun getExpiredTransactionStatus(transaction: BaseTransaction): TransactionStatusDto =
@@ -978,11 +983,10 @@ fun notificationRefundTransactionPipeline(
   transactionsRefundedEventStoreRepository:
     TransactionsEventStoreRepository<BaseTransactionRefundedData>,
   transactionsViewRepository: TransactionsViewRepository,
-  paymentGatewayClient: PaymentGatewayClient,
-  refundService: RefundService,
-  refundRetryService: RefundRetryService,
   npgService: NpgService,
   tracingInfo: TracingInfo?,
+  refundRequestedAsyncClient: QueueAsyncClient,
+  transientQueueTTLSeconds: Duration
 ): Mono<BaseTransaction> {
   val userReceiptOutcome = transaction.transactionUserReceiptData.responseOutcome
   val toBeRefunded = userReceiptOutcome == TransactionUserReceiptData.Outcome.KO
@@ -991,16 +995,14 @@ fun notificationRefundTransactionPipeline(
   return Mono.just(transaction)
     .filter { toBeRefunded }
     .flatMap {
-      refundTransaction(
+      requestRefundTransaction(
         transaction,
         transactionsRefundedEventStoreRepository,
         transactionsViewRepository,
-        paymentGatewayClient,
-        refundService,
-        refundRetryService,
         npgService,
         tracingInfo,
-      )
+        refundRequestedAsyncClient,
+        transientQueueTTLSeconds)
     }
 }
 

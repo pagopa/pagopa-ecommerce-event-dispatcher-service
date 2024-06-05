@@ -12,8 +12,7 @@ import it.pagopa.ecommerce.commons.documents.v2.authorization.RedirectTransactio
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.v2.TransactionEventCode
 import it.pagopa.ecommerce.commons.domain.v2.pojos.*
-import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
-import it.pagopa.ecommerce.commons.generated.npg.v1.dto.RefundResponseDto
+import it.pagopa.ecommerce.commons.generated.npg.v1.dto.*
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
@@ -29,7 +28,7 @@ import it.pagopa.ecommerce.eventdispatcher.services.RefundService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.AuthorizationStateRetrieverService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgService
-import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
+import it.pagopa.ecommerce.eventdispatcher.utils.*
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
 import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundOutcomeDto
