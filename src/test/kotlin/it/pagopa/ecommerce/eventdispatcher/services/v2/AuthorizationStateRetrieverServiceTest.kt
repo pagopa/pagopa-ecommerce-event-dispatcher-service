@@ -172,7 +172,7 @@ class AuthorizationStateRetrieverServiceTest {
         .willReturn(Either.right("pspApiKey"))
       given(npgClient.getOrder(any(), any(), any())).willReturn(mono { stateResponse })
 
-      val transaction = transactionWithAuthRequested("npgOrderId", correlationId)
+      val transaction = transactionWithAuthRequested(correlationId)
 
       // test
       StepVerifier.create(
@@ -180,7 +180,11 @@ class AuthorizationStateRetrieverServiceTest {
             transaction as BaseTransactionWithRequestedAuthorization))
         .expectNext(stateResponse)
         .verifyComplete()
-      verify(npgClient, times(1)).getOrder(correlationId, "pspApiKey", "npgOrderId")
+      verify(npgClient, times(1))
+        .getOrder(
+          correlationId,
+          "pspApiKey",
+          transaction.transactionAuthorizationRequestData.authorizationRequestId)
     }
 
     @ParameterizedTest
@@ -202,27 +206,30 @@ class AuthorizationStateRetrieverServiceTest {
             NpgResponseException(
               "Error communicating with NPG", npgHttpErrorStatus, RuntimeException())))
       // test
-      StepVerifier.create(
-          authorizationStateRetrieverService.performGetOrder(
-            transactionWithAuthRequested("npgOrderId", correlationId)))
+      val transaction = transactionWithAuthRequested(correlationId)
+
+      StepVerifier.create(authorizationStateRetrieverService.performGetOrder(transaction))
         .expectErrorMatches {
           assertEquals(expectedExceptionToBeThrown::class.java, it::class.java)
           assertEquals(expectedExceptionToBeThrown.message, it.message)
           true
         }
         .verify()
-      verify(npgClient, times(1)).getOrder(correlationId, pspApiKey, "npgOrderId")
+      verify(npgClient, times(1))
+        .getOrder(
+          correlationId,
+          pspApiKey,
+          transaction.transactionAuthorizationRequestData.authorizationRequestId)
     }
   }
 
   private fun transactionWithAuthRequested(
-    orderId: String,
     correlationId: UUID
   ): BaseTransactionWithRequestedAuthorization {
     return reduceEvents(
         listOf(
             TransactionTestUtils.transactionActivateEvent(
-              NpgTransactionGatewayActivationData(orderId, correlationId.toString())),
+              NpgTransactionGatewayActivationData("orderId", correlationId.toString())),
             TransactionTestUtils.transactionAuthorizationRequestedEvent(
               TransactionAuthorizationRequestData.PaymentGateway.NPG,
               TransactionTestUtils.npgTransactionGatewayAuthorizationRequestedData()))
