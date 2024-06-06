@@ -172,14 +172,14 @@ fun updateTransactionToRefunded(
       TransactionRefundedData(gatewayRefundData, transaction.status))
 
   return updateTransactionWithRefundEvent(
-    transaction,
-    transactionsRefundedEventStoreRepository,
-    transactionsViewRepository,
-    event as TransactionEvent<BaseTransactionRefundedData>,
-    TransactionStatusDto.REFUNDED)
-  // .thenReturn((transaction as
-  // it.pagopa.ecommerce.commons.domain.v2.Transaction).applyEvent(event) as
-  // BaseTransactionRefunded)
+      transaction,
+      transactionsRefundedEventStoreRepository,
+      transactionsViewRepository,
+      event as TransactionEvent<BaseTransactionRefundedData>,
+      TransactionStatusDto.REFUNDED)
+    .thenReturn(
+      (transaction as it.pagopa.ecommerce.commons.domain.v2.Transaction).applyEvent(event)
+        as BaseTransactionRefunded)
 }
 
 fun updateTransactionWithRefundEvent(
