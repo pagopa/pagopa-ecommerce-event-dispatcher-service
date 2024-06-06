@@ -403,18 +403,14 @@ fun requestRefundTransaction(
   }
 
   return when (transactionAuthorizationRequestData.paymentGateway) {
-    TransactionAuthorizationRequestData.PaymentGateway.XPAY ->
-      appendRefundRequestedEventIfNeeded(
-        transaction, transactionsEventStoreRepository, transactionsViewRepository)
-    TransactionAuthorizationRequestData.PaymentGateway.VPOS ->
+    TransactionAuthorizationRequestData.PaymentGateway.XPAY,
+    TransactionAuthorizationRequestData.PaymentGateway.VPOS,
+    TransactionAuthorizationRequestData.PaymentGateway.REDIRECT ->
       appendRefundRequestedEventIfNeeded(
         transaction, transactionsEventStoreRepository, transactionsViewRepository)
     TransactionAuthorizationRequestData.PaymentGateway.NPG ->
       appendNpgRefundRequestedEventIfNeeded(
         transaction, transactionsEventStoreRepository, transactionsViewRepository, npgService)
-    TransactionAuthorizationRequestData.PaymentGateway.REDIRECT ->
-      appendRefundRequestedEventIfNeeded(
-        transaction, transactionsEventStoreRepository, transactionsViewRepository)
     else ->
       Mono.error(
         RuntimeException(
