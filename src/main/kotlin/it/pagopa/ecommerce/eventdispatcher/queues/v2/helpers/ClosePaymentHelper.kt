@@ -435,15 +435,6 @@ class ClosePaymentHelper(
     }
   }
 
-  private fun getBaseTransactionWithCompletedAuthorization(
-    transactionAtPreviousState:
-      Optional<
-        Either<BaseTransactionWithCancellationRequested, BaseTransactionWithClosureRequested>>
-  ): Optional<BaseTransactionWithCompletedAuthorization> =
-    transactionAtPreviousState.flatMap { either ->
-      either.fold({ Optional.empty() }, { Optional.of(it) })
-    }
-
   private fun getClosePaymentTransactionData(
     transaction: TransactionWithClosureError
   ): ClosePaymentTransactionData {
