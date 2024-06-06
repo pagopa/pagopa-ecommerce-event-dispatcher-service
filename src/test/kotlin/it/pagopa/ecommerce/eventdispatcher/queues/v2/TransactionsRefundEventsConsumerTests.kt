@@ -1439,6 +1439,46 @@ class TransactionsRefundEventsConsumerTests {
       assertNull(getAuthorizationCompletedData(transaction, npgService).block())
     }
 
+  @Test
+  fun `consumer does not call refund if authorization was not requested`() {
+    val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
+    val refundRequestedEvent =
+      TransactionRefundRequestedEvent(
+        TRANSACTION_ID, TransactionRefundRequestedData(null, TransactionStatusDto.ACTIVATED))
+        as TransactionEvent<Any>
+
+    val events = listOf(activationEvent, refundRequestedEvent)
+
+    /* preconditions */
+    given(checkpointer.success()).willReturn(Mono.empty())
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
+      .willReturn(events.toFlux())
+    given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
+    given(transactionsRefundedEventStoreRepository.save(refundEventStoreCaptor.capture()))
+      .willAnswer { Mono.just(it.arguments[0]) }
+    given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+      .willReturn(
+        mono { transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now()) })
+
+    /* test */
+    StepVerifier.create(
+        transactionRefundedEventsConsumer.messageReceiver(
+          Either.right(
+            QueueEvent(refundRequestedEvent as TransactionRefundRequestedEvent, MOCK_TRACING_INFO)),
+          checkpointer))
+      .expectNext(Unit)
+      .verifyComplete()
+
+    /* Asserts */
+    verify(checkpointer, Mockito.times(1)).success()
+    verifyNoInteractions(refundService)
+    verify(paymentGatewayClient, times(0)).requestXPayRefund(any())
+    verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
+    verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).save(any())
+    verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+  }
+
   @ParameterizedTest
   @MethodSource("redirectClientsMappingMethodSource")
   fun `consumer processes refund request event correctly with for redirect transaction`(
