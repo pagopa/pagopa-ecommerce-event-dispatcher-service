@@ -3186,6 +3186,53 @@ class TransactionExpirationQueueConsumerTests {
                 DeadLetterTracedQueueAsyncClient.ErrorCategory.REFUND_MANUAL_CHECK_REQUIRED)))
     }
 
+  @Test
+  fun `messageReceiver does not request refund if authorization was not requested`() {
+    val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
+    val expiredEvent =
+      transactionExpiredEvent(reduceEvents(activationEvent)) as TransactionEvent<Any>
+
+    val events = listOf(activationEvent)
+
+    /* preconditions */
+    given(checkpointer.success()).willReturn(Mono.empty())
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
+      .willReturn(events.toFlux())
+    given(
+        transactionsExpiredEventStoreRepository.save(transactionExpiredEventStoreCaptor.capture()))
+      .willAnswer { Mono.just(it.arguments[0]) }
+    given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
+    given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+      .willReturn(
+        mono { transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now()) })
+
+    /* test */
+    transactionExpirationQueueConsumer
+      .messageReceiver(
+        Either.right(QueueEvent(expiredEvent as TransactionExpiredEvent, MOCK_TRACING_INFO)),
+        checkpointer,
+        MessageHeaders(mapOf()),
+      )
+      .block()
+
+    /* Asserts */
+    verify(checkpointer, Mockito.times(1)).success()
+    verify(refundRequestedAsyncClient, times(0))
+      .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
+    verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).save(any())
+
+    verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
+    assertEventCodesEquals(
+      listOf(TransactionEventCode.TRANSACTION_EXPIRED_EVENT),
+      transactionExpiredEventStoreCaptor.allValues)
+
+    verify(transactionsViewRepository, times(1)).save(transactionViewRepositoryCaptor.capture())
+    assetTransactionStatusEquals(
+      listOf(TransactionStatusDto.EXPIRED_NOT_AUTHORIZED),
+      transactionViewRepositoryCaptor.allValues)
+  }
+
   @Nested
   inner class StuckAuthorizationRequestedTransactionTest {
     @Test
