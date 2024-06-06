@@ -427,9 +427,7 @@ fun requestRefundTransaction(
     } else {
       refundRequestedAsyncClient
         .sendMessageWithResponse(
-          QueueEvent(refundRequestedEvent, tracingInfo),
-          Duration.ofMinutes(5),
-          transientQueueTTLSeconds)
+          QueueEvent(refundRequestedEvent, tracingInfo), Duration.ZERO, transientQueueTTLSeconds)
         .thenReturn(tx)
     }
   }
