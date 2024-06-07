@@ -848,11 +848,70 @@ class TransactionNotificationsQueueConsumerTest {
     @JvmStatic
     fun `Template field values for other methods`(): Stream<Arguments> =
       Stream.of(
-        Arguments.of("PPAL", "-", "-"),
-        Arguments.of("BPAY", "-", "npgOperationId"),
-        Arguments.of("MyBank", "-", "-"),
-        Arguments.of("Redirect", "-", "authorizationCode"),
-        Arguments.of("CP", "rrn", "authorizationCode"))
+        Arguments.of(
+          "PPAL",
+          "-",
+          "-",
+          transactionAuthorizationCompletedEvent(
+            npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED))),
+        Arguments.of(
+          "BPAY",
+          "-",
+          "npgOperationId",
+          transactionAuthorizationCompletedEvent(
+            npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED))),
+        Arguments.of(
+          "MyBank",
+          "-",
+          "-",
+          transactionAuthorizationCompletedEvent(
+            npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED))),
+        Arguments.of(
+          "Redirect",
+          "-",
+          "authorizationCode",
+          transactionAuthorizationCompletedEvent(
+            npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED))),
+        Arguments.of(
+          "CP",
+          "rrn",
+          "authorizationCode",
+          transactionAuthorizationCompletedEvent(
+            npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED))),
+        Arguments.of(
+          "CP",
+          AUTHORIZATION_REQUEST_ID,
+          "authorizationCode",
+          TransactionAuthorizationCompletedEvent(
+            TRANSACTION_ID,
+            TransactionAuthorizationCompletedData(
+              "authorizationCode",
+              null,
+              "2023-01-01T01:02:03+01:00",
+              npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)))),
+        Arguments.of(
+          "CP",
+          "rrn",
+          "-",
+          TransactionAuthorizationCompletedEvent(
+            TRANSACTION_ID,
+            TransactionAuthorizationCompletedData(
+              null,
+              "rrn",
+              "2023-01-01T01:02:03+01:00",
+              npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)))),
+        Arguments.of(
+          "Redirect",
+          "-",
+          "-",
+          TransactionAuthorizationCompletedEvent(
+            TRANSACTION_ID,
+            TransactionAuthorizationCompletedData(
+              null,
+              "rrn",
+              "2023-01-01T01:02:03+01:00",
+              npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)))),
+      )
   }
 
   @ParameterizedTest
@@ -860,7 +919,8 @@ class TransactionNotificationsQueueConsumerTest {
   fun `Should set right value to template fields rrn and authorization code based on paymentTypeCode`(
     paymentTypeCode: String,
     expectedRRN: String,
-    expectedAuthCode: String
+    expectedAuthCode: String,
+    transactionAuthorizationCompletedEvent: TransactionAuthorizationCompletedEvent
   ) = runTest {
     val paypalTransactionGatewayAuthorizationRequestedData =
       NpgTransactionGatewayAuthorizationRequestedData(
@@ -901,8 +961,7 @@ class TransactionNotificationsQueueConsumerTest {
       listOf(
         transactionActivateEvent(),
         authEvent,
-        transactionAuthorizationCompletedEvent(
-          npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)),
+        transactionAuthorizationCompletedEvent,
         transactionClosureRequestedEvent(),
         transactionClosedEvent(TransactionClosureData.Outcome.OK),
         notificationRequested)
