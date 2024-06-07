@@ -71,17 +71,19 @@ class AuthorizationStateRetrieverService(
         Mono.error(InvalidNPGPaymentGatewayException(trx.transactionId))
       }
       .flatMap { transaction ->
-        val activationData =
+        val orderId = transaction.transactionAuthorizationRequestData.authorizationRequestId
+        val correlationId =
           (transaction.transactionActivatedData.transactionGatewayActivationData
-            as NpgTransactionGatewayActivationData)
+              as NpgTransactionGatewayActivationData)
+            .correlationId
         performGetOrder(
           transactionId = trx.transactionId,
           pspId = transaction.transactionAuthorizationRequestData.pspId,
           paymentMethod =
             NpgClient.PaymentMethod.valueOf(
               transaction.transactionAuthorizationRequestData.paymentMethodName),
-          orderId = activationData.orderId,
-          correlationId = activationData.correlationId)
+          orderId = orderId,
+          correlationId = correlationId)
       }
   }
 
