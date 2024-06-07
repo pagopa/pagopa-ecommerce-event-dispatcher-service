@@ -118,7 +118,7 @@ class UserReceiptMailBuilder(@Autowired private val confidentialDataUtils: Confi
             createSuccessTemplate(
               baseTransactionWithRequestedUserReceipt = baseTransactionWithRequestedUserReceipt,
               emailAddress = emailAddress,
-              authorizationCode = transactionAuthorizationRequestData.authorizationRequestId) // ??
+              authorizationCode = transactionAuthorizationCompletedData.authorizationCode ?: "-")
           else -> {
             createSuccessTemplate(
               baseTransactionWithRequestedUserReceipt = baseTransactionWithRequestedUserReceipt,

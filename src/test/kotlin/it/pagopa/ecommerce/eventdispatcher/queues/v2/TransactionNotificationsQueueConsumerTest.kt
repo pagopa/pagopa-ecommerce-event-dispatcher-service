@@ -3,12 +3,15 @@ package it.pagopa.ecommerce.eventdispatcher.queues.v2
 import com.azure.core.util.BinaryData
 import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.checkpoint.Checkpointer
+import it.pagopa.ecommerce.commons.client.NpgClient
 import it.pagopa.ecommerce.commons.documents.v2.*
+import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationRequestedData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.PgsTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.domain.Email
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.v2.TransactionEventCode
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithRequestedUserReceipt
+import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
@@ -32,13 +35,17 @@ import it.pagopa.generated.notifications.templates.success.SuccessTemplate
 import it.pagopa.generated.notifications.v1.dto.NotificationEmailRequestDto
 import it.pagopa.generated.notifications.v1.dto.NotificationEmailResponseDto
 import java.time.ZonedDateTime
-import java.util.*
+import java.util.stream.Stream
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.reactor.mono
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
 import org.mockito.ArgumentCaptor
 import org.mockito.Captor
 import org.mockito.junit.jupiter.MockitoExtension
@@ -949,4 +956,146 @@ class TransactionNotificationsQueueConsumerTest {
       assertEquals(
         TransactionStatusDto.NOTIFICATION_ERROR, transactionViewRepositoryCaptor.value.status)
     }
+
+  companion object {
+    @JvmStatic
+    fun `Template field values for other methods`(): Stream<Arguments> =
+      Stream.of(
+        Arguments.of("PPAL", "-", "-"),
+        Arguments.of("BPAY", "-", "npgOperationId"),
+        Arguments.of("MyBank", "-", "-"),
+        Arguments.of("Redirect", "-", "authorizationCode"),
+        Arguments.of("CP", "rrn", "authorizationCode"))
+  }
+
+  @ParameterizedTest
+  @MethodSource("Template field values for other methods")
+  fun `Should set right value to template fields rrn and authorization code based on paymentTypeCode`(
+    paymentTypeCode: String,
+    expectedRRN: String,
+    expectedAuthCode: String
+  ) = runTest {
+    val paypalTransactionGatewayAuthorizationRequestedData =
+      NpgTransactionGatewayAuthorizationRequestedData(
+        LOGO_URI,
+        NpgClient.PaymentMethod.PAYPAL.toString(),
+        "npgSessionId",
+        "npgConfirmPaymentSessionId",
+        null)
+    val authEvent =
+      TransactionAuthorizationRequestedEvent(
+        TRANSACTION_ID,
+        TransactionAuthorizationRequestData(
+          100,
+          10,
+          "paymentInstrumentId",
+          "pspId",
+          paymentTypeCode,
+          "brokerName",
+          "pspChannelCode",
+          "paymentMethodName",
+          "pspBusinessName",
+          false,
+          AUTHORIZATION_REQUEST_ID,
+          TransactionAuthorizationRequestData.PaymentGateway.NPG,
+          "paymentMethodDescription",
+          paypalTransactionGatewayAuthorizationRequestedData))
+
+    val confidentialDataUtils: ConfidentialDataUtils = mock()
+    given(confidentialDataUtils.toEmail(any())).willReturn(Email("to@to.it"))
+    val userReceiptBuilder = UserReceiptMailBuilder(confidentialDataUtils)
+    val transactionUserReceiptData =
+      TransactionUserReceiptData(TransactionUserReceiptData.Outcome.OK, "it-IT", PAYMENT_DATE)
+    val companyName = "testCompanyName"
+    val transactionActivatedEvent = transactionActivateEvent()
+    transactionActivatedEvent.data.paymentNotices.forEach { it.companyName = companyName }
+    val notificationRequested = transactionUserReceiptRequestedEvent(transactionUserReceiptData)
+    val events =
+      listOf(
+        transactionActivateEvent(),
+        authEvent,
+        transactionAuthorizationCompletedEvent(
+          npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)),
+        transactionClosureRequestedEvent(),
+        transactionClosedEvent(TransactionClosureData.Outcome.OK),
+        notificationRequested)
+        as List<TransactionEvent<Any>>
+    val baseTransaction =
+      reduceEvents(*events.toTypedArray()) as BaseTransactionWithRequestedUserReceipt
+    val transactionId = TRANSACTION_ID
+    Hooks.onOperatorDebug()
+    given(checkpointer.success()).willReturn(Mono.empty())
+    given(transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(transactionId))
+      .willReturn(Flux.fromIterable(events))
+
+    val notificationEmailRequestDto =
+      userReceiptBuilder.buildNotificationEmailRequestDto(baseTransaction)
+
+    val successTemplate: SuccessTemplate = notificationEmailRequestDto.parameters as SuccessTemplate
+    assertEquals(expectedRRN, successTemplate.transaction.rrn)
+    assertEquals(expectedAuthCode, successTemplate.transaction.authCode)
+  }
+
+  @Test
+  fun `Should throw error for wrong gateway with paymentTypeCode BPAY`() = runTest {
+    val paypalTransactionGatewayAuthorizationRequestedData =
+      NpgTransactionGatewayAuthorizationRequestedData(
+        LOGO_URI,
+        NpgClient.PaymentMethod.PAYPAL.toString(),
+        "npgSessionId",
+        "npgConfirmPaymentSessionId",
+        null)
+    val authEvent =
+      TransactionAuthorizationRequestedEvent(
+        TRANSACTION_ID,
+        TransactionAuthorizationRequestData(
+          100,
+          10,
+          "paymentInstrumentId",
+          "pspId",
+          "BPAY",
+          "brokerName",
+          "pspChannelCode",
+          "paymentMethodName",
+          "pspBusinessName",
+          false,
+          AUTHORIZATION_REQUEST_ID,
+          TransactionAuthorizationRequestData.PaymentGateway.NPG,
+          "paymentMethodDescription",
+          paypalTransactionGatewayAuthorizationRequestedData))
+
+    val confidentialDataUtils: ConfidentialDataUtils = mock()
+    given(confidentialDataUtils.toEmail(any())).willReturn(Email("to@to.it"))
+    val userReceiptBuilder = UserReceiptMailBuilder(confidentialDataUtils)
+    val transactionUserReceiptData =
+      TransactionUserReceiptData(TransactionUserReceiptData.Outcome.OK, "it-IT", PAYMENT_DATE)
+    val companyName = "testCompanyName"
+    val transactionActivatedEvent = transactionActivateEvent()
+    transactionActivatedEvent.data.paymentNotices.forEach { it.companyName = companyName }
+    val notificationRequested = transactionUserReceiptRequestedEvent(transactionUserReceiptData)
+    val events =
+      listOf(
+        transactionActivateEvent(),
+        authEvent,
+        transactionAuthorizationCompletedEvent(
+          PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+        transactionClosureRequestedEvent(),
+        transactionClosedEvent(TransactionClosureData.Outcome.OK),
+        notificationRequested)
+        as List<TransactionEvent<Any>>
+    val baseTransaction =
+      reduceEvents(*events.toTypedArray()) as BaseTransactionWithRequestedUserReceipt
+    val transactionId = TRANSACTION_ID
+    Hooks.onOperatorDebug()
+    given(checkpointer.success()).willReturn(Mono.empty())
+    given(transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(transactionId))
+      .willReturn(Flux.fromIterable(events))
+    val exec: RuntimeException =
+      assertThrows("wrong gateway") {
+        userReceiptBuilder.buildNotificationEmailRequestDto(baseTransaction)
+      }
+    assertEquals(
+      "Unexpected TransactionGatewayAuthorization for paymentTypeCode BPAY. Expected NPG gateway.",
+      exec.message)
+  }
 }
