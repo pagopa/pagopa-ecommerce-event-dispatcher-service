@@ -12,8 +12,7 @@ import it.pagopa.ecommerce.commons.documents.v2.authorization.RedirectTransactio
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.v2.TransactionEventCode
 import it.pagopa.ecommerce.commons.domain.v2.pojos.*
-import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
-import it.pagopa.ecommerce.commons.generated.npg.v1.dto.RefundResponseDto
+import it.pagopa.ecommerce.commons.generated.npg.v1.dto.*
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
@@ -29,7 +28,7 @@ import it.pagopa.ecommerce.eventdispatcher.services.RefundService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.AuthorizationStateRetrieverService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgService
-import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
+import it.pagopa.ecommerce.eventdispatcher.utils.*
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
 import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundOutcomeDto
@@ -1439,6 +1438,46 @@ class TransactionsRefundEventsConsumerTests {
 
       assertNull(getAuthorizationCompletedData(transaction, npgService).block())
     }
+
+  @Test
+  fun `consumer does not call refund if authorization was not requested`() {
+    val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
+    val refundRequestedEvent =
+      TransactionRefundRequestedEvent(
+        TRANSACTION_ID, TransactionRefundRequestedData(null, TransactionStatusDto.ACTIVATED))
+        as TransactionEvent<Any>
+
+    val events = listOf(activationEvent, refundRequestedEvent)
+
+    /* preconditions */
+    given(checkpointer.success()).willReturn(Mono.empty())
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
+      .willReturn(events.toFlux())
+    given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
+    given(transactionsRefundedEventStoreRepository.save(refundEventStoreCaptor.capture()))
+      .willAnswer { Mono.just(it.arguments[0]) }
+    given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+      .willReturn(
+        mono { transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now()) })
+
+    /* test */
+    StepVerifier.create(
+        transactionRefundedEventsConsumer.messageReceiver(
+          Either.right(
+            QueueEvent(refundRequestedEvent as TransactionRefundRequestedEvent, MOCK_TRACING_INFO)),
+          checkpointer))
+      .expectNext(Unit)
+      .verifyComplete()
+
+    /* Asserts */
+    verify(checkpointer, Mockito.times(1)).success()
+    verifyNoInteractions(refundService)
+    verify(paymentGatewayClient, times(0)).requestXPayRefund(any())
+    verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
+    verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).save(any())
+    verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+  }
 
   @ParameterizedTest
   @MethodSource("redirectClientsMappingMethodSource")
