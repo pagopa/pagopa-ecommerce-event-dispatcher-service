@@ -6,17 +6,13 @@ import com.azure.storage.queue.QueueAsyncClient
 import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.domain.TransactionId
-import it.pagopa.ecommerce.commons.domain.v2.TransactionWithClosureError
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.commons.utils.v2.TransactionUtils
-import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.*
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
-import it.pagopa.ecommerce.eventdispatcher.services.RefundService
-import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import java.time.Duration
@@ -37,7 +33,6 @@ import reactor.core.publisher.Mono
  */
 @Service("TransactionExpirationQueueConsumerV2")
 class TransactionExpirationQueueConsumer(
-  @Autowired private val paymentGatewayClient: PaymentGatewayClient,
   @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,
   @Autowired
   private val transactionsExpiredEventStoreRepository:
@@ -47,8 +42,8 @@ class TransactionExpirationQueueConsumer(
     TransactionsEventStoreRepository<BaseTransactionRefundedData>,
   @Autowired private val transactionsViewRepository: TransactionsViewRepository,
   @Autowired private val transactionUtils: TransactionUtils,
-  @Autowired private val refundService: RefundService,
-  @Autowired private val refundRetryService: RefundRetryService,
+  @Autowired
+  private val refundRequestedAsyncClient: it.pagopa.ecommerce.commons.client.QueueAsyncClient,
   @Autowired private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient,
   @Autowired private val expirationQueueAsyncClient: QueueAsyncClient,
   @Value("\${sendPaymentResult.timeoutSeconds}") private val sendPaymentResultTimeoutSeconds: Int,
@@ -160,22 +155,14 @@ class TransactionExpirationQueueConsumer(
         }
         .flatMap { tx ->
           val tracingInfo = queueEvent.fold({ it.tracingInfo }, { it.tracingInfo })
-          val transaction =
-            if (tx is TransactionWithClosureError) {
-              tx.transactionAtPreviousState
-            } else {
-              tx
-            }
-          refundTransaction(
-            transaction,
+          requestRefundTransaction(
+            tx, // transaction
             transactionsRefundedEventStoreRepository,
             transactionsViewRepository,
-            paymentGatewayClient,
-            refundService,
-            refundRetryService,
             npgService,
             tracingInfo,
-          )
+            refundRequestedAsyncClient,
+            Duration.ofSeconds(transientQueueTTLSeconds.toLong()))
         }
 
     return runTracedPipelineWithDeadLetterQueue(
