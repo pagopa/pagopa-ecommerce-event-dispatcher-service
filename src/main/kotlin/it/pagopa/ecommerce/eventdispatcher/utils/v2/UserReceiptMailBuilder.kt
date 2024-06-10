@@ -6,6 +6,7 @@ import it.pagopa.ecommerce.commons.domain.PaymentNotice
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithRequestedUserReceipt
 import it.pagopa.ecommerce.eventdispatcher.client.NotificationsServiceClient
 import it.pagopa.ecommerce.eventdispatcher.utils.ConfidentialDataUtils
+import it.pagopa.ecommerce.eventdispatcher.utils.PaymentCode
 import it.pagopa.generated.notifications.templates.ko.KoTemplate
 import it.pagopa.generated.notifications.templates.success.*
 import it.pagopa.generated.notifications.templates.success.RefNumberTemplate.Type
@@ -95,13 +96,13 @@ class UserReceiptMailBuilder(@Autowired private val confidentialDataUtils: Confi
       subject = "Il riepilogo del tuo pagamento",
       templateParameters =
         when (transactionAuthorizationRequestData.paymentTypeCode) {
-          "PPAL",
-          "MyBank" ->
+          PaymentCode.PPAL.name,
+          PaymentCode.MYBK.name ->
             createSuccessTemplate(
               baseTransactionWithRequestedUserReceipt = baseTransactionWithRequestedUserReceipt,
               emailAddress = emailAddress,
               authorizationCode = "-")
-          "BPAY" -> {
+          PaymentCode.BPAY.name -> {
             val transactionGatewayAuthorizationData =
               transactionAuthorizationCompletedData.transactionGatewayAuthorizationData
             if (transactionGatewayAuthorizationData is NpgTransactionGatewayAuthorizationData) {
@@ -114,12 +115,16 @@ class UserReceiptMailBuilder(@Autowired private val confidentialDataUtils: Confi
                 "Unexpected TransactionGatewayAuthorization for paymentTypeCode ${transactionAuthorizationRequestData.paymentTypeCode}. Expected NPG gateway.")
             }
           }
-          "Redirect" ->
+          PaymentCode.RBPB.name,
+          PaymentCode.RBPP.name,
+          PaymentCode.RBPR.name,
+          PaymentCode.RBPS.name,
+          PaymentCode.RPIC.name ->
             createSuccessTemplate(
               baseTransactionWithRequestedUserReceipt = baseTransactionWithRequestedUserReceipt,
               emailAddress = emailAddress,
               authorizationCode = transactionAuthorizationCompletedData.authorizationCode ?: "-")
-          else -> {
+          PaymentCode.CP.name -> {
             createSuccessTemplate(
               baseTransactionWithRequestedUserReceipt = baseTransactionWithRequestedUserReceipt,
               emailAddress = emailAddress,
@@ -127,6 +132,9 @@ class UserReceiptMailBuilder(@Autowired private val confidentialDataUtils: Confi
                   ?: transactionAuthorizationRequestData.authorizationRequestId,
               authorizationCode = transactionAuthorizationCompletedData.authorizationCode ?: "-")
           }
+          else ->
+            throw IllegalArgumentException(
+              "Unhandled or invalid payment type code: ${transactionAuthorizationRequestData.paymentTypeCode}")
         })
   }
 

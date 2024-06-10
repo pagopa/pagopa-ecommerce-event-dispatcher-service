@@ -20,6 +20,7 @@ import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.config.RedirectConfigurationBuilder
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadGatewayException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.RefundNotAllowedException
+import it.pagopa.ecommerce.eventdispatcher.utils.PaymentCode
 import it.pagopa.ecommerce.eventdispatcher.utils.getMockedVPosRefundRequest
 import it.pagopa.ecommerce.eventdispatcher.utils.getMockedXPayRefundRequest
 import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundOutcomeDto
@@ -139,13 +140,19 @@ class RefundServiceTests {
     private fun redirectRetrieveUrlPaymentMethodsTestSearch(): Stream<Arguments> {
       return Stream.of<Arguments>(
         Arguments.of(
-          "CHECKOUT", "psp1", "RBPR", URI("http://localhost:8096/redirections1/CHECKOUT")),
-        Arguments.of("IO", "psp1", "RBPR", URI("http://localhost:8096/redirections1/IO")),
-        Arguments.of("CHECKOUT", "psp2", "RBPB", URI("http://localhost:8096/redirections2")),
-        Arguments.of("IO", "psp2", "RBPB", URI("http://localhost:8096/redirections2")),
-        Arguments.of("CHECKOUT", "psp3", "RBPS", URI("http://localhost:8096/redirections3")),
-        Arguments.of("CHECKOUT_CART", "psp3", "RBPS", URI("http://localhost:8096/redirections3")),
-        Arguments.of("IO", "psp3", "RBPS", URI("http://localhost:8096/redirections3")))
+          "CHECKOUT",
+          "psp1",
+          PaymentCode.RBPR,
+          URI("http://localhost:8096/redirections1/CHECKOUT")),
+        Arguments.of("IO", "psp1", PaymentCode.RBPR, URI("http://localhost:8096/redirections1/IO")),
+        Arguments.of(
+          "CHECKOUT", "psp2", PaymentCode.RBPB, URI("http://localhost:8096/redirections2")),
+        Arguments.of("IO", "psp2", PaymentCode.RBPB, URI("http://localhost:8096/redirections2")),
+        Arguments.of(
+          "CHECKOUT", "psp3", PaymentCode.RBPS, URI("http://localhost:8096/redirections3")),
+        Arguments.of(
+          "CHECKOUT_CART", "psp3", PaymentCode.RBPS, URI("http://localhost:8096/redirections3")),
+        Arguments.of("IO", "psp3", PaymentCode.RBPS, URI("http://localhost:8096/redirections3")))
     }
 
     @JvmStatic
@@ -483,7 +490,7 @@ class RefundServiceTests {
   fun `Should return URI during search redirectURL searching iteratively`(
     touchpoint: String,
     pspId: String,
-    paymentMethodId: String,
+    paymentCode: PaymentCode,
     expectedUri: URI
   ) {
     val redirectUrlMapping =
@@ -521,7 +528,7 @@ class RefundServiceTests {
           transactionId = TransactionId(transactionId),
           touchpoint = touchpoint,
           pspTransactionId = pspTransactionId,
-          paymentTypeCode = paymentMethodId,
+          paymentTypeCode = paymentCode.name,
           pspId = pspId))
       .expectNext(redirectRefundResponse)
       .verifyComplete()
@@ -549,7 +556,7 @@ class RefundServiceTests {
       RedirectRefundResponseDto().idTransaction(transactionId).outcome(RefundOutcomeDto.OK)
     val touchpoint = "CHECKOUT"
     val pspId = "pspId"
-    val paymentTypeCode = "RBPP"
+    val paymentTypeCode = PaymentCode.RBPP.name
 
     val refundServiceTest =
       RefundService(
