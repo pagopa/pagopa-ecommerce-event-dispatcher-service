@@ -846,7 +846,7 @@ class TransactionNotificationsQueueConsumerTest {
 
   companion object {
     @JvmStatic
-    fun `Template field values for other methods`(): Stream<Arguments> =
+    fun `template fields method source`(): Stream<Arguments> =
       Stream.of(
         Arguments.of(
           "PPAL",
@@ -915,7 +915,7 @@ class TransactionNotificationsQueueConsumerTest {
   }
 
   @ParameterizedTest
-  @MethodSource("Template field values for other methods")
+  @MethodSource("template fields method source")
   fun `Should set right value to template fields rrn and authorization code based on paymentTypeCode`(
     paymentTypeCode: String,
     expectedRRN: String,
