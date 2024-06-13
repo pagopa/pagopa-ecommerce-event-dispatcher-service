@@ -1,10 +1,12 @@
 package it.pagopa.ecommerce.eventdispatcher.utils.v2
 
 import it.pagopa.ecommerce.commons.documents.v2.TransactionUserReceiptData
+import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.domain.PaymentNotice
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithRequestedUserReceipt
 import it.pagopa.ecommerce.eventdispatcher.client.NotificationsServiceClient
 import it.pagopa.ecommerce.eventdispatcher.utils.ConfidentialDataUtils
+import it.pagopa.ecommerce.eventdispatcher.utils.PaymentCode
 import it.pagopa.generated.notifications.templates.ko.KoTemplate
 import it.pagopa.generated.notifications.templates.success.*
 import it.pagopa.generated.notifications.templates.success.RefNumberTemplate.Type
@@ -82,67 +84,115 @@ class UserReceiptMailBuilder(@Autowired private val confidentialDataUtils: Confi
     baseTransactionWithRequestedUserReceipt: BaseTransactionWithRequestedUserReceipt,
     emailAddress: String
   ): NotificationsServiceClient.SuccessTemplateRequest {
-    val language = "it-IT"
+    val transactionUserReceiptData =
+      baseTransactionWithRequestedUserReceipt.transactionUserReceiptData
     val transactionAuthorizationRequestData =
       baseTransactionWithRequestedUserReceipt.transactionAuthorizationRequestData
     val transactionAuthorizationCompletedData =
       baseTransactionWithRequestedUserReceipt.transactionAuthorizationCompletedData
-    val transactionUserReceiptData =
-      baseTransactionWithRequestedUserReceipt.transactionUserReceiptData
     return NotificationsServiceClient.SuccessTemplateRequest(
       to = emailAddress,
       language = transactionUserReceiptData.language,
       subject = "Il riepilogo del tuo pagamento",
       templateParameters =
-        SuccessTemplate(
-          TransactionTemplate(
-            baseTransactionWithRequestedUserReceipt.transactionId
-              .value()
-              .toString()
-              .lowercase(Locale.getDefault()),
-            dateTimeToHumanReadableString(
-              ZonedDateTime.parse(transactionUserReceiptData.paymentDate),
-              Locale.forLanguageTag(language)),
-            amountToHumanReadableString(
-              baseTransactionWithRequestedUserReceipt.paymentNotices
-                .stream()
-                .mapToInt { paymentNotice: PaymentNotice ->
-                  paymentNotice.transactionAmount().value()
-                }
-                .sum() + transactionAuthorizationRequestData.fee),
-            PspTemplate(
-              transactionAuthorizationRequestData.pspBusinessName,
-              FeeTemplate(amountToHumanReadableString(transactionAuthorizationRequestData.fee))),
-            transactionAuthorizationCompletedData.rrn
-              ?: transactionAuthorizationRequestData.authorizationRequestId,
-            // TODO: auth code is mandatory for OK mail template but not received for PAYPAL
-            // TODO task CHK-1970 will take cares of handle mail template for APM methods
-            transactionAuthorizationCompletedData.authorizationCode ?: "-",
-            PaymentMethodTemplate(
-              transactionAuthorizationRequestData.paymentMethodDescription,
-              transactionAuthorizationRequestData.transactionGatewayAuthorizationRequestedData.logo
-                .toString(),
+        when (transactionAuthorizationRequestData.paymentTypeCode) {
+          PaymentCode.PPAL.name,
+          PaymentCode.MYBK.name ->
+            createSuccessTemplate(
+              baseTransactionWithRequestedUserReceipt = baseTransactionWithRequestedUserReceipt,
+              emailAddress = emailAddress,
+              authorizationCode = "-")
+          PaymentCode.BPAY.name -> {
+            val transactionGatewayAuthorizationData =
+              transactionAuthorizationCompletedData.transactionGatewayAuthorizationData
+            if (transactionGatewayAuthorizationData is NpgTransactionGatewayAuthorizationData) {
+              createSuccessTemplate(
+                baseTransactionWithRequestedUserReceipt = baseTransactionWithRequestedUserReceipt,
+                emailAddress = emailAddress,
+                authorizationCode = transactionGatewayAuthorizationData.operationId)
+            } else {
+              throw RuntimeException(
+                "Unexpected TransactionGatewayAuthorization for paymentTypeCode ${transactionAuthorizationRequestData.paymentTypeCode}. Expected NPG gateway.")
+            }
+          }
+          PaymentCode.RBPB.name,
+          PaymentCode.RBPP.name,
+          PaymentCode.RBPR.name,
+          PaymentCode.RBPS.name,
+          PaymentCode.RPIC.name ->
+            createSuccessTemplate(
+              baseTransactionWithRequestedUserReceipt = baseTransactionWithRequestedUserReceipt,
+              emailAddress = emailAddress,
+              authorizationCode = transactionAuthorizationCompletedData.authorizationCode ?: "-")
+          PaymentCode.CP.name -> {
+            createSuccessTemplate(
+              baseTransactionWithRequestedUserReceipt = baseTransactionWithRequestedUserReceipt,
+              emailAddress = emailAddress,
+              rrn = transactionAuthorizationCompletedData.rrn
+                  ?: transactionAuthorizationRequestData.authorizationRequestId,
+              authorizationCode = transactionAuthorizationCompletedData.authorizationCode ?: "-")
+          }
+          else ->
+            throw IllegalArgumentException(
+              "Unhandled or invalid payment type code: ${transactionAuthorizationRequestData.paymentTypeCode}")
+        })
+  }
+
+  fun createSuccessTemplate(
+    baseTransactionWithRequestedUserReceipt: BaseTransactionWithRequestedUserReceipt,
+    emailAddress: String,
+    rrn: String = "-",
+    authorizationCode: String
+  ): SuccessTemplate {
+    val language = "it-IT"
+    val transactionAuthorizationRequestData =
+      baseTransactionWithRequestedUserReceipt.transactionAuthorizationRequestData
+
+    return SuccessTemplate(
+      TransactionTemplate(
+        baseTransactionWithRequestedUserReceipt.transactionId
+          .value()
+          .toString()
+          .lowercase(Locale.getDefault()),
+        dateTimeToHumanReadableString(
+          ZonedDateTime.parse(
+            baseTransactionWithRequestedUserReceipt.transactionUserReceiptData.paymentDate),
+          Locale.forLanguageTag(language)),
+        amountToHumanReadableString(
+          baseTransactionWithRequestedUserReceipt.paymentNotices
+            .stream()
+            .mapToInt { paymentNotice: PaymentNotice -> paymentNotice.transactionAmount().value() }
+            .sum() + transactionAuthorizationRequestData.fee),
+        PspTemplate(
+          transactionAuthorizationRequestData.pspBusinessName,
+          FeeTemplate(amountToHumanReadableString(transactionAuthorizationRequestData.fee))),
+        rrn,
+        authorizationCode,
+        PaymentMethodTemplate(
+          transactionAuthorizationRequestData.paymentMethodDescription,
+          transactionAuthorizationRequestData.transactionGatewayAuthorizationRequestedData.logo
+            .toString(),
+          null,
+          false)),
+      UserTemplate(null, emailAddress),
+      CartTemplate(
+        baseTransactionWithRequestedUserReceipt.paymentNotices
+          .stream()
+          .map { paymentNotice ->
+            ItemTemplate(
+              RefNumberTemplate(Type.CODICE_AVVISO, paymentNotice.rptId().noticeId),
               null,
-              false)),
-          UserTemplate(null, emailAddress),
-          CartTemplate(
-            baseTransactionWithRequestedUserReceipt.paymentNotices
-              .stream()
-              .map { paymentNotice ->
-                ItemTemplate(
-                  RefNumberTemplate(Type.CODICE_AVVISO, paymentNotice.rptId().noticeId),
-                  null,
-                  PayeeTemplate(
-                    paymentNotice.companyName.value ?: "", paymentNotice.rptId().fiscalCode),
-                  paymentNotice.transactionDescription.value,
-                  amountToHumanReadableString(paymentNotice.transactionAmount().value()))
-              }
-              .toList(),
-            amountToHumanReadableString(
-              baseTransactionWithRequestedUserReceipt.paymentNotices
-                .stream()
-                .mapToInt { paymentNotice -> paymentNotice.transactionAmount().value() }
-                .sum()))))
+              PayeeTemplate(
+                paymentNotice.companyName.value ?: "", paymentNotice.rptId().fiscalCode),
+              paymentNotice.transactionDescription.value,
+              amountToHumanReadableString(paymentNotice.transactionAmount().value()))
+          }
+          .toList(),
+        amountToHumanReadableString(
+          baseTransactionWithRequestedUserReceipt.paymentNotices
+            .stream()
+            .mapToInt { paymentNotice -> paymentNotice.transactionAmount().value() }
+            .sum())))
   }
 
   fun amountToHumanReadableString(amount: Int): String {

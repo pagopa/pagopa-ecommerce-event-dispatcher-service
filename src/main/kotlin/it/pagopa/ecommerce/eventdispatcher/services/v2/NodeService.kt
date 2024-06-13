@@ -22,6 +22,7 @@ import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.ClosePaymentOutcome
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.reduceEvents
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.utils.ConfidentialDataUtils
+import it.pagopa.ecommerce.eventdispatcher.utils.PaymentCode
 import it.pagopa.generated.ecommerce.nodo.v2.dto.*
 import java.math.BigDecimal
 import java.time.OffsetDateTime
@@ -309,7 +310,7 @@ class NodeService(
           .cast(ClosePaymentRequestV2Dto::class.java)
       TransactionGatewayAuthorizationRequestedData.AuthorizationDataType.NPG ->
         when (authCompleted.transactionAuthorizationRequestData.paymentTypeCode) {
-          "CP" ->
+          PaymentCode.CP.name ->
             buildAuthorizationCompletedCardClosePaymentRequest(
                 authCompleted,
                 transactionOutcome,
@@ -318,7 +319,7 @@ class NodeService(
                 feeEuro,
                 closePaymentTransactionDetails)
               .cast(ClosePaymentRequestV2Dto::class.java)
-          "PPAL" ->
+          PaymentCode.PPAL.name ->
             buildAuthorizationCompletedPayPalClosePaymentRequest(
                 authCompleted,
                 transactionOutcome,
@@ -327,7 +328,7 @@ class NodeService(
                 feeEuro,
                 closePaymentTransactionDetails)
               .cast(ClosePaymentRequestV2Dto::class.java)
-          "BPAY" ->
+          PaymentCode.BPAY.name ->
             buildAuthorizationCompletedBancomatPayClosePaymentRequest(
                 authCompleted,
                 transactionOutcome,
@@ -336,7 +337,7 @@ class NodeService(
                 feeEuro,
                 closePaymentTransactionDetails)
               .cast(ClosePaymentRequestV2Dto::class.java)
-          "MYBK" ->
+          PaymentCode.MYBK.name ->
             buildAuthorizationCompletedMyBankClosePaymentRequest(
                 authCompleted,
                 transactionOutcome,
