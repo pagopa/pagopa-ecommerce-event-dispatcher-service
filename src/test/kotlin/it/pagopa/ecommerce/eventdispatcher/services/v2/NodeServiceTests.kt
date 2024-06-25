@@ -21,7 +21,9 @@ import it.pagopa.ecommerce.eventdispatcher.utils.PaymentCode
 import it.pagopa.generated.ecommerce.nodo.v2.dto.*
 import it.pagopa.generated.ecommerce.nodo.v2.dto.CardAdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum
 import java.math.BigDecimal
+import java.time.Instant
 import java.time.OffsetDateTime
+import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
@@ -1182,6 +1184,7 @@ class NodeServiceTests {
       val expectedTimestamp =
         OffsetDateTime.parse(
             authCompletedEvent.data.timestampOperation, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+          .withOffsetSameInstant(ZoneId.of("Europe/Paris").rules.getOffset(Instant.now()))
           .truncatedTo(ChronoUnit.SECONDS)
           .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
 
@@ -3472,6 +3475,7 @@ class NodeServiceTests {
       val expectedTimestamp =
         OffsetDateTime.parse(
             authCompletedEvent.data.timestampOperation, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+          .withOffsetSameInstant(ZoneId.of("Europe/Paris").rules.getOffset(Instant.now()))
           .truncatedTo(ChronoUnit.SECONDS)
           .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
 

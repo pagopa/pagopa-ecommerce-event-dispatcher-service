@@ -25,6 +25,7 @@ import it.pagopa.ecommerce.eventdispatcher.utils.ConfidentialDataUtils
 import it.pagopa.ecommerce.eventdispatcher.utils.PaymentCode
 import it.pagopa.generated.ecommerce.nodo.v2.dto.*
 import java.math.BigDecimal
+import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -402,8 +403,10 @@ class NodeService(
             this.fee = feeEuro.toString()
             timestampOperation =
               OffsetDateTime.parse(
-                authCompleted.transactionAuthorizationCompletedData.timestampOperation,
-                DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                  authCompleted.transactionAuthorizationCompletedData.timestampOperation,
+                  DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                .withOffsetSameInstant(ZoneId.of("Europe/Paris").rules.getOffset(Instant.now()))
+                .truncatedTo(ChronoUnit.SECONDS)
           }
         } else null
       transactionDetails = closePaymentTransactionDetails
