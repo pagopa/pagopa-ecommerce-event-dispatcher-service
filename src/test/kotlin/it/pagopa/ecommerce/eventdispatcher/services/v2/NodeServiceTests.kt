@@ -22,6 +22,7 @@ import it.pagopa.generated.ecommerce.nodo.v2.dto.*
 import it.pagopa.generated.ecommerce.nodo.v2.dto.CardAdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum
 import java.math.BigDecimal
 import java.time.OffsetDateTime
+import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
@@ -1182,8 +1183,10 @@ class NodeServiceTests {
       val expectedTimestamp =
         OffsetDateTime.parse(
             authCompletedEvent.data.timestampOperation, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+          .atZoneSameInstant(ZoneId.of("Europe/Paris"))
           .truncatedTo(ChronoUnit.SECONDS)
-          .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+          .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+          .toString()
 
       val expected =
         RedirectClosePaymentRequestV2Dto().apply {
@@ -1239,7 +1242,7 @@ class NodeServiceTests {
             }
           additionalPaymentInformations =
             RedirectAdditionalPaymentInformationsDto().apply {
-              timestampOperation = OffsetDateTime.parse(expectedTimestamp)
+              timestampOperation = expectedTimestamp
               idPSPTransaction = authEvent.data.authorizationRequestId
               this.fee = feeEuro.toString()
               this.totalAmount = totalAmountEuro.toString()
@@ -1535,8 +1538,9 @@ class NodeServiceTests {
       val expectedTimestamp =
         OffsetDateTime.parse(
             authCompletedEvent.data.timestampOperation, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+          .atZoneSameInstant(ZoneId.of("Europe/Paris"))
           .truncatedTo(ChronoUnit.SECONDS)
-          .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+          .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
 
       val expected =
         PayPalClosePaymentRequestV2Dto().apply {
@@ -1600,7 +1604,7 @@ class NodeServiceTests {
                 (authCompletedEvent.data.transactionGatewayAuthorizationData
                     as NpgTransactionGatewayAuthorizationData)
                   .paymentEndToEndId
-              timestampOperation = OffsetDateTime.parse(expectedTimestamp)
+              timestampOperation = expectedTimestamp
               this.fee = feeEuro.toString()
               this.totalAmount = totalAmountEuro.toString()
               this.email = EMAIL_STRING
@@ -1926,8 +1930,9 @@ class NodeServiceTests {
       val expectedTimestamp =
         OffsetDateTime.parse(
             authCompletedEvent.data.timestampOperation, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+          .atZoneSameInstant(ZoneId.of("Europe/Paris"))
           .truncatedTo(ChronoUnit.SECONDS)
-          .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+          .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
 
       val expected =
         BancomatPayClosePaymentRequestV2Dto().apply {
@@ -1991,7 +1996,7 @@ class NodeServiceTests {
                 BancomatPayAdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.OK
               this.totalAmount = totalAmountEuro.toString()
               this.fee = feeEuro.toString()
-              this.timestampOperation = OffsetDateTime.parse(expectedTimestamp)
+              this.timestampOperation = expectedTimestamp
               this.authorizationCode =
                 (authCompletedEvent.data.transactionGatewayAuthorizationData
                     as NpgTransactionGatewayAuthorizationData)
@@ -2320,7 +2325,8 @@ class NodeServiceTests {
         OffsetDateTime.parse(
             authCompletedEvent.data.timestampOperation, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
           .truncatedTo(ChronoUnit.SECONDS)
-          .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+          .atZoneSameInstant(ZoneId.of("Europe/Paris"))
+          .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
 
       val expected =
         MyBankClosePaymentRequestV2Dto().apply {
@@ -2387,7 +2393,7 @@ class NodeServiceTests {
               this.totalAmount = totalAmountEuro.toString()
               this.fee = feeEuro.toString()
               this.validationServiceId = NPG_VALIDATION_SERVICE_ID
-              this.timestampOperation = OffsetDateTime.parse(expectedTimestamp)
+              this.timestampOperation = expectedTimestamp
               this.email = EMAIL_STRING
             }
         }
@@ -3097,8 +3103,9 @@ class NodeServiceTests {
       val expectedTimestamp =
         OffsetDateTime.parse(
             authCompletedEvent.data.timestampOperation, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+          .atZoneSameInstant(ZoneId.of("Europe/Paris"))
           .truncatedTo(ChronoUnit.SECONDS)
-          .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+          .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
 
       val expected =
         PayPalClosePaymentRequestV2Dto().apply {
@@ -3163,7 +3170,7 @@ class NodeServiceTests {
                 (authCompletedEvent.data.transactionGatewayAuthorizationData
                     as NpgTransactionGatewayAuthorizationData)
                   .paymentEndToEndId
-              timestampOperation = OffsetDateTime.parse(expectedTimestamp)
+              timestampOperation = expectedTimestamp
               this.fee = feeEuro.toString()
               this.totalAmount = totalAmountEuro.toString()
               this.email = EMAIL_STRING
@@ -3472,8 +3479,9 @@ class NodeServiceTests {
       val expectedTimestamp =
         OffsetDateTime.parse(
             authCompletedEvent.data.timestampOperation, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+          .atZoneSameInstant(ZoneId.of("Europe/Paris"))
           .truncatedTo(ChronoUnit.SECONDS)
-          .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+          .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
 
       val expected =
         RedirectClosePaymentRequestV2Dto().apply {
@@ -3533,7 +3541,7 @@ class NodeServiceTests {
             }
           additionalPaymentInformations =
             RedirectAdditionalPaymentInformationsDto().apply {
-              timestampOperation = OffsetDateTime.parse(expectedTimestamp)
+              timestampOperation = expectedTimestamp
               idPSPTransaction = authEvent.data.authorizationRequestId
               this.fee = feeEuro.toString()
               this.totalAmount = totalAmountEuro.toString()
@@ -3834,8 +3842,9 @@ class NodeServiceTests {
       val expectedTimestamp =
         OffsetDateTime.parse(
             authCompletedEvent.data.timestampOperation, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+          .atZoneSameInstant(ZoneId.of("Europe/Paris"))
           .truncatedTo(ChronoUnit.SECONDS)
-          .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+          .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
 
       val expected =
         PayPalClosePaymentRequestV2Dto().apply {
@@ -3903,7 +3912,7 @@ class NodeServiceTests {
                 (authCompletedEvent.data.transactionGatewayAuthorizationData
                     as NpgTransactionGatewayAuthorizationData)
                   .paymentEndToEndId
-              timestampOperation = OffsetDateTime.parse(expectedTimestamp)
+              timestampOperation = expectedTimestamp
               this.fee = feeEuro.toString()
               this.totalAmount = totalAmountEuro.toString()
               this.email = EMAIL_STRING
@@ -4235,8 +4244,9 @@ class NodeServiceTests {
       val expectedTimestamp =
         OffsetDateTime.parse(
             authCompletedEvent.data.timestampOperation, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+          .atZoneSameInstant(ZoneId.of("Europe/Paris"))
           .truncatedTo(ChronoUnit.SECONDS)
-          .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+          .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
 
       val expected =
         BancomatPayClosePaymentRequestV2Dto().apply {
@@ -4304,7 +4314,7 @@ class NodeServiceTests {
                 BancomatPayAdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.OK
               this.totalAmount = totalAmountEuro.toString()
               this.fee = feeEuro.toString()
-              this.timestampOperation = OffsetDateTime.parse(expectedTimestamp)
+              this.timestampOperation = expectedTimestamp
               this.authorizationCode =
                 (authCompletedEvent.data.transactionGatewayAuthorizationData
                     as NpgTransactionGatewayAuthorizationData)
@@ -4637,8 +4647,9 @@ class NodeServiceTests {
       val expectedTimestamp =
         OffsetDateTime.parse(
             authCompletedEvent.data.timestampOperation, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+          .atZoneSameInstant(ZoneId.of("Europe/Paris"))
           .truncatedTo(ChronoUnit.SECONDS)
-          .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+          .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
 
       val expected =
         MyBankClosePaymentRequestV2Dto().apply {
@@ -4709,7 +4720,7 @@ class NodeServiceTests {
               this.totalAmount = totalAmountEuro.toString()
               this.fee = feeEuro.toString()
               this.validationServiceId = NPG_VALIDATION_SERVICE_ID
-              this.timestampOperation = OffsetDateTime.parse(expectedTimestamp)
+              this.timestampOperation = expectedTimestamp
               this.email = EMAIL_STRING
             }
         }
