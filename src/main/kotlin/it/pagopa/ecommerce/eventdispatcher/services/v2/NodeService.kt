@@ -402,8 +402,12 @@ class NodeService(
             this.fee = feeEuro.toString()
             timestampOperation =
               OffsetDateTime.parse(
-                authCompleted.transactionAuthorizationCompletedData.timestampOperation,
-                DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                  authCompleted.transactionAuthorizationCompletedData.timestampOperation,
+                  DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                .atZoneSameInstant(ZoneId.of("Europe/Paris"))
+                .truncatedTo(ChronoUnit.SECONDS)
+                .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                .toString()
           }
         } else null
       transactionDetails = closePaymentTransactionDetails
@@ -512,8 +516,12 @@ class NodeService(
             this.fee = feeEuro.toString()
             this.timestampOperation =
               OffsetDateTime.parse(
-                authCompleted.transactionAuthorizationCompletedData.timestampOperation,
-                DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                  authCompleted.transactionAuthorizationCompletedData.timestampOperation,
+                  DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                .atZoneSameInstant(ZoneId.of("Europe/Paris"))
+                .truncatedTo(ChronoUnit.SECONDS)
+                .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                .toString()
             this.totalAmount = totalAmountEuro.toString()
             this.email = it
           }
@@ -583,8 +591,12 @@ class NodeService(
             this.fee = feeEuro.toString()
             this.timestampOperation =
               OffsetDateTime.parse(
-                authCompleted.transactionAuthorizationCompletedData.timestampOperation,
-                DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                  authCompleted.transactionAuthorizationCompletedData.timestampOperation,
+                  DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                .atZoneSameInstant(ZoneId.of("Europe/Paris"))
+                .truncatedTo(ChronoUnit.SECONDS)
+                .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                .toString()
             this.authorizationCode = npgTransactionGatewayAuthorizationData.operationId
             this.email = it
           }
@@ -653,8 +665,12 @@ class NodeService(
             this.validationServiceId = npgTransactionGatewayAuthorizationData.validationServiceId
             this.timestampOperation =
               OffsetDateTime.parse(
-                authCompleted.transactionAuthorizationCompletedData.timestampOperation,
-                DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                  authCompleted.transactionAuthorizationCompletedData.timestampOperation,
+                  DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                .atZoneSameInstant(ZoneId.of("Europe/Paris"))
+                .truncatedTo(ChronoUnit.SECONDS)
+                .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                .toString()
             this.email = it
           }
         }
