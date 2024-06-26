@@ -20,13 +20,6 @@ import it.pagopa.ecommerce.eventdispatcher.utils.ConfidentialDataUtils
 import it.pagopa.ecommerce.eventdispatcher.utils.PaymentCode
 import it.pagopa.generated.ecommerce.nodo.v2.dto.*
 import it.pagopa.generated.ecommerce.nodo.v2.dto.CardAdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum
-import java.math.BigDecimal
-import java.time.OffsetDateTime
-import java.time.ZoneId
-import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoUnit
-import java.util.stream.Stream
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.reactor.mono
 import kotlinx.coroutines.test.runTest
@@ -46,6 +39,13 @@ import org.mockito.kotlin.mock
 import org.springframework.test.context.junit.jupiter.SpringExtension
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toFlux
+import java.math.BigDecimal
+import java.time.OffsetDateTime
+import java.time.ZoneId
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
+import java.util.stream.Stream
 
 @ExtendWith(SpringExtension::class)
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -368,8 +368,12 @@ class NodeServiceTests {
     assertEquals(expected, closePaymentRequestCaptor.value)
   }
 
-  @Test
-  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for NPG payment gateway`() =
+  @ParameterizedTest
+  @MethodSource("closePaymentDateFormat")
+  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for NPG payment gateway`(
+    timestampOperation: String,
+    expectedLocalDate: String
+  ) =
     runTest {
       val transactionOutcome = ClosePaymentOutcome.OK
 
@@ -384,6 +388,8 @@ class NodeServiceTests {
       val closureRequestedEvent = transactionClosureRequestedEvent()
       val closureError = transactionClosureErrorEvent()
       val transactionId = activatedEvent.transactionId
+      val nodoTimestampOperation = OffsetDateTime.parse(timestampOperation)
+      authCompletedEvent.data.timestampOperation = nodoTimestampOperation.toString()
       val events =
         listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent, closureError)
           as List<TransactionEvent<Any>>
@@ -419,11 +425,7 @@ class NodeServiceTests {
         closePaymentResponse,
         nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
 
-      val expectedTimestamp =
-        OffsetDateTime.parse(
-            authCompletedEvent.data.timestampOperation, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-          .truncatedTo(ChronoUnit.SECONDS)
-          .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+      val expectedTimestamp = expectedLocalDate
 
       val expectedOutcome =
         authCompletedEvent.data.transactionGatewayAuthorizationData.let {
@@ -452,7 +454,7 @@ class NodeServiceTests {
           this.transactionId = transactionId
           paymentTokens =
             activatedEvent.data.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken }
-          timestampOperation = OffsetDateTime.parse(authCompletedEvent.data.timestampOperation)
+          this.timestampOperation = OffsetDateTime.parse(authCompletedEvent.data.timestampOperation)
           this.fee = feeEuro
           idPSP = authEvent.data.pspId
           idChannel = authEvent.data.pspChannelCode
@@ -481,7 +483,7 @@ class NodeServiceTests {
                       pspOnUs = authEvent.data.isPspOnUs
                     }
                   authorizationCode = authCompletedEvent.data.authorizationCode
-                  timestampOperation = authCompletedEvent.data.timestampOperation
+                  this.timestampOperation = authCompletedEvent.data.timestampOperation
                   paymentGateway = authEvent.data.paymentGateway.name
                 }
               user = UserDto().apply { type = UserDto.TypeEnum.GUEST }
@@ -507,7 +509,7 @@ class NodeServiceTests {
               this.fee = feeEuro.toString()
               outcomePaymentGateway = expectedOutcome
               rrn = authCompletedEvent.data.rrn
-              timestampOperation = expectedTimestamp
+              this.timestampOperation = expectedTimestamp
               this.totalAmount = totalAmountEuro.toString()
               this.email = EMAIL_STRING
             }
@@ -516,8 +518,12 @@ class NodeServiceTests {
       assertEquals(expected, closePaymentRequestCaptor.value)
     }
 
-  @Test
-  fun `ClosePaymentRequestV2Dto for close payment OK authorization KO has additional properties and transaction details valued correctly for PGS payment gateway`() =
+  @ParameterizedTest
+  @MethodSource("closePaymentDateFormat")
+  fun `ClosePaymentRequestV2Dto for close payment OK authorization KO has additional properties and transaction details valued correctly for PGS payment gateway`(
+    timestampOperation: String,
+    expectedLocalDate: String
+  ) =
     runTest {
       val transactionOutcome = ClosePaymentOutcome.OK
 
@@ -529,15 +535,11 @@ class NodeServiceTests {
       val closureRequestedEvent = transactionClosureRequestedEvent()
       val closureError = transactionClosureErrorEvent()
       val transactionId = activatedEvent.transactionId
+      val nodoTimestampOperation = OffsetDateTime.parse(timestampOperation)
+      authCompletedEvent.data.timestampOperation = nodoTimestampOperation.toString()
       val events =
         listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent, closureError)
           as List<TransactionEvent<Any>>
-
-      val expectedLocalDate =
-        OffsetDateTime.parse(
-            authCompletedEvent.data.timestampOperation, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-          .truncatedTo(ChronoUnit.SECONDS)
-          .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
 
       val expectedOutcome =
         authCompletedEvent.data.transactionGatewayAuthorizationData.let {
@@ -1127,8 +1129,12 @@ class NodeServiceTests {
       }
     }
 
-  @Test
-  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for REDIRECT payment gateway`() =
+  @ParameterizedTest
+  @MethodSource("closePaymentDateFormat")
+  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for REDIRECT payment gateway`(
+    timestampOperation: String,
+    expectedLocalDate: String
+  ) =
     runTest {
       val transactionOutcome = ClosePaymentOutcome.OK
       val redirectTransactionGatewayAuthorizationRequestedData =
@@ -1149,6 +1155,8 @@ class NodeServiceTests {
       val closureRequestedEvent = transactionClosureRequestedEvent()
       val closureError = transactionClosureErrorEvent()
       val transactionId = activatedEvent.transactionId
+      val nodoTimestampOperation = OffsetDateTime.parse(timestampOperation)
+      authCompletedEvent.data.timestampOperation = nodoTimestampOperation.toString()
       val events =
         listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent, closureError)
           as List<TransactionEvent<Any>>
@@ -1180,13 +1188,7 @@ class NodeServiceTests {
       assertEquals(
         closePaymentResponse,
         nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
-      val expectedTimestamp =
-        OffsetDateTime.parse(
-            authCompletedEvent.data.timestampOperation, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-          .atZoneSameInstant(ZoneId.of("Europe/Paris"))
-          .truncatedTo(ChronoUnit.SECONDS)
-          .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
-          .toString()
+      val expectedTimestamp = expectedLocalDate
 
       val expected =
         RedirectClosePaymentRequestV2Dto().apply {
@@ -1194,7 +1196,7 @@ class NodeServiceTests {
           this.transactionId = transactionId
           paymentTokens =
             activatedEvent.data.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken }
-          timestampOperation = OffsetDateTime.parse(authCompletedEvent.data.timestampOperation)
+          this.timestampOperation = OffsetDateTime.parse(authCompletedEvent.data.timestampOperation)
           this.fee = feeEuro
           idPSP = authEvent.data.pspId
           idChannel = authEvent.data.pspChannelCode
@@ -1223,7 +1225,7 @@ class NodeServiceTests {
                       pspOnUs = authEvent.data.isPspOnUs
                     }
                   authorizationCode = authCompletedEvent.data.authorizationCode
-                  timestampOperation = authCompletedEvent.data.timestampOperation
+                  this.timestampOperation = authCompletedEvent.data.timestampOperation
                   paymentGateway = authEvent.data.paymentGateway.name
                 }
               user = UserDto().apply { type = UserDto.TypeEnum.GUEST }
@@ -1242,7 +1244,7 @@ class NodeServiceTests {
             }
           additionalPaymentInformations =
             RedirectAdditionalPaymentInformationsDto().apply {
-              timestampOperation = expectedTimestamp
+              this.timestampOperation = expectedTimestamp
               idPSPTransaction = authEvent.data.authorizationRequestId
               this.fee = feeEuro.toString()
               this.totalAmount = totalAmountEuro.toString()
@@ -1464,8 +1466,12 @@ class NodeServiceTests {
       assertEquals(expected, redirectClosePaymentRequestCaptor.value)
     }
 
-  @Test
-  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for PayPal method`() =
+  @ParameterizedTest
+  @MethodSource("closePaymentDateFormat")
+  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for PayPal method`(
+    timestampOperation: String,
+    expectedLocalDate: String
+  ) =
     runTest {
       val transactionOutcome = ClosePaymentOutcome.OK
       val paypalTransactionGatewayAuthorizationRequestedData =
@@ -1502,6 +1508,8 @@ class NodeServiceTests {
       val closureRequestedEvent = transactionClosureRequestedEvent()
       val closureError = transactionClosureErrorEvent()
       val transactionId = activatedEvent.transactionId
+      val nodoTimestampOperation = OffsetDateTime.parse(timestampOperation)
+      authCompletedEvent.data.timestampOperation = nodoTimestampOperation.toString()
       val events =
         listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent, closureError)
           as List<TransactionEvent<Any>>
@@ -1535,12 +1543,7 @@ class NodeServiceTests {
       assertEquals(
         closePaymentResponse,
         nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
-      val expectedTimestamp =
-        OffsetDateTime.parse(
-            authCompletedEvent.data.timestampOperation, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-          .atZoneSameInstant(ZoneId.of("Europe/Paris"))
-          .truncatedTo(ChronoUnit.SECONDS)
-          .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+      val expectedTimestamp = expectedLocalDate
 
       val expected =
         PayPalClosePaymentRequestV2Dto().apply {
@@ -1548,7 +1551,7 @@ class NodeServiceTests {
           this.transactionId = transactionId
           paymentTokens =
             activatedEvent.data.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken }
-          timestampOperation = OffsetDateTime.parse(authCompletedEvent.data.timestampOperation)
+          this.timestampOperation = OffsetDateTime.parse(authCompletedEvent.data.timestampOperation)
           this.fee = feeEuro
           idPSP = authEvent.data.pspId
           idChannel = authEvent.data.pspChannelCode
@@ -1577,7 +1580,7 @@ class NodeServiceTests {
                       pspOnUs = authEvent.data.isPspOnUs
                     }
                   authorizationCode = authCompletedEvent.data.authorizationCode
-                  timestampOperation = authCompletedEvent.data.timestampOperation
+                  this.timestampOperation = authCompletedEvent.data.timestampOperation
                   paymentGateway = authEvent.data.paymentGateway.name
                 }
               user = UserDto().apply { type = UserDto.TypeEnum.GUEST }
@@ -1604,7 +1607,7 @@ class NodeServiceTests {
                 (authCompletedEvent.data.transactionGatewayAuthorizationData
                     as NpgTransactionGatewayAuthorizationData)
                   .paymentEndToEndId
-              timestampOperation = expectedTimestamp
+              this.timestampOperation = expectedTimestamp
               this.fee = feeEuro.toString()
               this.totalAmount = totalAmountEuro.toString()
               this.email = EMAIL_STRING
@@ -1856,8 +1859,12 @@ class NodeServiceTests {
       assertEquals(expected, paypalClosePaymentRequestCaptor.value)
     }
 
-  @Test
-  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for BancomatPay method`() =
+  @ParameterizedTest
+  @MethodSource("closePaymentDateFormat")
+  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for BancomatPay method`(
+    timestampOperation: String,
+    expectedLocalDate: String
+  ) =
     runTest {
       val transactionOutcome = ClosePaymentOutcome.OK
       val bancomatPayTransactionGatewayAuthorizationRequestedData =
@@ -1894,6 +1901,8 @@ class NodeServiceTests {
       val closureRequestedEvent = transactionClosureRequestedEvent()
       val closureError = transactionClosureErrorEvent()
       val transactionId = activatedEvent.transactionId
+      val nodoTimestampOperation = OffsetDateTime.parse(timestampOperation)
+      authCompletedEvent.data.timestampOperation = nodoTimestampOperation.toString()
       val events =
         listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent, closureError)
           as List<TransactionEvent<Any>>
@@ -1927,12 +1936,7 @@ class NodeServiceTests {
       assertEquals(
         closePaymentResponse,
         nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
-      val expectedTimestamp =
-        OffsetDateTime.parse(
-            authCompletedEvent.data.timestampOperation, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-          .atZoneSameInstant(ZoneId.of("Europe/Paris"))
-          .truncatedTo(ChronoUnit.SECONDS)
-          .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+      val expectedTimestamp = expectedLocalDate
 
       val expected =
         BancomatPayClosePaymentRequestV2Dto().apply {
@@ -1940,7 +1944,7 @@ class NodeServiceTests {
           this.transactionId = transactionId
           paymentTokens =
             activatedEvent.data.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken }
-          timestampOperation = OffsetDateTime.parse(authCompletedEvent.data.timestampOperation)
+          this.timestampOperation = OffsetDateTime.parse(authCompletedEvent.data.timestampOperation)
           this.fee = feeEuro
           idPSP = authEvent.data.pspId
           idChannel = authEvent.data.pspChannelCode
@@ -1969,7 +1973,7 @@ class NodeServiceTests {
                       pspOnUs = authEvent.data.isPspOnUs
                     }
                   authorizationCode = authCompletedEvent.data.authorizationCode
-                  timestampOperation = authCompletedEvent.data.timestampOperation
+                  this.timestampOperation = authCompletedEvent.data.timestampOperation
                   paymentGateway = authEvent.data.paymentGateway.name
                 }
               user = UserDto().apply { type = UserDto.TypeEnum.GUEST }
@@ -2250,8 +2254,12 @@ class NodeServiceTests {
       assertEquals(expected, bancomatPayClosePaymentRequestCaptor.value)
     }
 
-  @Test
-  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for MyBank method`() =
+  @ParameterizedTest
+  @MethodSource("closePaymentDateFormat")
+  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for MyBank method`(
+    timestampOperation: String,
+    expectedLocalDate: String
+  ) =
     runTest {
       val transactionOutcome = ClosePaymentOutcome.OK
       val myBankTransactionGatewayAuthorizationRequestedData =
@@ -2288,6 +2296,8 @@ class NodeServiceTests {
       val closureRequestedEvent = transactionClosureRequestedEvent()
       val closureError = transactionClosureErrorEvent()
       val transactionId = activatedEvent.transactionId
+      val nodoTimestampOperation = OffsetDateTime.parse(timestampOperation)
+      authCompletedEvent.data.timestampOperation = nodoTimestampOperation.toString()
       val events =
         listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent, closureError)
           as List<TransactionEvent<Any>>
@@ -2321,12 +2331,7 @@ class NodeServiceTests {
       assertEquals(
         closePaymentResponse,
         nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
-      val expectedTimestamp =
-        OffsetDateTime.parse(
-            authCompletedEvent.data.timestampOperation, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-          .truncatedTo(ChronoUnit.SECONDS)
-          .atZoneSameInstant(ZoneId.of("Europe/Paris"))
-          .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+      val expectedTimestamp = expectedLocalDate
 
       val expected =
         MyBankClosePaymentRequestV2Dto().apply {
@@ -2334,7 +2339,7 @@ class NodeServiceTests {
           this.transactionId = transactionId
           paymentTokens =
             activatedEvent.data.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken }
-          timestampOperation = OffsetDateTime.parse(authCompletedEvent.data.timestampOperation)
+          this.timestampOperation = OffsetDateTime.parse(authCompletedEvent.data.timestampOperation)
           this.fee = feeEuro
           idPSP = authEvent.data.pspId
           idChannel = authEvent.data.pspChannelCode
@@ -2363,7 +2368,7 @@ class NodeServiceTests {
                       pspOnUs = authEvent.data.isPspOnUs
                     }
                   authorizationCode = authCompletedEvent.data.authorizationCode
-                  timestampOperation = authCompletedEvent.data.timestampOperation
+                  this.timestampOperation = authCompletedEvent.data.timestampOperation
                   paymentGateway = authEvent.data.paymentGateway.name
                 }
               user = UserDto().apply { type = UserDto.TypeEnum.GUEST }
@@ -2643,8 +2648,12 @@ class NodeServiceTests {
       assertEquals(expected, bancomatPayClosePaymentRequestCaptor.value)
     }
 
-  @Test
-  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for card wallet`() =
+  @ParameterizedTest
+  @MethodSource("closePaymentDateFormat")
+  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for card wallet`(
+    timestampOperation: String,
+    expectedLocalDate: String
+  ) =
     runTest {
       val transactionOutcome = ClosePaymentOutcome.OK
       val authRequestedData =
@@ -2679,6 +2688,8 @@ class NodeServiceTests {
       val closureRequestedEvent = transactionClosureRequestedEvent()
       val closureError = transactionClosureErrorEvent()
       val transactionId = activatedEvent.transactionId
+      val nodoTimestampOperation = OffsetDateTime.parse(timestampOperation)
+      authCompletedEvent.data.timestampOperation = nodoTimestampOperation.toString()
       val events =
         listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent, closureError)
           as List<TransactionEvent<Any>>
@@ -2713,11 +2724,7 @@ class NodeServiceTests {
       assertEquals(
         closePaymentResponse,
         nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
-      val expectedTimestamp =
-        OffsetDateTime.parse(
-            authCompletedEvent.data.timestampOperation, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-          .truncatedTo(ChronoUnit.SECONDS)
-          .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+      val expectedTimestamp = expectedLocalDate
 
       val expected =
         CardClosePaymentRequestV2Dto().apply {
@@ -2725,7 +2732,7 @@ class NodeServiceTests {
           this.transactionId = transactionId
           paymentTokens =
             activatedEvent.data.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken }
-          timestampOperation = OffsetDateTime.parse(authCompletedEvent.data.timestampOperation)
+          this.timestampOperation = OffsetDateTime.parse(authCompletedEvent.data.timestampOperation)
           this.fee = feeEuro
           idPSP = authEvent.data.pspId
           idChannel = authEvent.data.pspChannelCode
@@ -2754,7 +2761,7 @@ class NodeServiceTests {
                       pspOnUs = authEvent.data.isPspOnUs
                     }
                   authorizationCode = authCompletedEvent.data.authorizationCode
-                  timestampOperation = authCompletedEvent.data.timestampOperation
+                  this.timestampOperation = authCompletedEvent.data.timestampOperation
                   paymentGateway = authEvent.data.paymentGateway.name
                 }
               user = UserDto().apply { type = UserDto.TypeEnum.GUEST }
@@ -3031,8 +3038,12 @@ class NodeServiceTests {
       assertEquals(expected, paypalClosePaymentRequestCaptor.value)
     }
 
-  @Test
-  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for paypal wallet`() =
+  @ParameterizedTest
+  @MethodSource("closePaymentDateFormat")
+  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for paypal wallet`(
+    timestampOperation: String,
+    expectedLocalDate: String
+  ) =
     runTest {
       val transactionOutcome = ClosePaymentOutcome.OK
       val authRequestedData =
@@ -3067,6 +3078,8 @@ class NodeServiceTests {
       val closureRequestedEvent = transactionClosureRequestedEvent()
       val closureError = transactionClosureErrorEvent()
       val transactionId = activatedEvent.transactionId
+      val nodoTimestampOperation = OffsetDateTime.parse(timestampOperation)
+      authCompletedEvent.data.timestampOperation = nodoTimestampOperation.toString()
       val events =
         listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent, closureError)
           as List<TransactionEvent<Any>>
@@ -3100,12 +3113,7 @@ class NodeServiceTests {
       assertEquals(
         closePaymentResponse,
         nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
-      val expectedTimestamp =
-        OffsetDateTime.parse(
-            authCompletedEvent.data.timestampOperation, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-          .atZoneSameInstant(ZoneId.of("Europe/Paris"))
-          .truncatedTo(ChronoUnit.SECONDS)
-          .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+      val expectedTimestamp = expectedLocalDate
 
       val expected =
         PayPalClosePaymentRequestV2Dto().apply {
@@ -3113,7 +3121,7 @@ class NodeServiceTests {
           this.transactionId = transactionId
           paymentTokens =
             activatedEvent.data.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken }
-          timestampOperation = OffsetDateTime.parse(authCompletedEvent.data.timestampOperation)
+          this.timestampOperation = OffsetDateTime.parse(authCompletedEvent.data.timestampOperation)
           this.fee = feeEuro
           idPSP = authEvent.data.pspId
           idChannel = authEvent.data.pspChannelCode
@@ -3142,7 +3150,7 @@ class NodeServiceTests {
                       pspOnUs = authEvent.data.isPspOnUs
                     }
                   authorizationCode = authCompletedEvent.data.authorizationCode
-                  timestampOperation = authCompletedEvent.data.timestampOperation
+                  this.timestampOperation = authCompletedEvent.data.timestampOperation
                   paymentGateway = authEvent.data.paymentGateway.name
                 }
               user = UserDto().apply { type = UserDto.TypeEnum.GUEST }
@@ -3170,7 +3178,7 @@ class NodeServiceTests {
                 (authCompletedEvent.data.transactionGatewayAuthorizationData
                     as NpgTransactionGatewayAuthorizationData)
                   .paymentEndToEndId
-              timestampOperation = expectedTimestamp
+              this.timestampOperation = expectedTimestamp
               this.fee = feeEuro.toString()
               this.totalAmount = totalAmountEuro.toString()
               this.email = EMAIL_STRING
@@ -3420,8 +3428,12 @@ class NodeServiceTests {
       assertEquals(expected, paypalClosePaymentRequestCaptor.value)
     }
 
-  @Test
-  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for REDIRECT payment gateway for registered user`() =
+  @ParameterizedTest
+  @MethodSource("closePaymentDateFormat")
+  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for REDIRECT payment gateway for registered user`(
+    timestampOperation: String,
+    expectedLocalDate: String
+  ) =
     runTest {
       val transactionOutcome = ClosePaymentOutcome.OK
       val redirectTransactionGatewayAuthorizationRequestedData =
@@ -3443,6 +3455,8 @@ class NodeServiceTests {
       val closureRequestedEvent = transactionClosureRequestedEvent()
       val closureError = transactionClosureErrorEvent()
       val transactionId = activatedEvent.transactionId
+      val nodoTimestampOperation = OffsetDateTime.parse(timestampOperation)
+      authCompletedEvent.data.timestampOperation = nodoTimestampOperation.toString()
       val events =
         listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent, closureError)
           as List<TransactionEvent<Any>>
@@ -3476,12 +3490,7 @@ class NodeServiceTests {
       assertEquals(
         closePaymentResponse,
         nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
-      val expectedTimestamp =
-        OffsetDateTime.parse(
-            authCompletedEvent.data.timestampOperation, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-          .atZoneSameInstant(ZoneId.of("Europe/Paris"))
-          .truncatedTo(ChronoUnit.SECONDS)
-          .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+      val expectedTimestamp = expectedLocalDate
 
       val expected =
         RedirectClosePaymentRequestV2Dto().apply {
@@ -3489,7 +3498,7 @@ class NodeServiceTests {
           this.transactionId = transactionId
           paymentTokens =
             activatedEvent.data.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken }
-          timestampOperation = OffsetDateTime.parse(authCompletedEvent.data.timestampOperation)
+          this.timestampOperation = OffsetDateTime.parse(authCompletedEvent.data.timestampOperation)
           this.fee = feeEuro
           idPSP = authEvent.data.pspId
           idChannel = authEvent.data.pspChannelCode
@@ -3518,7 +3527,7 @@ class NodeServiceTests {
                       pspOnUs = authEvent.data.isPspOnUs
                     }
                   authorizationCode = authCompletedEvent.data.authorizationCode
-                  timestampOperation = authCompletedEvent.data.timestampOperation
+                  this.timestampOperation = authCompletedEvent.data.timestampOperation
                   paymentGateway = authEvent.data.paymentGateway.name
                 }
               user =
@@ -3541,7 +3550,7 @@ class NodeServiceTests {
             }
           additionalPaymentInformations =
             RedirectAdditionalPaymentInformationsDto().apply {
-              timestampOperation = expectedTimestamp
+              this.timestampOperation = expectedTimestamp
               idPSPTransaction = authEvent.data.authorizationRequestId
               this.fee = feeEuro.toString()
               this.totalAmount = totalAmountEuro.toString()
@@ -3765,8 +3774,12 @@ class NodeServiceTests {
       assertEquals(expected, redirectClosePaymentRequestCaptor.value)
     }
 
-  @Test
-  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for PayPal method for registered user`() =
+  @ParameterizedTest
+  @MethodSource("closePaymentDateFormat")
+  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for PayPal method for registered user`(
+    timestampOperation: String,
+    expectedLocalDate: String
+  ) =
     runTest {
       val transactionOutcome = ClosePaymentOutcome.OK
       val paypalTransactionGatewayAuthorizationRequestedData =
@@ -3804,6 +3817,8 @@ class NodeServiceTests {
       val closureRequestedEvent = transactionClosureRequestedEvent()
       val closureError = transactionClosureErrorEvent()
       val transactionId = activatedEvent.transactionId
+      val nodoTimestampOperation = OffsetDateTime.parse(timestampOperation)
+      authCompletedEvent.data.timestampOperation = nodoTimestampOperation.toString()
       val events =
         listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent, closureError)
           as List<TransactionEvent<Any>>
@@ -3839,12 +3854,7 @@ class NodeServiceTests {
       assertEquals(
         closePaymentResponse,
         nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
-      val expectedTimestamp =
-        OffsetDateTime.parse(
-            authCompletedEvent.data.timestampOperation, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-          .atZoneSameInstant(ZoneId.of("Europe/Paris"))
-          .truncatedTo(ChronoUnit.SECONDS)
-          .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+      val expectedTimestamp = expectedLocalDate
 
       val expected =
         PayPalClosePaymentRequestV2Dto().apply {
@@ -3852,7 +3862,7 @@ class NodeServiceTests {
           this.transactionId = transactionId
           paymentTokens =
             activatedEvent.data.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken }
-          timestampOperation = OffsetDateTime.parse(authCompletedEvent.data.timestampOperation)
+          this.timestampOperation = OffsetDateTime.parse(authCompletedEvent.data.timestampOperation)
           this.fee = feeEuro
           idPSP = authEvent.data.pspId
           idChannel = authEvent.data.pspChannelCode
@@ -3881,7 +3891,7 @@ class NodeServiceTests {
                       pspOnUs = authEvent.data.isPspOnUs
                     }
                   authorizationCode = authCompletedEvent.data.authorizationCode
-                  timestampOperation = authCompletedEvent.data.timestampOperation
+                  this.timestampOperation = authCompletedEvent.data.timestampOperation
                   paymentGateway = authEvent.data.paymentGateway.name
                 }
               user =
@@ -3912,7 +3922,7 @@ class NodeServiceTests {
                 (authCompletedEvent.data.transactionGatewayAuthorizationData
                     as NpgTransactionGatewayAuthorizationData)
                   .paymentEndToEndId
-              timestampOperation = expectedTimestamp
+              this.timestampOperation = expectedTimestamp
               this.fee = feeEuro.toString()
               this.totalAmount = totalAmountEuro.toString()
               this.email = EMAIL_STRING
@@ -4166,8 +4176,12 @@ class NodeServiceTests {
       assertEquals(expected, paypalClosePaymentRequestCaptor.value)
     }
 
-  @Test
-  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for BancomatPay method for registered user`() =
+  @ParameterizedTest
+  @MethodSource("closePaymentDateFormat")
+  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for BancomatPay method for registered user`(
+    timestampOperation: String,
+    expectedLocalDate: String
+  ) =
     runTest {
       val transactionOutcome = ClosePaymentOutcome.OK
       val bancomatPayTransactionGatewayAuthorizationRequestedData =
@@ -4205,6 +4219,8 @@ class NodeServiceTests {
       val closureRequestedEvent = transactionClosureRequestedEvent()
       val closureError = transactionClosureErrorEvent()
       val transactionId = activatedEvent.transactionId
+      val nodoTimestampOperation = OffsetDateTime.parse(timestampOperation)
+      authCompletedEvent.data.timestampOperation = nodoTimestampOperation.toString()
       val events =
         listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent, closureError)
           as List<TransactionEvent<Any>>
@@ -4241,12 +4257,7 @@ class NodeServiceTests {
       assertEquals(
         closePaymentResponse,
         nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
-      val expectedTimestamp =
-        OffsetDateTime.parse(
-            authCompletedEvent.data.timestampOperation, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-          .atZoneSameInstant(ZoneId.of("Europe/Paris"))
-          .truncatedTo(ChronoUnit.SECONDS)
-          .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+      val expectedTimestamp = expectedLocalDate
 
       val expected =
         BancomatPayClosePaymentRequestV2Dto().apply {
@@ -4254,7 +4265,7 @@ class NodeServiceTests {
           this.transactionId = transactionId
           paymentTokens =
             activatedEvent.data.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken }
-          timestampOperation = OffsetDateTime.parse(authCompletedEvent.data.timestampOperation)
+          this.timestampOperation = OffsetDateTime.parse(authCompletedEvent.data.timestampOperation)
           this.fee = feeEuro
           idPSP = authEvent.data.pspId
           idChannel = authEvent.data.pspChannelCode
@@ -4283,7 +4294,7 @@ class NodeServiceTests {
                       pspOnUs = authEvent.data.isPspOnUs
                     }
                   authorizationCode = authCompletedEvent.data.authorizationCode
-                  timestampOperation = authCompletedEvent.data.timestampOperation
+                  this.timestampOperation = authCompletedEvent.data.timestampOperation
                   paymentGateway = authEvent.data.paymentGateway.name
                 }
               user =
@@ -4570,8 +4581,12 @@ class NodeServiceTests {
       assertEquals(expected, bancomatPayClosePaymentRequestCaptor.value)
     }
 
-  @Test
-  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for MyBank method for registered user`() =
+  @ParameterizedTest
+  @MethodSource("closePaymentDateFormat")
+  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for MyBank method for registered user`(
+    timestampOperation: String,
+    expectedLocalDate: String
+  ) =
     runTest {
       val transactionOutcome = ClosePaymentOutcome.OK
       val myBankTransactionGatewayAuthorizationRequestedData =
@@ -4609,6 +4624,8 @@ class NodeServiceTests {
       val closureRequestedEvent = transactionClosureRequestedEvent()
       val closureError = transactionClosureErrorEvent()
       val transactionId = activatedEvent.transactionId
+      val nodoTimestampOperation = OffsetDateTime.parse(timestampOperation)
+      authCompletedEvent.data.timestampOperation = nodoTimestampOperation.toString()
       val events =
         listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent, closureError)
           as List<TransactionEvent<Any>>
@@ -4644,12 +4661,7 @@ class NodeServiceTests {
       assertEquals(
         closePaymentResponse,
         nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
-      val expectedTimestamp =
-        OffsetDateTime.parse(
-            authCompletedEvent.data.timestampOperation, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-          .atZoneSameInstant(ZoneId.of("Europe/Paris"))
-          .truncatedTo(ChronoUnit.SECONDS)
-          .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+      val expectedTimestamp = expectedLocalDate
 
       val expected =
         MyBankClosePaymentRequestV2Dto().apply {
@@ -4657,7 +4669,7 @@ class NodeServiceTests {
           this.transactionId = transactionId
           paymentTokens =
             activatedEvent.data.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken }
-          timestampOperation = OffsetDateTime.parse(authCompletedEvent.data.timestampOperation)
+          this.timestampOperation = OffsetDateTime.parse(authCompletedEvent.data.timestampOperation)
           this.fee = feeEuro
           idPSP = authEvent.data.pspId
           idChannel = authEvent.data.pspChannelCode
@@ -4686,7 +4698,7 @@ class NodeServiceTests {
                       pspOnUs = authEvent.data.isPspOnUs
                     }
                   authorizationCode = authCompletedEvent.data.authorizationCode
-                  timestampOperation = authCompletedEvent.data.timestampOperation
+                  this.timestampOperation = authCompletedEvent.data.timestampOperation
                   paymentGateway = authEvent.data.paymentGateway.name
                 }
               user =
@@ -4972,8 +4984,12 @@ class NodeServiceTests {
       assertEquals(expected, bancomatPayClosePaymentRequestCaptor.value)
     }
 
-  @Test
-  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for card wallet for registered user`() =
+  @ParameterizedTest
+  @MethodSource("closePaymentDateFormat")
+  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for card wallet for registered user`(
+    timestampOperation: String,
+    expectedLocalDate: String
+  ) =
     runTest {
       val transactionOutcome = ClosePaymentOutcome.OK
       val authRequestedData =
@@ -5009,6 +5025,8 @@ class NodeServiceTests {
       val closureRequestedEvent = transactionClosureRequestedEvent()
       val closureError = transactionClosureErrorEvent()
       val transactionId = activatedEvent.transactionId
+      val nodoTimestampOperation = OffsetDateTime.parse(timestampOperation)
+      authCompletedEvent.data.timestampOperation = nodoTimestampOperation.toString()
       val events =
         listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent, closureError)
           as List<TransactionEvent<Any>>
@@ -5044,11 +5062,7 @@ class NodeServiceTests {
       assertEquals(
         closePaymentResponse,
         nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
-      val expectedTimestamp =
-        OffsetDateTime.parse(
-            authCompletedEvent.data.timestampOperation, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-          .truncatedTo(ChronoUnit.SECONDS)
-          .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+      val expectedTimestamp = expectedLocalDate
 
       val expected =
         CardClosePaymentRequestV2Dto().apply {
@@ -5056,7 +5070,7 @@ class NodeServiceTests {
           this.transactionId = transactionId
           paymentTokens =
             activatedEvent.data.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken }
-          timestampOperation = OffsetDateTime.parse(authCompletedEvent.data.timestampOperation)
+          this.timestampOperation = OffsetDateTime.parse(authCompletedEvent.data.timestampOperation)
           this.fee = feeEuro
           idPSP = authEvent.data.pspId
           idChannel = authEvent.data.pspChannelCode
@@ -5085,7 +5099,7 @@ class NodeServiceTests {
                       pspOnUs = authEvent.data.isPspOnUs
                     }
                   authorizationCode = authCompletedEvent.data.authorizationCode
-                  timestampOperation = authCompletedEvent.data.timestampOperation
+                  this.timestampOperation = authCompletedEvent.data.timestampOperation
                   paymentGateway = authEvent.data.paymentGateway.name
                 }
               user =
