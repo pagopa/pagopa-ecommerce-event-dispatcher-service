@@ -7,28 +7,42 @@ import java.util.function.Function
 import kotlinx.coroutines.reactor.awaitSingle
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.stereotype.Component
 import reactor.core.publisher.Mono
 
 @Component
 class ConfidentialDataUtils(
-  @Autowired private val confidentialDataManager: ConfidentialDataManager
+  @Autowired
+  @Qualifier("eCommerceConfidentialDataManager")
+  private val eCommerceConfidentialDataManager: ConfidentialDataManager,
+  @Autowired
+  @Qualifier("sharedConfidentialDataManager")
+  private val sharedConfidentialDataManager: ConfidentialDataManager
 ) {
 
   private val logger = LoggerFactory.getLogger(ConfidentialDataUtils::class.java)
 
   suspend fun toEmail(encrypted: Confidential<Email>): Email =
-    decrypt(encrypted) { Email(it) }.awaitSingle()
+    eCommerceDecrypt(encrypted) { Email(it) }.awaitSingle()
 
-  fun decryptToken(opaqueToken: String): Mono<String> =
-    decrypt(Confidential<StringConfidentialData>(opaqueToken)) { StringConfidentialData(it) }
+  fun decryptSharedToken(opaqueToken: String): Mono<String> =
+    sharedDecrypt(Confidential<StringConfidentialData>(opaqueToken)) { StringConfidentialData(it) }
       .map { it.clearValue }
 
-  fun <T : ConfidentialDataManager.ConfidentialData> decrypt(
+  fun <T : ConfidentialDataManager.ConfidentialData> eCommerceDecrypt(
     encrypted: Confidential<T>,
     constructor: Function<String, T>
   ): Mono<T> =
-    confidentialDataManager.decrypt(encrypted, constructor).doOnError {
+    eCommerceConfidentialDataManager.decrypt(encrypted, constructor).doOnError {
+      logger.error("Exception decrypting confidential data", it)
+    }
+
+  fun <T : ConfidentialDataManager.ConfidentialData> sharedDecrypt(
+    encrypted: Confidential<T>,
+    constructor: Function<String, T>
+  ): Mono<T> =
+    sharedConfidentialDataManager.decrypt(encrypted, constructor).doOnError {
       logger.error("Exception decrypting confidential data", it)
     }
 

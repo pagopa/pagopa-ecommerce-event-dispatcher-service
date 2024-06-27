@@ -424,7 +424,7 @@ class NodeService(
     val email =
       Mono.defer {
         confidentialDataUtils
-          .decrypt(authCompleted.transactionActivatedData.email) { Email(it) }
+          .eCommerceDecrypt(authCompleted.transactionActivatedData.email) { Email(it) }
           .map { it.value }
       }
 
@@ -501,7 +501,7 @@ class NodeService(
     val email =
       Mono.defer {
         confidentialDataUtils
-          .decrypt(authCompleted.transactionActivatedData.email) { Email(it) }
+          .eCommerceDecrypt(authCompleted.transactionActivatedData.email) { Email(it) }
           .map { it.value }
       }
 
@@ -569,7 +569,7 @@ class NodeService(
     val email =
       Mono.defer {
         confidentialDataUtils
-          .decrypt(authCompleted.transactionActivatedData.email) { Email(it) }
+          .eCommerceDecrypt(authCompleted.transactionActivatedData.email) { Email(it) }
           .map { it.value }
       }
 
@@ -644,7 +644,7 @@ class NodeService(
     val email =
       Mono.defer {
         confidentialDataUtils
-          .decrypt(authCompleted.transactionActivatedData.email) { Email(it) }
+          .eCommerceDecrypt(authCompleted.transactionActivatedData.email) { Email(it) }
           .map { it.value }
       }
 
@@ -752,7 +752,7 @@ class NodeService(
         val userId = baseTransaction.transactionActivatedData.userId
         if (userId != null) {
           if (outcome == ClosePaymentOutcome.OK) {
-            confidentialDataUtils.decryptToken(userId).map {
+            confidentialDataUtils.decryptSharedToken(userId).map {
               UserDto().apply {
                 type = UserDto.TypeEnum.REGISTERED
                 fiscalCode = it

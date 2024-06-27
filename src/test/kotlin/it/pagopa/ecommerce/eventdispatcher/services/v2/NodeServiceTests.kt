@@ -265,7 +265,7 @@ class NodeServiceTests {
     given(nodeClient.closePayment(capture(closePaymentRequestCaptor)))
       .willReturn(Mono.just(closePaymentResponse))
 
-    given(confidentialDataUtils.decrypt(eq(activatedEvent.data.email), any()))
+    given(confidentialDataUtils.eCommerceDecrypt(eq(activatedEvent.data.email), any()))
       .willReturn(Mono.just(Email(EMAIL_STRING)))
 
     /* test */
@@ -412,7 +412,7 @@ class NodeServiceTests {
     given(nodeClient.closePayment(capture(closePaymentRequestCaptor)))
       .willReturn(Mono.just(closePaymentResponse))
 
-    given(confidentialDataUtils.decrypt(eq(activatedEvent.data.email), any()))
+    given(confidentialDataUtils.eCommerceDecrypt(eq(activatedEvent.data.email), any()))
       .willReturn(Mono.just(Email(EMAIL_STRING)))
 
     /* test */
@@ -645,7 +645,7 @@ class NodeServiceTests {
     given(nodeClient.closePayment(capture(closePaymentRequestCaptor)))
       .willReturn(Mono.just(closePaymentResponse))
 
-    given(confidentialDataUtils.decrypt(eq(activatedEvent.data.email), any()))
+    given(confidentialDataUtils.eCommerceDecrypt(eq(activatedEvent.data.email), any()))
       .willReturn(Mono.just(Email(EMAIL_STRING)))
 
     /* test */
@@ -1087,7 +1087,7 @@ class NodeServiceTests {
 
       given(nodeClient.closePayment(any())).willReturn(Mono.just(closePaymentResponse))
 
-      given(confidentialDataUtils.decrypt(eq(activatedEvent.data.email), any()))
+      given(confidentialDataUtils.eCommerceDecrypt(eq(activatedEvent.data.email), any()))
         .willReturn(Mono.just(Email(EMAIL_STRING)))
 
       /* test */
@@ -1511,7 +1511,7 @@ class NodeServiceTests {
     given(
         transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
       .willReturn(events.toFlux())
-    given(confidentialDataUtils.decrypt(eq(activatedEvent.data.email), any()))
+    given(confidentialDataUtils.eCommerceDecrypt(eq(activatedEvent.data.email), any()))
       .willReturn(Mono.just(Email(EMAIL_STRING)))
 
     given(nodeClient.closePayment(capture(paypalClosePaymentRequestCaptor)))
@@ -1902,7 +1902,7 @@ class NodeServiceTests {
     given(
         transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
       .willReturn(events.toFlux())
-    given(confidentialDataUtils.decrypt(eq(activatedEvent.data.email), any()))
+    given(confidentialDataUtils.eCommerceDecrypt(eq(activatedEvent.data.email), any()))
       .willReturn(Mono.just(Email(EMAIL_STRING)))
 
     given(nodeClient.closePayment(capture(bancomatPayClosePaymentRequestCaptor)))
@@ -2295,7 +2295,7 @@ class NodeServiceTests {
     given(
         transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
       .willReturn(events.toFlux())
-    given(confidentialDataUtils.decrypt(eq(activatedEvent.data.email), any()))
+    given(confidentialDataUtils.eCommerceDecrypt(eq(activatedEvent.data.email), any()))
       .willReturn(Mono.just(Email(EMAIL_STRING)))
 
     given(nodeClient.closePayment(capture(myBankClosePaymentRequestCaptor)))
@@ -2689,7 +2689,7 @@ class NodeServiceTests {
     given(nodeClient.closePayment(capture(closePaymentRequestCaptor)))
       .willReturn(Mono.just(closePaymentResponse))
 
-    given(confidentialDataUtils.decrypt(eq(activatedEvent.data.email), any()))
+    given(confidentialDataUtils.eCommerceDecrypt(eq(activatedEvent.data.email), any()))
       .willReturn(Mono.just(Email(EMAIL_STRING)))
 
     val fee = authEvent.data.fee
@@ -3073,7 +3073,7 @@ class NodeServiceTests {
     given(
         transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
       .willReturn(events.toFlux())
-    given(confidentialDataUtils.decrypt(eq(activatedEvent.data.email), any()))
+    given(confidentialDataUtils.eCommerceDecrypt(eq(activatedEvent.data.email), any()))
       .willReturn(Mono.just(Email(EMAIL_STRING)))
 
     given(nodeClient.closePayment(capture(paypalClosePaymentRequestCaptor)))
@@ -3446,7 +3446,7 @@ class NodeServiceTests {
     val userFiscalCode = "userFiscalCode"
 
     /* preconditions */
-    given(confidentialDataUtils.decryptToken(any())).willReturn(mono { userFiscalCode })
+    given(confidentialDataUtils.decryptSharedToken(any())).willReturn(mono { userFiscalCode })
     given(
         transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
       .willReturn(events.toFlux())
@@ -3806,11 +3806,11 @@ class NodeServiceTests {
     val userFiscalCode = "userFiscalCode"
 
     /* preconditions */
-    given(confidentialDataUtils.decryptToken(any())).willReturn(mono { userFiscalCode })
+    given(confidentialDataUtils.decryptSharedToken(any())).willReturn(mono { userFiscalCode })
     given(
         transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
       .willReturn(events.toFlux())
-    given(confidentialDataUtils.decrypt(eq(activatedEvent.data.email), any()))
+    given(confidentialDataUtils.eCommerceDecrypt(eq(activatedEvent.data.email), any()))
       .willReturn(Mono.just(Email(EMAIL_STRING)))
 
     given(nodeClient.closePayment(capture(paypalClosePaymentRequestCaptor)))
@@ -4207,11 +4207,11 @@ class NodeServiceTests {
     val userFiscalCode = "userFiscalCode"
 
     /* preconditions */
-    given(confidentialDataUtils.decryptToken(any())).willReturn(mono { userFiscalCode })
+    given(confidentialDataUtils.decryptSharedToken(any())).willReturn(mono { userFiscalCode })
     given(
         transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
       .willReturn(events.toFlux())
-    given(confidentialDataUtils.decrypt(eq(activatedEvent.data.email), any()))
+    given(confidentialDataUtils.eCommerceDecrypt(eq(activatedEvent.data.email), any()))
       .willReturn(Mono.just(Email(EMAIL_STRING)))
 
     given(nodeClient.closePayment(capture(bancomatPayClosePaymentRequestCaptor)))
@@ -4610,11 +4610,11 @@ class NodeServiceTests {
     val userFiscalCode = "userFiscalCode"
 
     /* preconditions */
-    given(confidentialDataUtils.decryptToken(any())).willReturn(mono { userFiscalCode })
+    given(confidentialDataUtils.decryptSharedToken(any())).willReturn(mono { userFiscalCode })
     given(
         transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
       .willReturn(events.toFlux())
-    given(confidentialDataUtils.decrypt(eq(activatedEvent.data.email), any()))
+    given(confidentialDataUtils.eCommerceDecrypt(eq(activatedEvent.data.email), any()))
       .willReturn(Mono.just(Email(EMAIL_STRING)))
 
     given(nodeClient.closePayment(capture(myBankClosePaymentRequestCaptor)))
@@ -5008,11 +5008,11 @@ class NodeServiceTests {
     val userFiscalCode = "userFiscalCode"
 
     /* preconditions */
-    given(confidentialDataUtils.decryptToken(any())).willReturn(mono { userFiscalCode })
+    given(confidentialDataUtils.decryptSharedToken(any())).willReturn(mono { userFiscalCode })
     given(
         transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
       .willReturn(events.toFlux())
-    given(confidentialDataUtils.decrypt(eq(activatedEvent.data.email), any()))
+    given(confidentialDataUtils.eCommerceDecrypt(eq(activatedEvent.data.email), any()))
       .willReturn(Mono.just(Email(EMAIL_STRING)))
 
     given(nodeClient.closePayment(capture(closePaymentRequestCaptor)))
@@ -5400,7 +5400,7 @@ class NodeServiceTests {
       val userFiscalCode = "userFiscalCode"
 
       /* preconditions */
-      given(confidentialDataUtils.decryptToken(any())).willReturn(mono { userFiscalCode })
+      given(confidentialDataUtils.decryptSharedToken(any())).willReturn(mono { userFiscalCode })
       given(
           transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             TRANSACTION_ID))
@@ -5466,7 +5466,7 @@ class NodeServiceTests {
       val userFiscalCode = "userFiscalCode"
 
       /* preconditions */
-      given(confidentialDataUtils.decryptToken(any())).willReturn(mono { userFiscalCode })
+      given(confidentialDataUtils.decryptSharedToken(any())).willReturn(mono { userFiscalCode })
       given(
           transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             TRANSACTION_ID))

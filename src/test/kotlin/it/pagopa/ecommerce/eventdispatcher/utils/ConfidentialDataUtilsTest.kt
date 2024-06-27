@@ -18,8 +18,10 @@ import reactor.core.publisher.Mono
 class ConfidentialDataUtilsTest {
 
   private val confidentialDataManager: ConfidentialDataManager = mock()
+  private val sharedConfidentialDataManager: ConfidentialDataManager = mock()
 
-  private val confidentialDataUtils = ConfidentialDataUtils(confidentialDataManager)
+  private val confidentialDataUtils =
+    ConfidentialDataUtils(confidentialDataManager, sharedConfidentialDataManager)
 
   @Test
   fun `Should decrypt email correctly`() = runTest {
