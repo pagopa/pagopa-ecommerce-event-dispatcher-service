@@ -60,9 +60,9 @@ microservice-chart:
     servicePort: 9000
   serviceAccount:
     create: false
-    annotations: {}
+    annotations: { }
     name: ""
-  podAnnotations: {}
+  podAnnotations: { }
   podSecurityContext:
     seccompProfile:
       type: RuntimeDefault
@@ -154,7 +154,7 @@ microservice-chart:
     NPG_URI: https://stg-ta.nexigroup.com/api/phoenix-0.0
     NPG_READ_TIMEOUT: "10000"
     NPG_CONNECTION_TIMEOUT: "10000"
-    NPG_CARDS_PSP_LIST: "BCITITMM,CIPBITMM,BIC36019,UNCRITMM,BPPIITRRXXX,PPAYITR1XXX,BNLIITRR,PASCITMM,WOLLNLB1"
+    NPG_CARDS_PSP_LIST: "BCITITMM,CIPBITMM,BIC36019,UNCRITMM,BPPIITRRXXX,PPAYITR1XXX,BNLIITRR,PASCITMM,WOLLNLB1,IFSPIT21"
     NPG_PAYPAL_PSP_LIST: "BCITITMM,SIGPITM1XXX"
     NPG_MYBANK_PSP_LIST: "BCITITMM,UNCRITMM"
     NPG_BANCOMATPAY_PSP_LIST: "BCITITMM"
@@ -192,8 +192,8 @@ microservice-chart:
   keyvault:
     name: "pagopa-u-ecommerce-kv"
     tenantId: "7788edaf-0346-4068-9d79-c868aed15b3d"
-  nodeSelector: {}
-  tolerations: []
+  nodeSelector: { }
+  tolerations: [ ]
   affinity:
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
