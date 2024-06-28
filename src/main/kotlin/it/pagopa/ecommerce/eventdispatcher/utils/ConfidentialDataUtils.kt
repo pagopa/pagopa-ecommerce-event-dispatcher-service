@@ -17,8 +17,8 @@ class ConfidentialDataUtils(
   @Qualifier("eCommerceConfidentialDataManager")
   private val eCommerceConfidentialDataManager: ConfidentialDataManager,
   @Autowired
-  @Qualifier("sharedConfidentialDataManager")
-  private val sharedConfidentialDataManager: ConfidentialDataManager
+  @Qualifier("walletSessionConfidentialDataManager")
+  private val walletSessionConfidentialDataManager: ConfidentialDataManager
 ) {
 
   private val logger = LoggerFactory.getLogger(ConfidentialDataUtils::class.java)
@@ -26,8 +26,10 @@ class ConfidentialDataUtils(
   suspend fun toEmail(encrypted: Confidential<Email>): Email =
     eCommerceDecrypt(encrypted) { Email(it) }.awaitSingle()
 
-  fun decryptSharedToken(opaqueToken: String): Mono<String> =
-    sharedDecrypt(Confidential<StringConfidentialData>(opaqueToken)) { StringConfidentialData(it) }
+  fun decryptWalletSessionToken(opaqueToken: String): Mono<String> =
+    walletSessionDecrypt(Confidential<StringConfidentialData>(opaqueToken)) {
+        StringConfidentialData(it)
+      }
       .map { it.clearValue }
 
   fun <T : ConfidentialDataManager.ConfidentialData> eCommerceDecrypt(
@@ -38,11 +40,11 @@ class ConfidentialDataUtils(
       logger.error("Exception decrypting confidential data", it)
     }
 
-  fun <T : ConfidentialDataManager.ConfidentialData> sharedDecrypt(
+  fun <T : ConfidentialDataManager.ConfidentialData> walletSessionDecrypt(
     encrypted: Confidential<T>,
     constructor: Function<String, T>
   ): Mono<T> =
-    sharedConfidentialDataManager.decrypt(encrypted, constructor).doOnError {
+    walletSessionConfidentialDataManager.decrypt(encrypted, constructor).doOnError {
       logger.error("Exception decrypting confidential data", it)
     }
 

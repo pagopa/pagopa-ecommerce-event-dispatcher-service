@@ -752,7 +752,7 @@ class NodeService(
         val userId = baseTransaction.transactionActivatedData.userId
         if (userId != null) {
           if (outcome == ClosePaymentOutcome.OK) {
-            confidentialDataUtils.decryptSharedToken(userId).map {
+            confidentialDataUtils.decryptWalletSessionToken(userId).map {
               UserDto().apply {
                 type = UserDto.TypeEnum.REGISTERED
                 fiscalCode = it

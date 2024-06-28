@@ -3446,7 +3446,8 @@ class NodeServiceTests {
     val userFiscalCode = "userFiscalCode"
 
     /* preconditions */
-    given(confidentialDataUtils.decryptSharedToken(any())).willReturn(mono { userFiscalCode })
+    given(confidentialDataUtils.decryptWalletSessionToken(any()))
+      .willReturn(mono { userFiscalCode })
     given(
         transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
       .willReturn(events.toFlux())
@@ -3806,7 +3807,8 @@ class NodeServiceTests {
     val userFiscalCode = "userFiscalCode"
 
     /* preconditions */
-    given(confidentialDataUtils.decryptSharedToken(any())).willReturn(mono { userFiscalCode })
+    given(confidentialDataUtils.decryptWalletSessionToken(any()))
+      .willReturn(mono { userFiscalCode })
     given(
         transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
       .willReturn(events.toFlux())
@@ -4207,7 +4209,8 @@ class NodeServiceTests {
     val userFiscalCode = "userFiscalCode"
 
     /* preconditions */
-    given(confidentialDataUtils.decryptSharedToken(any())).willReturn(mono { userFiscalCode })
+    given(confidentialDataUtils.decryptWalletSessionToken(any()))
+      .willReturn(mono { userFiscalCode })
     given(
         transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
       .willReturn(events.toFlux())
@@ -4610,7 +4613,8 @@ class NodeServiceTests {
     val userFiscalCode = "userFiscalCode"
 
     /* preconditions */
-    given(confidentialDataUtils.decryptSharedToken(any())).willReturn(mono { userFiscalCode })
+    given(confidentialDataUtils.decryptWalletSessionToken(any()))
+      .willReturn(mono { userFiscalCode })
     given(
         transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
       .willReturn(events.toFlux())
@@ -5008,7 +5012,8 @@ class NodeServiceTests {
     val userFiscalCode = "userFiscalCode"
 
     /* preconditions */
-    given(confidentialDataUtils.decryptSharedToken(any())).willReturn(mono { userFiscalCode })
+    given(confidentialDataUtils.decryptWalletSessionToken(any()))
+      .willReturn(mono { userFiscalCode })
     given(
         transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
       .willReturn(events.toFlux())
@@ -5400,7 +5405,8 @@ class NodeServiceTests {
       val userFiscalCode = "userFiscalCode"
 
       /* preconditions */
-      given(confidentialDataUtils.decryptSharedToken(any())).willReturn(mono { userFiscalCode })
+      given(confidentialDataUtils.decryptWalletSessionToken(any()))
+        .willReturn(mono { userFiscalCode })
       given(
           transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             TRANSACTION_ID))
@@ -5466,7 +5472,8 @@ class NodeServiceTests {
       val userFiscalCode = "userFiscalCode"
 
       /* preconditions */
-      given(confidentialDataUtils.decryptSharedToken(any())).willReturn(mono { userFiscalCode })
+      given(confidentialDataUtils.decryptWalletSessionToken(any()))
+        .willReturn(mono { userFiscalCode })
       given(
           transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             TRANSACTION_ID))

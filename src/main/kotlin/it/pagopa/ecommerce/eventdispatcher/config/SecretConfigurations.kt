@@ -10,8 +10,8 @@ import org.springframework.context.annotation.Configuration
 
 @Configuration
 class SecretConfigurations {
-  @Bean("personalDataVaultApi")
-  fun personalDataVaultApiClient(
+  @Bean("eCommercePersonalDataVaultApi")
+  fun eCommercePersonalDataVaultApiClient(
     @Value("\${confidentialDataManager.personalDataVault.apiKey}") personalDataVaultApiKey: String,
     @Value("\${confidentialDataManager.personalDataVault.apiBasePath}") apiBasePath: String
   ): TokenApi {
@@ -21,9 +21,9 @@ class SecretConfigurations {
     return TokenApi(pdvApiClient)
   }
 
-  @Bean("sharedPersonalDataVaultApi")
-  fun sharedPersonalDataVaultApiClient(
-    @Value("\${confidentialDataManager.sharedPersonalDataVault.apiKey}")
+  @Bean("walletSessionPersonalDataVaultApi")
+  fun walletSessionPersonalDataVaultApiClient(
+    @Value("\${confidentialDataManager.walletSessionPersonalDataVault.apiKey}")
     personalDataVaultApiKey: String,
     @Value("\${confidentialDataManager.personalDataVault.apiBasePath}") apiBasePath: String
   ): TokenApi {
@@ -35,14 +35,14 @@ class SecretConfigurations {
 
   @Bean("eCommerceConfidentialDataManager")
   fun eCommerceConfidentialDataManager(
-    @Qualifier("personalDataVaultApi") personalDataVaultApi: TokenApi
+    @Qualifier("eCommercePersonalDataVaultApi") personalDataVaultApi: TokenApi
   ): ConfidentialDataManager {
     return ConfidentialDataManager(personalDataVaultApi)
   }
 
-  @Bean("sharedConfidentialDataManager")
-  fun sharedConfidentialDataManager(
-    @Qualifier("sharedPersonalDataVaultApi") personalDataVaultApi: TokenApi
+  @Bean("walletSessionConfidentialDataManager")
+  fun walletSessionConfidentialDataManager(
+    @Qualifier("walletSessionPersonalDataVaultApi") personalDataVaultApi: TokenApi
   ): ConfidentialDataManager {
     return ConfidentialDataManager(personalDataVaultApi)
   }
