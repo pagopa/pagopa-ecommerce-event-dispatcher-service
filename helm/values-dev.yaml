@@ -182,7 +182,7 @@ microservice-chart:
     NOTIFICATIONS_SERVICE_API_KEY: notifications-service-api-key
     TRANSACTIONS_SERVICE_API_KEY: transactions-service-auth-update-api-key
     ECOMMERCE_PERSONAL_DATA_VAULT_API_KEY: personal-data-vault-api-key
-    SHARED_PERSONAL_DATA_VAULT_API_KEY: shared-personal-data-vault-api-key
+    SHARED_PERSONAL_DATA_VAULT_API_KEY: personal-data-vault-api-key-wallet-session
     PAYMENT_TRANSACTIONS_GATEWAY_API_KEY: payment-transactions-gateway-api-key
     OTEL_EXPORTER_OTLP_HEADERS: elastic-otel-token-header
     NPG_API_KEY: npg-api-key
