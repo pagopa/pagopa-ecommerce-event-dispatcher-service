@@ -1982,7 +1982,7 @@ class NodeServiceTests {
             this.transactionId =
               (authCompletedEvent.data.transactionGatewayAuthorizationData
                   as NpgTransactionGatewayAuthorizationData)
-                .operationId
+                .paymentEndToEndId
             this.outcomePaymentGateway =
               BancomatPayAdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.OK
             this.totalAmount = totalAmountEuro.toString()
@@ -4298,7 +4298,7 @@ class NodeServiceTests {
             this.transactionId =
               (authCompletedEvent.data.transactionGatewayAuthorizationData
                   as NpgTransactionGatewayAuthorizationData)
-                .operationId
+                .paymentEndToEndId
             this.outcomePaymentGateway =
               BancomatPayAdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.OK
             this.totalAmount = totalAmountEuro.toString()
