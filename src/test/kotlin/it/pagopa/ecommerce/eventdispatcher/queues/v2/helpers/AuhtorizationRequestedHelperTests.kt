@@ -1798,4 +1798,105 @@ class AuhtorizationRequestedHelperTests {
     verify(authorizationStateRetrieverRetryService, times(1))
       .enqueueRetryEvent(any(), any(), any(), anyOrNull())
   }
+
+  @Test
+  fun `messageReceiver consume event correctly and perform PATCH auth request for Bancomat pay payment circuit`() =
+    runTest {
+      val activatedEvent = transactionActivateEvent(npgTransactionGatewayActivationData())
+      val authorizationRequestedEvent =
+        transactionAuthorizationRequestedEvent(
+          TransactionAuthorizationRequestData.PaymentGateway.NPG,
+          npgTransactionGatewayAuthorizationRequestedData())
+
+      val authorizationOutcomeWaitingEvent = transactionAuthorizationOutcomeWaitingEvent(1)
+      val transactionId = TransactionId(TRANSACTION_ID)
+      val operationId = "operationId"
+      val orderId = "orderId"
+      val bpayEndToEndId = "bpayEndToEndId"
+      val paymentEndToEndId = "paymentEndToEndId"
+      val npgStateResponse =
+        StateResponseDto()
+          .state(WorkflowStateDto.PAYMENT_COMPLETE)
+          .operation(
+            OperationDto()
+              .operationId(operationId)
+              .orderId(orderId)
+              .operationResult(OperationResultDto.EXECUTED)
+              .paymentEndToEndId(paymentEndToEndId)
+              .operationTime("2024-01-01T00:00:00")
+              .paymentCircuit("BANCOMATPAY")
+              .additionalData(mapOf("bpayEndToEndId" to bpayEndToEndId)))
+      val expectedGetStateSessionId = NPG_CONFIRM_PAYMENT_SESSION_ID
+      val expectedPatchAuthRequest =
+        UpdateAuthorizationRequestDto().apply {
+          outcomeGateway =
+            OutcomeNpgGatewayDto().apply {
+              this.paymentGatewayType = "NPG"
+              this.operationResult = OutcomeNpgGatewayDto.OperationResultEnum.EXECUTED
+              this.orderId = orderId
+              this.operationId = operationId
+              this.authorizationCode = null
+              this.paymentEndToEndId = bpayEndToEndId
+              this.rrn = null
+            }
+          timestampOperation = OffsetDateTime.parse("2024-01-01T00:00:00+01:00")
+        }
+
+      /* preconditions */
+      given(checkpointer.success()).willReturn(Mono.empty())
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            any(),
+          ))
+        .willReturn(
+          Flux.just(
+            activatedEvent as TransactionEvent<Any>,
+            authorizationRequestedEvent as TransactionEvent<Any>,
+            authorizationOutcomeWaitingEvent as TransactionEvent<Any>,
+          ))
+
+      given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
+        Mono.just(it.arguments[0])
+      }
+
+      given(
+          authorizationStateRetrieverRetryService.enqueueRetryEvent(
+            any(), retryCountCaptor.capture(), any(), any()))
+        .willReturn(Mono.empty())
+      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturn(
+          Mono.just(
+            transactionDocument(
+              it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
+                .AUTHORIZATION_REQUESTED,
+              ZonedDateTime.now())))
+
+      given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any(), any()))
+        .willReturn(mono { npgStateResponse })
+      given(transactionsServiceClient.patchAuthRequest(any(), any()))
+        .willReturn(
+          mono { TransactionInfoDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED) })
+      /* test */
+      StepVerifier.create(
+          authorizationRequestedHelper.authorizationStateRetrieve(
+            Either.right(
+              QueueEvent(authorizationOutcomeWaitingEvent, TracingInfoTest.MOCK_TRACING_INFO)),
+            checkpointer))
+        .expectNext(Unit)
+        .verifyComplete()
+
+      /* Asserts */
+      verify(checkpointer, times(1)).success()
+      verify(authorizationStateRetrieverRetryService, times(0))
+        .enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      verify(authorizationStateRetrieverService, times(1))
+        .getStateNpg(
+          transactionId,
+          expectedGetStateSessionId,
+          PSP_ID,
+          NPG_CORRELATION_ID,
+          NpgClient.PaymentMethod.CARDS)
+      verify(transactionsServiceClient, times(1))
+        .patchAuthRequest(transactionId, expectedPatchAuthRequest)
+    }
 }

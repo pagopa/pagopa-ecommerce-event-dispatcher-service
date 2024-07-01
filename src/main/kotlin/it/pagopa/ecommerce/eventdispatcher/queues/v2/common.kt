@@ -16,10 +16,7 @@ import it.pagopa.ecommerce.commons.domain.v2.TransactionEventCode
 import it.pagopa.ecommerce.commons.domain.v2.TransactionWithClosureError
 import it.pagopa.ecommerce.commons.domain.v2.pojos.*
 import it.pagopa.ecommerce.commons.exceptions.NpgResponseException
-import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
-import it.pagopa.ecommerce.commons.generated.npg.v1.dto.RefundResponseDto
-import it.pagopa.ecommerce.commons.generated.npg.v1.dto.StateResponseDto
-import it.pagopa.ecommerce.commons.generated.npg.v1.dto.WorkflowStateDto
+import it.pagopa.ecommerce.commons.generated.npg.v1.dto.*
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
@@ -57,6 +54,8 @@ import reactor.kotlin.core.publisher.toMono
 object QueueCommonsLogger {
   val logger: Logger = LoggerFactory.getLogger(QueueCommonsLogger::class.java)
 }
+
+const val BANCOMAT_PAY_END_TO_END_ID = "bpayEndToEndId"
 
 fun updateTransactionToExpired(
   transaction: BaseTransaction,
@@ -346,7 +345,7 @@ fun patchAuthRequestByState(
                     stateResponseDto.operation!!.additionalData!!["validationServiceId"] as String?
                   errorCode = stateResponseDto.operation!!.additionalData!!["errorCode"] as String?
                 }
-                paymentEndToEndId = stateResponseDto.operation!!.paymentEndToEndId
+                paymentEndToEndId = getPaymentEndToEndId(stateResponseDto.operation!!)
               }
             timestampOperation = getTimeStampOperation(stateResponseDto.operation!!.operationTime!!)
           })
@@ -358,6 +357,15 @@ fun patchAuthRequestByState(
         }
     }
 }
+
+fun getPaymentEndToEndId(operationDto: OperationDto): String? =
+  when (operationDto.paymentCircuit) {
+    // for bancomatPay we expect an `bpayEndToEndId` entry into additional data map to be used as
+    // the paymentEndToEndId
+    NpgClient.PaymentMethod.BANCOMATPAY.serviceName ->
+      operationDto.additionalData?.get(BANCOMAT_PAY_END_TO_END_ID) as String?
+    else -> operationDto.paymentEndToEndId
+  }
 
 fun getTimeStampOperation(operationTime: String): OffsetDateTime {
   val operationTimeT: String = operationTime.replace(" ", "T")
