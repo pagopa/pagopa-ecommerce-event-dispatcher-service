@@ -658,7 +658,7 @@ class NodeService(
         .flatMap { email }
         .map {
           MyBankAdditionalPaymentInformationsDto().apply {
-            this.transactionId = npgTransactionGatewayAuthorizationData.operationId
+            this.transactionId = npgTransactionGatewayAuthorizationData.paymentEndToEndId
             this.myBankTransactionId = npgTransactionGatewayAuthorizationData.paymentEndToEndId
             this.totalAmount = totalAmountEuro.toString()
             this.fee = feeEuro.toString()

@@ -2375,7 +2375,7 @@ class NodeServiceTests {
             this.transactionId =
               (authCompletedEvent.data.transactionGatewayAuthorizationData
                   as NpgTransactionGatewayAuthorizationData)
-                .operationId
+                .paymentEndToEndId
             this.myBankTransactionId =
               (authCompletedEvent.data.transactionGatewayAuthorizationData
                   as NpgTransactionGatewayAuthorizationData)
