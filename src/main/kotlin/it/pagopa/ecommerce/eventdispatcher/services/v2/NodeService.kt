@@ -583,7 +583,7 @@ class NodeService(
         .flatMap { email }
         .map {
           BancomatPayAdditionalPaymentInformationsDto().apply {
-            this.transactionId = npgTransactionGatewayAuthorizationData.operationId
+            this.transactionId = npgTransactionGatewayAuthorizationData.paymentEndToEndId
             this.outcomePaymentGateway =
               BancomatPayAdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.valueOf(
                 transactionOutcome.name)
