@@ -2372,10 +2372,7 @@ class NodeServiceTests {
           }
         additionalPaymentInformations =
           MyBankAdditionalPaymentInformationsDto().apply {
-            this.transactionId =
-              (authCompletedEvent.data.transactionGatewayAuthorizationData
-                  as NpgTransactionGatewayAuthorizationData)
-                .paymentEndToEndId
+            this.transactionId = authCompletedEvent.transactionId
             this.myBankTransactionId =
               (authCompletedEvent.data.transactionGatewayAuthorizationData
                   as NpgTransactionGatewayAuthorizationData)
@@ -4698,10 +4695,7 @@ class NodeServiceTests {
           }
         additionalPaymentInformations =
           MyBankAdditionalPaymentInformationsDto().apply {
-            this.transactionId =
-              (authCompletedEvent.data.transactionGatewayAuthorizationData
-                  as NpgTransactionGatewayAuthorizationData)
-                .operationId
+            this.transactionId = authCompletedEvent.transactionId
             this.myBankTransactionId =
               (authCompletedEvent.data.transactionGatewayAuthorizationData
                   as NpgTransactionGatewayAuthorizationData)
