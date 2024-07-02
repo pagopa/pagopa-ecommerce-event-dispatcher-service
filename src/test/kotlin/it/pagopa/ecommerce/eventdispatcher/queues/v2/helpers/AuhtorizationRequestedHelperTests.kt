@@ -1810,7 +1810,7 @@ class AuhtorizationRequestedHelperTests {
   @ParameterizedTest
   @MethodSource(
     "messageReceiver consume event correctly and perform PATCH auth request for PaymentMethod payment circuit")
-  fun `messageReceiver consume event correctly and perform PATCH auth request for PaymentMethod payment circuit`(
+  fun `messageReceiver consume event correctly and perform PATCH auth request for apm payment circuit retrieving paymentEndToEndId from NPG additionalData`(
     endToEndId: EndToEndId,
     paymentMethod: NpgClient.PaymentMethod
   ) = runTest {
