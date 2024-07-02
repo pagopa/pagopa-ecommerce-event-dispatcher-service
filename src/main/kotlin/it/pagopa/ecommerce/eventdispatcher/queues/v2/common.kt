@@ -35,6 +35,7 @@ import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetrySer
 import it.pagopa.ecommerce.eventdispatcher.services.v2.AuthorizationStateRetrieverService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
+import it.pagopa.ecommerce.eventdispatcher.utils.EndToEndId
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto.StatusEnum
 import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
@@ -54,8 +55,6 @@ import reactor.kotlin.core.publisher.toMono
 object QueueCommonsLogger {
   val logger: Logger = LoggerFactory.getLogger(QueueCommonsLogger::class.java)
 }
-
-const val BANCOMAT_PAY_END_TO_END_ID = "bpayEndToEndId"
 
 fun updateTransactionToExpired(
   transaction: BaseTransaction,
@@ -363,7 +362,9 @@ fun getPaymentEndToEndId(operationDto: OperationDto): String? =
     // for bancomatPay we expect an `bpayEndToEndId` entry into additional data map to be used as
     // the paymentEndToEndId
     NpgClient.PaymentMethod.BANCOMATPAY.serviceName ->
-      operationDto.additionalData?.get(BANCOMAT_PAY_END_TO_END_ID) as String?
+      operationDto.additionalData?.get(EndToEndId.BANCOMAT_PAY.value) as String?
+    NpgClient.PaymentMethod.MYBANK.serviceName ->
+      operationDto.additionalData?.get(EndToEndId.MYBANK.value) as String?
     else -> operationDto.paymentEndToEndId
   }
 
