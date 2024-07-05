@@ -620,7 +620,42 @@ class UserReceiptMailBuilderTest {
               npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)))),
         createRedirectTemplateFieldsMethodSource(PaymentCode.RBPR.name),
         createRedirectTemplateFieldsMethodSource(PaymentCode.RBPS.name),
-        createRedirectTemplateFieldsMethodSource(PaymentCode.RPIC.name))
+        createRedirectTemplateFieldsMethodSource(PaymentCode.RPIC.name),
+        Arguments.of(
+          PaymentCode.SATY.name,
+          "-",
+          "-",
+          transactionAuthorizationCompletedEvent(
+            npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED))),
+        Arguments.of(
+          PaymentCode.APPL.name,
+          "rrn",
+          "authorizationCode",
+          transactionAuthorizationCompletedEvent(
+            npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED))),
+        Arguments.of(
+          PaymentCode.APPL.name,
+          AUTHORIZATION_REQUEST_ID,
+          "authorizationCode",
+          TransactionAuthorizationCompletedEvent(
+            TRANSACTION_ID,
+            TransactionAuthorizationCompletedData(
+              "authorizationCode",
+              null,
+              "2023-01-01T01:02:03+01:00",
+              npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)))),
+        Arguments.of(
+          PaymentCode.APPL.name,
+          "rrn",
+          "-",
+          TransactionAuthorizationCompletedEvent(
+            TRANSACTION_ID,
+            TransactionAuthorizationCompletedData(
+              null,
+              "rrn",
+              "2023-01-01T01:02:03+01:00",
+              npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)))),
+      )
 
     fun createRedirectTemplateFieldsMethodSource(code: String): Arguments {
       return Arguments.of(
