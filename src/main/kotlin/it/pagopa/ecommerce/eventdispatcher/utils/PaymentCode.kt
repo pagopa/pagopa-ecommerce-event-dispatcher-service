@@ -9,5 +9,7 @@ enum class PaymentCode {
   RBPP,
   RBPR,
   RBPS,
-  RPIC
+  RPIC,
+  APPL,
+  SATY
 }
