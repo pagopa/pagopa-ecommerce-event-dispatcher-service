@@ -50,9 +50,9 @@ class AuthorizationStateRetrieverServiceTest {
     val sessionId = "sessionId"
     val correlationId = UUID.randomUUID()
     val stateResponse = StateResponseDto().state(WorkflowStateDto.CARD_DATA_COLLECTION)
-    given(npgApiKeyConfiguration[NpgClient.PaymentMethod.CARDS, pspId])
-      .willReturn(Either.right(pspApiKey))
-    given(npgClient.getState(any(), any(), any())).willReturn(mono { stateResponse })
+    val paymentMethod = NpgClient.PaymentMethod.CARDS
+    given(npgApiKeyConfiguration[paymentMethod, pspId]).willReturn(Either.right(pspApiKey))
+    given(npgClient.getState(any(), any(), any(), any())).willReturn(mono { stateResponse })
     // test
     StepVerifier.create(
         authorizationStateRetrieverService.getStateNpg(
@@ -60,10 +60,10 @@ class AuthorizationStateRetrieverServiceTest {
           sessionId = sessionId,
           pspId = pspId,
           correlationId = correlationId.toString(),
-          paymentMethod = NpgClient.PaymentMethod.CARDS))
+          paymentMethod = paymentMethod))
       .expectNext(stateResponse)
       .verifyComplete()
-    verify(npgClient, times(1)).getState(correlationId, sessionId, pspApiKey)
+    verify(npgClient, times(1)).getState(paymentMethod, correlationId, sessionId, pspApiKey)
   }
 
   companion object {
@@ -102,9 +102,9 @@ class AuthorizationStateRetrieverServiceTest {
     val transactionId = TransactionId(TransactionTestUtils.TRANSACTION_ID)
     val sessionId = "sessionId"
     val correlationId = UUID.randomUUID()
-    given(npgApiKeyConfiguration[NpgClient.PaymentMethod.CARDS, pspId])
-      .willReturn(Either.right(pspApiKey))
-    given(npgClient.getState(any(), any(), any()))
+    val paymentMethod = NpgClient.PaymentMethod.CARDS
+    given(npgApiKeyConfiguration[paymentMethod, pspId]).willReturn(Either.right(pspApiKey))
+    given(npgClient.getState(any(), any(), any(), any()))
       .willReturn(
         Mono.error(
           NpgResponseException(
@@ -116,14 +116,14 @@ class AuthorizationStateRetrieverServiceTest {
           sessionId = sessionId,
           pspId = pspId,
           correlationId = correlationId.toString(),
-          paymentMethod = NpgClient.PaymentMethod.CARDS))
+          paymentMethod = paymentMethod))
       .expectErrorMatches {
         assertEquals(expectedExceptionToBeThrown::class.java, it::class.java)
         assertEquals(expectedExceptionToBeThrown.message, it.message)
         true
       }
       .verify()
-    verify(npgClient, times(1)).getState(correlationId, sessionId, pspApiKey)
+    verify(npgClient, times(1)).getState(paymentMethod, correlationId, sessionId, pspApiKey)
   }
 
   @Test
@@ -135,9 +135,10 @@ class AuthorizationStateRetrieverServiceTest {
     val sessionId = "sessionId"
     val correlationId = UUID.randomUUID()
     val stateResponse = StateResponseDto().state(WorkflowStateDto.CARD_DATA_COLLECTION)
-    given(npgApiKeyConfiguration[NpgClient.PaymentMethod.CARDS, pspId])
+    val paymentMethod = NpgClient.PaymentMethod.CARDS
+    given(npgApiKeyConfiguration[paymentMethod, pspId])
       .willReturn(Either.left(NpgApiKeyMissingPspRequestedException(pspId, setOf())))
-    given(npgClient.getState(any(), any(), any())).willReturn(mono { stateResponse })
+    given(npgClient.getState(any(), any(), any(), any())).willReturn(mono { stateResponse })
     // test
     StepVerifier.create(
         authorizationStateRetrieverService.getStateNpg(
@@ -145,10 +146,10 @@ class AuthorizationStateRetrieverServiceTest {
           sessionId = sessionId,
           pspId = pspId,
           correlationId = correlationId.toString(),
-          paymentMethod = NpgClient.PaymentMethod.CARDS))
+          paymentMethod = paymentMethod))
       .expectError(NpgApiKeyMissingPspRequestedException::class.java)
       .verify()
-    verify(npgClient, times(0)).getState(correlationId, sessionId, pspApiKey)
+    verify(npgClient, times(0)).getState(paymentMethod, correlationId, sessionId, pspApiKey)
   }
 
   @Nested
@@ -168,9 +169,9 @@ class AuthorizationStateRetrieverServiceTest {
               .operationResult(OperationResultDto.EXECUTED)
               .paymentEndToEndId(UUID.randomUUID().toString())
               .operationTime(ZonedDateTime.now().toString()))
-      given(npgApiKeyConfiguration[NpgClient.PaymentMethod.CARDS, "pspId"])
-        .willReturn(Either.right("pspApiKey"))
-      given(npgClient.getOrder(any(), any(), any())).willReturn(mono { stateResponse })
+      val paymentMethod = NpgClient.PaymentMethod.CARDS
+      given(npgApiKeyConfiguration[paymentMethod, "pspId"]).willReturn(Either.right("pspApiKey"))
+      given(npgClient.getOrder(any(), any(), any(), any())).willReturn(mono { stateResponse })
 
       val transaction = transactionWithAuthRequested(correlationId)
 
@@ -182,6 +183,7 @@ class AuthorizationStateRetrieverServiceTest {
         .verifyComplete()
       verify(npgClient, times(1))
         .getOrder(
+          paymentMethod,
           correlationId,
           "pspApiKey",
           transaction.transactionAuthorizationRequestData.authorizationRequestId)
@@ -198,9 +200,9 @@ class AuthorizationStateRetrieverServiceTest {
       val pspId = "pspId"
       val pspApiKey = "pspApiKey"
       val correlationId = UUID.randomUUID()
-      given(npgApiKeyConfiguration[NpgClient.PaymentMethod.CARDS, pspId])
-        .willReturn(Either.right(pspApiKey))
-      given(npgClient.getOrder(any(), any(), any()))
+      val paymentMethod = NpgClient.PaymentMethod.CARDS
+      given(npgApiKeyConfiguration[paymentMethod, pspId]).willReturn(Either.right(pspApiKey))
+      given(npgClient.getOrder(any(), any(), any(), any()))
         .willReturn(
           Mono.error(
             NpgResponseException(
@@ -217,6 +219,7 @@ class AuthorizationStateRetrieverServiceTest {
         .verify()
       verify(npgClient, times(1))
         .getOrder(
+          paymentMethod,
           correlationId,
           pspApiKey,
           transaction.transactionAuthorizationRequestData.authorizationRequestId)

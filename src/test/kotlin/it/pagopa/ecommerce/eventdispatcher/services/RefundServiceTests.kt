@@ -24,12 +24,6 @@ import it.pagopa.ecommerce.eventdispatcher.utils.PaymentCode
 import it.pagopa.ecommerce.eventdispatcher.utils.getMockedVPosRefundRequest
 import it.pagopa.ecommerce.eventdispatcher.utils.getMockedXPayRefundRequest
 import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundOutcomeDto
-import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundRequestDto as RedirectRefundRequestDto
-import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundResponseDto as RedirectRefundResponseDto
-import java.math.BigDecimal
-import java.net.URI
-import java.util.*
-import java.util.stream.Stream
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.jupiter.api.AfterAll
@@ -49,6 +43,12 @@ import org.springframework.test.context.TestPropertySource
 import org.springframework.web.reactive.function.client.WebClientResponseException
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
+import java.math.BigDecimal
+import java.net.URI
+import java.util.*
+import java.util.stream.Stream
+import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundRequestDto as RedirectRefundRequestDto
+import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundResponseDto as RedirectRefundResponseDto
 
 @SpringBootTest
 @TestPropertySource(locations = ["classpath:application.test.properties"])
@@ -172,6 +172,8 @@ class RefundServiceTests {
     given(spanBuilder.setParent(any())).willReturn(spanBuilder)
     given(spanBuilder.setAttribute(eq(AttributeKey.stringKey("npg.correlation_id")), any()))
       .willReturn(spanBuilder)
+    given(spanBuilder.setAttribute(eq(AttributeKey.stringKey("npg.payment_method")), any()))
+      .willReturn(spanBuilder)
     given(spanBuilder.startSpan()).willReturn(span)
     mockWebServer.enqueue(
       MockResponse()
@@ -196,7 +198,8 @@ class RefundServiceTests {
       .assertNext { assertEquals(operationId, it.operationId) }
       .verifyComplete()
     verify(npgClient, times(1))
-      .refundPayment(any(), eq(operationId), eq(idempotenceKey), eq(amount), eq("pspKey1"), any())
+      .refundPayment(
+        any(), any(), eq(operationId), eq(idempotenceKey), eq(amount), eq("pspKey1"), any())
   }
 
   @ParameterizedTest
@@ -224,6 +227,8 @@ class RefundServiceTests {
     given(spanBuilder.setParent(any())).willReturn(spanBuilder)
     given(spanBuilder.setAttribute(eq(AttributeKey.stringKey("npg.correlation_id")), any()))
       .willReturn(spanBuilder)
+    given(spanBuilder.setAttribute(eq(AttributeKey.stringKey("npg.payment_method")), any()))
+      .willReturn(spanBuilder)
     given(spanBuilder.startSpan()).willReturn(span)
 
     // Test
@@ -238,7 +243,8 @@ class RefundServiceTests {
       .expectError(expectedException)
       .verify()
     verify(npgClient, times(1))
-      .refundPayment(any(), eq(operationId), eq(idempotenceKey), eq(amount), eq("pspKey1"), any())
+      .refundPayment(
+        any(), any(), eq(operationId), eq(idempotenceKey), eq(amount), eq("pspKey1"), any())
   }
 
   @ParameterizedTest
@@ -258,6 +264,8 @@ class RefundServiceTests {
     given(spanBuilder.setParent(any())).willReturn(spanBuilder)
     given(spanBuilder.setAttribute(eq(AttributeKey.stringKey("npg.correlation_id")), any()))
       .willReturn(spanBuilder)
+    given(spanBuilder.setAttribute(eq(AttributeKey.stringKey("npg.payment_method")), any()))
+      .willReturn(spanBuilder)
     given(spanBuilder.startSpan()).willReturn(span)
 
     // Test
@@ -272,7 +280,8 @@ class RefundServiceTests {
       .expectError(expectedException)
       .verify()
     verify(npgClient, times(1))
-      .refundPayment(any(), eq(operationId), eq(idempotenceKey), eq(amount), eq("pspKey1"), any())
+      .refundPayment(
+        any(), any(), eq(operationId), eq(idempotenceKey), eq(amount), eq("pspKey1"), any())
   }
 
   @Test
@@ -291,7 +300,7 @@ class RefundServiceTests {
     val amount = BigDecimal.valueOf(1000)
     val pspId = "pspId1"
     // Precondition
-    given(npgClient.refundPayment(any(), any(), any(), any(), any(), any()))
+    given(npgClient.refundPayment(any(), any(), any(), any(), any(), any(), any()))
       .willReturn(
         Mono.error(
           NpgResponseException(
@@ -309,7 +318,8 @@ class RefundServiceTests {
       .expectError(NpgResponseException::class.java)
       .verify()
     verify(npgClient, times(1))
-      .refundPayment(any(), eq(operationId), eq(idempotenceKey), eq(amount), eq("pspKey1"), any())
+      .refundPayment(
+        any(), any(), eq(operationId), eq(idempotenceKey), eq(amount), eq("pspKey1"), any())
   }
 
   @Test
@@ -340,7 +350,7 @@ class RefundServiceTests {
           paymentMethod = NpgClient.PaymentMethod.CARDS))
       .expectError(NpgApiKeyConfigurationException::class.java)
       .verify()
-    verify(npgClient, times(0)).refundPayment(any(), any(), any(), any(), any(), any())
+    verify(npgClient, times(0)).refundPayment(any(), any(), any(), any(), any(), any(), any())
   }
 
   @Test

@@ -39,20 +39,21 @@ class AuthorizationStateRetrieverService(
     return npgApiKeyConfiguration[paymentMethod, pspId].fold(
       { ex -> Mono.error(ex) },
       { apiKey ->
-        npgClient.getState(UUID.fromString(correlationId), sessionId, apiKey).onErrorMap(
-          NpgResponseException::class.java) { exception: NpgResponseException ->
-          val responseStatusCode = exception.statusCode
-          responseStatusCode
-            .map {
-              val errorCodeReason = "Received HTTP error code from NPG: $it"
-              if (it.is5xxServerError) {
-                NpgServerErrorException(errorCodeReason)
-              } else {
-                NpgBadRequestException(transactionId, errorCodeReason)
+        npgClient
+          .getState(paymentMethod, UUID.fromString(correlationId), sessionId, apiKey)
+          .onErrorMap(NpgResponseException::class.java) { exception: NpgResponseException ->
+            val responseStatusCode = exception.statusCode
+            responseStatusCode
+              .map {
+                val errorCodeReason = "Received HTTP error code from NPG: $it"
+                if (it.is5xxServerError) {
+                  NpgServerErrorException(errorCodeReason)
+                } else {
+                  NpgBadRequestException(transactionId, errorCodeReason)
+                }
               }
-            }
-            .orElse(exception)
-        }
+              .orElse(exception)
+          }
       })
   }
 
@@ -105,20 +106,21 @@ class AuthorizationStateRetrieverService(
     return npgApiKeyConfiguration[paymentMethod, pspId].fold(
       { ex -> Mono.error(ex) },
       { apiKey ->
-        npgClient.getOrder(UUID.fromString(correlationId), apiKey, orderId).onErrorMap(
-          NpgResponseException::class.java) { exception: NpgResponseException ->
-          val responseStatusCode = exception.statusCode
-          responseStatusCode
-            .map {
-              val errorCodeReason = "Received HTTP error code from NPG: $it"
-              if (it.is5xxServerError) {
-                NpgServerErrorException(errorCodeReason)
-              } else {
-                NpgBadRequestException(transactionId, errorCodeReason)
+        npgClient
+          .getOrder(paymentMethod, UUID.fromString(correlationId), apiKey, orderId)
+          .onErrorMap(NpgResponseException::class.java) { exception: NpgResponseException ->
+            val responseStatusCode = exception.statusCode
+            responseStatusCode
+              .map {
+                val errorCodeReason = "Received HTTP error code from NPG: $it"
+                if (it.is5xxServerError) {
+                  NpgServerErrorException(errorCodeReason)
+                } else {
+                  NpgBadRequestException(transactionId, errorCodeReason)
+                }
               }
-            }
-            .orElse(exception)
-        }
+              .orElse(exception)
+          }
       })
   }
 }

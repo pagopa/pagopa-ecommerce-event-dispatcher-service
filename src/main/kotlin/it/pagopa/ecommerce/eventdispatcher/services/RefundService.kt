@@ -60,6 +60,7 @@ class RefundService(
           correlationId)
         npgClient
           .refundPayment(
+            paymentMethod,
             UUID.fromString(correlationId),
             operationId,
             idempotenceKey,
