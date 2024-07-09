@@ -108,7 +108,7 @@ class NpgPspsApiKeyConfigBuilder {
     @Value("\${npg.authorization.satispay.pspList}") pspToHandle: Set<String>
   ): NpgPspApiKeysConfig =
     parsePspApiKeyConfiguration(
-      apiKeys = apiKeys, pspToHandle = pspToHandle, paymentMethod = PaymentMethod.SATISPAY)
+      apiKeys = apiKeys, pspToHandle = pspToHandle, paymentMethod = PaymentMethod.SATISPAY_DIRECT)
 
   @Bean
   fun npgApiKeyHandler(
@@ -126,7 +126,7 @@ class NpgPspsApiKeyConfigBuilder {
       .withMethodPspMapping(PaymentMethod.PAYPAL, npgPaypalApiKeys)
       .withMethodPspMapping(PaymentMethod.MYBANK, npgMyBankApiKeys)
       .withMethodPspMapping(PaymentMethod.BANCOMATPAY, npgBancomatPayApiKeys)
-      .withMethodPspMapping(PaymentMethod.SATISPAY, npgSatispayApiKeys)
+      .withMethodPspMapping(PaymentMethod.SATISPAY_DIRECT, npgSatispayApiKeys)
       .withMethodPspMapping(PaymentMethod.APPLEPAY, npgApplePayApiKeys)
       .build()
 
