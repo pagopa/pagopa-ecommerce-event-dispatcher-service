@@ -97,6 +97,7 @@ class UserReceiptMailBuilder(@Autowired private val confidentialDataUtils: Confi
       templateParameters =
         when (transactionAuthorizationRequestData.paymentTypeCode) {
           PaymentCode.PPAL.name,
+          PaymentCode.SATY.name,
           PaymentCode.MYBK.name ->
             createSuccessTemplate(
               baseTransactionWithRequestedUserReceipt = baseTransactionWithRequestedUserReceipt,
@@ -124,7 +125,8 @@ class UserReceiptMailBuilder(@Autowired private val confidentialDataUtils: Confi
               baseTransactionWithRequestedUserReceipt = baseTransactionWithRequestedUserReceipt,
               emailAddress = emailAddress,
               authorizationCode = transactionAuthorizationCompletedData.authorizationCode ?: "-")
-          PaymentCode.CP.name -> {
+          PaymentCode.CP.name,
+          PaymentCode.APPL.name -> {
             createSuccessTemplate(
               baseTransactionWithRequestedUserReceipt = baseTransactionWithRequestedUserReceipt,
               emailAddress = emailAddress,
