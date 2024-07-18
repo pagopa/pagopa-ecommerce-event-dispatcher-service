@@ -355,7 +355,7 @@
 						</goals>
 						<configuration>
 							<inputSpec>
-								https://raw.githubusercontent.com/pagopa/pagopa-infra/CHK-3022-additional-info-applepay-satispay/src/core/api/nodopagamenti_api/nodoPerPM/v2/_openapi.json.tpl
+								https://raw.githubusercontent.com/pagopa/pagopa-infra/main/src/core/api/nodopagamenti_api/nodoPerPM/v2/_openapi.json.tpl
 							</inputSpec>
 							<generatorName>spring</generatorName>
 							<library>spring-cloud</library>
