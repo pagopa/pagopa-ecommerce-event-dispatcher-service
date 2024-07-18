@@ -12,14 +12,14 @@
 	<version>1.16.0</version>
 	<name>pagopa-ecommerce-event-dispatcher-service</name>
 	<description>pagoPA ecommerce microservice to handle transaction events and perform async operations such as
-	send user email, refund based on transaction status</description>
+		send user email, refund based on transaction status</description>
 	<properties>
 		<java.version>17</java.version>
 		<kotlin.version>1.6.21</kotlin.version>
 		<kotlinx-coroutines.version>1.6.2</kotlinx-coroutines.version>
 		<spring-cloud-azure.version>4.0.0</spring-cloud-azure.version>
 		<jacoco.version>0.8.8</jacoco.version>
-		<pagopa-ecommerce-commons.version>1.19.2</pagopa-ecommerce-commons.version>
+		<pagopa-ecommerce-commons.version>1.21.0</pagopa-ecommerce-commons.version>
 		<sonar.coverage.exclusions> <!-- the members of the following list should be in the same line -->
 			**/it/pagopa/transactions/**,
 			**/it/pagopa/ecommerce/eventdispatcher/validation/**
@@ -343,8 +343,8 @@
 					</execution>
 				</executions>
 			</plugin>
-		<plugin>
-			<groupId>org.openapitools</groupId>
+			<plugin>
+				<groupId>org.openapitools</groupId>
 				<artifactId>openapi-generator-maven-plugin</artifactId>
 				<version>7.1.0</version>
 				<executions>

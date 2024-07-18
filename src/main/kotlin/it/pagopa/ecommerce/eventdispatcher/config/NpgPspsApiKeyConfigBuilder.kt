@@ -78,12 +78,46 @@ class NpgPspsApiKeyConfigBuilder {
     parsePspApiKeyConfiguration(
       apiKeys = apiKeys, pspToHandle = pspToHandle, paymentMethod = PaymentMethod.MYBANK)
 
+  /**
+   * Return a map where valued with each psp id - api keys entries
+   *
+   * @param apiKeys
+   * - the secret api keys configuration json
+   * @return the parsed map
+   */
+  @Qualifier("npgApplePayApiKeys")
+  @Bean
+  fun npgApplePayApiKeys(
+    @Value("\${npg.authorization.applepay.keys}") apiKeys: String,
+    @Value("\${npg.authorization.applepay.pspList}") pspToHandle: Set<String>
+  ): NpgPspApiKeysConfig =
+    parsePspApiKeyConfiguration(
+      apiKeys = apiKeys, pspToHandle = pspToHandle, paymentMethod = PaymentMethod.APPLEPAY)
+
+  /**
+   * Return a map where valued with each psp id - api keys entries
+   *
+   * @param apiKeys
+   * - the secret api keys configuration json
+   * @return the parsed map
+   */
+  @Qualifier("npgSatispayApiKeys")
+  @Bean
+  fun npgSatispayApiKeys(
+    @Value("\${npg.authorization.satispay.keys}") apiKeys: String,
+    @Value("\${npg.authorization.satispay.pspList}") pspToHandle: Set<String>
+  ): NpgPspApiKeysConfig =
+    parsePspApiKeyConfiguration(
+      apiKeys = apiKeys, pspToHandle = pspToHandle, paymentMethod = PaymentMethod.SATISPAY)
+
   @Bean
   fun npgApiKeyHandler(
     npgCardsApiKeys: NpgPspApiKeysConfig,
     npgPaypalApiKeys: NpgPspApiKeysConfig,
     npgBancomatPayApiKeys: NpgPspApiKeysConfig,
     npgMyBankApiKeys: NpgPspApiKeysConfig,
+    npgApplePayApiKeys: NpgPspApiKeysConfig,
+    npgSatispayApiKeys: NpgPspApiKeysConfig,
     @Value("\${npg.client.apiKey}") defaultApiKey: String
   ) =
     NpgApiKeyConfiguration.Builder()
@@ -92,6 +126,8 @@ class NpgPspsApiKeyConfigBuilder {
       .withMethodPspMapping(PaymentMethod.PAYPAL, npgPaypalApiKeys)
       .withMethodPspMapping(PaymentMethod.MYBANK, npgMyBankApiKeys)
       .withMethodPspMapping(PaymentMethod.BANCOMATPAY, npgBancomatPayApiKeys)
+      .withMethodPspMapping(PaymentMethod.SATISPAY, npgSatispayApiKeys)
+      .withMethodPspMapping(PaymentMethod.APPLEPAY, npgApplePayApiKeys)
       .build()
 
   private fun parsePspApiKeyConfiguration(
