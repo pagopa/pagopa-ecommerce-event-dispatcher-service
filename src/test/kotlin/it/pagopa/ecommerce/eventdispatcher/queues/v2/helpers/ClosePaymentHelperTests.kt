@@ -848,8 +848,7 @@ class ClosePaymentHelperTests {
             Transaction.ClientId.CHECKOUT,
             false,
             UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
-              ClosePaymentOutcome.KO.toString(),
-              Optional.of("HTTP error code: [null], description: [null]"))))
+              ClosePaymentOutcome.KO.toString(), Optional.of("null - [null]"))))
     }
 
   @Test
@@ -956,8 +955,7 @@ class ClosePaymentHelperTests {
           Transaction.ClientId.CHECKOUT,
           false,
           UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
-            ClosePaymentOutcome.KO.toString(),
-            Optional.of("HTTP error code: [null], description: [null]"))))
+            ClosePaymentOutcome.KO.toString(), Optional.of("null - [null]"))))
   }
 
   @Test
@@ -1061,8 +1059,7 @@ class ClosePaymentHelperTests {
           Transaction.ClientId.CHECKOUT,
           false,
           UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
-            ClosePaymentOutcome.KO.toString(),
-            Optional.of("HTTP error code: [null], description: [null]"))))
+            ClosePaymentOutcome.KO.toString(), Optional.of("null - [null]"))))
   }
 
   @Test
@@ -1174,8 +1171,7 @@ class ClosePaymentHelperTests {
             Transaction.ClientId.CHECKOUT,
             false,
             UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
-              ClosePaymentOutcome.KO.toString(),
-              Optional.of("HTTP error code: [null], description: [null]"))))
+              ClosePaymentOutcome.KO.toString(), Optional.of("null - [null]"))))
     }
 
   @Test
@@ -1390,8 +1386,7 @@ class ClosePaymentHelperTests {
           UpdateTransactionStatusTracerUtils.UpdateTransactionStatusOutcome.PROCESSING_ERROR,
           Transaction.ClientId.CHECKOUT,
           UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
-            ClosePaymentOutcome.KO.toString(),
-            Optional.of("HTTP error code: [null], description: [null]"))))
+            ClosePaymentOutcome.KO.toString(), Optional.of("null - [null]"))))
   }
 
   @Test
@@ -1468,8 +1463,7 @@ class ClosePaymentHelperTests {
             UpdateTransactionStatusTracerUtils.UpdateTransactionStatusOutcome.PROCESSING_ERROR,
             Transaction.ClientId.CHECKOUT,
             UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
-              ClosePaymentOutcome.KO.toString(),
-              Optional.of("HTTP error code: [400 BAD_REQUEST], description: [null]"))))
+              ClosePaymentOutcome.KO.toString(), Optional.of("400 BAD_REQUEST - [null]"))))
     }
 
   @Test
@@ -1542,8 +1536,7 @@ class ClosePaymentHelperTests {
             UpdateTransactionStatusTracerUtils.UpdateTransactionStatusOutcome.PROCESSING_ERROR,
             Transaction.ClientId.CHECKOUT,
             UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
-              ClosePaymentOutcome.KO.toString(),
-              Optional.of("HTTP error code: [400 BAD_REQUEST], description: [null]"))))
+              ClosePaymentOutcome.KO.toString(), Optional.of("400 BAD_REQUEST - [null]"))))
     }
 
   @Test
@@ -1836,8 +1829,7 @@ class ClosePaymentHelperTests {
             false,
             UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
               ClosePaymentOutcome.KO.toString(),
-              Optional.of(
-                "HTTP error code: [422 UNPROCESSABLE_ENTITY], description: [Node did not receive RPT yet]"))))
+              Optional.of("422 UNPROCESSABLE_ENTITY - [Node did not receive RPT yet]"))))
     }
 
   @Test
@@ -1930,8 +1922,7 @@ class ClosePaymentHelperTests {
             false,
             UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
               ClosePaymentOutcome.KO.toString(),
-              Optional.of(
-                "HTTP error code: [422 UNPROCESSABLE_ENTITY], description: [unknown error]"))))
+              Optional.of("422 UNPROCESSABLE_ENTITY - [unknown error]"))))
     }
 
   @Test
@@ -2032,8 +2023,7 @@ class ClosePaymentHelperTests {
             false,
             UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
               ClosePaymentOutcome.KO.toString(),
-              Optional.of(
-                "HTTP error code: [422 UNPROCESSABLE_ENTITY], description: [unknown error]"))))
+              Optional.of("422 UNPROCESSABLE_ENTITY - [unknown error]"))))
     }
 
   @Test
@@ -2126,7 +2116,7 @@ class ClosePaymentHelperTests {
             false,
             UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
               ClosePaymentOutcome.KO.toString(),
-              Optional.of("HTTP error code: [400 BAD_REQUEST], description: [bad request error]"))))
+              Optional.of("400 BAD_REQUEST - [bad request error]"))))
     }
 
   companion object {
@@ -2231,8 +2221,7 @@ class ClosePaymentHelperTests {
           false,
           UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
             ClosePaymentOutcome.KO.toString(),
-            Optional.of(
-              "HTTP error code: [$expectedHttpErrorCode], description: [$expectedErrorDescription]"))))
+            Optional.of("$expectedHttpErrorCode - [$expectedErrorDescription]"))))
   }
 
   @Test
@@ -2355,8 +2344,7 @@ class ClosePaymentHelperTests {
             false,
             UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
               ClosePaymentOutcome.KO.toString(),
-              Optional.of(
-                "HTTP error code: [422 UNPROCESSABLE_ENTITY], description: [Node did not receive RPT yet]"))))
+              Optional.of("422 UNPROCESSABLE_ENTITY - [Node did not receive RPT yet]"))))
     }
 
   @Test
@@ -2458,8 +2446,7 @@ class ClosePaymentHelperTests {
             false,
             UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
               ClosePaymentOutcome.KO.toString(),
-              Optional.of(
-                "HTTP error code: [422 UNPROCESSABLE_ENTITY], description: [unknown error]"))))
+              Optional.of("422 UNPROCESSABLE_ENTITY - [unknown error]"))))
     }
 
   @Test
@@ -2560,7 +2547,7 @@ class ClosePaymentHelperTests {
             false,
             UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
               ClosePaymentOutcome.KO.toString(),
-              Optional.of("HTTP error code: [400 BAD_REQUEST], description: [bad request error]"))))
+              Optional.of("400 BAD_REQUEST - [bad request error]"))))
     }
 
   @ParameterizedTest
@@ -2661,8 +2648,7 @@ class ClosePaymentHelperTests {
           false,
           UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
             ClosePaymentOutcome.KO.toString(),
-            Optional.of(
-              "HTTP error code: [$expectedHttpErrorCode], description: [$expectedErrorDescription]"))))
+            Optional.of("$expectedHttpErrorCode - [$expectedErrorDescription]"))))
   }
 
   @Test

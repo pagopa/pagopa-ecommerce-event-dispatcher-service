@@ -297,7 +297,7 @@ class ClosePaymentHelper(
               nodeResult =
                 UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
                   ClosePaymentOutcome.KO.toString(),
-                  Optional.of("HTTP error code: [$statusCode], description: [$errorDescription]"),
+                  Optional.of("$statusCode - [$errorDescription]"),
                 ),
               updateTransactionStatusOutcome = UpdateTransactionStatusOutcome.PROCESSING_ERROR)
           }
