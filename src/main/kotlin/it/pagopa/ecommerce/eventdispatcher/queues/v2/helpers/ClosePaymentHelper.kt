@@ -263,6 +263,16 @@ class ClosePaymentHelper(
           } else {
             Pair(null, null)
           }
+        traceClosePaymentUpdateStatus(
+          baseTransaction = tx,
+          closePaymentTransactionData = closePaymentTransactionData,
+          nodeResult =
+            UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
+              ClosePaymentOutcome.KO.toString(),
+              Optional.of(
+                "HTTP code:[${statusCode?.value() ?: "N/A"}] - descr:[${errorDescription ?: "N/A"}]"),
+            ),
+          updateTransactionStatusOutcome = UpdateTransactionStatusOutcome.PROCESSING_ERROR)
         // transaction can be refund only for HTTP status code 422 and error response description
         // equals to "Node did not receive RPT yet"
         val refundTransaction =
@@ -280,27 +290,16 @@ class ClosePaymentHelper(
           refundTransaction,
           enqueueRetryEvent)
         if (refundTransaction) {
-            requestRefundTransactionPipeline(tx, TransactionClosureData.Outcome.KO, tracingInfo)
-              .then()
+          requestRefundTransactionPipeline(tx, TransactionClosureData.Outcome.KO, tracingInfo)
+            .then()
+        } else {
+          if (enqueueRetryEvent) {
+            enqueueClosureRetryEventPipeline(
+              baseTransaction = tx, retryCount = retryCount, tracingInfo = tracingInfo)
           } else {
-            if (enqueueRetryEvent) {
-              enqueueClosureRetryEventPipeline(
-                baseTransaction = tx, retryCount = retryCount, tracingInfo = tracingInfo)
-            } else {
-              Mono.empty()
-            }
+            Mono.empty()
           }
-          .doAfterTerminate {
-            traceClosePaymentUpdateStatus(
-              baseTransaction = tx,
-              closePaymentTransactionData = closePaymentTransactionData,
-              nodeResult =
-                UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
-                  ClosePaymentOutcome.KO.toString(),
-                  Optional.of("$statusCode - [$errorDescription]"),
-                ),
-              updateTransactionStatusOutcome = UpdateTransactionStatusOutcome.PROCESSING_ERROR)
-          }
+        }
       }
 
   private fun enqueueClosureRetryEventPipeline(
