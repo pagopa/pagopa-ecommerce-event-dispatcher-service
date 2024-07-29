@@ -6,6 +6,7 @@ import it.pagopa.ecommerce.commons.client.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.documents.v2.Transaction
 import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationData
+import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationRequestedData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.PgsTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.RedirectTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.domain.v2.*
@@ -18,6 +19,9 @@ import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.commons.redis.templatewrappers.PaymentRequestInfoRedisTemplateWrapper
+import it.pagopa.ecommerce.commons.utils.UpdateTransactionStatusTracerUtils
+import it.pagopa.ecommerce.commons.utils.UpdateTransactionStatusTracerUtils.UpdateTransactionStatusOutcome
+import it.pagopa.ecommerce.commons.utils.UpdateTransactionStatusTracerUtils.UserCancelClosePaymentNodoStatusUpdate
 import it.pagopa.ecommerce.eventdispatcher.client.NodeClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.ClosePaymentErrorResponseException
@@ -128,6 +132,7 @@ class ClosePaymentHelper(
   @Autowired private val refundQueueAsyncClient: QueueAsyncClient,
   @Value("\${azurestorage.queues.transientQueues.ttlSeconds}")
   private val transientQueueTTLSeconds: Int,
+  @Autowired private val updateTransactionStatusTracerUtils: UpdateTransactionStatusTracerUtils
 ) {
   val logger: Logger = LoggerFactory.getLogger(ClosePaymentHelper::class.java)
 
@@ -218,7 +223,8 @@ class ClosePaymentHelper(
                 exception = it,
                 baseTransaction = baseTransaction,
                 retryCount = retryCount,
-                tracingInfo = tracingInfo)
+                tracingInfo = tracingInfo,
+                closePaymentTransactionData = closePaymentTransactionData)
             }
         }
         .then()
@@ -239,6 +245,7 @@ class ClosePaymentHelper(
     baseTransaction: Mono<BaseTransaction>,
     retryCount: Int,
     tracingInfo: TracingInfo,
+    closePaymentTransactionData: ClosePaymentTransactionData
   ) =
     baseTransaction
       .publishOn(Schedulers.boundedElastic())
@@ -246,6 +253,7 @@ class ClosePaymentHelper(
         logger.error(
           "Got exception while processing closePaymentV2 for transaction with id ${tx.transactionId.value()}!",
           exception)
+
         updateTransactionToClosureError(tx)
       }
       .flatMap { tx ->
@@ -255,6 +263,16 @@ class ClosePaymentHelper(
           } else {
             Pair(null, null)
           }
+        traceClosePaymentUpdateStatus(
+          baseTransaction = tx,
+          closePaymentTransactionData = closePaymentTransactionData,
+          nodeResult =
+            UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
+              ClosePaymentOutcome.KO.toString(),
+              Optional.of(
+                "HTTP code:[${statusCode?.value() ?: "N/A"}] - descr:[${errorDescription ?: "N/A"}]"),
+            ),
+          updateTransactionStatusOutcome = UpdateTransactionStatusOutcome.PROCESSING_ERROR)
         // transaction can be refund only for HTTP status code 422 and error response description
         // equals to "Node did not receive RPT yet"
         val refundTransaction =
@@ -402,9 +420,19 @@ class ClosePaymentHelper(
           }
         })
 
-    return saveEvent.fold(
-      { it.map { closureFailed -> Either.left(closureFailed) } },
-      { it.map { closed -> Either.right(closed) } })
+    return saveEvent
+      .fold<Mono<Either<TransactionClosureFailedEvent, TransactionClosedEvent>>>(
+        { it.map { closureFailed -> Either.left(closureFailed) } },
+        { it.map { closed -> Either.right(closed) } })
+      .doOnSuccess {
+        traceClosePaymentUpdateStatus(
+          baseTransaction = transaction,
+          closePaymentTransactionData = closePaymentTransactionData,
+          nodeResult =
+            UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
+              outcome.toString(), Optional.empty()),
+          updateTransactionStatusOutcome = UpdateTransactionStatusOutcome.OK)
+      }
   }
 
   private fun wasTransactionCanceledByUser(
@@ -581,5 +609,44 @@ class ClosePaymentHelper(
 
   private fun getRetryCount(event: ClosePaymentEvent): Int {
     return event.fold({ 0 }, { 0 }, { it.event.data.retryCount }, { 0 })
+  }
+
+  private fun traceClosePaymentUpdateStatus(
+    baseTransaction: BaseTransaction,
+    closePaymentTransactionData: ClosePaymentTransactionData,
+    nodeResult: UpdateTransactionStatusTracerUtils.GatewayOutcomeResult,
+    updateTransactionStatusOutcome: UpdateTransactionStatusOutcome
+  ) {
+    val statusUpdateInfo =
+      if (closePaymentTransactionData.canceledByUser) {
+        UserCancelClosePaymentNodoStatusUpdate(
+          updateTransactionStatusOutcome, baseTransaction.clientId, nodeResult)
+      } else {
+        val baseTransactionWithRequestedAuthorization =
+          baseTransaction.let {
+            if (it is BaseTransactionWithClosureError) {
+              it.transactionAtPreviousState
+            } else {
+              it
+            }
+            // safe cast here: close payment is performed for user canceled transactions or
+            // transactions for which have been requested authorization
+          } as BaseTransactionWithRequestedAuthorization
+        UpdateTransactionStatusTracerUtils.ClosePaymentNodoStatusUpdate(
+          updateTransactionStatusOutcome,
+          baseTransactionWithRequestedAuthorization.transactionAuthorizationRequestData.pspId,
+          baseTransactionWithRequestedAuthorization.transactionAuthorizationRequestData
+            .paymentTypeCode,
+          baseTransactionWithRequestedAuthorization.clientId,
+          Optional.of(
+              baseTransactionWithRequestedAuthorization.transactionAuthorizationRequestData
+                .transactionGatewayAuthorizationRequestedData)
+            .filter { it is NpgTransactionGatewayAuthorizationRequestedData }
+            .map { it as NpgTransactionGatewayAuthorizationRequestedData }
+            .map { it.walletInfo != null }
+            .orElse(false),
+          nodeResult)
+      }
+    updateTransactionStatusTracerUtils.traceStatusUpdateOperation(statusUpdateInfo)
   }
 }

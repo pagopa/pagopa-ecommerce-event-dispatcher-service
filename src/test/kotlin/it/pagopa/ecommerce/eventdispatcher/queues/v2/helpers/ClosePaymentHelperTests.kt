@@ -5,19 +5,23 @@ import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import it.pagopa.ecommerce.commons.client.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v2.*
+import it.pagopa.ecommerce.commons.documents.v2.Transaction.ClientId
 import it.pagopa.ecommerce.commons.documents.v2.authorization.PgsTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.RedirectTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v2.TransactionEventCode
 import it.pagopa.ecommerce.commons.domain.v2.TransactionWithClosureError
+import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
-import it.pagopa.ecommerce.commons.queues.TracingInfoTest
 import it.pagopa.ecommerce.commons.queues.TracingInfoTest.MOCK_TRACING_INFO
 import it.pagopa.ecommerce.commons.queues.TracingUtilsTests
 import it.pagopa.ecommerce.commons.redis.templatewrappers.PaymentRequestInfoRedisTemplateWrapper
+import it.pagopa.ecommerce.commons.utils.UpdateTransactionStatusTracerUtils
+import it.pagopa.ecommerce.commons.utils.UpdateTransactionStatusTracerUtils.ClosePaymentNodoStatusUpdate
+import it.pagopa.ecommerce.commons.utils.UpdateTransactionStatusTracerUtils.UserCancelClosePaymentNodoStatusUpdate
 import it.pagopa.ecommerce.commons.v2.TransactionTestUtils.*
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.config.QueuesConsumerConfig
@@ -47,6 +51,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.EnumSource
 import org.junit.jupiter.params.provider.MethodSource
 import org.mockito.ArgumentCaptor
 import org.mockito.Captor
@@ -116,6 +121,7 @@ class ClosePaymentHelperTests {
   @Captor private lateinit var retryCountCaptor: ArgumentCaptor<Int>
   private val strictJsonSerializerProviderV2 = QueuesConsumerConfig().strictSerializerProviderV2()
   private val jsonSerializerV2 = strictJsonSerializerProviderV2.createInstance()
+  private val updateTransactionStatusTracerUtils: UpdateTransactionStatusTracerUtils = mock {}
 
   private val closePaymentHelper =
     ClosePaymentHelper(
@@ -132,7 +138,8 @@ class ClosePaymentHelperTests {
       strictSerializerProviderV2 = strictJsonSerializerProviderV2,
       npgService = NpgService(authorizationStateRetrieverService),
       refundQueueAsyncClient = refundQueueAsyncClient,
-      transientQueueTTLSeconds = TRANSIENT_QUEUE_TTL_SECONDS)
+      transientQueueTTLSeconds = TRANSIENT_QUEUE_TTL_SECONDS,
+      updateTransactionStatusTracerUtils = updateTransactionStatusTracerUtils)
 
   @Test
   fun `consumer processes bare closure error message correctly with OK closure outcome for authorization completed transaction`() =
@@ -181,14 +188,13 @@ class ClosePaymentHelperTests {
         .willReturn(
           ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK })
 
+      doNothing().`when`(updateTransactionStatusTracerUtils).traceStatusUpdateOperation(any())
       /* test */
 
       StepVerifier.create(
           closePaymentHelper.closePayment(
             ClosePaymentEvent.errored(
-              QueueEvent(
-                closureErrorEvent as TransactionClosureErrorEvent,
-                TracingInfoTest.MOCK_TRACING_INFO)),
+              QueueEvent(closureErrorEvent as TransactionClosureErrorEvent, MOCK_TRACING_INFO)),
             checkpointer,
             EmptyTransaction()))
         .expectNext(Unit)
@@ -213,6 +219,17 @@ class ClosePaymentHelperTests {
       assertEquals(
         TransactionClosureData.Outcome.OK,
         closedEventStoreRepositoryCaptor.value.data.responseOutcome)
+
+      verify(updateTransactionStatusTracerUtils, times(1))
+        .traceStatusUpdateOperation(
+          ClosePaymentNodoStatusUpdate(
+            UpdateTransactionStatusTracerUtils.UpdateTransactionStatusOutcome.OK,
+            PSP_ID,
+            PAYMENT_TYPE_CODE,
+            Transaction.ClientId.CHECKOUT,
+            false,
+            UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
+              ClosePaymentOutcome.OK.toString(), Optional.empty())))
     }
 
   @Test
@@ -261,6 +278,7 @@ class ClosePaymentHelperTests {
         .willReturn(
           ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.KO })
 
+      doNothing().`when`(updateTransactionStatusTracerUtils).traceStatusUpdateOperation(any())
       /* test */
 
       StepVerifier.create(
@@ -291,6 +309,16 @@ class ClosePaymentHelperTests {
       assertEquals(
         TransactionClosureData.Outcome.KO,
         closedEventStoreRepositoryCaptor.value.data.responseOutcome)
+      verify(updateTransactionStatusTracerUtils, times(1))
+        .traceStatusUpdateOperation(
+          ClosePaymentNodoStatusUpdate(
+            UpdateTransactionStatusTracerUtils.UpdateTransactionStatusOutcome.OK,
+            PSP_ID,
+            PAYMENT_TYPE_CODE,
+            Transaction.ClientId.CHECKOUT,
+            false,
+            UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
+              ClosePaymentOutcome.KO.toString(), Optional.empty())))
     }
 
   @Test
@@ -380,6 +408,7 @@ class ClosePaymentHelperTests {
                 TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT.toString(),
               errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)),
         )
+      verify(updateTransactionStatusTracerUtils, times(0)).traceStatusUpdateOperation(any())
     }
 
   @Test
@@ -445,6 +474,7 @@ class ClosePaymentHelperTests {
                 TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT.toString(),
               errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)),
         )
+      verify(updateTransactionStatusTracerUtils, times(0)).traceStatusUpdateOperation(any())
     }
 
   @Test
@@ -493,6 +523,7 @@ class ClosePaymentHelperTests {
       .willReturn(
         ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK })
 
+    doNothing().`when`(updateTransactionStatusTracerUtils).traceStatusUpdateOperation(any())
     /* test */
 
     StepVerifier.create(
@@ -514,6 +545,16 @@ class ClosePaymentHelperTests {
     verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransaction)
     verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
     verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+    verify(updateTransactionStatusTracerUtils, times(1))
+      .traceStatusUpdateOperation(
+        ClosePaymentNodoStatusUpdate(
+          UpdateTransactionStatusTracerUtils.UpdateTransactionStatusOutcome.OK,
+          PSP_ID,
+          PAYMENT_TYPE_CODE,
+          Transaction.ClientId.CHECKOUT,
+          false,
+          UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
+            ClosePaymentOutcome.OK.toString(), Optional.empty())))
   }
 
   @Test
@@ -580,6 +621,7 @@ class ClosePaymentHelperTests {
             transactionEventCode = TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT.toString(),
             errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)),
       )
+    verify(updateTransactionStatusTracerUtils, times(0)).traceStatusUpdateOperation(any())
   }
 
   @Test
@@ -643,6 +685,7 @@ class ClosePaymentHelperTests {
             any<QueueEvent<TransactionRefundRequestedEvent>>(), any(), any()))
         .willReturn(queueSuccessfulResponse())
 
+      doNothing().`when`(updateTransactionStatusTracerUtils).traceStatusUpdateOperation(any())
       /* test */
 
       StepVerifier.create(
@@ -690,6 +733,16 @@ class ClosePaymentHelperTests {
           TransactionEventCode.valueOf(refundedEventStoreRepositoryCaptor.allValues[idx].eventCode),
           "Unexpected event at idx: $idx")
       }
+      verify(updateTransactionStatusTracerUtils, times(1))
+        .traceStatusUpdateOperation(
+          ClosePaymentNodoStatusUpdate(
+            UpdateTransactionStatusTracerUtils.UpdateTransactionStatusOutcome.OK,
+            PSP_ID,
+            PAYMENT_TYPE_CODE,
+            Transaction.ClientId.CHECKOUT,
+            false,
+            UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
+              ClosePaymentOutcome.KO.toString(), Optional.empty())))
     }
 
   @Test
@@ -786,6 +839,16 @@ class ClosePaymentHelperTests {
         TransactionClosureData.Outcome.KO,
         closedEventStoreRepositoryCaptor.value.data.responseOutcome)
       assertEquals(0, retryCountCaptor.value)
+      verify(updateTransactionStatusTracerUtils, times(1))
+        .traceStatusUpdateOperation(
+          ClosePaymentNodoStatusUpdate(
+            UpdateTransactionStatusTracerUtils.UpdateTransactionStatusOutcome.PROCESSING_ERROR,
+            PSP_ID,
+            PAYMENT_TYPE_CODE,
+            Transaction.ClientId.CHECKOUT,
+            false,
+            UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
+              ClosePaymentOutcome.KO.toString(), Optional.of("HTTP code:[N/A] - descr:[N/A]"))))
     }
 
   @Test
@@ -883,6 +946,16 @@ class ClosePaymentHelperTests {
       TransactionClosureData.Outcome.KO,
       closedEventStoreRepositoryCaptor.value.data.responseOutcome)
     assertEquals(1, retryCountCaptor.value)
+    verify(updateTransactionStatusTracerUtils, times(1))
+      .traceStatusUpdateOperation(
+        ClosePaymentNodoStatusUpdate(
+          UpdateTransactionStatusTracerUtils.UpdateTransactionStatusOutcome.PROCESSING_ERROR,
+          PSP_ID,
+          PAYMENT_TYPE_CODE,
+          Transaction.ClientId.CHECKOUT,
+          false,
+          UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
+            ClosePaymentOutcome.KO.toString(), Optional.of("HTTP code:[N/A] - descr:[N/A]"))))
   }
 
   @Test
@@ -977,6 +1050,16 @@ class ClosePaymentHelperTests {
     verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).save(any())
     verify(transactionsViewRepository, Mockito.times(0)).save(any())
     verify(closureRetryService, times(1)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+    verify(updateTransactionStatusTracerUtils, times(1))
+      .traceStatusUpdateOperation(
+        ClosePaymentNodoStatusUpdate(
+          UpdateTransactionStatusTracerUtils.UpdateTransactionStatusOutcome.PROCESSING_ERROR,
+          PSP_ID,
+          PAYMENT_TYPE_CODE,
+          Transaction.ClientId.CHECKOUT,
+          false,
+          UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
+            ClosePaymentOutcome.KO.toString(), Optional.of("HTTP code:[N/A] - descr:[N/A]"))))
   }
 
   @Test
@@ -1079,6 +1162,16 @@ class ClosePaymentHelperTests {
                 TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT.toString(),
               errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)),
         )
+      verify(updateTransactionStatusTracerUtils, times(1))
+        .traceStatusUpdateOperation(
+          ClosePaymentNodoStatusUpdate(
+            UpdateTransactionStatusTracerUtils.UpdateTransactionStatusOutcome.PROCESSING_ERROR,
+            PSP_ID,
+            PAYMENT_TYPE_CODE,
+            Transaction.ClientId.CHECKOUT,
+            false,
+            UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
+              ClosePaymentOutcome.KO.toString(), Optional.of("HTTP code:[N/A] - descr:[N/A]"))))
     }
 
   @Test
@@ -1117,6 +1210,7 @@ class ClosePaymentHelperTests {
       .willReturn(
         ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK })
 
+    doNothing().`when`(updateTransactionStatusTracerUtils).traceStatusUpdateOperation(any())
     /* test */
 
     StepVerifier.create(
@@ -1144,6 +1238,13 @@ class ClosePaymentHelperTests {
     assertEquals(
       TransactionClosureData.Outcome.OK,
       closedEventStoreRepositoryCaptor.value.data.responseOutcome)
+    verify(updateTransactionStatusTracerUtils, times(1))
+      .traceStatusUpdateOperation(
+        UserCancelClosePaymentNodoStatusUpdate(
+          UpdateTransactionStatusTracerUtils.UpdateTransactionStatusOutcome.OK,
+          Transaction.ClientId.CHECKOUT,
+          UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
+            ClosePaymentOutcome.OK.toString(), Optional.empty())))
   }
 
   @Test
@@ -1179,7 +1280,7 @@ class ClosePaymentHelperTests {
     given(nodeService.closePayment(transactionId, ClosePaymentOutcome.KO))
       .willReturn(
         ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.KO })
-
+    doNothing().`when`(updateTransactionStatusTracerUtils).traceStatusUpdateOperation(any())
     /* test */
 
     StepVerifier.create(
@@ -1207,6 +1308,13 @@ class ClosePaymentHelperTests {
     assertEquals(
       TransactionClosureData.Outcome.KO,
       closedEventStoreRepositoryCaptor.value.data.responseOutcome)
+    verify(updateTransactionStatusTracerUtils, times(1))
+      .traceStatusUpdateOperation(
+        UserCancelClosePaymentNodoStatusUpdate(
+          UpdateTransactionStatusTracerUtils.UpdateTransactionStatusOutcome.OK,
+          Transaction.ClientId.CHECKOUT,
+          UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
+            ClosePaymentOutcome.KO.toString(), Optional.empty())))
   }
 
   @Test
@@ -1272,6 +1380,13 @@ class ClosePaymentHelperTests {
     assertEquals(
       TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT,
       TransactionEventCode.valueOf(closureErrorEventStoreRepositoryCaptor.value.eventCode))
+    verify(updateTransactionStatusTracerUtils, times(1))
+      .traceStatusUpdateOperation(
+        UserCancelClosePaymentNodoStatusUpdate(
+          UpdateTransactionStatusTracerUtils.UpdateTransactionStatusOutcome.PROCESSING_ERROR,
+          Transaction.ClientId.CHECKOUT,
+          UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
+            ClosePaymentOutcome.KO.toString(), Optional.of("HTTP code:[N/A] - descr:[N/A]"))))
   }
 
   @Test
@@ -1342,6 +1457,13 @@ class ClosePaymentHelperTests {
         TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT,
         TransactionEventCode.valueOf(closureErrorEventStoreRepositoryCaptor.value.eventCode))
       assertEquals(TransactionStatusDto.CLOSURE_ERROR, viewArgumentCaptor.value.status)
+      verify(updateTransactionStatusTracerUtils, times(1))
+        .traceStatusUpdateOperation(
+          UserCancelClosePaymentNodoStatusUpdate(
+            UpdateTransactionStatusTracerUtils.UpdateTransactionStatusOutcome.PROCESSING_ERROR,
+            Transaction.ClientId.CHECKOUT,
+            UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
+              ClosePaymentOutcome.KO.toString(), Optional.of("HTTP code:[400] - descr:[N/A]"))))
     }
 
   @Test
@@ -1408,6 +1530,13 @@ class ClosePaymentHelperTests {
         TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT,
         TransactionEventCode.valueOf(closureErrorEventStoreRepositoryCaptor.value.eventCode))
       assertEquals(TransactionStatusDto.CLOSURE_ERROR, viewArgumentCaptor.value.status)
+      verify(updateTransactionStatusTracerUtils, times(1))
+        .traceStatusUpdateOperation(
+          UserCancelClosePaymentNodoStatusUpdate(
+            UpdateTransactionStatusTracerUtils.UpdateTransactionStatusOutcome.PROCESSING_ERROR,
+            Transaction.ClientId.CHECKOUT,
+            UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
+              ClosePaymentOutcome.KO.toString(), Optional.of("HTTP code:[400] - descr:[N/A]"))))
     }
 
   @Test
@@ -1461,6 +1590,7 @@ class ClosePaymentHelperTests {
         .willReturn(
           ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK })
 
+      doNothing().`when`(updateTransactionStatusTracerUtils).traceStatusUpdateOperation(any())
       /* test */
       Hooks.onOperatorDebug()
       StepVerifier.create(
@@ -1488,6 +1618,16 @@ class ClosePaymentHelperTests {
       assertEquals(
         TransactionClosureData.Outcome.OK,
         closedEventStoreRepositoryCaptor.value.data.responseOutcome)
+      verify(updateTransactionStatusTracerUtils, times(1))
+        .traceStatusUpdateOperation(
+          ClosePaymentNodoStatusUpdate(
+            UpdateTransactionStatusTracerUtils.UpdateTransactionStatusOutcome.OK,
+            PSP_ID,
+            PAYMENT_TYPE_CODE,
+            Transaction.ClientId.CHECKOUT,
+            false,
+            UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
+              ClosePaymentOutcome.OK.toString(), Optional.empty())))
     }
 
   @Test
@@ -1540,6 +1680,7 @@ class ClosePaymentHelperTests {
         .willReturn(
           ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.KO })
 
+      doNothing().`when`(updateTransactionStatusTracerUtils).traceStatusUpdateOperation(any())
       /* test */
       Hooks.onOperatorDebug()
       StepVerifier.create(
@@ -1567,6 +1708,16 @@ class ClosePaymentHelperTests {
       assertEquals(
         TransactionClosureData.Outcome.KO,
         closedEventStoreRepositoryCaptor.value.data.responseOutcome)
+      verify(updateTransactionStatusTracerUtils, times(1))
+        .traceStatusUpdateOperation(
+          ClosePaymentNodoStatusUpdate(
+            UpdateTransactionStatusTracerUtils.UpdateTransactionStatusOutcome.OK,
+            PSP_ID,
+            PAYMENT_TYPE_CODE,
+            Transaction.ClientId.CHECKOUT,
+            false,
+            UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
+              ClosePaymentOutcome.KO.toString(), Optional.empty())))
     }
 
   @Test
@@ -1667,6 +1818,18 @@ class ClosePaymentHelperTests {
           TransactionEventCode.valueOf(refundedEventStoreRepositoryCaptor.allValues[idx].eventCode),
           "Unexpected event at idx: $idx")
       }
+
+      verify(updateTransactionStatusTracerUtils, times(1))
+        .traceStatusUpdateOperation(
+          ClosePaymentNodoStatusUpdate(
+            UpdateTransactionStatusTracerUtils.UpdateTransactionStatusOutcome.PROCESSING_ERROR,
+            PSP_ID,
+            PAYMENT_TYPE_CODE,
+            Transaction.ClientId.CHECKOUT,
+            false,
+            UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
+              ClosePaymentOutcome.KO.toString(),
+              Optional.of("HTTP code:[422] - descr:[Node did not receive RPT yet]"))))
     }
 
   @Test
@@ -1749,6 +1912,17 @@ class ClosePaymentHelperTests {
       verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).save(any())
       verify(transactionsViewRepository, Mockito.times(0)).save(any())
       verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      verify(updateTransactionStatusTracerUtils, times(1))
+        .traceStatusUpdateOperation(
+          ClosePaymentNodoStatusUpdate(
+            UpdateTransactionStatusTracerUtils.UpdateTransactionStatusOutcome.PROCESSING_ERROR,
+            PSP_ID,
+            PAYMENT_TYPE_CODE,
+            Transaction.ClientId.CHECKOUT,
+            false,
+            UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
+              ClosePaymentOutcome.KO.toString(),
+              Optional.of("HTTP code:[422] - descr:[unknown error]"))))
     }
 
   @Test
@@ -1839,6 +2013,17 @@ class ClosePaymentHelperTests {
       assertEquals(
         TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT.name,
         closureErrorEventStoreRepositoryCaptor.value.eventCode)
+      verify(updateTransactionStatusTracerUtils, times(1))
+        .traceStatusUpdateOperation(
+          ClosePaymentNodoStatusUpdate(
+            UpdateTransactionStatusTracerUtils.UpdateTransactionStatusOutcome.PROCESSING_ERROR,
+            PSP_ID,
+            PAYMENT_TYPE_CODE,
+            Transaction.ClientId.CHECKOUT,
+            false,
+            UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
+              ClosePaymentOutcome.KO.toString(),
+              Optional.of("HTTP code:[422] - descr:[unknown error]"))))
     }
 
   @Test
@@ -1921,6 +2106,17 @@ class ClosePaymentHelperTests {
       verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).save(any())
       verify(transactionsViewRepository, Mockito.times(0)).save(any())
       verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      verify(updateTransactionStatusTracerUtils, times(1))
+        .traceStatusUpdateOperation(
+          ClosePaymentNodoStatusUpdate(
+            UpdateTransactionStatusTracerUtils.UpdateTransactionStatusOutcome.PROCESSING_ERROR,
+            PSP_ID,
+            PAYMENT_TYPE_CODE,
+            Transaction.ClientId.CHECKOUT,
+            false,
+            UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
+              ClosePaymentOutcome.KO.toString(),
+              Optional.of("HTTP code:[400] - descr:[bad request error]"))))
     }
 
   companion object {
@@ -1957,7 +2153,12 @@ class ClosePaymentHelperTests {
         authorizationCompleteEvent,
         closureRequestedEvent,
         closureErrorEvent)
-
+    val (expectedHttpErrorCode, expectedErrorDescription) =
+      if (throwable is ClosePaymentErrorResponseException) {
+        Pair(throwable.statusCode?.value() ?: "N/A", throwable.errorResponse?.description ?: "N/A")
+      } else {
+        Pair("N/A", "N/A")
+      }
     /* preconditions */
     given(checkpointer.success()).willReturn(Mono.empty())
     given(
@@ -2010,6 +2211,17 @@ class ClosePaymentHelperTests {
 
     verify(closureRetryService, times(1)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
     assertEquals(0, retryCountCaptor.value)
+    verify(updateTransactionStatusTracerUtils, times(1))
+      .traceStatusUpdateOperation(
+        ClosePaymentNodoStatusUpdate(
+          UpdateTransactionStatusTracerUtils.UpdateTransactionStatusOutcome.PROCESSING_ERROR,
+          PSP_ID,
+          PAYMENT_TYPE_CODE,
+          Transaction.ClientId.CHECKOUT,
+          false,
+          UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
+            ClosePaymentOutcome.KO.toString(),
+            Optional.of("HTTP code:[$expectedHttpErrorCode] - descr:[$expectedErrorDescription]"))))
   }
 
   @Test
@@ -2122,6 +2334,17 @@ class ClosePaymentHelperTests {
       assertEquals(
         TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT.name,
         closureErrorEventStoreRepositoryCaptor.value.eventCode)
+      verify(updateTransactionStatusTracerUtils, times(1))
+        .traceStatusUpdateOperation(
+          ClosePaymentNodoStatusUpdate(
+            UpdateTransactionStatusTracerUtils.UpdateTransactionStatusOutcome.PROCESSING_ERROR,
+            PSP_ID,
+            PAYMENT_TYPE_CODE,
+            Transaction.ClientId.CHECKOUT,
+            false,
+            UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
+              ClosePaymentOutcome.KO.toString(),
+              Optional.of("HTTP code:[422] - descr:[Node did not receive RPT yet]"))))
     }
 
   @Test
@@ -2213,6 +2436,17 @@ class ClosePaymentHelperTests {
       assertEquals(
         TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT.name,
         closureErrorEventStoreRepositoryCaptor.value.eventCode)
+      verify(updateTransactionStatusTracerUtils, times(1))
+        .traceStatusUpdateOperation(
+          ClosePaymentNodoStatusUpdate(
+            UpdateTransactionStatusTracerUtils.UpdateTransactionStatusOutcome.PROCESSING_ERROR,
+            PSP_ID,
+            PAYMENT_TYPE_CODE,
+            Transaction.ClientId.CHECKOUT,
+            false,
+            UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
+              ClosePaymentOutcome.KO.toString(),
+              Optional.of("HTTP code:[422] - descr:[unknown error]"))))
     }
 
   @Test
@@ -2303,6 +2537,17 @@ class ClosePaymentHelperTests {
       assertEquals(
         TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT.name,
         closureErrorEventStoreRepositoryCaptor.value.eventCode)
+      verify(updateTransactionStatusTracerUtils, times(1))
+        .traceStatusUpdateOperation(
+          ClosePaymentNodoStatusUpdate(
+            UpdateTransactionStatusTracerUtils.UpdateTransactionStatusOutcome.PROCESSING_ERROR,
+            PSP_ID,
+            PAYMENT_TYPE_CODE,
+            Transaction.ClientId.CHECKOUT,
+            false,
+            UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
+              ClosePaymentOutcome.KO.toString(),
+              Optional.of("HTTP code:[400] - descr:[bad request error]"))))
     }
 
   @ParameterizedTest
@@ -2358,7 +2603,12 @@ class ClosePaymentHelperTests {
         closureRetryService.enqueueRetryEvent(
           any(), retryCountCaptor.capture(), any(), anyOrNull()))
       .willReturn(Mono.empty())
-
+    val (expectedHttpErrorCode, expectedErrorDescription) =
+      if (throwable is ClosePaymentErrorResponseException) {
+        Pair(throwable.statusCode?.value() ?: "N/A", throwable.errorResponse?.description ?: "N/A")
+      } else {
+        Pair("N/A", "N/A")
+      }
     /* test */
     Hooks.onOperatorDebug()
     StepVerifier.create(
@@ -2388,6 +2638,17 @@ class ClosePaymentHelperTests {
     assertEquals(
       TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT.name,
       closureErrorEventStoreRepositoryCaptor.value.eventCode)
+    verify(updateTransactionStatusTracerUtils, times(1))
+      .traceStatusUpdateOperation(
+        ClosePaymentNodoStatusUpdate(
+          UpdateTransactionStatusTracerUtils.UpdateTransactionStatusOutcome.PROCESSING_ERROR,
+          PSP_ID,
+          PAYMENT_TYPE_CODE,
+          Transaction.ClientId.CHECKOUT,
+          false,
+          UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
+            ClosePaymentOutcome.KO.toString(),
+            Optional.of("HTTP code:[$expectedHttpErrorCode] - descr:[$expectedErrorDescription]"))))
   }
 
   @Test
@@ -2450,6 +2711,7 @@ class ClosePaymentHelperTests {
         .willReturn(
           ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.KO })
 
+      doNothing().`when`(updateTransactionStatusTracerUtils).traceStatusUpdateOperation(any())
       /* test */
 
       StepVerifier.create(
@@ -2495,6 +2757,16 @@ class ClosePaymentHelperTests {
           TransactionEventCode.valueOf(refundedEventStoreRepositoryCaptor.allValues[idx].eventCode),
           "Unexpected event at idx: $idx")
       }
+      verify(updateTransactionStatusTracerUtils, times(1))
+        .traceStatusUpdateOperation(
+          ClosePaymentNodoStatusUpdate(
+            UpdateTransactionStatusTracerUtils.UpdateTransactionStatusOutcome.OK,
+            PSP_ID,
+            PAYMENT_TYPE_CODE,
+            Transaction.ClientId.CHECKOUT,
+            false,
+            UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
+              ClosePaymentOutcome.KO.toString(), Optional.empty())))
     }
 
   @Test
@@ -2621,5 +2893,191 @@ class ClosePaymentHelperTests {
       assertEquals(
         TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT,
         TransactionEventCode.valueOf(closureErrorEventStoreRepositoryCaptor.value.eventCode))
+      verify(updateTransactionStatusTracerUtils, times(0)).traceStatusUpdateOperation(any())
     }
+
+  @Test
+  fun `consumer processes bare closure error message correctly with OK closure outcome for authorization completed transaction performed with an onboarded method`() =
+    runTest {
+      val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
+      val authorizationRequestEvent =
+        transactionAuthorizationRequestedEvent(
+          npgTransactionGatewayAuthorizationRequestedData(paypalWalletInfo()))
+          as TransactionEvent<Any>
+      val authorizationCompleteEvent =
+        transactionAuthorizationCompletedEvent(
+          npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED))
+          as TransactionEvent<Any>
+      val closureRequestedEvent = transactionClosureRequestedEvent() as TransactionEvent<Any>
+      val closureErrorEvent = transactionClosureErrorEvent() as TransactionEvent<Any>
+
+      val events =
+        listOf(
+          activationEvent,
+          authorizationRequestEvent,
+          authorizationCompleteEvent,
+          closureRequestedEvent,
+          closureErrorEvent)
+
+      val expectedUpdatedTransaction =
+        transactionDocument(
+            TransactionStatusDto.CLOSED, ZonedDateTime.parse(activationEvent.creationDate))
+          .apply { this.sendPaymentResultOutcome = TransactionUserReceiptData.Outcome.NOT_RECEIVED }
+
+      val transactionDocument =
+        transactionDocument(
+          TransactionStatusDto.CLOSURE_ERROR, ZonedDateTime.parse(activationEvent.creationDate))
+
+      /* preconditions */
+      given(checkpointer.success()).willReturn(Mono.empty())
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
+        .willReturn(events.toFlux())
+      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturn(Mono.just(transactionDocument))
+      given(transactionsViewRepository.save(viewArgumentCaptor.capture())).willAnswer {
+        Mono.just(it.arguments[0])
+      }
+      given(transactionClosedEventRepository.save(closedEventStoreRepositoryCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
+      given(nodeService.closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK))
+        .willReturn(
+          ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK })
+
+      doNothing().`when`(updateTransactionStatusTracerUtils).traceStatusUpdateOperation(any())
+      /* test */
+
+      StepVerifier.create(
+          closePaymentHelper.closePayment(
+            ClosePaymentEvent.errored(
+              QueueEvent(closureErrorEvent as TransactionClosureErrorEvent, MOCK_TRACING_INFO)),
+            checkpointer,
+            EmptyTransaction()))
+        .expectNext(Unit)
+        .verifyComplete()
+
+      /* Asserts */
+      verify(checkpointer, Mockito.times(1)).success()
+      verify(nodeService, Mockito.times(1))
+        .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK)
+      verify(transactionClosedEventRepository, Mockito.times(1))
+        .save(
+          any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
+      // mocking
+      verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransaction)
+      verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
+      verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      verify(paymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never()).deleteById(any())
+      assertEquals(TransactionStatusDto.CLOSED, viewArgumentCaptor.value.status)
+      assertEquals(
+        TransactionEventCode.TRANSACTION_CLOSED_EVENT,
+        TransactionEventCode.valueOf(closedEventStoreRepositoryCaptor.value.eventCode))
+      assertEquals(
+        TransactionClosureData.Outcome.OK,
+        closedEventStoreRepositoryCaptor.value.data.responseOutcome)
+
+      verify(updateTransactionStatusTracerUtils, times(1))
+        .traceStatusUpdateOperation(
+          ClosePaymentNodoStatusUpdate(
+            UpdateTransactionStatusTracerUtils.UpdateTransactionStatusOutcome.OK,
+            PSP_ID,
+            PAYMENT_TYPE_CODE,
+            Transaction.ClientId.CHECKOUT,
+            true,
+            UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
+              ClosePaymentOutcome.OK.toString(), Optional.empty())))
+    }
+
+  @ParameterizedTest
+  @EnumSource(ClientId::class)
+  fun `consumer processes bare closure error message correctly with OK closure outcome for authorization completed transaction tracing client`(
+    clientId: ClientId
+  ) = runTest {
+    val activationEvent =
+      transactionActivateEvent().apply { this.data.clientId = clientId } as TransactionEvent<Any>
+    val authorizationRequestEvent =
+      transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
+    val authorizationCompleteEvent =
+      transactionAuthorizationCompletedEvent(
+        PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
+        as TransactionEvent<Any>
+    val closureRequestedEvent = transactionClosureRequestedEvent() as TransactionEvent<Any>
+    val closureErrorEvent = transactionClosureErrorEvent() as TransactionEvent<Any>
+
+    val events =
+      listOf(
+        activationEvent,
+        authorizationRequestEvent,
+        authorizationCompleteEvent,
+        closureRequestedEvent,
+        closureErrorEvent)
+
+    val expectedUpdatedTransaction =
+      transactionDocument(
+          TransactionStatusDto.CLOSED, ZonedDateTime.parse(activationEvent.creationDate))
+        .apply { this.sendPaymentResultOutcome = TransactionUserReceiptData.Outcome.NOT_RECEIVED }
+
+    val transactionDocument =
+      transactionDocument(
+        TransactionStatusDto.CLOSURE_ERROR, ZonedDateTime.parse(activationEvent.creationDate))
+
+    /* preconditions */
+    given(checkpointer.success()).willReturn(Mono.empty())
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
+      .willReturn(events.toFlux())
+    given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+      .willReturn(Mono.just(transactionDocument))
+    given(transactionsViewRepository.save(viewArgumentCaptor.capture())).willAnswer {
+      Mono.just(it.arguments[0])
+    }
+    given(transactionClosedEventRepository.save(closedEventStoreRepositoryCaptor.capture()))
+      .willAnswer { Mono.just(it.arguments[0]) }
+    given(nodeService.closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK))
+      .willReturn(
+        ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK })
+
+    doNothing().`when`(updateTransactionStatusTracerUtils).traceStatusUpdateOperation(any())
+    /* test */
+
+    StepVerifier.create(
+        closePaymentHelper.closePayment(
+          ClosePaymentEvent.errored(
+            QueueEvent(closureErrorEvent as TransactionClosureErrorEvent, MOCK_TRACING_INFO)),
+          checkpointer,
+          EmptyTransaction()))
+      .expectNext(Unit)
+      .verifyComplete()
+
+    /* Asserts */
+    verify(checkpointer, Mockito.times(1)).success()
+    verify(nodeService, Mockito.times(1))
+      .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK)
+    verify(transactionClosedEventRepository, Mockito.times(1))
+      .save(any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
+    // mocking
+    verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransaction)
+    verify(paymentGatewayClient, times(0)).requestVPosRefund(any())
+    verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+    verify(paymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never()).deleteById(any())
+    assertEquals(TransactionStatusDto.CLOSED, viewArgumentCaptor.value.status)
+    assertEquals(
+      TransactionEventCode.TRANSACTION_CLOSED_EVENT,
+      TransactionEventCode.valueOf(closedEventStoreRepositoryCaptor.value.eventCode))
+    assertEquals(
+      TransactionClosureData.Outcome.OK,
+      closedEventStoreRepositoryCaptor.value.data.responseOutcome)
+
+    verify(updateTransactionStatusTracerUtils, times(1))
+      .traceStatusUpdateOperation(
+        ClosePaymentNodoStatusUpdate(
+          UpdateTransactionStatusTracerUtils.UpdateTransactionStatusOutcome.OK,
+          PSP_ID,
+          PAYMENT_TYPE_CODE,
+          clientId,
+          false,
+          UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
+            ClosePaymentOutcome.OK.toString(), Optional.empty())))
+  }
 }
