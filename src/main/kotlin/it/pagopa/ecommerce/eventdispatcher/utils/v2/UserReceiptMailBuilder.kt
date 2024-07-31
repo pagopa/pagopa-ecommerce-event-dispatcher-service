@@ -7,6 +7,7 @@ import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithRequestedU
 import it.pagopa.ecommerce.eventdispatcher.client.NotificationsServiceClient
 import it.pagopa.ecommerce.eventdispatcher.utils.ConfidentialDataUtils
 import it.pagopa.ecommerce.eventdispatcher.utils.PaymentCode
+import it.pagopa.ecommerce.eventdispatcher.utils.WispDeprecation
 import it.pagopa.generated.notifications.templates.ko.KoTemplate
 import it.pagopa.generated.notifications.templates.success.*
 import it.pagopa.generated.notifications.templates.success.RefNumberTemplate.Type
@@ -182,7 +183,10 @@ class UserReceiptMailBuilder(@Autowired private val confidentialDataUtils: Confi
           .stream()
           .map { paymentNotice ->
             ItemTemplate(
-              RefNumberTemplate(Type.CODICE_AVVISO, paymentNotice.rptId().noticeId),
+              RefNumberTemplate(
+                Type.CODICE_AVVISO,
+                WispDeprecation.getPaymentNoticeId(
+                  baseTransactionWithRequestedUserReceipt, paymentNotice)),
               null,
               PayeeTemplate(
                 paymentNotice.companyName.value ?: "", paymentNotice.rptId().fiscalCode),
