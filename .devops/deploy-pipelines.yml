@@ -139,8 +139,8 @@ stages:
                     NAMESPACE: ecommerce
                     APP_NAME: pagopaecommerceeventdispatcher
                     VALUE_FILE: "helm/values-dev.yaml"
-                    CURRENT_VERSION: 1.19.0 # TODO here set this values just for test pod swap
-                    #CURRENT_VERSION: $(Build.SourceVersion)
+                    CURRENT_VERSION: c836ae7c0201410914dc5865cd4ba4e3a013e6b3
+                    #CURRENT_VERSION: $(Build.SourceVersion) TODO here just for test swap
                     NEW_VERSION: $(Build.SourceVersion)
                     BLUE_VERSION: $(Build.SourceVersion)
   # --- START Deploy UAT --- #
