@@ -881,7 +881,7 @@ class UserReceiptMailBuilderTest {
     }
 
   @Test
-  fun `when transaction client is CHECKOUT_WISP should build success email with payment notice id equals to reference creditor Id`() =
+  fun `when transaction client is WISP_REDIRECT should build success email with payment notice id equals to reference creditor Id`() =
     runTest {
       /*
        * Prerequisites
@@ -893,7 +893,7 @@ class UserReceiptMailBuilderTest {
             ZonedDateTime.now().toString(),
             EmptyTransactionGatewayActivationData(),
             USER_ID,
-            Transaction.ClientId.CHECKOUT_CART_WISP)
+            Transaction.ClientId.WISP_REDIRECT)
             as TransactionEvent<*>,
           transactionAuthorizationRequestedEvent(
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
@@ -972,7 +972,6 @@ class UserReceiptMailBuilderTest {
        */
 
       val objectMapper = ObjectMapper()
-      print(objectMapper.writeValueAsString(expected))
       assertEquals(
         objectMapper.writeValueAsString(expected),
         objectMapper.writeValueAsString(notificationEmailRequest))

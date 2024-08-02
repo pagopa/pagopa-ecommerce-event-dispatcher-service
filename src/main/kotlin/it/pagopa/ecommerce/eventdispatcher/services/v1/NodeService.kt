@@ -152,9 +152,7 @@ class NodeService(
           info =
             InfoDto().apply {
               type = getPaymentTypeCode(transactionWithCancellation)
-              clientId =
-                transactionWithCancellation.clientId
-                  .name // TODO: wisp remap to expected nodo's client id
+              clientId = transactionWithCancellation.clientId.name
             }
           user = UserDto().apply { type = UserDto.TypeEnum.GUEST }
         }
@@ -254,9 +252,7 @@ class NodeService(
               brand = authCompleted.transactionAuthorizationRequestData.brand?.name
               paymentMethodName =
                 authCompleted.transactionAuthorizationRequestData.paymentMethodName
-              clientId =
-                authCompleted.transactionActivatedData.clientId
-                  .name // TODO: wisp remap to expected nodo's client id
+              clientId = authCompleted.transactionActivatedData.clientId.name
             }
           user = UserDto().apply { type = UserDto.TypeEnum.GUEST }
         }

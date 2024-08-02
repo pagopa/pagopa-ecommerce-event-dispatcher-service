@@ -13,14 +13,14 @@ import org.junit.jupiter.api.Assertions.*
 class WispDeprecationTest {
 
   @Test
-  fun `when transaction is performed by CHECKOUT_WISP client should get creditor reference id`() {
+  fun `when transaction is performed by WISP_REDIRECT client should get creditor reference id`() {
     val events =
       buildTransactionWithUserReceipt(
         TransactionTestUtils.transactionActivateEvent(
           ZonedDateTime.now().toString(),
           EmptyTransactionGatewayActivationData(),
           TransactionTestUtils.USER_ID,
-          Transaction.ClientId.CHECKOUT_CART_WISP))
+          Transaction.ClientId.WISP_REDIRECT))
     val baseTransaction =
       TransactionTestUtils.reduceEvents(*events.toTypedArray())
         as BaseTransactionWithRequestedUserReceipt

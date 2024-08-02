@@ -193,7 +193,7 @@ class NodeService(
           info =
             InfoDto().apply {
               type = getPaymentTypeCode(transactionWithCancellation)
-              clientId = transactionWithCancellation.clientId.name
+              clientId = transactionWithCancellation.clientId?.effectiveClient?.name
             }
           user = userDto
         }
@@ -290,7 +290,7 @@ class NodeService(
                 else -> null
               }
             paymentMethodName = authCompleted.transactionAuthorizationRequestData.paymentMethodName
-            clientId = authCompleted.transactionActivatedData.clientId.name
+            clientId = authCompleted.transactionActivatedData.clientId?.effectiveClient?.name
             bin = walletBin
             lastFourDigits = walletLastFourDigits
             maskedEmail = walletMaskedEmail
@@ -906,7 +906,7 @@ class NodeService(
     baseTransaction: BaseTransactionWithPaymentToken,
     outcome: ClosePaymentOutcome
   ): Mono<UserDto> =
-    when (baseTransaction.clientId) {
+    when (baseTransaction.clientId?.effectiveClient) {
       it.pagopa.ecommerce.commons.documents.v2.Transaction.ClientId.CHECKOUT,
       it.pagopa.ecommerce.commons.documents.v2.Transaction.ClientId.CHECKOUT_CART ->
         mono { UserDto().apply { type = UserDto.TypeEnum.GUEST } }

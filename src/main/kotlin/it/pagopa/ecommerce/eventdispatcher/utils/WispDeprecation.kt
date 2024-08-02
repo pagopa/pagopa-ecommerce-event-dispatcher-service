@@ -11,7 +11,7 @@ object WispDeprecation {
     notice: PaymentNotice
   ): String =
     when (transaction.clientId) {
-      Transaction.ClientId.CHECKOUT_CART_WISP -> notice.creditorReferenceId ?: notice.rptId.noticeId
+      Transaction.ClientId.WISP_REDIRECT -> notice.creditorReferenceId ?: notice.rptId.noticeId
       else -> notice.rptId.noticeId
     }
 }
