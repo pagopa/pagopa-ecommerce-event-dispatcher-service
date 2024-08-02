@@ -22,5 +22,5 @@ steps:
       targetType: "inline"
       script: |
         version=$(echo '$(helm_event_dispatcher_releases.helmOutput)' | yq '.[].chart' | sed -e 's/pagopa-ecommerce-event-dispatcher-//g')
-        echo "##vso[task.setvariable variable=value;isOutput=true]$version"
+        echo "##vso[task.setvariable variable=helm_current_release_version;isOutput=true]$version"
       failOnStderr: true

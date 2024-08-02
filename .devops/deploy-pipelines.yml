@@ -130,19 +130,6 @@ stages:
                     namespace: ecommerce
                     command: delete
                     arguments: deployment beta-pagopaecommerceeventdispatcherservice-old-microservice-chart beta-pagopaecommerceeventdispatcherservice-new-microservice-chart
-                - template: azure-templates/swap-new-old-deployment.yml
-                  parameters:
-                    DO_DEPLOY: true
-                    DO_BLUE_GREEN_DEPLOY: true
-                    ENV: 'DEV'
-                    KUBERNETES_SERVICE_CONN: $(DEV_KUBERNETES_SERVICE_CONN)
-                    NAMESPACE: ecommerce
-                    APP_NAME: pagopaecommerceeventdispatcher
-                    VALUE_FILE: "helm/values-dev.yaml"
-                    CURRENT_VERSION: c836ae7c0201410914dc5865cd4ba4e3a013e6b3
-                    #CURRENT_VERSION: $(Build.SourceVersion) TODO here just for test swap
-                    NEW_VERSION: $(Build.SourceVersion)
-                    BLUE_VERSION: $(Build.SourceVersion)
   # --- START Deploy UAT --- #
   - stage: "Build_release_candidate"
     displayName: 'Build release candidate'
@@ -310,11 +297,6 @@ stages:
               steps:
                 - checkout: self
                   displayName: "Checkout"
-                #need to checkout against release version in order to take chart with bumped version here
-                - script: |
-                    echo "Checkout repo tag: [$(release_version)]"
-                    git checkout $(release_version)
-                  displayName: 'Checkout release tag'
                 - task: KubectlInstaller@0
                 - task: Bash@3
                   name: update_chart_version
@@ -339,6 +321,17 @@ stages:
                     APP_NAME: $(K8S_IMAGE_REPOSITORY_NAME)
                     VALUE_FILE: "helm/values-uat.yaml"
                     GREEN_VERSION: $(app_version)
+                - template: azure-templates/swap-new-old-deployment.yml
+                  parameters:
+                    DO_DEPLOY: true
+                    DO_BLUE_GREEN_DEPLOY: false
+                    ENV: 'UAT'
+                    KUBERNETES_SERVICE_CONN: $(UAT_KUBERNETES_SERVICE_CONN)
+                    NAMESPACE: ecommerce
+                    APP_NAME: pagopaecommerceeventdispatcher
+                    VALUE_FILE: "helm/values-uat.yaml"
+                    CURRENT_VERSION: $(helm_current_release_version)
+                    NEW_VERSION: $(release_version)
   # --- END Deploy UAT --- #
 
   # --- START Deploy PROD --- #
