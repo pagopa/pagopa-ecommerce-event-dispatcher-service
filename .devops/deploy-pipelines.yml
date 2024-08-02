@@ -295,6 +295,7 @@ stages:
       )
     variables:
       app_version: $[ stageDependencies.Release.make_release.outputs['chart_current_version.appVersion'] ]
+      release_version: $[ stageDependencies.Release.make_release.outputs['chart_current_version.version'] ]
     jobs:
       - deployment: "Green_deployment"
         displayName: "Green deployment"
@@ -307,6 +308,11 @@ stages:
               steps:
                 - checkout: self
                   displayName: "Checkout"
+                #need to checkout against release version in order to take chart with bumped version here
+                - script: |
+                    echo "Checkout repo tag: [$(release_version)]"
+                    git checkout $(release_version)
+                  displayName: 'Checkout release tag'
                 - task: KubectlInstaller@0
                 - task: Bash@3
                   name: update_chart_version
@@ -316,6 +322,11 @@ stages:
                     script: |
                       helm repo add microservice-chart https://pagopa.github.io/aks-microservice-chart-blueprint
                       helm dep build helm
+                - template: azure-templates/helm-extract-release-chart-version.yml
+                  parameters:
+                    KUBERNETES_SERVICE_CONN: $(UAT_KUBERNETES_SERVICE_CONN)
+                    NAMESPACE: ecommerce
+                    RELEASE_FILTER: $(K8S_IMAGE_REPOSITORY_NAME)-new
                 - template: azure-templates/helm-microservice-chart-deploy.yml
                   parameters:
                     DO_DEPLOY: true
@@ -511,6 +522,7 @@ stages:
       )
     variables:
       prod_version: $[ stageDependencies.Release.make_release.outputs['chart_current_version.appVersion'] ]
+      release_version: $[ stageDependencies.Release.make_release.outputs['chart_current_version.version'] ]
     jobs:
       - deployment: "Green_PROD_deployment"
         displayName: "Green PROD deployment"
@@ -523,6 +535,11 @@ stages:
               steps:
                 - checkout: self
                   displayName: "Checkout"
+                #need to checkout against release version in order to take chart with bumped version here
+                - script: |
+                    echo "Checkout repo tag: [$(release_version)]"
+                    git checkout $(release_version)
+                  displayName: 'Checkout release tag'
                 - task: Bash@3
                   name: update_chart_version
                   displayName: 'Setup helm microservice chart'

@@ -1,0 +1,94 @@
+parameters:
+  - name: 'ENV'
+    type: string
+  - name: 'CURRENT_VERSION'
+    type: string
+  - name: 'NEW_VERSION'
+    type: string
+  - name: 'APP_NAME'
+  - name: "KUBERNETES_SERVICE_CONN"
+    type: string
+  - name: "NAMESPACE"
+    type: string
+  - name: "VALUE_FILE"
+    type: string
+  - name: "CHART_TYPE"
+    type: string
+    default: "filepath"
+  - name: "CHART_PATH"
+    type: string
+    default: "helm"
+  - name: "WAIT_FOR_EXECUTION"
+    type: boolean
+    default: true
+  - name: "ARGUMENTS"
+    type: string
+    default: "--timeout 5m0s"
+steps:
+
+  # Checkout app actual version branch to perform helm build
+  - script: |
+      checkoutVersion=${{ parameters.CURRENT_VERSION }} 
+      echo "Checkout current PROD version repo tag: [$checkoutVersion]" 
+      git checkout $checkoutVersion
+    displayName: 'Checkout current version tag'
+# STEP 1: override the old release with the current version (for rollback purpose)
+  - task: HelmDeploy@0
+    displayName: Deploy current version as OLD release
+    inputs:
+      kubernetesServiceEndpoint: ${{ parameters.KUBERNETES_SERVICE_CONN }}
+      namespace: ${{ parameters.NAMESPACE }}
+      command: upgrade
+      chartType: ${{ parameters.CHART_TYPE }}
+      chartPath: ${{ parameters.CHART_PATH }}
+      chartName: ${{ parameters.APP_NAME }}-old
+      releaseName: ${{ parameters.APP_NAME }}-old
+      valueFile: ${{ parameters.VALUE_FILE }}
+      install: true
+      waitForExecution: ${{ parameters.WAIT_FOR_EXECUTION }}
+      arguments: ${{ parameters.ARGUMENTS }}
+      overrideValues: microservice-chart.canaryDelivery.create=false,microservice-chart.ingress.path=/pagopa-ecommerce-event-dispatcher-old/(.*),microservice-chart.envConfig.DEPLOYMENT_VERSION=old
+
+
+  # STEP 2: perform checkout against the new version release tag
+  - script: |
+      checkoutVersion=${{ parameters.NEW_VERSION }} 
+      echo "Checkout new release version repo tag: [$checkoutVersion]" 
+      git checkout $checkoutVersion
+    displayName: 'Checkout new release version tag'
+  # STEP 3: override the new release with the new version (the new released version)
+  - task: HelmDeploy@0
+    displayName: Deploy new version as NEW release
+    inputs:
+      kubernetesServiceEndpoint: ${{ parameters.KUBERNETES_SERVICE_CONN }}
+      namespace: ${{ parameters.NAMESPACE }}
+      command: upgrade
+      chartType: ${{ parameters.CHART_TYPE }}
+      chartPath: ${{ parameters.CHART_PATH }}
+      chartName: ${{ parameters.APP_NAME }}-new
+      releaseName: ${{ parameters.APP_NAME }}-new
+      valueFile: ${{ parameters.VALUE_FILE }}
+      install: true
+      waitForExecution: ${{ parameters.WAIT_FOR_EXECUTION }}
+      arguments: ${{ parameters.ARGUMENTS }}
+      overrideValues: microservice-chart.canaryDelivery.create=false,microservice-chart.ingress.path=/pagopa-ecommerce-event-dispatcher-new/(.*),microservice-chart.envConfig.DEPLOYMENT_VERSION=new
+
+  # STEP 3: once new version is deployed, proceed to stop old receivers
+  - task: Bash@3
+    name: stop_old_receivers
+    displayName: 'Perform curl to stop old receivers'
+    inputs:
+      targetType: "inline"
+      script: |
+        declare -A commandUrls=( ["DEV"]="https://weudev.ecommerce.internal.dev.platform.pagopa.it/pagopa-ecommerce-event-dispatcher/event-dispatcher/event-receivers/commands" ["UAT"]="https://weuuat.ecommerce.internal.uat.platform.pagopa.it/pagopa-ecommerce-event-dispatcher/event-dispatcher/event-receivers/commands" ["PROD"]="https://weuprod.ecommerce.internal.platform.pagopa.it/pagopa-ecommerce-event-dispatcher/event-dispatcher/event-receivers/commands")
+        commandUrl=${commandUrls[${{ parameters.ENV }}]}
+        echo $commandUrl
+        curl --location $commandUrl \
+        --header 'Content-Type: application/json' \
+        --data '{
+          "command": "STOP",
+          "targetDeploy": "OLD"
+        }'
+      failOnStderr: true
+
+    # STEP 4: once verifications against new version are successfully done, proceed to remove old version
