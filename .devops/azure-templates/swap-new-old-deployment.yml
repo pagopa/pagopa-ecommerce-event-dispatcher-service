@@ -100,7 +100,7 @@ steps:
       install: true
       waitForExecution: ${{ parameters.WAIT_FOR_EXECUTION }}
       arguments: ${{ parameters.ARGUMENTS }}
-      overrideValues: microservice-chart.canaryDelivery.create=false,microservice-chart.ingress.path=/pagopa-ecommerce-event-dispatcher-new/(.*),microservice-chart.envConfig.DEPLOYMENT_VERSION=new
+      overrideValues: microservice-chart.ingress.path=/pagopa-ecommerce-event-dispatcher-new/(.*),microservice-chart.envConfig.DEPLOYMENT_VERSION=new,microservice-chart.canaryDelivery.create=${{ parameters.DO_BLUE_GREEN_DEPLOY }},microservice-chart.canaryDelivery.deployment.image.tag=${{ parameters.BLUE_VERSION }}
 
   # STEP 5: once new version is deployed, proceed to stop old receivers (new receivers are already started)
   - task: Bash@3
