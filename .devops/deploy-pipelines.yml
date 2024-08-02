@@ -129,7 +129,18 @@ stages:
                     kubernetesCluster: $(kubernetesCluster)
                     namespace: ecommerce
                     command: delete
-                    arguments: deployment beta-pagopaecommerceeventdispatcherservice-old-microservice-chart beta-pagopaecommerceeventdispatcherservice-new-microservice-chart
+                    arguments: deployment beta-pagopaecommerceeventdispatcherservice-microservice-chart
+                - template: azure-templates/helm-microservice-chart-deploy.yml
+                  parameters:
+                    DO_DEPLOY: true
+                    DO_BLUE_GREEN_DEPLOY: true
+                    ENV: 'DEV'
+                    KUBERNETES_SERVICE_CONN: $(DEV_KUBERNETES_SERVICE_CONN)
+                    NAMESPACE: ecommerce
+                    APP_NAME: $(K8S_IMAGE_REPOSITORY_NAME)
+                    VALUE_FILE: "helm/values-dev.yaml"
+                    GREEN_VERSION: $(Build.SourceVersion)
+                    BLUE_VERSION: $(Build.SourceVersion)
   # --- START Deploy UAT --- #
   - stage: "Build_release_candidate"
     displayName: 'Build release candidate'
@@ -137,11 +148,7 @@ stages:
     condition:
       and(
         succeeded(),
-        eq(${{parameters.UAT_PROD_DEPLOY}}, true),
-        or(
-         eq(variables['Build.SourceBranch'], 'refs/heads/main'),
-         startsWith(variables['Build.SourceBranch'], 'refs/tags')
-         )
+        eq(${{parameters.UAT_PROD_DEPLOY}}, true)
       )
     jobs:
       - job: "build"
@@ -276,11 +283,7 @@ stages:
       and(
         eq(${{parameters.UAT_PROD_DEPLOY}}, true),
         in(dependencies.tag_docker_release.result, 'Succeeded', 'Skipped'),
-        in(dependencies.Release.result, 'Succeeded', 'Skipped'),
-        or(
-          eq(variables['Build.SourceBranch'], 'refs/heads/main'),
-          startsWith(variables['Build.SourceBranch'], 'refs/tags')
-        )
+        in(dependencies.Release.result, 'Succeeded', 'Skipped')
       )
     variables:
       app_version: $[ stageDependencies.Release.make_release.outputs['chart_current_version.appVersion'] ]
@@ -306,21 +309,7 @@ stages:
                     script: |
                       helm repo add microservice-chart https://pagopa.github.io/aks-microservice-chart-blueprint
                       helm dep build helm
-                - template: azure-templates/helm-extract-release-chart-version.yml
-                  parameters:
-                    KUBERNETES_SERVICE_CONN: $(UAT_KUBERNETES_SERVICE_CONN)
-                    NAMESPACE: ecommerce
-                    RELEASE_FILTER: $(K8S_IMAGE_REPOSITORY_NAME)-new
-                - template: azure-templates/helm-microservice-chart-deploy.yml
-                  parameters:
-                    DO_DEPLOY: true
-                    DO_BLUE_GREEN_DEPLOY: false
-                    ENV: 'UAT'
-                    KUBERNETES_SERVICE_CONN: $(UAT_KUBERNETES_SERVICE_CONN)
-                    NAMESPACE: ecommerce
-                    APP_NAME: $(K8S_IMAGE_REPOSITORY_NAME)
-                    VALUE_FILE: "helm/values-uat.yaml"
-                    GREEN_VERSION: $(app_version)
+
                 - template: azure-templates/swap-new-old-deployment.yml
                   parameters:
                     DO_DEPLOY: true
@@ -330,7 +319,7 @@ stages:
                     NAMESPACE: ecommerce
                     APP_NAME: pagopaecommerceeventdispatcher
                     VALUE_FILE: "helm/values-uat.yaml"
-                    CURRENT_VERSION: $(helm_current_release_version)
+                    HELM_NEW_RELEASE_FILTER: $(K8S_IMAGE_REPOSITORY_NAME) #FIXME qui ci deve essere il nome della release new!
                     NEW_VERSION: $(release_version)
   # --- END Deploy UAT --- #
 
