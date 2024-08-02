@@ -129,17 +129,19 @@ stages:
                     kubernetesCluster: $(kubernetesCluster)
                     namespace: ecommerce
                     command: delete
-                    arguments: deployment beta-pagopaecommerceeventdispatcherservice-microservice-chart
-                - template: azure-templates/helm-microservice-chart-deploy.yml
+                    arguments: deployment beta-pagopaecommerceeventdispatcherservice-old-microservice-chart beta-pagopaecommerceeventdispatcherservice-new-microservice-chart
+                - template: azure-templates/swap-new-old-deployment.yml
                   parameters:
                     DO_DEPLOY: true
                     DO_BLUE_GREEN_DEPLOY: true
                     ENV: 'DEV'
                     KUBERNETES_SERVICE_CONN: $(DEV_KUBERNETES_SERVICE_CONN)
                     NAMESPACE: ecommerce
-                    APP_NAME: $(K8S_IMAGE_REPOSITORY_NAME)
+                    APP_NAME: pagopaecommerceeventdispatcher
                     VALUE_FILE: "helm/values-dev.yaml"
-                    GREEN_VERSION: $(Build.SourceVersion)
+                    CURRENT_VERSION: 1.19.0 # TODO here set this values just for test pod swap
+                    #CURRENT_VERSION: $(Build.SourceVersion)
+                    NEW_VERSION: $(Build.SourceVersion)
                     BLUE_VERSION: $(Build.SourceVersion)
   # --- START Deploy UAT --- #
   - stage: "Build_release_candidate"
