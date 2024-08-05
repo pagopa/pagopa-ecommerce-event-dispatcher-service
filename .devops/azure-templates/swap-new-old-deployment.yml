@@ -57,7 +57,7 @@ steps:
 
   # STEP 1: Checkout current version tag
   - script: |
-      checkoutVersion=$helm_current_release_version
+      checkoutVersion=$(helm_chart_version.helm_current_release_version)
       echo "Checkout current version repo tag: [$checkoutVersion]" 
       git checkout $checkoutVersion
     displayName: 'Checkout current version tag'
