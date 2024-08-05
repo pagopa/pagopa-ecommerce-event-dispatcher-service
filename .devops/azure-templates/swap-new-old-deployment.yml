@@ -79,10 +79,10 @@ steps:
       arguments: ${{ parameters.ARGUMENTS }}
       overrideValues: microservice-chart.ingress.path=/pagopa-ecommerce-event-dispatcher-old/(.*),microservice-chart.envConfig.DEPLOYMENT_VERSION=old,microservice-chart.canaryDelivery.create=${{ parameters.DO_BLUE_GREEN_DEPLOY }},microservice-chart.canaryDelivery.deployment.image.tag=${{ parameters.BLUE_VERSION }}
 
-  # STEP 3: enable OLD receivers
+  # STEP 3: enable OLD receivers and stop new ones
   - task: Bash@3
-    name: start_old_receivers
-    displayName: 'Perform curl to start old receivers'
+    name: start_old_stop_new_receivers
+    displayName: 'Perform curl to start old receivers and stop new ones'
     inputs:
       targetType: "inline"
       script: |
@@ -95,6 +95,12 @@ steps:
           "command": "START",
           "deploymentVersion": "OLD"
         }'
+        curl --location $commandUrl \
+        --header 'Content-Type: application/json' \
+        --data '{
+          "command": "STOP",
+          "deploymentVersion": "NEW"
+        }'
       failOnStderr: true
 
   # STEP 4: perform checkout against the new version release tag
@@ -104,6 +110,7 @@ steps:
       git checkout $checkoutVersion
     displayName: 'Checkout new release version tag'
 
+  #TODO inserire step di approve manuale per far cominciare il deploy della nuova versione solo una volta che i receivers sono effettivamente stoppati sulla verisone NEW
   # STEP 5: override the new release with the new version (the new released version)
   - task: HelmDeploy@0
     displayName: Deploy new version as NEW release
