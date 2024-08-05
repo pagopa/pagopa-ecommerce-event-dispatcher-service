@@ -1,6 +1,6 @@
 {
 	"info": {
-		"_postman_id": "a95656e6-45fc-4369-ae72-b05e5f821271",
+		"_postman_id": "feb88866-f73e-4ccf-b8b0-86c0b258b006",
 		"name": "Event dispatcher event receiver handling",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
 		"_exporter_id": "23963988"
@@ -97,6 +97,88 @@
 						"event-dispatcher",
 						"event-receivers",
 						"status"
+					],
+					"query": [
+						{
+							"key": "version",
+							"value": "NEW",
+							"disabled": true
+						},
+						{
+							"key": "version",
+							"value": "OLD",
+							"disabled": true
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "STOP all receivers by version",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"command\": \"STOP\",\n  \"deploymentVersion\": \"NEW\" //this can be valued with NEW/OLD\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://weuprod.ecommerce.internal.platform.pagopa.it/pagopa-ecommerce-event-dispatcher/event-dispatcher/event-receivers/commands",
+					"protocol": "https",
+					"host": [
+						"weuprod",
+						"ecommerce",
+						"internal",
+						"platform",
+						"pagopa",
+						"it"
+					],
+					"path": [
+						"pagopa-ecommerce-event-dispatcher",
+						"event-dispatcher",
+						"event-receivers",
+						"commands"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "START all receivers by version",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"command\": \"START\",\n  \"deploymentVersion\": \"NEW\" //this can be valued with NEW/OLD\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://weuprod.ecommerce.internal.platform.pagopa.it/pagopa-ecommerce-event-dispatcher/event-dispatcher/event-receivers/commands",
+					"protocol": "https",
+					"host": [
+						"weuprod",
+						"ecommerce",
+						"internal",
+						"platform",
+						"pagopa",
+						"it"
+					],
+					"path": [
+						"pagopa-ecommerce-event-dispatcher",
+						"event-dispatcher",
+						"event-receivers",
+						"commands"
 					]
 				}
 			},

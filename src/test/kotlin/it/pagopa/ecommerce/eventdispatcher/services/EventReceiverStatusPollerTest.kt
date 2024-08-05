@@ -4,6 +4,7 @@ import it.pagopa.ecommerce.eventdispatcher.config.RedisStreamEventControllerConf
 import it.pagopa.ecommerce.eventdispatcher.config.redis.EventDispatcherReceiverStatusTemplateWrapper
 import it.pagopa.ecommerce.eventdispatcher.config.redis.bean.ReceiverStatus
 import it.pagopa.ecommerce.eventdispatcher.config.redis.bean.Status
+import it.pagopa.generated.eventdispatcher.server.model.DeploymentVersionDto
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.*
@@ -29,7 +30,8 @@ class EventReceiverStatusPollerTest {
     EventReceiverStatusPoller(
       inboundChannelAdapterLifecycleHandlerService = inboundChannelAdapterLifecycleHandlerService,
       redisStreamEventControllerConfigs = redisStreamEventControllerConfigs,
-      eventDispatcherReceiverStatusTemplateWrapper = eventDispatcherReceiverStatusTemplateWrapper)
+      eventDispatcherReceiverStatusTemplateWrapper = eventDispatcherReceiverStatusTemplateWrapper,
+      deploymentVersion = DeploymentVersionDto.NEW)
 
   @Test
   fun `Should poll for status successfully saving receiver statuses`() {

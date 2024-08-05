@@ -8,6 +8,7 @@ import it.pagopa.ecommerce.eventdispatcher.config.redis.stream.RedisStreamMessag
 import it.pagopa.ecommerce.eventdispatcher.redis.streams.commands.EventDispatcherCommandMixin
 import it.pagopa.ecommerce.eventdispatcher.redis.streams.commands.EventDispatcherGenericCommand
 import it.pagopa.ecommerce.eventdispatcher.redis.streams.commands.EventDispatcherReceiverCommand
+import it.pagopa.generated.eventdispatcher.server.model.DeploymentVersionDto
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -108,7 +109,9 @@ class RedisStreamMessageSourceTest {
   fun `Should receive event from stream successfully`() {
     // assertions
     val expectedCommand =
-      EventDispatcherReceiverCommand(EventDispatcherReceiverCommand.ReceiverCommand.START)
+      EventDispatcherReceiverCommand(
+        receiverCommand = EventDispatcherReceiverCommand.ReceiverCommand.START,
+        version = DeploymentVersionDto.NEW)
     val hashMapSerializedObject =
       LinkedHashMap(Jackson2HashMapper(objectMapper, true).toHash(expectedCommand))
         as LinkedHashMap<*, *>

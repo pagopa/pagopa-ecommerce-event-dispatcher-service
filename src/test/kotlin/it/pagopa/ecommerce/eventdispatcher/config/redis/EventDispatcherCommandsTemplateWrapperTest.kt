@@ -1,6 +1,7 @@
 package it.pagopa.ecommerce.eventdispatcher.config.redis
 
 import it.pagopa.ecommerce.eventdispatcher.redis.streams.commands.EventDispatcherReceiverCommand
+import it.pagopa.generated.eventdispatcher.server.model.DeploymentVersionDto
 import java.time.Duration
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.*
@@ -21,7 +22,9 @@ class EventDispatcherCommandsTemplateWrapperTest {
   @Test
   fun `Should save entity successfully`() {
     val eventDispatcherCommand =
-      EventDispatcherReceiverCommand(EventDispatcherReceiverCommand.ReceiverCommand.START)
+      EventDispatcherReceiverCommand(
+        receiverCommand = EventDispatcherReceiverCommand.ReceiverCommand.START,
+        version = DeploymentVersionDto.NEW)
     given(redisTemplate.opsForValue()).willReturn(opsForValue)
     doNothing().`when`(opsForValue).set(any(), any(), any<Duration>())
     eventDispatcherCommandsTemplateWrapper.save(eventDispatcherCommand)
