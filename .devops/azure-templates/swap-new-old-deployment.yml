@@ -55,16 +55,16 @@ steps:
         echo "##vso[task.setvariable variable=helm_current_release_version;isOutput=true]$version"
       failOnStderr: true
 
-  # STEP 1: Checkout current version tag
+  # STEP 1: Checkout currently deployed version tag
   - script: |
       checkoutVersion=$(helm_chart_version.helm_current_release_version)
       echo "Checkout current version repo tag: [$checkoutVersion]" 
       git checkout $checkoutVersion
-    displayName: 'Checkout current version tag'
+    displayName: 'Checkout currently deployed source code tag'
   # STEP 2: override the old release with the current version (for rollback purpose)
   - task: HelmDeploy@0
     condition: and(succeeded(), eq(${{ parameters.DO_DEPLOY }}, True))
-    displayName: Deploy current version as OLD release
+    displayName: Deploy current PROD version $(helm_chart_version.helm_current_release_version) as OLD release
     inputs:
       kubernetesServiceEndpoint: ${{ parameters.KUBERNETES_SERVICE_CONN }}
       namespace: ${{ parameters.NAMESPACE }}
@@ -93,7 +93,7 @@ steps:
         --header 'Content-Type: application/json' \
         --data '{
           "command": "START",
-          "targetDeploy": "OLD"
+          "deploymentVersion": "OLD"
         }'
       failOnStderr: true
 
@@ -123,8 +123,8 @@ steps:
 
   # STEP 5: once new version is deployed, proceed to stop old receivers (new receivers are already started)
   - task: Bash@3
-    name: stop_old_receivers
-    displayName: 'Perform curl to stop old receivers'
+    name: start_new_stop_old_receivers
+    displayName: 'Perform curl to stop old receivers and start new ones'
     inputs:
       targetType: "inline"
       script: |
@@ -135,6 +135,12 @@ steps:
         --header 'Content-Type: application/json' \
         --data '{
           "command": "STOP",
-          "targetDeploy": "OLD"
+          "deploymentVersion": "OLD"
+        }'
+        curl --location $commandUrl \
+        --header 'Content-Type: application/json' \
+        --data '{
+          "command": "START",
+          "deploymentVersion": "NEW"
         }'
       failOnStderr: true

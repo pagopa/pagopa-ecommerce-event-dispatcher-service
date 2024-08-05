@@ -319,7 +319,7 @@ stages:
                     NAMESPACE: ecommerce
                     APP_NAME: pagopaecommerceeventdispatcher
                     VALUE_FILE: "helm/values-uat.yaml"
-                    HELM_NEW_RELEASE_FILTER: $(K8S_IMAGE_REPOSITORY_NAME) #FIXME qui ci deve essere il nome della release new!
+                    HELM_NEW_RELEASE_FILTER: pagopaecommerceeventdispatcherservice #FIXME qui ci deve essere il nome della release new!
                     NEW_VERSION: $(release_version)
   # --- END Deploy UAT --- #
 
