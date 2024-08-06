@@ -135,7 +135,7 @@ steps:
     inputs:
       targetType: "inline"
       script: |
-        declare -A commandUrls=( ["DEV"]="https://weudev.ecommerce.internal.dev.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-new/event-dispatcher/event-receivers/commands" ["UAT"]="https://weuuat.ecommerce.internal.uat.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-new/event-dispatcher/event-receivers/commands" ["PROD"]="https://weuprod.ecommerce.internal.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-new/event-dispatcher/event-receivers/commands")
+        declare -A commandUrls=( ["DEV"]="https://api.dev.platform.pagopa.it/pagopa-ecommerce-event-dispatcher/event-dispatcher/event-receivers/commands" ["UAT"]="https://weuuat.ecommerce.internal.uat.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-new/event-dispatcher/event-receivers/commands" ["PROD"]="https://weuprod.ecommerce.internal.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-new/event-dispatcher/event-receivers/commands")
         commandUrl=${commandUrls[${{ parameters.ENV }}]}
         echo $commandUrl
         curl --location $commandUrl \
