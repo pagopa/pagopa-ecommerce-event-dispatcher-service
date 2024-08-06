@@ -158,7 +158,7 @@ stages:
                 --data '{
                   "command": "START",
                   "deploymentVersion": "OLD"
-                }
+                }'
               failOnStderr: false
 
   # STEP 3: stop NEW deployment version receivers by command
@@ -200,7 +200,7 @@ stages:
                 --data '{
                   "command": "STOP",
                   "deploymentVersion": "NEW"
-                }
+                }'
               failOnStderr: false
 
 
