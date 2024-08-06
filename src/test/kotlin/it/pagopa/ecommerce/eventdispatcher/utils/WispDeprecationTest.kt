@@ -1,6 +1,7 @@
 package it.pagopa.ecommerce.eventdispatcher.utils
 
 import it.pagopa.ecommerce.commons.documents.v2.*
+import it.pagopa.ecommerce.commons.documents.v2.Transaction.ClientId
 import it.pagopa.ecommerce.commons.documents.v2.activation.EmptyTransactionGatewayActivationData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithRequestedUserReceipt
@@ -9,6 +10,8 @@ import it.pagopa.ecommerce.commons.v2.TransactionTestUtils
 import java.time.ZonedDateTime
 import org.junit.Test
 import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.EnumSource
 
 class WispDeprecationTest {
 
@@ -20,7 +23,7 @@ class WispDeprecationTest {
           ZonedDateTime.now().toString(),
           EmptyTransactionGatewayActivationData(),
           TransactionTestUtils.USER_ID,
-          Transaction.ClientId.WISP_REDIRECT))
+          ClientId.WISP_REDIRECT))
     val baseTransaction =
       TransactionTestUtils.reduceEvents(*events.toTypedArray())
         as BaseTransactionWithRequestedUserReceipt
@@ -42,7 +45,7 @@ class WispDeprecationTest {
           ZonedDateTime.now().toString(),
           EmptyTransactionGatewayActivationData(),
           TransactionTestUtils.USER_ID,
-          Transaction.ClientId.WISP_REDIRECT,
+          ClientId.WISP_REDIRECT,
           null))
     val baseTransaction =
       TransactionTestUtils.reduceEvents(*events.toTypedArray())
@@ -52,16 +55,18 @@ class WispDeprecationTest {
     assertEquals(noticeId, baseTransaction.paymentNotices.first().rptId.noticeId)
   }
 
-  @Test
-  fun `when transaction is performed by CHECKOUT client should get notice id from rpt`() {
+  @ParameterizedTest
+  @EnumSource(ClientId::class, names = ["WISP_REDIRECT"], mode = EnumSource.Mode.EXCLUDE)
+  fun `when transaction is performed by CHECKOUT or IO client should get notice id from rpt`(
+    clientId: ClientId
+  ) {
     val events =
       buildTransactionWithUserReceipt(
         TransactionTestUtils.transactionActivateEvent(
           ZonedDateTime.now().toString(),
           EmptyTransactionGatewayActivationData(),
           TransactionTestUtils.USER_ID,
-          Transaction.ClientId.CHECKOUT,
-        ))
+          clientId))
     val baseTransaction =
       TransactionTestUtils.reduceEvents(*events.toTypedArray())
         as BaseTransactionWithRequestedUserReceipt
@@ -70,15 +75,18 @@ class WispDeprecationTest {
     assertEquals(noticeId, baseTransaction.paymentNotices.first().rptId.noticeId)
   }
 
-  @Test
-  fun `when transaction is performed by CHECKOUT client and creditor reference id is null should get notice id from rpt`() {
+  @ParameterizedTest
+  @EnumSource(ClientId::class, names = ["WISP_REDIRECT"], mode = EnumSource.Mode.EXCLUDE)
+  fun `when transaction is performed by CHECKOUT or IO client and creditor reference id is null should get notice id from rpt`(
+    clientId: ClientId
+  ) {
     val events =
       buildTransactionWithUserReceipt(
         TransactionTestUtils.transactionActivateEvent(
           ZonedDateTime.now().toString(),
           EmptyTransactionGatewayActivationData(),
           TransactionTestUtils.USER_ID,
-          Transaction.ClientId.CHECKOUT,
+          clientId,
           null))
     val baseTransaction =
       TransactionTestUtils.reduceEvents(*events.toTypedArray())
