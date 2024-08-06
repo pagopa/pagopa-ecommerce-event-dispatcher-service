@@ -123,11 +123,10 @@ stages:
   - stage: Enable_Old_Receivers_Manual_Approve
     displayName: Enable OLD receivers approval
     dependsOn: Old_Version_Deploy
-    timeoutInMinutes: 30
     pool: server
     jobs:
       - job: Enable_Old_Receivers_Manual_Approve
-        description: Manual OLD receiver enable approval
+        displayName: Manual OLD receiver enable approval
         steps:
           - task: ManualValidation@0
             timeoutInMinutes: 30
@@ -166,11 +165,10 @@ stages:
   - stage: Disable_New_Receivers_Manual_Approve
     displayName: Disable NEW receivers approval
     dependsOn: Enable_Old_Receivers
-    timeoutInMinutes: 30
     pool: server
     jobs:
       - job: Disable_New_Receivers_Manual_Approve
-        description: Manual NEW receiver disable approval
+        displayName: Manual NEW receiver disable approval
         steps:
           - task: ManualValidation@0
             timeoutInMinutes: 30
