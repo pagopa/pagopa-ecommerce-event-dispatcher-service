@@ -350,6 +350,8 @@ stages:
     displayName: Approval for scale down old deployment PODS
     jobs:
       - job: Scale_Down_Old_Deployment_Approval
+        pool: server
+        timeoutInMinutes: 30
         steps:
           - task: ManualValidation@0
             timeoutInMinutes: 4320 # 3 days
