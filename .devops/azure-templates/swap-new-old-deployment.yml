@@ -94,6 +94,14 @@ stages:
               echo "Checkout current version repo tag: [$checkoutVersion]" 
               git checkout $checkoutVersion
             displayName: 'Checkout currently deployed source code tag [$(currentVersion)]'
+          - task: Bash@3
+            name: update_chart_version
+            displayName: 'Setup helm microservice chart'
+            inputs:
+              targetType: "inline"
+              script: |
+                helm repo add microservice-chart https://pagopa.github.io/aks-microservice-chart-blueprint
+                helm dep build helm
           - task: HelmDeploy@0
             condition: and(succeeded(), eq(${{ parameters.DO_DEPLOY }}, True))
             displayName: Deploy current PROD version $(currentVersion) as OLD release
@@ -228,6 +236,14 @@ stages:
               echo "Checkout new release version repo tag: [$checkoutVersion]" 
               git checkout $checkoutVersion
             displayName: 'Checkout new release version tag [${{ parameters.NEW_VERSION }}]'
+          - task: Bash@3
+            name: update_chart_version
+            displayName: 'Setup helm microservice chart'
+            inputs:
+              targetType: "inline"
+              script: |
+                helm repo add microservice-chart https://pagopa.github.io/aks-microservice-chart-blueprint
+                helm dep build helm
           - task: HelmDeploy@0
             displayName: Deploy new version as NEW release
             inputs:
