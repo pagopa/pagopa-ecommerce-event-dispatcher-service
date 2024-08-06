@@ -30,6 +30,29 @@ class WispDeprecationTest {
   }
 
   @Test
+  // This test allow to avoid failures due to missing creditor reference id. Although this case will
+  // never occur
+  // cause transaction-service will refuse transaction activation for WISP_REDIRECT without
+  // reference id, it's mandatory
+  // test such edge case
+  fun `when transaction is performed by WISP_REDIRECT client and creditor reference id is null should get payment notice id`() {
+    val events =
+      buildTransactionWithUserReceipt(
+        TransactionTestUtils.transactionActivateEvent(
+          ZonedDateTime.now().toString(),
+          EmptyTransactionGatewayActivationData(),
+          TransactionTestUtils.USER_ID,
+          Transaction.ClientId.WISP_REDIRECT,
+          null))
+    val baseTransaction =
+      TransactionTestUtils.reduceEvents(*events.toTypedArray())
+        as BaseTransactionWithRequestedUserReceipt
+    val noticeId =
+      WispDeprecation.getPaymentNoticeId(baseTransaction, baseTransaction.paymentNotices.first())
+    assertEquals(noticeId, baseTransaction.paymentNotices.first().rptId.noticeId)
+  }
+
+  @Test
   fun `when transaction is performed by CHECKOUT client should get notice id from rpt`() {
     val events =
       buildTransactionWithUserReceipt(
