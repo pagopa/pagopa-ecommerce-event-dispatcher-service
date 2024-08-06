@@ -36,197 +36,327 @@ parameters:
   - name: "BLUE_VERSION"
     type: string
     default: "none"
-steps:
-
+stages:
   # STEP 0: retrieve current release version from helm release
-  - task: HelmDeploy@0
-    displayName: List event dispatcher releases
-    name: helm_event_dispatcher_releases
-    inputs:
-      kubernetesServiceEndpoint: ${{ parameters.KUBERNETES_SERVICE_CONN }}
-      namespace: ${{ parameters.NAMESPACE }}
-      command: ls
-      arguments: --filter ${{ parameters.HELM_NEW_RELEASE_FILTER }} --output json
-  - task: Bash@3
-    name: helm_chart_version
-    displayName: 'Retrieve helm chart version associated to helm release'
-    inputs:
-      targetType: "inline"
-      script: |
-        version=$(echo '$(helm_event_dispatcher_releases.helmOutput)' | yq '.[].chart' | sed -e 's/pagopa-ecommerce-event-dispatcher-//g')
-        echo "##vso[task.setvariable variable=helm_current_release_version;isOutput=true]$version"
-      failOnStderr: false
+  - stage: Current_Helm_Release
+    displayName: Retrieve current deployed helm release
+    jobs:
+      - job: list_event_dispatcher_helm_releases
+        displayName: List event dispatcher helm releases
+        steps:
+          - task: HelmDeploy@0
+            displayName: List event dispatcher releases
+            name: helm_event_dispatcher_releases
+            inputs:
+              kubernetesServiceEndpoint: ${{ parameters.KUBERNETES_SERVICE_CONN }}
+              namespace: ${{ parameters.NAMESPACE }}
+              command: ls
+              arguments: --filter ${{ parameters.HELM_NEW_RELEASE_FILTER }} --output json
+          - task: Bash@3
+            name: helm_chart_version
+            displayName: 'Retrieve helm chart version associated to helm release'
+            inputs:
+              targetType: "inline"
+              script: |
+                version=$(echo '$(helm_event_dispatcher_releases.helmOutput)' | yq '.[].chart' | sed -e 's/pagopa-ecommerce-event-dispatcher-//g')
+                echo "##vso[task.setvariable variable=helm_current_release_version;isOutput=true]$version"
+              failOnStderr: false
+  # STEP 1: deploy current PROD version as OLD release (used for rollback purpose)
+  - stage: Old_Version_Deploy_Approval
+    displayName: Old version deploy approval
+    dependsOn: Current_Helm_Release
+    condition: succeeded()
+    variables:
+      currentVersion: $[ stageDependencies.Current_Helm_Release.list_event_dispatcher_helm_releases.outputs['helm_chart_version.helm_current_release_version'] ]
+    jobs:
+      - job: Old_Version_Deploy_Approval
+        displayName: Manual old version deploy approval
+        pool: server
+        timeoutInMinutes: 30
+        steps:
+          - task: ManualValidation@0
+            timeoutInMinutes: 30
+            inputs:
+              notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
+              instructions: "Approve upgrade OLD helm release to version: [$(currentVersion)]"
+              onTimeout: 'reject'
+  - stage: Old_Version_Deploy
+    dependsOn: [Current_Helm_Release,Old_Version_Deploy_Approval]
+    condition: succeeded()
+    variables:
+      currentVersion: $[ stageDependencies.Current_Helm_Release.list_event_dispatcher_helm_releases.outputs['helm_chart_version.helm_current_release_version'] ]
+    jobs:
+      - job: Old_Version_Deploy
+        displayName: Deploy current prod version as OLD version
+        steps:
+          - script: |
+              checkoutVersion=$(currentVersion)
+              echo "Checkout current version repo tag: [$checkoutVersion]" 
+              git checkout $checkoutVersion
+            displayName: 'Checkout currently deployed source code tag [$(currentVersion)]'
+          - task: HelmDeploy@0
+            condition: and(succeeded(), eq(${{ parameters.DO_DEPLOY }}, True))
+            displayName: Deploy current PROD version $(currentVersion) as OLD release
+            inputs:
+              kubernetesServiceEndpoint: ${{ parameters.KUBERNETES_SERVICE_CONN }}
+              namespace: ${{ parameters.NAMESPACE }}
+              command: upgrade
+              chartType: ${{ parameters.CHART_TYPE }}
+              chartPath: ${{ parameters.CHART_PATH }}
+              chartName: ${{ parameters.APP_NAME }}-old
+              releaseName: ${{ parameters.APP_NAME }}-old
+              valueFile: ${{ parameters.VALUE_FILE }}
+              install: true
+              waitForExecution: ${{ parameters.WAIT_FOR_EXECUTION }}
+              arguments: ${{ parameters.ARGUMENTS }}
+              overrideValues: microservice-chart.ingress.path=/pagopa-ecommerce-event-dispatcher-old/(.*),microservice-chart.envConfig.DEPLOYMENT_VERSION=old,microservice-chart.canaryDelivery.create=${{ parameters.DO_BLUE_GREEN_DEPLOY }},microservice-chart.canaryDelivery.deployment.image.tag=${{ parameters.BLUE_VERSION }}
 
-  # STEP 1: Checkout currently deployed version tag
-  - script: |
-      checkoutVersion=$(helm_chart_version.helm_current_release_version)
-      echo "Checkout current version repo tag: [$checkoutVersion]" 
-      git checkout $checkoutVersion
-    displayName: 'Checkout currently deployed source code tag'
+  # STEP 2: enable OLD deployment version receivers by command
+  - stage: Enable_Old_Receivers_Manual_Approve
+    displayName: Enable OLD receivers approval
+    dependsOn: Old_Version_Deploy
+    timeoutInMinutes: 30
+    pool: server
+    jobs:
+      - job: Enable_Old_Receivers_Manual_Approve
+        description: Manual OLD receiver enable approval
+        steps:
+          - task: ManualValidation@0
+            timeoutInMinutes: 30
+            inputs:
+              notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
+              instructions: "Approve enable OLD receivers"
+              onTimeout: 'reject'
+  - stage: Enable_Old_Receivers
+    dependsOn: Enable_Old_Receivers_Manual_Approve
+    condition: succeeded()
+    jobs:
+      - job: Enable_Old_Receivers
+        steps:
+          - task: Bash@3
+            name: start_old_receivers
+            displayName: 'Perform curl to start old receivers'
+            inputs:
+              targetType: "inline"
+              script: |
+                declare -A commandUrls=(\
+                ["DEV"]="https://weudev.ecommerce.internal.dev.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-old/event-dispatcher/event-receivers/commands" \
+                ["UAT"]="https://weuuat.ecommerce.internal.uat.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-old/event-dispatcher/event-receivers/commands" \
+                ["PROD"]="https://weuprod.ecommerce.internal.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-old/event-dispatcher/event-receivers/commands" \
+                )
+                commandUrl=${commandUrls[${{ parameters.ENV }}]}
+                echo $commandUrl
+                curl --location $commandUrl \
+                --header 'Content-Type: application/json' \
+                --data '{
+                  "command": "START",
+                  "deploymentVersion": "OLD"
+                }
+              failOnStderr: false
 
-  # STEP 2: override the old release with the current version (for rollback purpose)
-  - task: ManualValidation@0
-    timeoutInMinutes: 4320 # 3 days
-    inputs:
-      notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
-      instructions: "Approve upgrade OLD helm release to version: $(helm_chart_version.helm_current_release_version)"
-      onTimeout: 'reject'
-  - task: HelmDeploy@0
-    condition: and(succeeded(), eq(${{ parameters.DO_DEPLOY }}, True))
-    displayName: Deploy current PROD version $(helm_chart_version.helm_current_release_version) as OLD release
-    inputs:
-      kubernetesServiceEndpoint: ${{ parameters.KUBERNETES_SERVICE_CONN }}
-      namespace: ${{ parameters.NAMESPACE }}
-      command: upgrade
-      chartType: ${{ parameters.CHART_TYPE }}
-      chartPath: ${{ parameters.CHART_PATH }}
-      chartName: ${{ parameters.APP_NAME }}-old
-      releaseName: ${{ parameters.APP_NAME }}-old
-      valueFile: ${{ parameters.VALUE_FILE }}
-      install: true
-      waitForExecution: ${{ parameters.WAIT_FOR_EXECUTION }}
-      arguments: ${{ parameters.ARGUMENTS }}
-      overrideValues: microservice-chart.ingress.path=/pagopa-ecommerce-event-dispatcher-old/(.*),microservice-chart.envConfig.DEPLOYMENT_VERSION=old,microservice-chart.canaryDelivery.create=${{ parameters.DO_BLUE_GREEN_DEPLOY }},microservice-chart.canaryDelivery.deployment.image.tag=${{ parameters.BLUE_VERSION }}
-
-  # STEP 3: enable OLD receivers and stop new ones
-  - task: ManualValidation@0
-    timeoutInMinutes: 4320 # 3 days
-    inputs:
-      notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
-      instructions: "Approve enable OLD receivers"
-      onTimeout: 'reject'
-  - task: Bash@3
-    name: start_old_stop_new_receivers
-    displayName: 'Perform curl to start old receivers'
-    inputs:
-      targetType: "inline"
-      script: |
-        declare -A commandUrls=( ["DEV"]="https://weudev.ecommerce.internal.dev.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-old/event-dispatcher/event-receivers/commands" ["UAT"]="https://weuuat.ecommerce.internal.uat.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-old/event-dispatcher/event-receivers/commands" ["PROD"]="https://weuprod.ecommerce.internal.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-old/event-dispatcher/event-receivers/commands")
-        commandUrl=${commandUrls[${{ parameters.ENV }}]}
-        echo $commandUrl
-        curl --location $commandUrl \
-        --header 'Content-Type: application/json' \
-        --data '{
-          "command": "START",
-          "deploymentVersion": "OLD"
-        }
-      failOnStderr: false
-
-  - task: ManualValidation@0
-    timeoutInMinutes: 4320 # 3 days
-    inputs:
-      notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
-      instructions: "Approve disable NEW receivers"
-      onTimeout: 'reject'
-  - task: Bash@3
-    name: start_old_stop_new_receivers
-    displayName: 'Perform curl to stop new receivers'
-    inputs:
-      targetType: "inline"
-      script: |
-        declare -A commandUrls=( ["DEV"]="https://api.dev.platform.pagopa.it/pagopa-ecommerce-event-dispatcher/event-dispatcher/event-receivers/commands" ["UAT"]="https://weuuat.ecommerce.internal.uat.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-old/event-dispatcher/event-receivers/commands" ["PROD"]="https://weuprod.ecommerce.internal.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-old/event-dispatcher/event-receivers/commands")
-        commandUrl=${commandUrls[${{ parameters.ENV }}]}
-        echo $commandUrl
-        curl --location $commandUrl \
-        --header 'Content-Type: application/json' \
-        --data '{
-          "command": "STOP",
-          "deploymentVersion": "NEW"
-        }'
-      failOnStderr: false
+  # STEP 3: stop NEW deployment version receivers by command
+  - stage: Disable_New_Receivers_Manual_Approve
+    displayName: Disable NEW receivers approval
+    dependsOn: Enable_Old_Receivers
+    timeoutInMinutes: 30
+    pool: server
+    jobs:
+      - job: Disable_New_Receivers_Manual_Approve
+        description: Manual NEW receiver disable approval
+        steps:
+          - task: ManualValidation@0
+            timeoutInMinutes: 30
+            inputs:
+              notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
+              instructions: "Approve disable NEW receivers"
+              onTimeout: 'reject'
+  - stage: Disable_New_Receivers
+    dependsOn: Disable_New_Receivers_Manual_Approve
+    condition: succeeded()
+    jobs:
+      - job: Disable_New_Receivers
+        steps:
+          - task: Bash@3
+            name: stop_new_receivers
+            displayName: 'Perform curl to stop new deployment receivers'
+            inputs:
+              targetType: "inline"
+              script: |
+                declare -A commandUrls=(\
+                ["DEV"]="https://weudev.ecommerce.internal.dev.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-old/event-dispatcher/event-receivers/commands" \
+                ["UAT"]="https://weuuat.ecommerce.internal.uat.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-old/event-dispatcher/event-receivers/commands" \
+                ["PROD"]="https://weuprod.ecommerce.internal.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-old/event-dispatcher/event-receivers/commands" \
+                )
+                commandUrl=${commandUrls[${{ parameters.ENV }}]}
+                echo $commandUrl
+                curl --location $commandUrl \
+                --header 'Content-Type: application/json' \
+                --data '{
+                  "command": "STOP",
+                  "deploymentVersion": "NEW"
+                }
+              failOnStderr: false
 
 
-  # STEP 4: perform checkout against the new version release tag
-  - script: |
-      checkoutVersion=${{ parameters.NEW_VERSION }} 
-      echo "Checkout new release version repo tag: [$checkoutVersion]" 
-      git checkout $checkoutVersion
-    displayName: 'Checkout new release version tag'
+  # STEP 4: Deploy new release as Deployment NEW approval task
+  - stage: Deploy_New_Version_Approval
+    displayName: Deploy the new release version ${{ parameters.NEW_VERSION }}
+    dependsOn: Disable_New_Receivers
+    condition: succeeded()
+    jobs:
+      - job: New_Version_Deploy_Approval
+        displayName: New version deploy manual approve
+        pool: server
+        timeoutInMinutes: 30
+        steps:
+          - task: ManualValidation@0
+            timeoutInMinutes: 30
+            inputs:
+              notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
+              instructions: "Approve upgrade NEW helm release to version: [${{ parameters.NEW_VERSION }}]"
+              onTimeout: 'reject'
+  - stage: Deploy_New_Version
+    displayName: Deploy NEW version ${{ parameters.NEW_VERSION }}
+    dependsOn: Deploy_New_Version_Approval
+    condition: succeeded()
+    jobs:
+      - job: New_Version_Deploy
+        displayName: New version deploy
+        steps:
+          - script: |
+              checkoutVersion=${{ parameters.NEW_VERSION }} 
+              echo "Checkout new release version repo tag: [$checkoutVersion]" 
+              git checkout $checkoutVersion
+            displayName: 'Checkout new release version tag [${{ parameters.NEW_VERSION }}]'
+          - task: HelmDeploy@0
+            displayName: Deploy new version as NEW release
+            inputs:
+              kubernetesServiceEndpoint: ${{ parameters.KUBERNETES_SERVICE_CONN }}
+              namespace: ${{ parameters.NAMESPACE }}
+              command: upgrade
+              chartType: ${{ parameters.CHART_TYPE }}
+              chartPath: ${{ parameters.CHART_PATH }}
+              chartName: ${{ parameters.APP_NAME }}-new
+              releaseName: ${{ parameters.APP_NAME }}-new
+              valueFile: ${{ parameters.VALUE_FILE }}
+              install: true
+              waitForExecution: ${{ parameters.WAIT_FOR_EXECUTION }}
+              arguments: ${{ parameters.ARGUMENTS }}
+              overrideValues: microservice-chart.ingress.path=/pagopa-ecommerce-event-dispatcher-new/(.*),microservice-chart.envConfig.DEPLOYMENT_VERSION=new,microservice-chart.canaryDelivery.create=${{ parameters.DO_BLUE_GREEN_DEPLOY }},microservice-chart.canaryDelivery.deployment.image.tag=${{ parameters.BLUE_VERSION }}
 
-  # STEP 5: override the new release with the new version (the new released version)
-  - task: ManualValidation@0
-    timeoutInMinutes: 4320 # 3 days
-    inputs:
-      notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
-      instructions: "Approve upgrade NEW helm release to version: ${{ parameters.NEW_VERSION }}"
-      onTimeout: 'reject'
-  - task: HelmDeploy@0
-    displayName: Deploy new version as NEW release
-    inputs:
-      kubernetesServiceEndpoint: ${{ parameters.KUBERNETES_SERVICE_CONN }}
-      namespace: ${{ parameters.NAMESPACE }}
-      command: upgrade
-      chartType: ${{ parameters.CHART_TYPE }}
-      chartPath: ${{ parameters.CHART_PATH }}
-      chartName: ${{ parameters.APP_NAME }}-new
-      releaseName: ${{ parameters.APP_NAME }}-new
-      valueFile: ${{ parameters.VALUE_FILE }}
-      install: true
-      waitForExecution: ${{ parameters.WAIT_FOR_EXECUTION }}
-      arguments: ${{ parameters.ARGUMENTS }}
-      overrideValues: microservice-chart.ingress.path=/pagopa-ecommerce-event-dispatcher-new/(.*),microservice-chart.envConfig.DEPLOYMENT_VERSION=new,microservice-chart.canaryDelivery.create=${{ parameters.DO_BLUE_GREEN_DEPLOY }},microservice-chart.canaryDelivery.deployment.image.tag=${{ parameters.BLUE_VERSION }}
+  # STEP 5: once new version is deployed, proceed to start new receivers
+  - stage: New_Receiver_Start_Approval
+    displayName: Start new receivers manual approval
+    dependsOn: Deploy_New_Version
+    jobs:
+      - job: New_Receiver_Start_Approval
+        pool: server
+        timeoutInMinutes: 30
+        steps:
+          - task: ManualValidation@0
+            timeoutInMinutes: 30
+            inputs:
+              notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
+              instructions: "Approve enable NEW receivers"
+              onTimeout: 'reject'
+  - stage: New_Receiver_Start
+    displayName: Start new receivers
+    dependsOn: New_Receiver_Start_Approval
+    condition: succeeded()
+    jobs:
+      - job: New_Receiver_Start
+        displayName: Start new receivers by curl command
+        steps:
+          - task: Bash@3
+            name: start_new_receivers
+            displayName: 'Perform curl to start new receivers'
+            inputs:
+              targetType: "inline"
+              script: |
+                declare -A commandUrls=(\
+                ["DEV"]="https://weudev.ecommerce.internal.dev.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-new/event-dispatcher/event-receivers/commands" \
+                ["UAT"]="https://weuuat.ecommerce.internal.uat.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-new/event-dispatcher/event-receivers/commands" \
+                ["PROD"]="https://weuprod.ecommerce.internal.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-new/event-dispatcher/event-receivers/commands" \
+                )
+                commandUrl=${commandUrls[${{ parameters.ENV }}]}
+                echo $commandUrl
+                curl --location $commandUrl \
+                --header 'Content-Type: application/json' \
+                --data '{
+                  "command": "START",
+                  "deploymentVersion": "NEW"
+                }'
+              failOnStderr: false
 
-  # STEP 5: once new version is deployed, proceed to stop old receivers (new receivers are already started)
-  - task: ManualValidation@0
-    timeoutInMinutes: 4320 # 3 days
-    inputs:
-      notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
-      instructions: "Approve enable NEW receivers"
-      onTimeout: 'reject'
-  - task: Bash@3
-    name: start_new_stop_old_receivers
-    displayName: 'Perform curl to start new receivers'
-    inputs:
-      targetType: "inline"
-      script: |
-        declare -A commandUrls=( ["DEV"]="https://api.dev.platform.pagopa.it/pagopa-ecommerce-event-dispatcher/event-dispatcher/event-receivers/commands" ["UAT"]="https://weuuat.ecommerce.internal.uat.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-new/event-dispatcher/event-receivers/commands" ["PROD"]="https://weuprod.ecommerce.internal.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-new/event-dispatcher/event-receivers/commands")
-        commandUrl=${commandUrls[${{ parameters.ENV }}]}
-        echo $commandUrl
-        curl --location $commandUrl \
-        --header 'Content-Type: application/json' \
-        --data '{
-          "command": "START",
-          "deploymentVersion": "NEW"
-        }'
-      failOnStderr: false
+  # STEP 6: Once started new receiver proceed to stop old ones
+  - stage: Old_Receiver_Stop_Approval
+    displayName: Stop old receiver manual approval
+    dependsOn: New_Receiver_Start
+    jobs:
+      - job: Old_Receiver_Stop_Approval
+        pool: server
+        timeoutInMinutes: 30
+        steps:
+          - task: ManualValidation@0
+            timeoutInMinutes: 30
+            inputs:
+              notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
+              instructions: "Approve disable OLD receivers"
+              onTimeout: 'reject'
+  - stage: Old_Receiver_Stop
+    dependsOn: Old_Receiver_Stop_Approval
+    displayName: Stop old receiver
+    jobs:
+      - job: Old_Receiver_Stop
+        steps:
+          - task: Bash@3
+            name: stop_old_receivers
+            displayName: 'Perform curl to stop old receivers'
+            inputs:
+              targetType: "inline"
+              script: |
+                declare -A commandUrls=(\
+                ["DEV"]="https://weudev.ecommerce.internal.dev.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-new/event-dispatcher/event-receivers/commands" \ 
+                ["UAT"]="https://weuuat.ecommerce.internal.uat.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-new/event-dispatcher/event-receivers/commands" \
+                ["PROD"]="https://weuprod.ecommerce.internal.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-new/event-dispatcher/event-receivers/commands" \
+                )
+                commandUrl=${commandUrls[${{ parameters.ENV }}]}
+                echo $commandUrl
+                curl --location $commandUrl \
+                --header 'Content-Type: application/json' \
+                --data '{
+                  "command": "STOP",
+                  "deploymentVersion": "OLD"
+                }'
+              failOnStderr: false
 
-  - task: ManualValidation@0
-    timeoutInMinutes: 4320 # 3 days
-    inputs:
-      notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
-      instructions: "Approve disable OLD receivers"
-      onTimeout: 'reject'
-  - task: Bash@3
-    name: start_new_stop_old_receivers
-    displayName: 'Perform curl to stop old receivers'
-    inputs:
-      targetType: "inline"
-      script: |
-        declare -A commandUrls=( ["DEV"]="https://api.dev.platform.pagopa.it/pagopa-ecommerce-event-dispatcher/event-dispatcher/event-receivers/commands" ["UAT"]="https://weuuat.ecommerce.internal.uat.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-new/event-dispatcher/event-receivers/commands" ["PROD"]="https://weuprod.ecommerce.internal.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-new/event-dispatcher/event-receivers/commands")
-        commandUrl=${commandUrls[${{ parameters.ENV }}]}
-        echo $commandUrl
-        curl --location $commandUrl \
-        --header 'Content-Type: application/json' \
-        --data '{
-          "command": "STOP",
-          "deploymentVersion": "OLD"
-        }'
-      failOnStderr: false
-
-  # STEP 6: scale down old receiver PODS
-  - task: ManualValidation@0
-    timeoutInMinutes: 4320 # 3 days
-    inputs:
-      notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
-      instructions: "Approve scale down to 0 OLD receivers"
-      onTimeout: 'reject'
-  - task: Kubernetes@1
-    displayName: Scale down old receivers PODS (annotate ScaledObject with autoscaling.keda.sh/paused-replicas="0")
-    continueOnError: true
-    inputs:
-      kubernetesServiceEndpoint: ${{ parameters.KUBERNETES_SERVICE_CONN }}
-      kubernetesCluster: ${{ parameters.KUBERNETES_CLUSTER }}
-      namespace: ${{ parameters.NAMESPACE }}
-      command: annotate
-      arguments: scaledobjects pagopaecommerceeventdispatcher-old-microservice-chart autoscaling.keda.sh/paused-replicas="0"
+  # STEP 7: deployment rollout ended, scale down OLD deployment PODS
+  - stage: Scale_Down_Old_Deployment_Approval
+    dependsOn: Old_Receiver_Stop
+    displayName: Approval for scale down old deployment PODS
+    jobs:
+      - job: Scale_Down_Old_Deployment_Approval
+        steps:
+          - task: ManualValidation@0
+            timeoutInMinutes: 4320 # 3 days
+            inputs:
+              notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
+              instructions: "Approve scale OLD deployment down to 0 pods"
+              onTimeout: 'reject'
+  - stage: Scale_Down_Old_Deployment
+    dependsOn: Scale_Down_Old_Deployment_Approval
+    displayName: Scale down OLD deployment to 0 pods
+    jobs:
+      - job: Scale_Down_Old_Deployment
+        displayName: Annotate scaledObject with autoscaling.keda.sh/paused-replicas="0"
+        steps:
+          - task: Kubernetes@1
+            displayName: Scale down old receivers PODS (annotate ScaledObject with autoscaling.keda.sh/paused-replicas="0")
+            continueOnError: true
+            inputs:
+              kubernetesServiceEndpoint: ${{ parameters.KUBERNETES_SERVICE_CONN }}
+              kubernetesCluster: ${{ parameters.KUBERNETES_CLUSTER }}
+              namespace: ${{ parameters.NAMESPACE }}
+              command: annotate
+              arguments: scaledobjects pagopaecommerceeventdispatcher-old-microservice-chart autoscaling.keda.sh/paused-replicas="0"
 
