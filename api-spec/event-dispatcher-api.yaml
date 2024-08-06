@@ -131,7 +131,6 @@ components:
             $ref: '#/components/schemas/ReceiverStatus'
       required:
         - instanceId
-        - deploymentVersion
         - receiverStatuses
 
     ReceiverStatus:

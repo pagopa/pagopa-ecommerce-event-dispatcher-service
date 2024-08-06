@@ -6,6 +6,6 @@ import it.pagopa.generated.eventdispatcher.server.model.DeploymentVersionDto
 data class ReceiversStatus(
   val consumerInstanceId: String,
   val queriedAt: String,
-  val version: DeploymentVersionDto,
+  val version: DeploymentVersionDto?,
   val receiverStatuses: List<ReceiverStatus>
 )
