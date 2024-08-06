@@ -148,7 +148,11 @@ stages:
     condition:
       and(
         succeeded(),
-        eq(${{parameters.UAT_PROD_DEPLOY}}, true)
+        eq(${{parameters.UAT_PROD_DEPLOY}}, true),
+        or(
+         eq(variables['Build.SourceBranch'], 'refs/heads/main'),
+         startsWith(variables['Build.SourceBranch'], 'refs/tags')
+         )
       )
     jobs:
       - job: "build"
@@ -283,11 +287,14 @@ stages:
       and(
         eq(${{parameters.UAT_PROD_DEPLOY}}, true),
         in(dependencies.tag_docker_release.result, 'Succeeded', 'Skipped'),
-        in(dependencies.Release.result, 'Succeeded', 'Skipped')
+        in(dependencies.Release.result, 'Succeeded', 'Skipped'),
+        or(
+          eq(variables['Build.SourceBranch'], 'refs/heads/main'),
+          startsWith(variables['Build.SourceBranch'], 'refs/tags')
+        )
       )
     variables:
       app_version: $[ stageDependencies.Release.make_release.outputs['chart_current_version.appVersion'] ]
-      release_version: $[ stageDependencies.Release.make_release.outputs['chart_current_version.version'] ]
     jobs:
       - deployment: "Green_deployment"
         displayName: "Green deployment"
@@ -309,18 +316,16 @@ stages:
                     script: |
                       helm repo add microservice-chart https://pagopa.github.io/aks-microservice-chart-blueprint
                       helm dep build helm
-
-                - template: azure-templates/swap-new-old-deployment.yml
+                - template: azure-templates/helm-microservice-chart-deploy.yml
                   parameters:
                     DO_DEPLOY: true
                     DO_BLUE_GREEN_DEPLOY: false
                     ENV: 'UAT'
                     KUBERNETES_SERVICE_CONN: $(UAT_KUBERNETES_SERVICE_CONN)
                     NAMESPACE: ecommerce
-                    APP_NAME: pagopaecommerceeventdispatcher
+                    APP_NAME: $(K8S_IMAGE_REPOSITORY_NAME)
                     VALUE_FILE: "helm/values-uat.yaml"
-                    HELM_NEW_RELEASE_FILTER: pagopaecommerceeventdispatcherservice #FIXME qui ci deve essere il nome della release new!
-                    NEW_VERSION: $(release_version)
+                    GREEN_VERSION: $(app_version)
   # --- END Deploy UAT --- #
 
   # --- START Deploy PROD --- #
@@ -519,11 +524,6 @@ stages:
               steps:
                 - checkout: self
                   displayName: "Checkout"
-                #need to checkout against release version in order to take chart with bumped version here
-                - script: |
-                    echo "Checkout repo tag: [$(release_version)]"
-                    git checkout $(release_version)
-                  displayName: 'Checkout release tag'
                 - task: Bash@3
                   name: update_chart_version
                   displayName: 'Setup helm microservice chart'
