@@ -36,7 +36,7 @@ parameters:
 
 steps:
   - task: Bash@3
-    name: wait_for_status_{{ parameters.WANTED_STATUS }}_receivers_{{ parameters.TARGET_DEPLOYMENT_VERSION }}
+    name: wait_for_status_${{ parameters.WANTED_STATUS }}_receivers_${{ parameters.TARGET_DEPLOYMENT_VERSION }}
     displayName: 'Check old receiver status'
     inputs:
       targetType: "inline"

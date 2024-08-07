@@ -28,7 +28,7 @@ parameters:
 
 steps:
   - task: Bash@3
-    name: {{ parameters.COMMAND }}_receivers_{{ parameters.TARGET_DEPLOYMENT_VERSION }}
+    name: ${{ parameters.COMMAND }}_receivers_${{ parameters.TARGET_DEPLOYMENT_VERSION }}
     displayName: 'Perform curl to start old receivers'
     inputs:
       targetType: "inline"
