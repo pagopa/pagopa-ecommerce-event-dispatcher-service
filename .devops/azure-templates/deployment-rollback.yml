@@ -1,5 +1,12 @@
 #This template contains steps to perform deployment rollback for the o down-time deployment strategy
 parameters:
+  # environment
+  - name: ENV
+    type: string
+    values:
+      - DEV
+      - UAT
+      - PROD
   # kubernetes service connection
   - name: KUBERNETES_SERVICE_CONN
     type: string
