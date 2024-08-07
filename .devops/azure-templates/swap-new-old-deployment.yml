@@ -207,6 +207,7 @@ stages:
                 helm repo add microservice-chart https://pagopa.github.io/aks-microservice-chart-blueprint
                 helm dep build helm
           - task: HelmDeploy@0
+            condition: and(succeeded(), eq(${{ parameters.DO_DEPLOY }}, True))
             displayName: Deploy new version as NEW release
             inputs:
               kubernetesServiceEndpoint: ${{ parameters.KUBERNETES_SERVICE_CONN }}
