@@ -20,7 +20,7 @@ parameters:
   - name: APP_NAME
     type: string
 
-steps:
+stages:
   # STEP 0: scale up old release (by removing annotation on old release scaledObject)
   - stage: Scale_Up_Old_Deployment
     displayName: Scale up OLD deployment
