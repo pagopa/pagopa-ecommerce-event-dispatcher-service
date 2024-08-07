@@ -17,8 +17,8 @@ parameters:
   - name: WANTED_STATUS
     type: string
     values:
-      - START
-      - STOP
+      - UP
+      - DOWN
   # command target deployment version
   - name: TARGET_DEPLOYMENT_VERSION
     type: string
