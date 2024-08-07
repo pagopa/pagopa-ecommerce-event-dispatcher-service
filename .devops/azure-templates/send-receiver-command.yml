@@ -29,7 +29,7 @@ parameters:
 steps:
   - task: Bash@3
     name: ${{ parameters.COMMAND }}_receivers_${{ parameters.TARGET_DEPLOYMENT_VERSION }}
-    displayName: 'Perform curl to start old receivers'
+    displayName: 'Sending command ${{ parameters.COMMAND }} to deployment ${{ parameters.TARGET_DEPLOYMENT_VERSION }}'
     inputs:
       targetType: "inline"
       script: |
@@ -43,7 +43,6 @@ steps:
         ["PROD"]="https://weuprod.ecommerce.internal.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-$deploymentInstance/event-dispatcher/event-receivers/commands" \
         )
         commandUrl=${commandUrls[${{ parameters.ENV }}]}
-        echo "Performing POST $commandUrl with body $body"
         body=$(cat <<EOF
         {
           "command": "$command",
@@ -51,6 +50,7 @@ steps:
         }
         EOF
         )
+        echo "Performing POST $commandUrl with body $body"
         curl --location $commandUrl \
         --header 'Content-Type: application/json' \
         --data "$body"

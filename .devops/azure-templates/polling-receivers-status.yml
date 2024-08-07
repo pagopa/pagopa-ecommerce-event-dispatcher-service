@@ -37,13 +37,14 @@ parameters:
 steps:
   - task: Bash@3
     name: wait_for_status_${{ parameters.WANTED_STATUS }}_receivers_${{ parameters.TARGET_DEPLOYMENT_VERSION }}
-    displayName: 'Check old receiver status'
+    displayName: 'Check ${{ parameters.TARGET_DEPLOYMENT_VERSION }} receiver status to become ${{ parameters.WANTED_STATUS }}'
     inputs:
       targetType: "inline"
       script: |
         continuePolling=true
         matched=false
         iteration=1
+        pollingInterval=${{ parameters.INTERVAL }}
         maxIterations=${{ parameters.MAX_ITERATIONS }}
         wantedReceiverStatus=${{ parameters.WANTED_STATUS }}
         deploymentInstance=${{ parameters.DEPLOYMENT_INSTANCE_COMMAND_RECEIVER }}
@@ -54,7 +55,9 @@ steps:
         ["PROD"]="https://weuprod.ecommerce.internal.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-$deploymentInstance/event-dispatcher/event-receivers/status?version=$targetDeploymentVersion" \
         )
         commandUrl=${commandUrls[${{ parameters.ENV }}]}
-        echo $commandUrl
+        echo "Polling receiver status using GET $commandUrl"
+        echo "Wanted status: [$wantedReceiverStatus] on target deployment: [$targetDeploymentVersion]."
+        echo "Polling max iterations: [$maxIterations], polling interval: [$pollingInterval] seconds"
         while [ $continuePolling = true ];
         do
             echo "Checking receiver status... [$iteration/$maxIterations]"
@@ -75,7 +78,7 @@ steps:
             ((iteration++))
             #sleep for the set interval iff we have not reached the polling exit condition
             if [ $continuePolling = true ]; then
-               sleep ${{ parameters.INTERVAL }}
+               sleep $pollingInterval
             fi
         done
         if [ $matched = false ]; then
