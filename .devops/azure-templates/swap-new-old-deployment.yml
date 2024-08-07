@@ -145,25 +145,25 @@ stages:
           - template: send-receiver-command.yml
             parameters:
               DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: old
-              ENV: ${{ parameters.VALUE_FILE }}
+              ENV: ${{ parameters.ENV }}
               COMMAND: START
               TARGET_DEPLOYMENT_VERSION: OLD
           - template: polling-receivers-status.yml
             parameters:
               DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: old
-              ENV: ${{ parameters.VALUE_FILE }}
+              ENV: ${{ parameters.ENV }}
               WANTED_STATUS: UP
               TARGET_DEPLOYMENT_VERSION: OLD
           - template: send-receiver-command.yml
             parameters:
               DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: old
-              ENV: ${{ parameters.VALUE_FILE }}
+              ENV: ${{ parameters.ENV }}
               COMMAND: STOP
               TARGET_DEPLOYMENT_VERSION: NEW
           - template: polling-receivers-status.yml
             parameters:
               DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: old
-              ENV: ${{ parameters.VALUE_FILE }}
+              ENV: ${{ parameters.ENV }}
               WANTED_STATUS: DOWN
               TARGET_DEPLOYMENT_VERSION: NEW
 
@@ -249,25 +249,25 @@ stages:
           - template: send-receiver-command.yml
             parameters:
               DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: new
-              ENV: ${{ parameters.VALUE_FILE }}
+              ENV: ${{ parameters.ENV }}
               COMMAND: START
               TARGET_DEPLOYMENT_VERSION: NEW
           - template: polling-receivers-status.yml
             parameters:
               DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: new
-              ENV: ${{ parameters.VALUE_FILE }}
+              ENV: ${{ parameters.ENV }}
               WANTED_STATUS: UP
               TARGET_DEPLOYMENT_VERSION: NEW
           - template: send-receiver-command.yml
             parameters:
               DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: new
-              ENV: ${{ parameters.VALUE_FILE }}
+              ENV: ${{ parameters.ENV }}
               COMMAND: STOP
               TARGET_DEPLOYMENT_VERSION: OLD
           - template: polling-receivers-status.yml
             parameters:
               DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: new
-              ENV: ${{ parameters.VALUE_FILE }}
+              ENV: ${{ parameters.ENV }}
               WANTED_STATUS: DOWN
               TARGET_DEPLOYMENT_VERSION: OLD
 
