@@ -1,42 +1,63 @@
+#This template contains stages to handle zero downtime deploy swapping old-new deployments
 parameters:
+  # boolean parameter to effectively perform helm deploy task
   - name: "DO_DEPLOY"
     type: boolean
+  # deploy environment
   - name: "ENV"
     type: string
+    values:
+      - DEV
+      - UAT
+      - PROD
+  # the new version to be deployed
   - name: "NEW_VERSION"
     type: string
+  # the application name to be used as a base name in helm new/old deployment
   - name: "APP_NAME"
     type: string
+  # kubernetes service connection
   - name: "KUBERNETES_SERVICE_CONN"
     type: string
+  # kubernetes cluster name
   - name: "KUBERNETES_CLUSTER"
     type: string
+  # kubernetes namespace
   - name: "NAMESPACE"
     type: string
+  # helm value file name
   - name: "VALUE_FILE"
     type: string
+  # helm release filter to be used to detect the actual deployed version
   - name: "HELM_NEW_RELEASE_FILTER"
     type: string
+  #optional parameters
+  # chart type
   - name: "CHART_TYPE"
     type: string
-    #optional parameters
     default: "filepath"
+  # chart path
   - name: "CHART_PATH"
     type: string
     default: "helm"
+  # boolean value to enable blue/green deployment
   - name: "DO_BLUE_GREEN_DEPLOY"
     type: boolean
     default: false
+  # boolean value indicating if helm commands have to wait for execution completion
   - name: "WAIT_FOR_EXECUTION"
     type: boolean
     default: true
+  # additional arguments to be used in helm deployment command
   - name: "ARGUMENTS"
     type: string
     default: "--timeout 5m0s"
+  # the blue/green deployment blue version
   - name: "BLUE_VERSION"
     type: string
     default: "none"
 stages:
+
   # STEP 0: retrieve current release version from helm release
   - stage: Current_Helm_Release
     displayName: Retrieve current deployed helm release
@@ -61,6 +82,7 @@ stages:
                 version=$(echo '$(helm_event_dispatcher_releases.helmOutput)' | yq '.[].chart' | sed -e 's/pagopa-ecommerce-event-dispatcher-//g')
                 echo "##vso[task.setvariable variable=helm_current_release_version;isOutput=true]$version"
               failOnStderr: false
+
   # STEP 1: deploy current PROD version as OLD release (used for rollback purpose)
   - stage: Old_Version_Deploy_Approval
     displayName: Old version deploy approval
@@ -134,8 +156,6 @@ stages:
               notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
               instructions: "Approve enable OLD receivers"
               onTimeout: 'reject'
-
-
   - stage: Start_Old_Stop_New_Receivers
     dependsOn: Start_Old_Stop_New_Receivers_Manual_Approve
     condition: succeeded()
