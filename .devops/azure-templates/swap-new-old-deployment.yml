@@ -119,14 +119,14 @@ stages:
               arguments: ${{ parameters.ARGUMENTS }}
               overrideValues: microservice-chart.ingress.path=/pagopa-ecommerce-event-dispatcher-old/(.*),microservice-chart.envConfig.DEPLOYMENT_VERSION=old,microservice-chart.canaryDelivery.create=${{ parameters.DO_BLUE_GREEN_DEPLOY }},microservice-chart.canaryDelivery.deployment.image.tag=${{ parameters.BLUE_VERSION }}
 
-  # STEP 2: enable OLD deployment version receivers by command
-  - stage: Enable_Old_Receivers_Manual_Approve
-    displayName: Enable OLD receivers approval
+  # STEP 2: enable OLD deployment version receivers and stop new one by command curl
+  - stage: Start_Old_Stop_New_Receivers_Manual_Approve
+    displayName: Start OLD receivers and stop new ones approval
     dependsOn: Old_Version_Deploy
     pool: server
     jobs:
-      - job: Enable_Old_Receivers_Manual_Approve
-        displayName: Manual OLD receiver enable approval
+      - job: Start_Old_Stop_New_Receivers_Manual_Approve
+        displayName: Manual OLD receiver start and new stop approval
         steps:
           - task: ManualValidation@0
             timeoutInMinutes: 30
@@ -134,80 +134,48 @@ stages:
               notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
               instructions: "Approve enable OLD receivers"
               onTimeout: 'reject'
-  - stage: Enable_Old_Receivers
-    dependsOn: Enable_Old_Receivers_Manual_Approve
+
+
+  - stage: Start_Old_Stop_New_Receivers
+    dependsOn: Start_Old_Stop_New_Receivers_Manual_Approve
     condition: succeeded()
     jobs:
-      - job: Enable_Old_Receivers
+      - job: Start_Old_Stop_New_Receivers
         steps:
-          - task: Bash@3
-            name: start_old_receivers
-            displayName: 'Perform curl to start old receivers'
-            inputs:
-              targetType: "inline"
-              script: |
-                declare -A commandUrls=(\
-                ["DEV"]="https://weudev.ecommerce.internal.dev.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-old/event-dispatcher/event-receivers/commands" \
-                ["UAT"]="https://weuuat.ecommerce.internal.uat.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-old/event-dispatcher/event-receivers/commands" \
-                ["PROD"]="https://weuprod.ecommerce.internal.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-old/event-dispatcher/event-receivers/commands" \
-                )
-                commandUrl=${commandUrls[${{ parameters.ENV }}]}
-                echo $commandUrl
-                curl --location $commandUrl \
-                --header 'Content-Type: application/json' \
-                --data '{
-                  "command": "START",
-                  "deploymentVersion": "OLD"
-                }'
-              failOnStderr: false
-
-  # STEP 3: stop NEW deployment version receivers by command
-  - stage: Disable_New_Receivers_Manual_Approve
-    displayName: Disable NEW receivers approval
-    dependsOn: Enable_Old_Receivers
-    pool: server
-    jobs:
-      - job: Disable_New_Receivers_Manual_Approve
-        displayName: Manual NEW receiver disable approval
-        steps:
-          - task: ManualValidation@0
-            timeoutInMinutes: 30
-            inputs:
-              notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
-              instructions: "Approve disable NEW receivers"
-              onTimeout: 'reject'
-  - stage: Disable_New_Receivers
-    dependsOn: Disable_New_Receivers_Manual_Approve
-    condition: succeeded()
-    jobs:
-      - job: Disable_New_Receivers
-        steps:
-          - task: Bash@3
-            name: stop_new_receivers
-            displayName: 'Perform curl to stop new deployment receivers'
-            inputs:
-              targetType: "inline"
-              script: |
-                declare -A commandUrls=(\
-                ["DEV"]="https://weudev.ecommerce.internal.dev.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-old/event-dispatcher/event-receivers/commands" \
-                ["UAT"]="https://weuuat.ecommerce.internal.uat.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-old/event-dispatcher/event-receivers/commands" \
-                ["PROD"]="https://weuprod.ecommerce.internal.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-old/event-dispatcher/event-receivers/commands" \
-                )
-                commandUrl=${commandUrls[${{ parameters.ENV }}]}
-                echo $commandUrl
-                curl --location $commandUrl \
-                --header 'Content-Type: application/json' \
-                --data '{
-                  "command": "STOP",
-                  "deploymentVersion": "NEW"
-                }'
-              failOnStderr: false
+          - template: azure-templates/send-receiver-command.yml
+            displayName: Start old receivers
+            parameters:
+              DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: old
+              ENV: ${{ parameters.VALUE_FILE }}
+              COMMAND: START
+              TARGET_DEPLOYMENT_VERSION: OLD
+          - template: azure-templates/polling-receivers-status.yml
+            displayName: Wait for old receivers to be UP
+            parameters:
+              DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: old
+              ENV: ${{ parameters.VALUE_FILE }}
+              WANTED_STATUS: UP
+              TARGET_DEPLOYMENT_VERSION: OLD
+          - template: azure-templates/send-receiver-command.yml
+            displayName: Stop new receivers
+            parameters:
+              DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: old
+              ENV: ${{ parameters.VALUE_FILE }}
+              COMMAND: STOP
+              TARGET_DEPLOYMENT_VERSION: NEW
+          - template: azure-templates/polling-receivers-status.yml
+            displayName: Wait for new receivers to be DOWN
+            parameters:
+              DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: old
+              ENV: ${{ parameters.VALUE_FILE }}
+              WANTED_STATUS: DOWN
+              TARGET_DEPLOYMENT_VERSION: NEW
 
 
-  # STEP 4: Deploy new release as Deployment NEW approval task
+  # STEP 3: Deploy new release as Deployment NEW approval task
   - stage: Deploy_New_Version_Approval
     displayName: Deploy the new release version ${{ parameters.NEW_VERSION }}
-    dependsOn: Disable_New_Receivers
+    dependsOn: Start_Old_Stop_New_Receivers
     condition: succeeded()
     jobs:
       - job: New_Version_Deploy_Approval
@@ -258,95 +226,63 @@ stages:
               arguments: ${{ parameters.ARGUMENTS }}
               overrideValues: microservice-chart.ingress.path=/pagopa-ecommerce-event-dispatcher-new/(.*),microservice-chart.envConfig.DEPLOYMENT_VERSION=new,microservice-chart.canaryDelivery.create=${{ parameters.DO_BLUE_GREEN_DEPLOY }},microservice-chart.canaryDelivery.deployment.image.tag=${{ parameters.BLUE_VERSION }}
 
-  # STEP 5: once new version is deployed, proceed to start new receivers
-  - stage: New_Receiver_Start_Approval
-    displayName: Start new receivers manual approval
+  # STEP 4: once new version is deployed, proceed to start new receivers and stop old ones
+  - stage: Start_New_Stop_Old_Receivers_Approval
+    displayName: Start new receivers and stop old ones manual approval
     dependsOn: Deploy_New_Version
     jobs:
-      - job: New_Receiver_Start_Approval
+      - job: Start_New_Stop_Old_Receivers_Approval
         pool: server
         timeoutInMinutes: 30
+        displayName: Start new receivers and stop old ones
         steps:
           - task: ManualValidation@0
             timeoutInMinutes: 30
             inputs:
               notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
-              instructions: "Approve enable NEW receivers"
+              instructions: "Approve enable NEW receivers and disable old ones"
               onTimeout: 'reject'
-  - stage: New_Receiver_Start
-    displayName: Start new receivers
-    dependsOn: New_Receiver_Start_Approval
+  - stage: Start_New_Stop_Old_Receivers
+    displayName: Start new receivers and stop old ones
+    dependsOn: Start_New_Stop_Old_Receivers_Approval
     condition: succeeded()
     jobs:
-      - job: New_Receiver_Start
-        displayName: Start new receivers by curl command
+      - job: Start_New_Stop_Old_Receivers
+        displayName: Start new receivers by curl command and stop old ones
         steps:
-          - task: Bash@3
-            name: start_new_receivers
-            displayName: 'Perform curl to start new receivers'
-            inputs:
-              targetType: "inline"
-              script: |
-                declare -A commandUrls=(\
-                ["DEV"]="https://weudev.ecommerce.internal.dev.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-new/event-dispatcher/event-receivers/commands" \
-                ["UAT"]="https://weuuat.ecommerce.internal.uat.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-new/event-dispatcher/event-receivers/commands" \
-                ["PROD"]="https://weuprod.ecommerce.internal.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-new/event-dispatcher/event-receivers/commands" \
-                )
-                commandUrl=${commandUrls[${{ parameters.ENV }}]}
-                echo $commandUrl
-                curl --location $commandUrl \
-                --header 'Content-Type: application/json' \
-                --data '{
-                  "command": "START",
-                  "deploymentVersion": "NEW"
-                }'
-              failOnStderr: false
+          - template: azure-templates/send-receiver-command.yml
+            displayName: Start new receivers
+            parameters:
+              DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: new
+              ENV: ${{ parameters.VALUE_FILE }}
+              COMMAND: START
+              TARGET_DEPLOYMENT_VERSION: NEW
+          - template: azure-templates/polling-receivers-status.yml
+            displayName: Wait for new receivers to be UP
+            parameters:
+              DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: new
+              ENV: ${{ parameters.VALUE_FILE }}
+              WANTED_STATUS: UP
+              TARGET_DEPLOYMENT_VERSION: NEW
+          - template: azure-templates/send-receiver-command.yml
+            displayName: Stop old receivers
+            parameters:
+              DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: new
+              ENV: ${{ parameters.VALUE_FILE }}
+              COMMAND: STOP
+              TARGET_DEPLOYMENT_VERSION: OLD
+          - template: azure-templates/polling-receivers-status.yml
+            displayName: Wait for old receivers to be DOWN
+            parameters:
+              DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: new
+              ENV: ${{ parameters.VALUE_FILE }}
+              WANTED_STATUS: DOWN
+              TARGET_DEPLOYMENT_VERSION: OLD
 
-  # STEP 6: Once started new receiver proceed to stop old ones
-  - stage: Old_Receiver_Stop_Approval
-    displayName: Stop old receiver manual approval
-    dependsOn: New_Receiver_Start
-    jobs:
-      - job: Old_Receiver_Stop_Approval
-        pool: server
-        timeoutInMinutes: 30
-        steps:
-          - task: ManualValidation@0
-            timeoutInMinutes: 30
-            inputs:
-              notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
-              instructions: "Approve disable OLD receivers"
-              onTimeout: 'reject'
-  - stage: Old_Receiver_Stop
-    dependsOn: Old_Receiver_Stop_Approval
-    displayName: Stop old receiver
-    jobs:
-      - job: Old_Receiver_Stop
-        steps:
-          - task: Bash@3
-            name: stop_old_receivers
-            displayName: 'Perform curl to stop old receivers'
-            inputs:
-              targetType: "inline"
-              script: |
-                declare -A commandUrls=(\
-                ["DEV"]="https://weudev.ecommerce.internal.dev.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-new/event-dispatcher/event-receivers/commands" \ 
-                ["UAT"]="https://weuuat.ecommerce.internal.uat.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-new/event-dispatcher/event-receivers/commands" \
-                ["PROD"]="https://weuprod.ecommerce.internal.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-new/event-dispatcher/event-receivers/commands" \
-                )
-                commandUrl=${commandUrls[${{ parameters.ENV }}]}
-                echo $commandUrl
-                curl --location $commandUrl \
-                --header 'Content-Type: application/json' \
-                --data '{
-                  "command": "STOP",
-                  "deploymentVersion": "OLD"
-                }'
-              failOnStderr: false
 
-  # STEP 7: deployment rollout ended, scale down OLD deployment PODS
+  # STEP 5: deployment rollout ended, scale down OLD deployment PODS
   - stage: Scale_Down_Old_Deployment_Approval
-    dependsOn: Old_Receiver_Stop
+    dependsOn: Start_New_Stop_Old_Receivers
     displayName: Approval for scale down old deployment PODS
     jobs:
       - job: Scale_Down_Old_Deployment_Approval
