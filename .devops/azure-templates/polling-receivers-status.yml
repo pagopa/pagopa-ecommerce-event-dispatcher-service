@@ -59,7 +59,7 @@ steps:
             echo "Checking receiver status... [$iteration/$maxIterations]"
             response=$(curl $commandUrl)
             echo "Receiver status response: $response"
-            filteredResponse=$(echo $response | yq '.status[] | select( .receiverStatuses[].status != "${{ parameters.WANTED_STATUS" }} )')
+            filteredResponse=$(echo $response | yq '.status[] | select( .receiverStatuses[].status != "${{ parameters.WANTED_STATUS }}" )')
             echo "Filtered by status response: $filteredResponse"
             if [ "$filteredResponse" = "" ] || [ $iteration = $maxIterations ]; then
                 continuePolling=false
