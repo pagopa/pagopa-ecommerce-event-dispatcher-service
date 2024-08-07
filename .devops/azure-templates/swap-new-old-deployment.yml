@@ -143,28 +143,24 @@ stages:
       - job: Start_Old_Stop_New_Receivers
         steps:
           - template: azure-templates/send-receiver-command.yml
-            displayName: Start old receivers
             parameters:
               DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: old
               ENV: ${{ parameters.VALUE_FILE }}
               COMMAND: START
               TARGET_DEPLOYMENT_VERSION: OLD
           - template: azure-templates/polling-receivers-status.yml
-            displayName: Wait for old receivers to be UP
             parameters:
               DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: old
               ENV: ${{ parameters.VALUE_FILE }}
               WANTED_STATUS: UP
               TARGET_DEPLOYMENT_VERSION: OLD
           - template: azure-templates/send-receiver-command.yml
-            displayName: Stop new receivers
             parameters:
               DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: old
               ENV: ${{ parameters.VALUE_FILE }}
               COMMAND: STOP
               TARGET_DEPLOYMENT_VERSION: NEW
           - template: azure-templates/polling-receivers-status.yml
-            displayName: Wait for new receivers to be DOWN
             parameters:
               DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: old
               ENV: ${{ parameters.VALUE_FILE }}
@@ -251,28 +247,24 @@ stages:
         displayName: Start new receivers by curl command and stop old ones
         steps:
           - template: azure-templates/send-receiver-command.yml
-            displayName: Start new receivers
             parameters:
               DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: new
               ENV: ${{ parameters.VALUE_FILE }}
               COMMAND: START
               TARGET_DEPLOYMENT_VERSION: NEW
           - template: azure-templates/polling-receivers-status.yml
-            displayName: Wait for new receivers to be UP
             parameters:
               DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: new
               ENV: ${{ parameters.VALUE_FILE }}
               WANTED_STATUS: UP
               TARGET_DEPLOYMENT_VERSION: NEW
           - template: azure-templates/send-receiver-command.yml
-            displayName: Stop old receivers
             parameters:
               DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: new
               ENV: ${{ parameters.VALUE_FILE }}
               COMMAND: STOP
               TARGET_DEPLOYMENT_VERSION: OLD
           - template: azure-templates/polling-receivers-status.yml
-            displayName: Wait for old receivers to be DOWN
             parameters:
               DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: new
               ENV: ${{ parameters.VALUE_FILE }}
