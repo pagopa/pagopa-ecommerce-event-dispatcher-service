@@ -43,11 +43,15 @@ steps:
         ["PROD"]="https://weuprod.ecommerce.internal.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-$deploymentInstance/event-dispatcher/event-receivers/commands" \
         )
         commandUrl=${commandUrls[${{ parameters.ENV }}]}
-        echo $commandUrl
-        curl --location $commandUrl \
-        --header 'Content-Type: application/json' \
-        --data '{
+        echo "Performing POST $commandUrl with body $body"
+        body=$(cat <<EOF
+        {
           "command": "$command",
           "deploymentVersion": "$deploymentTargetVersion"
-        }'
+        }
+        EOF
+        )
+        curl --location $commandUrl \
+        --header 'Content-Type: application/json' \
+        --data "$body"
       failOnStderr: false

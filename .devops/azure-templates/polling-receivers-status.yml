@@ -42,6 +42,7 @@ steps:
       targetType: "inline"
       script: |
         continuePolling=true
+        matched=false
         iteration=1
         maxIterations=${{ parameters.MAX_ITERATIONS }}
         wantedReceiverStatus=${{ parameters.WANTED_STATUS }}
@@ -59,16 +60,25 @@ steps:
             echo "Checking receiver status... [$iteration/$maxIterations]"
             response=$(curl $commandUrl)
             echo "Receiver status response: $response"
+            #filtering received status searching for all receiver that are not in the wanted status
             filteredResponse=$(echo $response | yq '.status[] | select( .receiverStatuses[].status != "${{ parameters.WANTED_STATUS }}" )')
             echo "Filtered by status response: $filteredResponse"
-            if [ "$filteredResponse" = "" ] || [ $iteration = $maxIterations ]; then
+            #if all receiver are in the wanted status then app have reached the wanted status
+            if [ "$filteredResponse" = "" ]; then
+              matched=true
+            fi
+            #continue to iterate until app reached the wanted status or up to the maximum iterations
+            if [ "$matched" = true ] || [ $iteration = $maxIterations ]; then
                 continuePolling=false
             fi
-            echo "Continue polling: $continuePolling"
+            echo "Continue polling: $continuePolling, matched: $matched"
             ((iteration++))
-            sleep ${{ parameters.INTERVAL }}
+            #sleep for the set interval iff we have not reached the polling exit condition
+            if [ $continuePolling = true ]; then
+               sleep ${{ parameters.INTERVAL }}
+            fi
         done
-        if [ $continuePolling = true ]; then
+        if [ $matched = false ]; then
             echo "Error waiting for deployment: [$deploymentVersion] receivers to be in status: [$wantedReceiverStatus]"
             exit 1
         else
