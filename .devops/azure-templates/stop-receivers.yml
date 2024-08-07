@@ -1,0 +1,35 @@
+#This template will handle receivers stop sending command and waiting for receivers to be in status DOWN
+parameters:
+  # deployment instance on which send command
+  - name: DEPLOYMENT_INSTANCE_COMMAND_RECEIVER
+    type: string
+    values:
+      - old
+      - new
+  # deployment environment
+  - name: ENV
+    type: string
+    values:
+      - DEV
+      - UAT
+      - PROD
+  # command target deployment version
+  - name: TARGET_DEPLOYMENT_VERSION
+    type: string
+    values:
+      - OLD
+      - NEW
+
+steps:
+  - template: receivers-commands/send-receiver-command.yml
+    parameters:
+      DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: ${{ parameters.DEPLOYMENT_INSTANCE_COMMAND_RECEIVER }}
+      ENV: ${{ parameters.ENV }}
+      COMMAND: STOP
+      TARGET_DEPLOYMENT_VERSION: ${{ parameters.TARGET_DEPLOYMENT_VERSION }}
+  - template: receivers-commands/polling-receivers-status.yml
+    parameters:
+      DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: ${{ parameters.DEPLOYMENT_INSTANCE_COMMAND_RECEIVER }}
+      ENV: ${{ parameters.ENV }}
+      WANTED_STATUS: DOWN
+      TARGET_DEPLOYMENT_VERSION: ${{ parameters.TARGET_DEPLOYMENT_VERSION }}

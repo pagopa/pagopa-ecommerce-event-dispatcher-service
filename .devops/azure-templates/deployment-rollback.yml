@@ -1,0 +1,149 @@
+#This template contains steps to perform deployment rollback for the o down-time deployment strategy
+parameters:
+  # kubernetes service connection
+  - name: KUBERNETES_SERVICE_CONN
+    type: string
+  # kubernetes cluster
+  - name: KUBERNETES_CLUSTER
+    type: string
+  # helm release namespace
+  - name: NAMESPACE
+    type: string
+  # the application name to be used as a base name in helm new/old deployment
+  - name: APP_NAME
+    type: string
+
+steps:
+  # STEP 0: scale up old release (by removing annotation on old release scaledObject)
+  - stage: Scale_Up_Old_Deployment
+    displayName: Scale up OLD deployment
+    jobs:
+      - job: Scale_Up_Old_Deployment
+        displayName: Remove annotation autoscaling.keda.sh/paused-replicas="0" from old release scaledObject
+        steps:
+          - task: Kubernetes@1
+            displayName: Remove annotation autoscaling.keda.sh/paused-replicas="0" from old release scaledObject
+            continueOnError: true
+            inputs:
+              kubernetesServiceEndpoint: ${{ parameters.KUBERNETES_SERVICE_CONN }}
+              kubernetesCluster: ${{ parameters.KUBERNETES_CLUSTER }}
+              namespace: ${{ parameters.NAMESPACE }}
+              command: annotate
+              arguments: scaledobjects pagopaecommerceeventdispatcher-old-microservice-chart autoscaling.keda.sh/paused-replicas-
+
+  # STEP 1: start old receivers and stop new ones
+  - stage: Start_Old_Stop_New_Receivers_Manual_Approve_Rollback
+    displayName: Start OLD receivers and stop new ones approval for Rollback
+    dependsOn: Scale_Up_Old_Deployment
+    pool: server
+    jobs:
+      - job: Start_Old_Stop_New_Receivers_Manual_Approve_Rollback
+        displayName: Approve start OLD receivers and stop NEW for rollback processing (swap back deployments)
+        steps:
+          - task: ManualValidation@0
+            timeoutInMinutes: 30
+            inputs:
+              notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
+              instructions: "Approve enable OLD receivers and stop NEW ones for deploy rollback (swap back)"
+              onTimeout: 'reject'
+  - stage: Start_Old_Stop_New_Receivers_Rollback
+    displayName: Start OLD receivers and stop new ones
+    dependsOn: Start_Old_Stop_New_Receivers_Manual_Approve_Rollback
+    jobs:
+      - job: Start_Old_Stop_New_Receivers_Rollback
+        displayName: Start OLD receivers and stop new ones for rollback processing (swap back deployments)
+        steps:
+          - template: start-receivers.yml
+            parameters:
+              DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: old
+              ENV: ${{ parameters.ENV }}
+              TARGET_DEPLOYMENT_VERSION: OLD
+          - template: stop-receivers.yml
+            parameters:
+              DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: old
+              ENV: ${{ parameters.ENV }}
+              TARGET_DEPLOYMENT_VERSION: NEW
+
+  # STEP 2: rollback new release
+  - stage: Rollback_New_Deployment_Helm_Release
+    displayName: Rollback new deployment helm release
+    dependsOn: Start_Old_Stop_New_Receivers_Rollback
+    jobs:
+      - job: Rollback_New_Deployment_Helm_Release
+        displayName: Rollback new helm release to previous version
+        steps:
+          - task: HelmDeploy@0
+            displayName: Helm Rollback PROD new release
+            inputs:
+              kubernetesServiceEndpoint: ${{ parameters.KUBERNETES_SERVICE_CONN }}
+              namespace: ${{ parameters.NAMESPACE }}
+              command: rollback
+              chartName: ${{ parameters.APP_NAME }}-new
+              releaseName: ${{ parameters.APP_NAME }}-new
+              install: true
+              waitForExecution: true
+              arguments: ${{ parameters.APP_NAME }}-new
+  # STEP 3: start new receivers and stop old ones
+  - stage: Start_New_Stop_Old_Receivers_Manual_Approve_Rollback
+    displayName: Start new receivers and stop old one approval for Rollback
+    dependsOn: Rollback_New_Deployment_Helm_Release
+    pool: server
+    jobs:
+      - job: Start_New_Stop_Old_Receivers_Manual_Approve_Rollback
+        displayName: Approve start NEW receivers and stop OLD for rollback processing (swap back deployments)
+        steps:
+          - task: ManualValidation@0
+            timeoutInMinutes: 30
+            inputs:
+              notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
+              instructions: "Approve enable NEW receivers and stop OLD ones for deploy rollback (swap back)"
+              onTimeout: 'reject'
+  - stage: Start_New_Stop_Old_Receivers_Rollback
+    displayName: Start new receivers and stop old one approval for Rollback
+    dependsOn: Start_New_Stop_Old_Receivers_Manual_Approve_Rollback
+    jobs:
+      - job: Start_New_Stop_Old_Receivers_Rollback
+        displayName: Start NEW receivers and stop OLD for rollback processing (swap back deployments)
+        steps:
+          - template: start-receivers.yml
+            parameters:
+              DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: new
+              ENV: ${{ parameters.ENV }}
+              TARGET_DEPLOYMENT_VERSION: NEW
+          - template: stop-receivers.yml
+            parameters:
+              DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: new
+              ENV: ${{ parameters.ENV }}
+              TARGET_DEPLOYMENT_VERSION: OLD
+  # STEP 4: scale down old release (by adding back annotation to scaledObject)
+  - stage: Scale_Down_Old_Deployment_Approval_Rollback
+    dependsOn: Start_New_Stop_Old_Receivers_Rollback
+    displayName: Approval for scale down old deployment PODS
+    jobs:
+      - job: Scale_Down_Old_Deployment_Approval
+        pool: server
+        timeoutInMinutes: 30
+        steps:
+          - task: ManualValidation@0
+            timeoutInMinutes: 4320 # 3 days
+            inputs:
+              notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
+              instructions: "Approve scale OLD deployment down to 0 pods"
+              onTimeout: 'reject'
+  - stage: Scale_Down_Old_Deployment_Rollback
+    dependsOn: Scale_Down_Old_Deployment_Approval_Rollback
+    displayName: Scale down OLD deployment to 0 pods
+    jobs:
+      - job: Scale_Down_Old_Deployment_Rollback
+        displayName: Annotate scaledObject with autoscaling.keda.sh/paused-replicas="0"
+        steps:
+          - task: Kubernetes@1
+            displayName: Scale down old receivers PODS (annotate ScaledObject with autoscaling.keda.sh/paused-replicas="0")
+            continueOnError: true
+            inputs:
+              kubernetesServiceEndpoint: ${{ parameters.KUBERNETES_SERVICE_CONN }}
+              kubernetesCluster: ${{ parameters.KUBERNETES_CLUSTER }}
+              namespace: ${{ parameters.NAMESPACE }}
+              command: annotate
+              arguments: scaledobjects pagopaecommerceeventdispatcher-old-microservice-chart autoscaling.keda.sh/paused-replicas="0"
+
