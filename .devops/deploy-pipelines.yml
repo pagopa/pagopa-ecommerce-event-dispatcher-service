@@ -195,7 +195,7 @@ stages:
                     chartPath: helm
                     chartName: staging-$(K8S_IMAGE_REPOSITORY_NAME)
                     releaseName: staging-$(K8S_IMAGE_REPOSITORY_NAME)
-                    valueFile: helm/values-prod.yaml
+                    valueFile: helm/values-dev.yaml
                     install: true
                     waitForExecution: true
                     arguments: --timeout 5m0s
@@ -298,7 +298,7 @@ stages:
                     chartPath: helm
                     chartName: $(K8S_IMAGE_REPOSITORY_NAME)
                     releaseName: $(K8S_IMAGE_REPOSITORY_NAME)
-                    valueFile: helm/values-prod.yaml
+                    valueFile: helm/values-dev.yaml
                     install: true
                     waitForExecution: true
                     arguments: --timeout 5m0s
