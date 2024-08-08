@@ -108,7 +108,8 @@ stages:
     variables:
       currentVersion: $[ stageDependencies.Current_Helm_Release.list_event_dispatcher_helm_releases.outputs['helm_chart_version.helm_current_release_version'] ]
     jobs:
-      - job: Old_Version_Deploy
+      - deployment: Old_Version_Deploy
+        environment: ${{ parameters.ENV }}
         displayName: Deploy current prod version as OLD version
         steps:
           - script: |
@@ -196,7 +197,8 @@ stages:
     dependsOn: Deploy_New_Version_Approval
     condition: succeeded()
     jobs:
-      - job: New_Version_Deploy
+      - deployment: New_Version_Deploy
+        environment: ${{ parameters.ENV }}
         displayName: New version deploy
         steps:
           - script: |
