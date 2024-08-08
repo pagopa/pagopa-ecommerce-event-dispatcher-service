@@ -41,7 +41,6 @@ steps:
         pollingInterval=${{ parameters.INTERVAL }}
         maxIterations=${{ parameters.MAX_ITERATIONS }}
         wantedReceiverStatus=${{ parameters.WANTED_STATUS }}
-        deploymentInstance=${{ parameters.DEPLOYMENT_INSTANCE_COMMAND_RECEIVER }}
         targetDeploymentVersion=${{ parameters.TARGET_DEPLOYMENT_VERSION }}
         declare -A commandUrls=(\
         ["DEV"]="https://weudev.ecommerce.internal.dev.platform.pagopa.it/pagopa-ecommerce-event-dispatcher/event-dispatcher/event-receivers/status?version=$targetDeploymentVersion" \
