@@ -142,7 +142,7 @@ stages:
     condition: succeeded()
     pool: server
     variables:
-      currentVersion: $[ stageDependencies.Current_Helm_Release.list_event_dispatcher_helm_releases.outputs['helm_chart_version.helm_current_release_version'] ]
+      currentVersion: $[ stageDependencies.TEST_Current_Helm_Release.list_event_dispatcher_helm_releases.outputs['helm_chart_version.helm_current_release_version'] ]
     jobs:
       - job: Old_Version_Deploy_Approval
         displayName: Manual old version deploy approval
@@ -156,13 +156,13 @@ stages:
               onTimeout: 'reject'
   - stage: TEST_Old_Version_Deploy
     dependsOn:
-      - Current_Helm_Release
+      - TEST_Current_Helm_Release
       - TEST_Old_Version_Deploy_Approval
     condition: succeeded()
     pool:
       name: pagopa-dev-linux
     variables:
-      currentVersion: $[ stageDependencies.Current_Helm_Release.list_event_dispatcher_helm_releases.outputs['helm_chart_version.helm_current_release_version'] ]
+      currentVersion: $[ stageDependencies.TEST_Current_Helm_Release.list_event_dispatcher_helm_releases.outputs['helm_chart_version.helm_current_release_version'] ]
     jobs:
       - deployment: Old_Version_Deploy
         environment: DEV
