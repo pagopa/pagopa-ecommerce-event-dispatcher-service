@@ -108,38 +108,42 @@ stages:
     variables:
       currentVersion: $[ stageDependencies.Current_Helm_Release.list_event_dispatcher_helm_releases.outputs['helm_chart_version.helm_current_release_version'] ]
     jobs:
-      - job: Old_Version_Deploy
+      - deployment: Old_Version_Deploy
+        environment: ${{ parameters.ENV }}
         displayName: Deploy current prod version as OLD version
-        steps:
-          - script: |
-              checkoutVersion=$(currentVersion)
-              echo "Checkout current version repo tag: [$checkoutVersion]" 
-              git checkout $checkoutVersion
-            displayName: 'Checkout currently deployed source code tag [$(currentVersion)]'
-          - task: Bash@3
-            name: update_chart_version
-            displayName: 'Setup helm microservice chart'
-            inputs:
-              targetType: "inline"
-              script: |
-                helm repo add microservice-chart https://pagopa.github.io/aks-microservice-chart-blueprint
-                helm dep build helm
-          - task: HelmDeploy@0
-            condition: and(succeeded(), eq(${{ parameters.DO_DEPLOY }}, True))
-            displayName: Deploy current PROD version $(currentVersion) as OLD release
-            inputs:
-              kubernetesServiceEndpoint: ${{ parameters.KUBERNETES_SERVICE_CONN }}
-              namespace: ${{ parameters.NAMESPACE }}
-              command: upgrade
-              chartType: ${{ parameters.CHART_TYPE }}
-              chartPath: ${{ parameters.CHART_PATH }}
-              chartName: ${{ parameters.APP_NAME }}-old
-              releaseName: ${{ parameters.APP_NAME }}-old
-              valueFile: ${{ parameters.VALUE_FILE }}
-              install: true
-              waitForExecution: ${{ parameters.WAIT_FOR_EXECUTION }}
-              arguments: ${{ parameters.ARGUMENTS }}
-              overrideValues: microservice-chart.ingress.path=/pagopa-ecommerce-event-dispatcher-old/(.*),microservice-chart.envConfig.DEPLOYMENT_VERSION=old,microservice-chart.canaryDelivery.create=${{ parameters.DO_BLUE_GREEN_DEPLOY }},microservice-chart.canaryDelivery.deployment.image.tag=${{ parameters.BLUE_VERSION }}
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - script: |
+                    checkoutVersion=$(currentVersion)
+                    echo "Checkout current version repo tag: [$checkoutVersion]" 
+                    git checkout $checkoutVersion
+                  displayName: 'Checkout currently deployed source code tag [$(currentVersion)]'
+                - task: Bash@3
+                  name: update_chart_version
+                  displayName: 'Setup helm microservice chart'
+                  inputs:
+                    targetType: "inline"
+                    script: |
+                      helm repo add microservice-chart https://pagopa.github.io/aks-microservice-chart-blueprint
+                      helm dep build helm
+                - task: HelmDeploy@0
+                  condition: and(succeeded(), eq(${{ parameters.DO_DEPLOY }}, True))
+                  displayName: Deploy current PROD version $(currentVersion) as OLD release
+                  inputs:
+                    kubernetesServiceEndpoint: ${{ parameters.KUBERNETES_SERVICE_CONN }}
+                    namespace: ${{ parameters.NAMESPACE }}
+                    command: upgrade
+                    chartType: ${{ parameters.CHART_TYPE }}
+                    chartPath: ${{ parameters.CHART_PATH }}
+                    chartName: ${{ parameters.APP_NAME }}-old
+                    releaseName: ${{ parameters.APP_NAME }}-old
+                    valueFile: ${{ parameters.VALUE_FILE }}
+                    install: true
+                    waitForExecution: ${{ parameters.WAIT_FOR_EXECUTION }}
+                    arguments: ${{ parameters.ARGUMENTS }}
+                    overrideValues: microservice-chart.ingress.path=/pagopa-ecommerce-event-dispatcher-old/(.*),microservice-chart.envConfig.DEPLOYMENT_VERSION=old,microservice-chart.canaryDelivery.create=${{ parameters.DO_BLUE_GREEN_DEPLOY }},microservice-chart.canaryDelivery.deployment.image.tag=${{ parameters.BLUE_VERSION }}
 
   # STEP 2: enable OLD deployment version receivers and stop new one by command curl
   - stage: Start_Old_Stop_New_Receivers_Manual_Approve
@@ -196,38 +200,42 @@ stages:
     dependsOn: Deploy_New_Version_Approval
     condition: succeeded()
     jobs:
-      - job: New_Version_Deploy
+      - deployment: New_Version_Deploy
+        environment: ${{ parameters.ENV }}
         displayName: New version deploy
-        steps:
-          - script: |
-              checkoutVersion=${{ parameters.NEW_VERSION }} 
-              echo "Checkout new release version repo tag: [$checkoutVersion]" 
-              git checkout $checkoutVersion
-            displayName: 'Checkout new release version tag [${{ parameters.NEW_VERSION }}]'
-          - task: Bash@3
-            name: update_chart_version
-            displayName: 'Setup helm microservice chart'
-            inputs:
-              targetType: "inline"
-              script: |
-                helm repo add microservice-chart https://pagopa.github.io/aks-microservice-chart-blueprint
-                helm dep build helm
-          - task: HelmDeploy@0
-            condition: and(succeeded(), eq(${{ parameters.DO_DEPLOY }}, True))
-            displayName: Deploy new version as NEW release
-            inputs:
-              kubernetesServiceEndpoint: ${{ parameters.KUBERNETES_SERVICE_CONN }}
-              namespace: ${{ parameters.NAMESPACE }}
-              command: upgrade
-              chartType: ${{ parameters.CHART_TYPE }}
-              chartPath: ${{ parameters.CHART_PATH }}
-              chartName: ${{ parameters.APP_NAME }}-new
-              releaseName: ${{ parameters.APP_NAME }}-new
-              valueFile: ${{ parameters.VALUE_FILE }}
-              install: true
-              waitForExecution: ${{ parameters.WAIT_FOR_EXECUTION }}
-              arguments: ${{ parameters.ARGUMENTS }}
-              overrideValues: microservice-chart.ingress.path=/pagopa-ecommerce-event-dispatcher-new/(.*),microservice-chart.envConfig.DEPLOYMENT_VERSION=new,microservice-chart.canaryDelivery.create=${{ parameters.DO_BLUE_GREEN_DEPLOY }},microservice-chart.canaryDelivery.deployment.image.tag=${{ parameters.BLUE_VERSION }}
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - script: |
+                    checkoutVersion=${{ parameters.NEW_VERSION }} 
+                    echo "Checkout new release version repo tag: [$checkoutVersion]" 
+                    git checkout $checkoutVersion
+                  displayName: 'Checkout new release version tag [${{ parameters.NEW_VERSION }}]'
+                - task: Bash@3
+                  name: update_chart_version
+                  displayName: 'Setup helm microservice chart'
+                  inputs:
+                    targetType: "inline"
+                    script: |
+                      helm repo add microservice-chart https://pagopa.github.io/aks-microservice-chart-blueprint
+                      helm dep build helm
+                - task: HelmDeploy@0
+                  condition: and(succeeded(), eq(${{ parameters.DO_DEPLOY }}, True))
+                  displayName: Deploy new version as NEW release
+                  inputs:
+                    kubernetesServiceEndpoint: ${{ parameters.KUBERNETES_SERVICE_CONN }}
+                    namespace: ${{ parameters.NAMESPACE }}
+                    command: upgrade
+                    chartType: ${{ parameters.CHART_TYPE }}
+                    chartPath: ${{ parameters.CHART_PATH }}
+                    chartName: ${{ parameters.APP_NAME }}-new
+                    releaseName: ${{ parameters.APP_NAME }}-new
+                    valueFile: ${{ parameters.VALUE_FILE }}
+                    install: true
+                    waitForExecution: ${{ parameters.WAIT_FOR_EXECUTION }}
+                    arguments: ${{ parameters.ARGUMENTS }}
+                    overrideValues: microservice-chart.ingress.path=/pagopa-ecommerce-event-dispatcher-new/(.*),microservice-chart.envConfig.DEPLOYMENT_VERSION=new,microservice-chart.canaryDelivery.create=${{ parameters.DO_BLUE_GREEN_DEPLOY }},microservice-chart.canaryDelivery.deployment.image.tag=${{ parameters.BLUE_VERSION }}
 
   # STEP 4: once new version is deployed, proceed to start new receivers and stop old ones
   - stage: Start_New_Stop_Old_Receivers_Approval
