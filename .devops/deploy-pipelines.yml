@@ -504,6 +504,7 @@ stages:
   # STEP 0: retrieve current release version from helm release
   - stage: Current_Helm_Release
     displayName: Retrieve current deployed helm release
+    dependsOn: Build_PROD_Green
     pool:
       name: pagopa-prod-linux
     jobs:
