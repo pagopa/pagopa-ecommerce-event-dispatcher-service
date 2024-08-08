@@ -148,13 +148,13 @@ stages:
               notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
               instructions: "Approve scale OLD deployment down to 0 pods"
               onTimeout: 'reject'
-  - stage: Scale_Down_Old_Deployment_Rollback
+  - stage: Scale_Down_Old_Deployment_Rollback_${{ parameters.ENV }}
     dependsOn: Scale_Down_Old_Deployment_Approval_Rollback_${{ parameters.ENV }}
     displayName: Scale down OLD deployment to 0 pods
     pool:
       name: ${{ parameters.DEPLOY_AGENT_POOL_NAME }}
     jobs:
-      - job: Scale_Down_Old_Deployment_Rollback
+      - job: Scale_Down_Old_Deployment_Rollback_${{ parameters.ENV }}
         displayName: Annotate scaledObject with autoscaling.keda.sh/paused-replicas="0"
         steps:
           - task: Kubernetes@1
