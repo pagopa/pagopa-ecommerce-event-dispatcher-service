@@ -500,19 +500,277 @@ stages:
               script: |
                 docker tag $(UAT_CONTAINER_NAMESPACE)/$(K8S_IMAGE_REPOSITORY_NAME):$(prod_app_version) $(PROD_CONTAINER_NAMESPACE)/$(K8S_IMAGE_REPOSITORY_NAME):$(prod_app_version)
                 docker push $(PROD_CONTAINER_NAMESPACE)/$(K8S_IMAGE_REPOSITORY_NAME):$(prod_app_version)
-  - template: azure-templates/swap-new-old-deployment.yml
-    parameters:
-      DO_DEPLOY: true
-      ENV: 'PROD'
-      KUBERNETES_SERVICE_CONN: $(PROD_KUBERNETES_SERVICE_CONN)
-      KUBERNETES_CLUSTER: $(kubernetesCluster)
-      NAMESPACE: ecommerce
-      APP_NAME: $(K8S_IMAGE_REPOSITORY_NAME)
-      VALUE_FILE: "helm/values-prod.yaml"
-      HELM_NEW_RELEASE_FILTER: $(K8S_IMAGE_REPOSITORY_NAME)-new
-      RELEASE_TASK_NAME: Release
-      RELEASE_TASK_VERSION_OUTPUT_VARIABLE: chart_current_version.version
-      DEPLOY_AGENT_POOL_NAME: pagopa-prod-linux
+
+  # STEP 0: retrieve current release version from helm release
+  - stage: Current_Helm_Release
+    displayName: Retrieve current deployed helm release
+    pool:
+      name: pagopa-prod-linux
+    jobs:
+      - job: list_event_dispatcher_helm_releases
+        displayName: List event dispatcher helm releases
+        steps:
+          - task: HelmDeploy@0
+            displayName: List event dispatcher releases
+            name: helm_event_dispatcher_releases
+            inputs:
+              kubernetesServiceEndpoint: $(PROD_KUBERNETES_SERVICE_CONN)
+              namespace: ecommerce
+              command: ls
+              arguments: --filter pagopaecommerceeventdispatcher --output json
+          - task: Bash@3
+            name: helm_chart_version
+            displayName: 'Retrieve helm chart version associated to helm release'
+            inputs:
+              targetType: "inline"
+              script: |
+                version=$(echo '$(helm_event_dispatcher_releases.helmOutput)' | yq '.[].chart' | sed -e 's/pagopa-ecommerce-event-dispatcher-//g')
+                echo "##vso[task.setvariable variable=helm_current_release_version;isOutput=true]$version"
+              failOnStderr: false
+
+  # STEP 1: deploy current PROD version as OLD release (used for rollback purpose)
+  - stage: Old_Version_Deploy_Approval
+    displayName: Old version deploy approval
+    dependsOn: Current_Helm_Release
+    condition: succeeded()
+    pool: server
+    variables:
+      currentVersion: $[ stageDependencies.Current_Helm_Release.list_event_dispatcher_helm_releases.outputs['helm_chart_version.helm_current_release_version'] ]
+    jobs:
+      - job: Old_Version_Deploy_Approval
+        displayName: Manual old version deploy approval
+        timeoutInMinutes: 30
+        steps:
+          - task: ManualValidation@0
+            timeoutInMinutes: 30
+            inputs:
+              notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
+              instructions: "Approve upgrade OLD helm release to version: [$(currentVersion)]"
+              onTimeout: 'reject'
+  - stage: Old_Version_Deploy
+    dependsOn:
+      - Current_Helm_Release
+      - Old_Version_Deploy_Approval
+    condition: succeeded()
+    pool:
+      name: pagopa-prod-linux
+    variables:
+      currentVersion: $[ stageDependencies.Current_Helm_Release.list_event_dispatcher_helm_releases.outputs['helm_chart_version.helm_current_release_version'] ]
+    jobs:
+      - deployment: Old_Version_Deploy
+        environment: PROD
+        displayName: Deploy current prod version as OLD version
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - script: |
+                    checkoutVersion=$(currentVersion)
+                    echo "Checkout current version repo tag: [$checkoutVersion]" 
+                    git checkout $checkoutVersion
+                  displayName: 'Checkout currently deployed source code tag [$(currentVersion)]'
+                - task: Bash@3
+                  name: update_chart_version
+                  displayName: 'Setup helm microservice chart'
+                  inputs:
+                    targetType: "inline"
+                    script: |
+                      helm repo add microservice-chart https://pagopa.github.io/aks-microservice-chart-blueprint
+                      helm dep build helm
+                - task: HelmDeploy@0
+                  condition: succeeded()
+                  displayName: Deploy current PROD version $(currentVersion) as OLD release
+                  inputs:
+                    kubernetesServiceEndpoint: $(PROD_KUBERNETES_SERVICE_CONN)
+                    namespace: ecommerce
+                    command: upgrade
+                    chartType: filepath
+                    chartPath: helm
+                    chartName: pagopaecommerceeventdispatcher-old
+                    releaseName: pagopaecommerceeventdispatcher-old
+                    valueFile: helm/values-prod.yaml
+                    install: true
+                    waitForExecution: true
+                    arguments: --timeout 5m0s
+                    overrideValues: microservice-chart.ingress.path=/pagopa-ecommerce-event-dispatcher-old/(.*),microservice-chart.envConfig.DEPLOYMENT_VERSION=old
+
+  # STEP 2: enable OLD deployment version receivers and stop new one by command curl
+  - stage: Start_Old_Stop_New_Receivers_Manual_Approve
+    displayName: Start OLD receivers and stop new ones approval
+    dependsOn: Old_Version_Deploy
+    pool: server
+    jobs:
+      - job: Start_Old_Stop_New_Receivers_Manual_Approve
+        displayName: Manual OLD receiver start and new stop approval
+        steps:
+          - task: ManualValidation@0
+            timeoutInMinutes: 30
+            inputs:
+              notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
+              instructions: "Approve enable OLD receivers"
+              onTimeout: 'reject'
+  - stage: Start_Old_Stop_New_Receivers
+    dependsOn: Start_Old_Stop_New_Receivers_Manual_Approve
+    condition: succeeded()
+    pool:
+      name: pagopa-prod-linux
+    jobs:
+      - job: Start_Old_Stop_New_Receivers
+        steps:
+          - template: azure-templates/start-receivers.yml
+            parameters:
+              DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: old
+              ENV: PROD
+              TARGET_DEPLOYMENT_VERSION: OLD
+          - template: azure-templates/stop-receivers.yml
+            parameters:
+              DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: old
+              ENV: PROD
+              TARGET_DEPLOYMENT_VERSION: NEW
+
+
+  # STEP 3: Deploy new release as Deployment NEW approval task
+  - stage: Deploy_New_Version_Approval
+    displayName: Deploy the new release version
+    dependsOn:
+      - Start_Old_Stop_New_Receivers
+      - Release
+    variables:
+      newReleaseVersion: $[ stageDependencies.Release.make_release.outputs['chart_current_version.version'] ]
+    condition: succeeded()
+    pool: server
+    jobs:
+      - job: New_Version_Deploy_Approval
+        displayName: New version deploy manual approve
+        timeoutInMinutes: 30
+        steps:
+          - task: ManualValidation@0
+            timeoutInMinutes: 30
+            inputs:
+              notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
+              instructions: "Approve upgrade NEW helm release to version: [$(newReleaseVersion)]"
+              onTimeout: 'reject'
+  - stage: Deploy_New_Version
+    displayName: Deploy NEW version
+    dependsOn:
+      - Deploy_New_Version_Approval
+      - Release
+    variables:
+      newReleaseVersion: $[ stageDependencies.Release.make_release.outputs['chart_current_version.version'] ]
+    condition: succeeded()
+    pool:
+      name: pagopa-prod-linux
+    jobs:
+      - deployment: New_Version_Deploy
+        environment: PROD
+        displayName: New version deploy
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - script: |
+                    checkoutVersion=$newReleaseVersion
+                    echo "Checkout new release version repo tag: [$checkoutVersion]" 
+                    git checkout $checkoutVersion
+                  displayName: 'Checkout new release version tag [$(newReleaseVersion)]'
+                - task: Bash@3
+                  name: update_chart_version
+                  displayName: 'Setup helm microservice chart'
+                  inputs:
+                    targetType: "inline"
+                    script: |
+                      helm repo add microservice-chart https://pagopa.github.io/aks-microservice-chart-blueprint
+                      helm dep build helm
+                - task: HelmDeploy@0
+                  condition: succeeded()
+                  displayName: Deploy new version as NEW release
+                  inputs:
+                    kubernetesServiceEndpoint: $(PROD_KUBERNETES_SERVICE_CONN)
+                    namespace: ecommerce
+                    command: upgrade
+                    chartType: filepath
+                    chartPath: helm
+                    chartName: pagopaecommerceeventdispatcher-new
+                    releaseName: pagopaecommerceeventdispatcher-new
+                    valueFile: helm/values-prod.yaml
+                    install: true
+                    waitForExecution: true
+                    arguments: --timeout 5m0s
+                    overrideValues: microservice-chart.ingress.path=/pagopa-ecommerce-event-dispatcher-new/(.*),microservice-chart.envConfig.DEPLOYMENT_VERSION=new
+
+  # STEP 4: once new version is deployed, proceed to start new receivers and stop old ones
+  - stage: Start_New_Stop_Old_Receivers_Approval
+    displayName: Start new receivers and stop old ones manual approval
+    dependsOn: Deploy_New_Version
+    pool: server
+    jobs:
+      - job: Start_New_Stop_Old_Receivers_Approval
+        timeoutInMinutes: 30
+        displayName: Start new receivers and stop old ones
+        steps:
+          - task: ManualValidation@0
+            timeoutInMinutes: 30
+            inputs:
+              notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
+              instructions: "Approve enable NEW receivers and disable old ones"
+              onTimeout: 'reject'
+  - stage: Start_New_Stop_Old_Receivers
+    displayName: Start new receivers and stop old ones
+    dependsOn: Start_New_Stop_Old_Receivers_Approval
+    condition: succeeded()
+    pool:
+      name: pagopa-prod-linux
+    jobs:
+      - job: Start_New_Stop_Old_Receivers
+        displayName: Start new receivers by curl command and stop old ones
+        steps:
+          - template: azure-templates/start-receivers.yml
+            parameters:
+              DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: new
+              ENV: PROD
+              TARGET_DEPLOYMENT_VERSION: NEW
+          - template: azure-templates/stop-receivers.yml
+            parameters:
+              DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: new
+              ENV: PROD
+              TARGET_DEPLOYMENT_VERSION: OLD
+
+
+  # STEP 5: deployment rollout ended, scale down OLD deployment PODS
+  - stage: Scale_Down_Old_Deployment_Approval
+    dependsOn: Start_New_Stop_Old_Receivers
+    displayName: Approval for scale down old deployment PODS
+    pool: server
+    jobs:
+      - job: Scale_Down_Old_Deployment_Approval
+        timeoutInMinutes: 30
+        steps:
+          - task: ManualValidation@0
+            timeoutInMinutes: 30
+            inputs:
+              notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
+              instructions: "Approve scale OLD deployment down to 0 pods"
+              onTimeout: 'reject'
+  - stage: Scale_Down_Old_Deployment
+    dependsOn: Scale_Down_Old_Deployment_Approval
+    displayName: Scale down OLD deployment to 0 pods
+    pool:
+      name: pagopa-prod-linux
+    jobs:
+      - job: Scale_Down_Old_Deployment
+        displayName: Annotate scaledObject with autoscaling.keda.sh/paused-replicas="0"
+        steps:
+          - task: Kubernetes@1
+            displayName: Scale down old receivers PODS (annotate ScaledObject with autoscaling.keda.sh/paused-replicas="0")
+            continueOnError: true
+            inputs:
+              kubernetesServiceEndpoint: $(PROD_KUBERNETES_SERVICE_CONN)
+              kubernetesCluster: $(kubernetesCluster)
+              namespace: ecommerce
+              command: annotate
+              arguments: scaledobjects pagopaecommerceeventdispatcher-old-microservice-chart autoscaling.keda.sh/paused-replicas="0"
+
+
   # --- END Deploy PROD --- #
 
   # --- START ROLLBACK PROD --- #
@@ -538,12 +796,148 @@ stages:
               notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
               instructions: "Please approve or reject PROD rollback for release $(release_url)"
               onTimeout: 'skip'
-  - template: azure-templates/deployment-rollback.yml
-    parameters:
-      ENV: 'PROD'
-      KUBERNETES_SERVICE_CONN: $(PROD_KUBERNETES_SERVICE_CONN)
-      KUBERNETES_CLUSTER: $(kubernetesCluster)
-      NAMESPACE: ecommerce
-      APP_NAME: $(K8S_IMAGE_REPOSITORY_NAME)
-      DEPLOY_AGENT_POOL_NAME: pagopa-prod-linux
+  # STEP 0: scale up old release (by removing annotation on old release scaledObject)
+  - stage: Scale_Up_Old_Deployment
+    displayName: Scale up OLD deployment
+    pool:
+      name: pagopa-prod-linux
+    jobs:
+      - job: Scale_Up_Old_Deployment
+        displayName: Remove annotation autoscaling.keda.sh/paused-replicas="0" from old release scaledObject
+        steps:
+          - task: Kubernetes@1
+            displayName: Remove annotation autoscaling.keda.sh/paused-replicas="0" from old release scaledObject
+            continueOnError: true
+            inputs:
+              kubernetesServiceEndpoint: $(PROD_KUBERNETES_SERVICE_CONN)
+              kubernetesCluster: $(kubernetesCluster)
+              namespace: ecommerce
+              command: annotate
+              arguments: scaledobjects pagopaecommerceeventdispatcher-old-microservice-chart autoscaling.keda.sh/paused-replicas-
+
+  # STEP 1: start old receivers and stop new ones
+  - stage: Start_Old_Stop_New_Receivers_Manual_Approve_Rollback
+    displayName: Start OLD receivers and stop new ones approval for Rollback
+    dependsOn: Scale_Up_Old_Deployment
+    pool: server
+    jobs:
+      - job: Start_Old_Stop_New_Receivers_Manual_Approve_Rollback
+        displayName: Approve start OLD receivers and stop NEW for rollback processing (swap back deployments)
+        steps:
+          - task: ManualValidation@0
+            timeoutInMinutes: 30
+            inputs:
+              notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
+              instructions: "Approve enable OLD receivers and stop NEW ones for deploy rollback (swap back)"
+              onTimeout: 'reject'
+  - stage: Start_Old_Stop_New_Receivers_Rollback
+    displayName: Start OLD receivers and stop new ones
+    dependsOn: Start_Old_Stop_New_Receivers_Manual_Approve_Rollback
+    pool:
+      name: pagopa-prod-linux
+    jobs:
+      - job: Start_Old_Stop_New_Receivers_Rollback
+        displayName: Start OLD receivers and stop new ones for rollback processing (swap back deployments)
+        steps:
+          - template: azure-templates/start-receivers.yml
+            parameters:
+              DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: old
+              ENV: PROD
+              TARGET_DEPLOYMENT_VERSION: OLD
+          - template: azure-templates/stop-receivers.yml
+            parameters:
+              DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: old
+              ENV: PROD
+              TARGET_DEPLOYMENT_VERSION: NEW
+
+  # STEP 2: rollback new release
+  - stage: Rollback_New_Deployment_Helm_Release
+    displayName: Rollback new deployment helm release
+    dependsOn: Start_Old_Stop_New_Receivers_Rollback
+    pool:
+      name: pagopa-prod-linux
+    jobs:
+      - job: Rollback_New_Deployment_Helm_Release
+        displayName: Rollback new helm release to previous version
+        steps:
+          - task: HelmDeploy@0
+            displayName: Helm Rollback PROD new release
+            inputs:
+              kubernetesServiceEndpoint: $(PROD_KUBERNETES_SERVICE_CONN)
+              namespace: ecommerce
+              command: rollback
+              chartName: pagopaecommerceeventdispatcher-new
+              releaseName: pagopaecommerceeventdispatcher-new
+              install: true
+              waitForExecution: true
+              arguments: pagopaecommerceeventdispatcher-new
+  # STEP 3: start new receivers and stop old ones
+  - stage: Start_New_Stop_Old_Receivers_Manual_Approve_Rollback
+    displayName: Start new receivers and stop old one approval for Rollback
+    dependsOn: Rollback_New_Deployment_Helm_Release
+    pool: server
+    jobs:
+      - job: Start_New_Stop_Old_Receivers_Manual_Approve_Rollback
+        displayName: Approve start NEW receivers and stop OLD for rollback processing (swap back deployments)
+        steps:
+          - task: ManualValidation@0
+            timeoutInMinutes: 30
+            inputs:
+              notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
+              instructions: "Approve enable NEW receivers and stop OLD ones for deploy rollback (swap back)"
+              onTimeout: 'reject'
+  - stage: Start_New_Stop_Old_Receivers_Rollback
+    displayName: Start new receivers and stop old one approval for Rollback
+    dependsOn: Start_New_Stop_Old_Receivers_Manual_Approve_Rollback
+    pool:
+      name: pagopa-prod-linux
+    jobs:
+      - job: Start_New_Stop_Old_Receivers_Rollback
+        displayName: Start NEW receivers and stop OLD for rollback processing (swap back deployments)
+        steps:
+          - template: azure-templates/start-receivers.yml
+            parameters:
+              DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: new
+              ENV: PROD
+              TARGET_DEPLOYMENT_VERSION: NEW
+          - template: azure-templates/stop-receivers.yml
+            parameters:
+              DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: new
+              ENV: PROD
+              TARGET_DEPLOYMENT_VERSION: OLD
+  # STEP 4: scale down old release (by adding back annotation to scaledObject)
+  - stage: Scale_Down_Old_Deployment_Approval_Rollback
+    dependsOn: Start_New_Stop_Old_Receivers_Rollback
+    displayName: Approval for scale down old deployment PODS
+    pool: server
+    jobs:
+      - job: Scale_Down_Old_Deployment_Approval
+        timeoutInMinutes: 30
+        steps:
+          - task: ManualValidation@0
+            timeoutInMinutes: 4320 # 3 days
+            inputs:
+              notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
+              instructions: "Approve scale OLD deployment down to 0 pods"
+              onTimeout: 'reject'
+  - stage: Scale_Down_Old_Deployment_Rollback
+    dependsOn: Scale_Down_Old_Deployment_Approval_Rollback
+    displayName: Scale down OLD deployment to 0 pods
+    pool:
+      name: pagopa-prod-linux
+    jobs:
+      - job: Scale_Down_Old_Deployment_Rollback
+        displayName: Annotate scaledObject with autoscaling.keda.sh/paused-replicas="0"
+        steps:
+          - task: Kubernetes@1
+            displayName: Scale down old receivers PODS (annotate ScaledObject with autoscaling.keda.sh/paused-replicas="0")
+            continueOnError: true
+            inputs:
+              kubernetesServiceEndpoint: $(PROD_KUBERNETES_SERVICE_CONN)
+              kubernetesCluster: $(kubernetesCluster)
+              namespace: ecommerce
+              command: annotate
+              arguments: scaledobjects pagopaecommerceeventdispatcher-old-microservice-chart autoscaling.keda.sh/paused-replicas="0"
+
+
 # --- END ROLLBACK PROD --- #
