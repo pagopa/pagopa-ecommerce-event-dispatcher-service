@@ -841,11 +841,11 @@ stages:
           - template: azure-templates/start-receivers.yml
             parameters:
               ENV: PROD
-              TARGET_DEPLOYMENT_VERSION: OLD
+              TARGET_DEPLOYMENT_VERSION: STAGING
           - template: azure-templates/stop-receivers.yml
             parameters:
               ENV: PROD
-              TARGET_DEPLOYMENT_VERSION: NEW
+              TARGET_DEPLOYMENT_VERSION: PROD
 
   # STEP 2: rollback new release
   - stage: Rollback_New_Deployment_Helm_Release
@@ -896,11 +896,11 @@ stages:
           - template: azure-templates/start-receivers.yml
             parameters:
               ENV: PROD
-              TARGET_DEPLOYMENT_VERSION: NEW
+              TARGET_DEPLOYMENT_VERSION: PROD
           - template: azure-templates/stop-receivers.yml
             parameters:
               ENV: PROD
-              TARGET_DEPLOYMENT_VERSION: OLD
+              TARGET_DEPLOYMENT_VERSION: STAGING
   # STEP 4: scale down old release (by adding back annotation to scaledObject)
   - stage: Scale_Down_Old_Deployment_Approval_Rollback
     dependsOn: Start_New_Stop_Old_Receivers_Rollback
