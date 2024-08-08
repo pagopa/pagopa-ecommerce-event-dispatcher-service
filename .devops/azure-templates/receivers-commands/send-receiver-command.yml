@@ -17,8 +17,8 @@ parameters:
   - name: TARGET_DEPLOYMENT_VERSION
     type: string
     values:
-      - OLD
-      - NEW
+      - PROD
+      - STAGING
 
 steps:
   - task: Bash@3
