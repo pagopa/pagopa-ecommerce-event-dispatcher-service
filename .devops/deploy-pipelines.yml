@@ -174,7 +174,7 @@ stages:
                 - script: |
                     checkoutVersion=$(currentVersion)
                     echo "Checkout current version repo tag: [$checkoutVersion]" 
-                    git checkout $checkoutVersion
+                    git checkout $(Build.SourceVersion)
                   displayName: 'Checkout currently deployed source code tag [$(currentVersion)]'
                 - task: Bash@3
                   name: update_chart_version
@@ -277,7 +277,7 @@ stages:
                 - script: |
                     checkoutVersion=$newReleaseVersion
                     echo "Checkout new release version repo tag: [$checkoutVersion]" 
-                    git checkout $checkoutVersion
+                    git checkout $(Build.SourceVersion)
                   displayName: 'Checkout new release version tag [$(newReleaseVersion)]'
                 - task: Bash@3
                   name: update_chart_version
