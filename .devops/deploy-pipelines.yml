@@ -517,7 +517,7 @@ stages:
               kubernetesServiceEndpoint: $(PROD_KUBERNETES_SERVICE_CONN)
               namespace: ecommerce
               command: ls
-              arguments: --filter pagopaecommerceeventdispatcher --output json
+              arguments: --filter $(K8S_IMAGE_REPOSITORY_NAME) --output json
           - task: Bash@3
             name: helm_chart_version
             displayName: 'Retrieve helm chart version associated to helm release'
@@ -586,13 +586,13 @@ stages:
                     command: upgrade
                     chartType: filepath
                     chartPath: helm
-                    chartName: pagopaecommerceeventdispatcher-old
-                    releaseName: pagopaecommerceeventdispatcher-old
+                    chartName: staging-$(K8S_IMAGE_REPOSITORY_NAME)
+                    releaseName: staging-$(K8S_IMAGE_REPOSITORY_NAME)
                     valueFile: helm/values-prod.yaml
                     install: true
                     waitForExecution: true
                     arguments: --timeout 5m0s
-                    overrideValues: microservice-chart.ingress.path=/pagopa-ecommerce-event-dispatcher-old/(.*),microservice-chart.envConfig.DEPLOYMENT_VERSION=old
+                    overrideValues: microservice-chart.ingress.path=/pagopa-ecommerce-event-dispatcher-staging/(.*),microservice-chart.envConfig.DEPLOYMENT_VERSION=STAGING
 
   # STEP 2: enable OLD deployment version receivers and stop new one by command curl
   - stage: Start_Old_Stop_New_Receivers_Manual_Approve
@@ -619,14 +619,12 @@ stages:
         steps:
           - template: azure-templates/start-receivers.yml
             parameters:
-              DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: old
               ENV: PROD
-              TARGET_DEPLOYMENT_VERSION: OLD
+              TARGET_DEPLOYMENT_VERSION: STAGING
           - template: azure-templates/stop-receivers.yml
             parameters:
-              DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: old
               ENV: PROD
-              TARGET_DEPLOYMENT_VERSION: NEW
+              TARGET_DEPLOYMENT_VERSION: PROD
 
 
   # STEP 3: Deploy new release as Deployment NEW approval task
@@ -690,13 +688,13 @@ stages:
                     command: upgrade
                     chartType: filepath
                     chartPath: helm
-                    chartName: pagopaecommerceeventdispatcher-new
-                    releaseName: pagopaecommerceeventdispatcher-new
+                    chartName: $(K8S_IMAGE_REPOSITORY_NAME)
+                    releaseName: $(K8S_IMAGE_REPOSITORY_NAME)
                     valueFile: helm/values-prod.yaml
                     install: true
                     waitForExecution: true
                     arguments: --timeout 5m0s
-                    overrideValues: microservice-chart.ingress.path=/pagopa-ecommerce-event-dispatcher-new/(.*),microservice-chart.envConfig.DEPLOYMENT_VERSION=new
+                    overrideValues: microservice-chart.envConfig.DEPLOYMENT_VERSION=PROD
 
   # STEP 4: once new version is deployed, proceed to start new receivers and stop old ones
   - stage: Start_New_Stop_Old_Receivers_Approval
@@ -726,14 +724,12 @@ stages:
         steps:
           - template: azure-templates/start-receivers.yml
             parameters:
-              DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: new
               ENV: PROD
-              TARGET_DEPLOYMENT_VERSION: NEW
+              TARGET_DEPLOYMENT_VERSION: PROD
           - template: azure-templates/stop-receivers.yml
             parameters:
-              DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: new
               ENV: PROD
-              TARGET_DEPLOYMENT_VERSION: OLD
+              TARGET_DEPLOYMENT_VERSION: STAGING
 
 
   # STEP 5: deployment rollout ended, scale down OLD deployment PODS
@@ -768,7 +764,7 @@ stages:
               kubernetesCluster: $(kubernetesCluster)
               namespace: ecommerce
               command: annotate
-              arguments: scaledobjects pagopaecommerceeventdispatcher-old-microservice-chart autoscaling.keda.sh/paused-replicas="0"
+              arguments: scaledobjects staging-$(K8S_IMAGE_REPOSITORY_NAME)-microservice-chart autoscaling.keda.sh/paused-replicas="0"
 
 
   # --- END Deploy PROD --- #
@@ -813,7 +809,7 @@ stages:
               kubernetesCluster: $(kubernetesCluster)
               namespace: ecommerce
               command: annotate
-              arguments: scaledobjects pagopaecommerceeventdispatcher-old-microservice-chart autoscaling.keda.sh/paused-replicas-
+              arguments: scaledobjects staging-$(K8S_IMAGE_REPOSITORY_NAME)-microservice-chart autoscaling.keda.sh/paused-replicas-
 
   # STEP 1: start old receivers and stop new ones
   - stage: Start_Old_Stop_New_Receivers_Manual_Approve_Rollback
@@ -841,12 +837,10 @@ stages:
         steps:
           - template: azure-templates/start-receivers.yml
             parameters:
-              DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: old
               ENV: PROD
               TARGET_DEPLOYMENT_VERSION: OLD
           - template: azure-templates/stop-receivers.yml
             parameters:
-              DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: old
               ENV: PROD
               TARGET_DEPLOYMENT_VERSION: NEW
 
@@ -866,11 +860,11 @@ stages:
               kubernetesServiceEndpoint: $(PROD_KUBERNETES_SERVICE_CONN)
               namespace: ecommerce
               command: rollback
-              chartName: pagopaecommerceeventdispatcher-new
-              releaseName: pagopaecommerceeventdispatcher-new
+              chartName: $(K8S_IMAGE_REPOSITORY_NAME)
+              releaseName: $(K8S_IMAGE_REPOSITORY_NAME)
               install: true
               waitForExecution: true
-              arguments: pagopaecommerceeventdispatcher-new
+              arguments: $(K8S_IMAGE_REPOSITORY_NAME)
   # STEP 3: start new receivers and stop old ones
   - stage: Start_New_Stop_Old_Receivers_Manual_Approve_Rollback
     displayName: Start new receivers and stop old one approval for Rollback
@@ -897,12 +891,10 @@ stages:
         steps:
           - template: azure-templates/start-receivers.yml
             parameters:
-              DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: new
               ENV: PROD
               TARGET_DEPLOYMENT_VERSION: NEW
           - template: azure-templates/stop-receivers.yml
             parameters:
-              DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: new
               ENV: PROD
               TARGET_DEPLOYMENT_VERSION: OLD
   # STEP 4: scale down old release (by adding back annotation to scaledObject)
@@ -937,7 +929,6 @@ stages:
               kubernetesCluster: $(kubernetesCluster)
               namespace: ecommerce
               command: annotate
-              arguments: scaledobjects pagopaecommerceeventdispatcher-old-microservice-chart autoscaling.keda.sh/paused-replicas="0"
-
+              arguments: scaledobjects staging-$(K8S_IMAGE_REPOSITORY_NAME)-microservice-chart autoscaling.keda.sh/paused-replicas="0"
 
 # --- END ROLLBACK PROD --- #

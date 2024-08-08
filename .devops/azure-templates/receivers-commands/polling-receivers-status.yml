@@ -1,11 +1,5 @@
 #This template will handle receiver status polling
 parameters:
-  # deployment instance on which send command
-  - name: DEPLOYMENT_INSTANCE_COMMAND_RECEIVER
-    type: string
-    values:
-      - old
-      - new
   # deployment environment
   - name: ENV
     type: string
@@ -23,8 +17,8 @@ parameters:
   - name: TARGET_DEPLOYMENT_VERSION
     type: string
     values:
-      - OLD
-      - NEW
+      - PROD
+      - STAGING
   # status polling max iterations to be performed
   - name: MAX_ITERATIONS
     type: number
@@ -50,9 +44,9 @@ steps:
         deploymentInstance=${{ parameters.DEPLOYMENT_INSTANCE_COMMAND_RECEIVER }}
         targetDeploymentVersion=${{ parameters.TARGET_DEPLOYMENT_VERSION }}
         declare -A commandUrls=(\
-        ["DEV"]="https://weudev.ecommerce.internal.dev.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-$deploymentInstance/event-dispatcher/event-receivers/status?version=$targetDeploymentVersion" \
-        ["UAT"]="https://weuuat.ecommerce.internal.uat.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-$deploymentInstance/event-dispatcher/event-receivers/status?version=$targetDeploymentVersion" \
-        ["PROD"]="https://weuprod.ecommerce.internal.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-$deploymentInstance/event-dispatcher/event-receivers/status?version=$targetDeploymentVersion" \
+        ["DEV"]="https://weudev.ecommerce.internal.dev.platform.pagopa.it/pagopa-ecommerce-event-dispatcher/event-dispatcher/event-receivers/status?version=$targetDeploymentVersion" \
+        ["UAT"]="https://weuuat.ecommerce.internal.uat.platform.pagopa.it/pagopa-ecommerce-event-dispatcher/event-dispatcher/event-receivers/status?version=$targetDeploymentVersion" \
+        ["PROD"]="https://weuprod.ecommerce.internal.platform.pagopa.it/pagopa-ecommerce-event-dispatcher/event-dispatcher/event-receivers/status?version=$targetDeploymentVersion" \
         )
         commandUrl=${commandUrls[${{ parameters.ENV }}]}
         echo "Polling receiver status using GET $commandUrl"
