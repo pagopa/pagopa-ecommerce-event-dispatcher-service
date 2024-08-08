@@ -191,7 +191,7 @@ stages:
       - Start_Old_Stop_New_Receivers_${{ parameters.ENV }}
       - {{ parameters.RELEASE_TASK_NAME}}
     variables:
-      newReleaseVersion: $[ stageDependencies.{{ parameters.RELEASE_TASK_NAME}}.make_release.outputs['{{ parameters.RELEASE_TASK_VERSION_OUTPUT_VARIABLE}}'] ]
+      newReleaseVersion: $[ stageDependencies.${{ parameters.RELEASE_TASK_NAME}}.make_release.outputs['${{ parameters.RELEASE_TASK_VERSION_OUTPUT_VARIABLE}}'] ]
     condition: succeeded()
     pool: server
     jobs:
@@ -211,7 +211,7 @@ stages:
       - Deploy_New_Version_Approval_${{ parameters.ENV }}
       - {{ parameters.RELEASE_TASK_NAME}}
     variables:
-      newReleaseVersion: $[ stageDependencies.{{ parameters.RELEASE_TASK_NAME}}.make_release.outputs['{{ parameters.RELEASE_TASK_VERSION_OUTPUT_VARIABLE}}'] ]
+      newReleaseVersion: $[ stageDependencies.${{ parameters.RELEASE_TASK_NAME}}.make_release.outputs['${{ parameters.RELEASE_TASK_VERSION_OUTPUT_VARIABLE}}'] ]
     condition: succeeded()
     pool:
       name: ${{ parameters.DEPLOY_AGENT_POOL_NAME }}
