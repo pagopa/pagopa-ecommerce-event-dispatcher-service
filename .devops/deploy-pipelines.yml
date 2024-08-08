@@ -110,7 +110,7 @@ stages:
   # STEP 0: retrieve current release version from helm release
   - stage: TEST_Current_Helm_Release
     displayName: Retrieve current deployed helm release
-    dependsOn: TEST_Build_DEV_Green
+    dependsOn: TEST_Release
     pool:
       name: pagopa-dev-linux
     jobs:
@@ -157,7 +157,7 @@ stages:
   - stage: TEST_Old_Version_Deploy
     dependsOn:
       - Current_Helm_Release
-      - Old_Version_Deploy_Approval
+      - TEST_Old_Version_Deploy_Approval
     condition: succeeded()
     pool:
       name: pagopa-dev-linux
@@ -239,8 +239,8 @@ stages:
   - stage: TEST_Deploy_New_Version_Approval
     displayName: Deploy the new release version
     dependsOn:
-      - Start_Old_Stop_New_Receivers
-      - Release
+      - TEST_Start_Old_Stop_New_Receivers
+      - TEST_Release
     variables:
       newReleaseVersion: $[ stageDependencies.Release.make_release.outputs['chart_current_version.version'] ]
     condition: succeeded()
@@ -259,8 +259,8 @@ stages:
   - stage: TEST_Deploy_New_Version
     displayName: Deploy NEW version
     dependsOn:
-      - Deploy_New_Version_Approval
-      - Release
+      - TEST_Deploy_New_Version_Approval
+      - TEST_Release
     variables:
       newReleaseVersion: $[ stageDependencies.Release.make_release.outputs['chart_current_version.version'] ]
     condition: succeeded()
