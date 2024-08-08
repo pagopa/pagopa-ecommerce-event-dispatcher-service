@@ -97,9 +97,16 @@ stages:
               CONTAINER_REGISTRY_SERVICE_CONN: $(DEV_CONTAINER_REGISTRY_SERVICE_CONN)
               CONTAINER_REGISTRY_FQDN: $(DEV_CONTAINER_NAMESPACE)
               DOCKER_IMAGE_NAME: $(K8S_IMAGE_REPOSITORY_NAME)
-              DOCKER_IMAGE_TAG: $(Build.SourceVersion)
+              DOCKER_IMAGE_TAG: 1.18.0 # TODO remove, here just for test purpose
               FORCE_REPLACE_DOCKER_IMAGE: ${{ parameters.FORCE_REPLACE_DOCKER_IMAGE }}
-
+  - stage: Release_DEV_MOCK
+    dependsOn: Build_for_DEV
+    condition: succeeded()
+    jobs:
+      - job: make_release
+        displayName: Make github release
+        steps:
+          - template: azure-templates/chart-current-version.yml
   - stage: 'Deploy_for_DEV'
     displayName: 'Deploy DEV'
     dependsOn: Build_for_DEV
