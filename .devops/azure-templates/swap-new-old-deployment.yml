@@ -10,8 +10,11 @@ parameters:
       - DEV
       - UAT
       - PROD
-  # the new version to be deployed
-  - name: "NEW_VERSION"
+  # the release task name
+  - name: "RELEASE_TASK_NAME"
+    type: string
+  # release task version release version output variable
+  - name: "RELEASE_TASK_VERSION_OUTPUT_VARIABLE"
     type: string
   # the application name to be used as a base name in helm new/old deployment
   - name: "APP_NAME"
@@ -183,8 +186,12 @@ stages:
 
   # STEP 3: Deploy new release as Deployment NEW approval task
   - stage: Deploy_New_Version_Approval_${{ parameters.ENV }}
-    displayName: Deploy the new release version ${{ parameters.NEW_VERSION }}
-    dependsOn: Start_Old_Stop_New_Receivers_${{ parameters.ENV }}
+    displayName: Deploy the new release version
+    dependsOn:
+      - Start_Old_Stop_New_Receivers_${{ parameters.ENV }}
+      - {{ parameters.RELEASE_TASK_NAME}}
+    variables:
+      newReleaseVersion: $[ stageDependencies.{{ parameters.RELEASE_TASK_NAME}}.make_release.outputs['{{ parameters.RELEASE_TASK_VERSION_OUTPUT_VARIABLE}}'] ]
     condition: succeeded()
     pool: server
     jobs:
@@ -196,11 +203,15 @@ stages:
             timeoutInMinutes: 30
             inputs:
               notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
-              instructions: "Approve upgrade NEW helm release to version: [${{ parameters.NEW_VERSION }}]"
+              instructions: "Approve upgrade NEW helm release to version: [${{ variables.newReleaseVersion }}]"
               onTimeout: 'reject'
   - stage: Deploy_New_Version_${{ parameters.ENV }}
-    displayName: Deploy NEW version ${{ parameters.NEW_VERSION }}
-    dependsOn: Deploy_New_Version_Approval_${{ parameters.ENV }}
+    displayName: Deploy NEW version ${{ variables.newReleaseVersion }}
+    dependsOn:
+      - Deploy_New_Version_Approval_${{ parameters.ENV }}
+      - {{ parameters.RELEASE_TASK_NAME}}
+    variables:
+      newReleaseVersion: $[ stageDependencies.{{ parameters.RELEASE_TASK_NAME}}.make_release.outputs['{{ parameters.RELEASE_TASK_VERSION_OUTPUT_VARIABLE}}'] ]
     condition: succeeded()
     pool:
       name: ${{ parameters.DEPLOY_AGENT_POOL_NAME }}
@@ -213,10 +224,10 @@ stages:
             deploy:
               steps:
                 - script: |
-                    checkoutVersion=${{ parameters.NEW_VERSION }} 
+                    checkoutVersion=$newReleaseVersion
                     echo "Checkout new release version repo tag: [$checkoutVersion]" 
                     git checkout $checkoutVersion
-                  displayName: 'Checkout new release version tag [${{ parameters.NEW_VERSION }}]'
+                  displayName: 'Checkout new release version tag [${{ variables.newReleaseVersion }}]'
                 - task: Bash@3
                   name: update_chart_version
                   displayName: 'Setup helm microservice chart'

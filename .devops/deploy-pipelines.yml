@@ -501,7 +501,6 @@ stages:
                 docker tag $(UAT_CONTAINER_NAMESPACE)/$(K8S_IMAGE_REPOSITORY_NAME):$(prod_app_version) $(PROD_CONTAINER_NAMESPACE)/$(K8S_IMAGE_REPOSITORY_NAME):$(prod_app_version)
                 docker push $(PROD_CONTAINER_NAMESPACE)/$(K8S_IMAGE_REPOSITORY_NAME):$(prod_app_version)
   - template: azure-templates/swap-new-old-deployment.yml
-    dependsOn: [ Build_PROD_Green,Release ]
     parameters:
       DO_DEPLOY: true
       ENV: 'PROD'
@@ -511,7 +510,8 @@ stages:
       APP_NAME: $(K8S_IMAGE_REPOSITORY_NAME)
       VALUE_FILE: "helm/values-prod.yaml"
       HELM_NEW_RELEASE_FILTER: $(K8S_IMAGE_REPOSITORY_NAME)-new
-      NEW_VERSION: $[ stageDependencies.Release.make_release.outputs['chart_current_version.version'] ]
+      RELEASE_TASK_NAME: Release
+      RELEASE_TASK_VERSION_OUTPUT_VARIABLE: Release
       DEPLOY_AGENT_POOL_NAME: pagopa-prod-linux
   # --- END Deploy PROD --- #
 
