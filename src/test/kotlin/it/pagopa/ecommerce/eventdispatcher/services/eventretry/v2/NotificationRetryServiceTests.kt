@@ -6,10 +6,7 @@ import com.azure.core.util.BinaryData
 import com.azure.core.util.serializer.TypeReference
 import com.azure.storage.queue.QueueAsyncClient
 import com.azure.storage.queue.models.SendMessageResult
-import it.pagopa.ecommerce.commons.documents.v2.Transaction
-import it.pagopa.ecommerce.commons.documents.v2.TransactionEvent
-import it.pagopa.ecommerce.commons.documents.v2.TransactionRetriedData
-import it.pagopa.ecommerce.commons.documents.v2.TransactionUserReceiptAddRetriedEvent
+import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.documents.v2.authorization.PgsTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.domain.v2.TransactionEventCode
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
@@ -42,11 +39,12 @@ class NotificationRetryServiceTests {
 
   private val transactionsViewRepository: TransactionsViewRepository = mock()
 
-  private val eventStoreRepository: TransactionsEventStoreRepository<TransactionRetriedData> =
+  private val eventStoreRepository: TransactionsEventStoreRepository<BaseTransactionRetriedData> =
     mock()
 
   @Captor
-  private lateinit var eventStoreCaptor: ArgumentCaptor<TransactionEvent<TransactionRetriedData>>
+  private lateinit var eventStoreCaptor:
+    ArgumentCaptor<TransactionEvent<BaseTransactionRetriedData>>
 
   @Captor private lateinit var viewRepositoryCaptor: ArgumentCaptor<Transaction>
 

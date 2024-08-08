@@ -1,8 +1,11 @@
 package it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2
 
 import com.azure.storage.queue.QueueAsyncClient
+import it.pagopa.ecommerce.commons.documents.v2.BaseTransactionRetriedData
 import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationOutcomeWaitingEvent
+import it.pagopa.ecommerce.commons.documents.v2.TransactionEvent
 import it.pagopa.ecommerce.commons.documents.v2.TransactionRetriedData
+import it.pagopa.ecommerce.commons.documents.v2.authorization.TransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithPaymentToken
@@ -23,7 +26,7 @@ class AuthorizationStateRetrieverRetryService(
   @Autowired private val authRequestedOutcomeWaitingQueueAsyncClient: QueueAsyncClient,
   @Autowired private val viewRepository: TransactionsViewRepository,
   @Autowired
-  private val eventStoreRepository: TransactionsEventStoreRepository<TransactionRetriedData>,
+  private val eventStoreRepository: TransactionsEventStoreRepository<BaseTransactionRetriedData>,
   @Value("\${transactionAuthorizationOutcomeWaiting.eventOffsetSeconds}")
   private val retryOffset: Int,
   @Value("\${transactionAuthorizationOutcomeWaiting.maxAttempts}") private val maxAttempts: Int,
@@ -31,7 +34,7 @@ class AuthorizationStateRetrieverRetryService(
   private val transientQueuesTTLSeconds: Int,
   @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider
 ) :
-  RetryEventService<TransactionAuthorizationOutcomeWaitingEvent>(
+  RetryEventService<TransactionEvent<BaseTransactionRetriedData>>(
     queueAsyncClient = authRequestedOutcomeWaitingQueueAsyncClient,
     retryOffset = retryOffset,
     maxAttempts = maxAttempts,
@@ -43,7 +46,10 @@ class AuthorizationStateRetrieverRetryService(
   override fun buildRetryEvent(
     transactionId: TransactionId,
     transactionRetriedData: TransactionRetriedData,
-  ) = TransactionAuthorizationOutcomeWaitingEvent(transactionId.value(), transactionRetriedData)
+    transactionGatewayAuthorizationData: TransactionGatewayAuthorizationData?
+  ): TransactionEvent<BaseTransactionRetriedData> =
+    TransactionAuthorizationOutcomeWaitingEvent(transactionId.value(), transactionRetriedData)
+      as TransactionEvent<BaseTransactionRetriedData>
 
   override fun newTransactionStatus(): TransactionStatusDto =
     TransactionStatusDto.AUTHORIZATION_REQUESTED

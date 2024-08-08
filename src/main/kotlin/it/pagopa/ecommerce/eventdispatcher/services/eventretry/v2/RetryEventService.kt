@@ -3,9 +3,11 @@ package it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2
 import com.azure.core.util.BinaryData
 import com.azure.core.util.serializer.JsonSerializerProvider
 import com.azure.storage.queue.QueueAsyncClient
+import it.pagopa.ecommerce.commons.documents.v2.BaseTransactionRetriedData
 import it.pagopa.ecommerce.commons.documents.v2.Transaction
 import it.pagopa.ecommerce.commons.documents.v2.TransactionEvent
 import it.pagopa.ecommerce.commons.documents.v2.TransactionRetriedData
+import it.pagopa.ecommerce.commons.documents.v2.authorization.TransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
@@ -27,19 +29,24 @@ abstract class RetryEventService<E>(
   private val retryOffset: Int,
   private val maxAttempts: Int,
   private val viewRepository: TransactionsViewRepository,
-  private val retryEventStoreRepository: TransactionsEventStoreRepository<TransactionRetriedData>,
+  private val retryEventStoreRepository:
+    TransactionsEventStoreRepository<BaseTransactionRetriedData>,
   protected val logger: Logger = LoggerFactory.getLogger(RetryEventService::class.java),
   private val transientQueuesTTLSeconds: Int,
   private val strictSerializerProviderV2: JsonSerializerProvider
-) where E : TransactionEvent<TransactionRetriedData> {
+) where E : TransactionEvent<BaseTransactionRetriedData> {
 
   fun enqueueRetryEvent(
     baseTransaction: BaseTransaction,
     retriedCount: Int,
-    tracingInfo: TracingInfo?
+    tracingInfo: TracingInfo?,
+    transactionGatewayAuthorizationData: TransactionGatewayAuthorizationData? = null
   ): Mono<Void> {
     val retryEvent =
-      buildRetryEvent(baseTransaction.transactionId, TransactionRetriedData(retriedCount + 1))
+      buildRetryEvent(
+        baseTransaction.transactionId,
+        TransactionRetriedData(retriedCount + 1),
+        transactionGatewayAuthorizationData)
     val visibilityTimeout = Duration.ofSeconds((retryOffset * retryEvent.data.retryCount).toLong())
     return Mono.just(retryEvent)
       .filter { it.data.retryCount <= maxAttempts }
@@ -65,7 +72,8 @@ abstract class RetryEventService<E>(
 
   abstract fun buildRetryEvent(
     transactionId: TransactionId,
-    transactionRetriedData: TransactionRetriedData
+    transactionRetriedData: TransactionRetriedData,
+    transactionGatewayAuthorizationData: TransactionGatewayAuthorizationData? = null
   ): E
 
   abstract fun newTransactionStatus(): TransactionStatusDto

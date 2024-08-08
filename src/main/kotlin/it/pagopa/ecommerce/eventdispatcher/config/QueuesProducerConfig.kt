@@ -1,5 +1,6 @@
 package it.pagopa.ecommerce.eventdispatcher.config
 
+import com.azure.core.http.netty.NettyAsyncHttpClientBuilder
 import com.azure.core.util.serializer.JsonSerializer
 import com.azure.storage.queue.QueueAsyncClient
 import com.azure.storage.queue.QueueClientBuilder
@@ -10,6 +11,7 @@ import it.pagopa.ecommerce.commons.queues.mixin.serialization.v2.QueueEventMixIn
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import reactor.netty.http.client.HttpClient
 
 @Configuration
 class QueuesProducerConfig {
@@ -26,6 +28,15 @@ class QueuesProducerConfig {
     return StrictJsonSerializerProvider()
       .addMixIn(QueueEvent::class.java, QueueEventMixInClassFieldDiscriminator::class.java)
       .createInstance()
+  }
+
+  @Bean
+  fun refundQueueAsyncClient(
+    @Value("\${azurestorage.transient.connectionstring}") storageConnectionString: String,
+    @Value("\${azurestorage.queues.transactionsrefund.name}") queueEventInitName: String,
+  ): it.pagopa.ecommerce.commons.client.QueueAsyncClient {
+    return it.pagopa.ecommerce.commons.client.QueueAsyncClient(
+      buildQueueAsyncClient(storageConnectionString, queueEventInitName), jsonSerializerV2())
   }
 
   @Bean
@@ -90,5 +101,6 @@ class QueuesProducerConfig {
     QueueClientBuilder()
       .connectionString(storageConnectionString)
       .queueName(queueName)
+      .httpClient(NettyAsyncHttpClientBuilder(HttpClient.create().resolver { it.ndots(1) }).build())
       .buildAsyncClient()
 }

@@ -35,7 +35,7 @@ microservice-chart:
     create: true
   image:
     repository: pagopadcommonacr.azurecr.io/pagopaecommerceeventdispatcherservice
-    tag: "1.12.2"
+    tag: "1.18.0"
     pullPolicy: Always
   livenessProbe:
     httpGet:
@@ -142,7 +142,7 @@ microservice-chart:
     CLOSE_PAYMENT_RETRY_EVENT_MAX_ATTEMPTS: "3"
     NOTIFICATION_RETRY_EVENT_BASE_INTERVAL_SECONDS: "600"
     NOTIFICATION_RETRY_EVENT_MAX_ATTEMPTS: "3"
-    AUTHORIZATION_OUTCOME_WAITING_EVENT_BASE_INTERVAL_SECONDS: "10"
+    AUTHORIZATION_OUTCOME_WAITING_EVENT_BASE_INTERVAL_SECONDS: "80"
     AUTHORIZATION_OUTCOME_WAITING_EVENT_MAX_ATTEMPTS: "3"
     PERSONAL_DATA_VAULT_API_BASE_PATH: "https://api.uat.tokenizer.pdv.pagopa.it/tokenizer/v1"
     SEND_PAYMENT_RESULT_TIMEOUT_SECONDS: "3900"
@@ -159,10 +159,12 @@ microservice-chart:
     NPG_CONNECTION_TIMEOUT: "10000"
     ECS_SERVICE_NAME: pagopa-ecommerce-event-dispatcher-service
     ECS_SERVICE_ENVIRONMENT: dev
-    NPG_CARDS_PSP_LIST: "BCITITMM,CIPBITMM,BIC36019,UNCRITMM,BPPIITRRXXX,PPAYITR1XXX,BNLIITRR"
+    NPG_CARDS_PSP_LIST: "BCITITMM,CIPBITMM,BIC36019,UNCRITMM,BPPIITRRXXX,PPAYITR1XXX,BNLIITRR,PASCITMM,WOLLNLB1,IFSPIT21"
     NPG_PAYPAL_PSP_LIST: "BCITITMM,SIGPITM1XXX"
-    NPG_MYBANK_PSP_LIST: "BCITITMM"
+    NPG_MYBANK_PSP_LIST: "BCITITMM,UNCRITMM"
     NPG_BANCOMATPAY_PSP_LIST: "BCITITMM"
+    NPG_SATISPAY_PSP_LIST: "SATYLUL1"
+    NPG_APPLEPAY_PSP_LIST: "SIGPITM1XXX"
     REDIS_STREAM_EVENT_CONTROLLER_STREAM_KEY: "event-dispatcher-commands"
     REDIS_STREAM_EVENT_CONTROLLER_CONSUMER_GROUP_PREFIX: "event-dispatcher"
     REDIS_STREAM_EVENT_CONTROLLER_CONSUMER_NAME_PREFIX: "event-dispatcher"
@@ -170,7 +172,7 @@ microservice-chart:
     NODE_FORWARDER_URL: "https://api.uat.platform.pagopa.it/pagopa-node-forwarder/api/v1"
     NODE_FORWARDER_READ_TIMEOUT: "10000"
     NODE_FORWARDER_CONNECTION_TIMEOUT: "10000"
-    REDIRECT_PAYMENT_TYPE_CODES: "BCITITMM-RPIC,POSOIT22XXX-RBPS,PPAYITR1XXX-RBPB,PPAYITR1XXX-RBPP,PPAYITR1XXX-RBPR,BPPIITRRXXX-RBPR,BPPIITRRXXX-RBPP,BPPIITRRXXX-RBPB"
+    REDIRECT_PAYMENT_TYPE_CODES: "BPPIITRRXXX-RBPR,BPPIITRRXXX-RBPP,BPPIITRRXXX-RBPB,PPAYITR1XXX-RBPB,CHECKOUT-PPAYITR1XXX-RBPP,IO-PPAYITR1XXX-RBPP,PPAYITR1XXX-RBPR,RBPS,RPIC"
   envSecret:
     ECOMMERCE_STORAGE_TRANSIENT_QUEUE_KEY: ecommerce-storage-transient-account-key
     MONGO_PASSWORD: mongo-ecommerce-password
@@ -181,7 +183,8 @@ microservice-chart:
     QUEUE_DEADLETTER_CONNECTION_STRING: ecommerce-storage-deadletter-connection-string
     NOTIFICATIONS_SERVICE_API_KEY: notifications-service-api-key
     TRANSACTIONS_SERVICE_API_KEY: transactions-service-auth-update-api-key
-    PERSONAL_DATA_VAULT_API_KEY: personal-data-vault-api-key
+    ECOMMERCE_PERSONAL_DATA_VAULT_API_KEY: personal-data-vault-api-key
+    WALLET_SESSION_PERSONAL_DATA_VAULT_API_KEY: personal-data-vault-api-key-wallet-session
     PAYMENT_TRANSACTIONS_GATEWAY_API_KEY: payment-transactions-gateway-api-key
     OTEL_EXPORTER_OTLP_HEADERS: elastic-otel-token-header
     NPG_API_KEY: npg-api-key
@@ -191,6 +194,8 @@ microservice-chart:
     NPG_PAYPAL_PSP_KEYS: npg-paypal-psp-keys
     NPG_BANCOMATPAY_PSP_KEYS: npg-bancomatpay-psp-keys
     NPG_MYBANK_PSP_KEYS: npg-mybank-psp-keys
+    NPG_SATISPAY_PSP_KEYS: npg-satispay-psp-keys
+    NPG_APPLEPAY_PSP_KEYS: npg-apple-pay-psp-keys
   keyvault:
     name: "pagopa-d-ecommerce-kv"
     tenantId: "7788edaf-0346-4068-9d79-c868aed15b3d"

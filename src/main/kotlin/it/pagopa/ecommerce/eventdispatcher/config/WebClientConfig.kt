@@ -55,6 +55,7 @@ class WebClientConfig {
   ): WebClient {
     val httpClient: HttpClient =
       HttpClient.create()
+        .resolver { it.ndots(1) }
         .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, nodoConnectionTimeout)
         .doOnConnected { connection ->
           connection.addHandlerLast(ReadTimeoutHandler(nodoReadTimeout, TimeUnit.MILLISECONDS))
@@ -92,6 +93,7 @@ class WebClientConfig {
   ): VposInternalApi {
     val httpClient =
       HttpClient.create()
+        .resolver { it.ndots(1) }
         .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, paymentTransactionGatewayConnectionTimeout)
         .doOnConnected { connection: Connection ->
           connection.addHandlerLast(
@@ -121,6 +123,7 @@ class WebClientConfig {
   ): XPayInternalApi {
     val httpClient =
       HttpClient.create()
+        .resolver { it.ndots(1) }
         .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, paymentTransactionGatewayConnectionTimeout)
         .doOnConnected { connection: Connection ->
           connection.addHandlerLast(
@@ -148,6 +151,7 @@ class WebClientConfig {
   ): DefaultApi {
     val httpClient =
       HttpClient.create()
+        .resolver { it.ndots(1) }
         .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, notificationsServiceConnectionTimeout)
         .doOnConnected { connection: Connection ->
           connection.addHandlerLast(
@@ -170,6 +174,7 @@ class WebClientConfig {
   ): TransactionsApi {
     val httpClient =
       HttpClient.create()
+        .resolver { it.ndots(1) }
         .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, transactionsServiceConnectionTimeout)
         .doOnConnected { connection: Connection ->
           connection.addHandlerLast(

@@ -3,18 +3,20 @@ package it.pagopa.ecommerce.eventdispatcher.queues.v2
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import it.pagopa.ecommerce.commons.client.NpgClient
+import it.pagopa.ecommerce.commons.client.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.documents.v2.activation.NpgTransactionGatewayActivationData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.*
+import it.pagopa.ecommerce.commons.documents.v2.refund.EmptyGatewayRefundData
+import it.pagopa.ecommerce.commons.documents.v2.refund.GatewayRefundData
+import it.pagopa.ecommerce.commons.documents.v2.refund.NpgGatewayRefundData
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v2.TransactionEventCode
 import it.pagopa.ecommerce.commons.domain.v2.TransactionWithClosureError
 import it.pagopa.ecommerce.commons.domain.v2.pojos.*
-import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
-import it.pagopa.ecommerce.commons.generated.npg.v1.dto.RefundResponseDto
-import it.pagopa.ecommerce.commons.generated.npg.v1.dto.StateResponseDto
-import it.pagopa.ecommerce.commons.generated.npg.v1.dto.WorkflowStateDto
+import it.pagopa.ecommerce.commons.exceptions.NpgResponseException
+import it.pagopa.ecommerce.commons.generated.npg.v1.dto.*
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
@@ -31,7 +33,9 @@ import it.pagopa.ecommerce.eventdispatcher.services.RefundService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.AuthorizationStateRetrieverRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.AuthorizationStateRetrieverService
+import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
+import it.pagopa.ecommerce.eventdispatcher.utils.EndToEndId
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto.StatusEnum
 import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
@@ -62,14 +66,20 @@ fun updateTransactionToExpired(
     .save(
       TransactionExpiredEvent(
         transaction.transactionId.value(), TransactionExpiredData(transaction.status)))
-    .then(
+    .map {
+      (transaction as it.pagopa.ecommerce.commons.domain.v2.Transaction).applyEvent(it)
+        as BaseTransaction
+    }
+    .flatMap {
       transactionsViewRepository
         .findByTransactionId(transaction.transactionId.value())
         .cast(Transaction::class.java)
         .flatMap { tx ->
           tx.status = getExpiredTransactionStatus(transaction)
           transactionsViewRepository.save(tx)
-        })
+        }
+        .thenReturn(it)
+    }
     .doOnSuccess {
       logger.info("Transaction expired for transaction ${transaction.transactionId.value()}")
     }
@@ -77,7 +87,6 @@ fun updateTransactionToExpired(
       logger.error(
         "Transaction expired error for transaction ${transaction.transactionId.value()} : ${it.message}")
     }
-    .thenReturn(transaction)
 }
 
 fun getExpiredTransactionStatus(transaction: BaseTransaction): TransactionStatusDto =
@@ -94,57 +103,89 @@ fun getExpiredTransactionStatus(transaction: BaseTransaction): TransactionStatus
     else -> TransactionStatusDto.EXPIRED_NOT_AUTHORIZED
   }
 
+fun getTransactionAuthorizationRequestData(
+  tx: BaseTransaction
+): TransactionAuthorizationRequestData? {
+  return when (tx) {
+    is BaseTransactionWithRequestedAuthorization -> tx.transactionAuthorizationRequestData
+    is TransactionWithClosureError ->
+      getTransactionAuthorizationRequestData(tx.transactionAtPreviousState)
+    else -> null
+  }
+}
+
 fun updateTransactionToRefundRequested(
   transaction: BaseTransaction,
   transactionsRefundedEventStoreRepository:
-    TransactionsEventStoreRepository<TransactionRefundedData>,
-  transactionsViewRepository: TransactionsViewRepository
-): Mono<BaseTransaction> {
-  return updateTransactionWithRefundEvent(
-    transaction,
-    transactionsRefundedEventStoreRepository,
-    transactionsViewRepository,
+    TransactionsEventStoreRepository<BaseTransactionRefundedData>,
+  transactionsViewRepository: TransactionsViewRepository,
+  transactionGatewayAuthorizationData: TransactionGatewayAuthorizationData? = null
+): Mono<Pair<BaseTransactionWithRefundRequested, TransactionRefundRequestedEvent>> {
+  val event =
     TransactionRefundRequestedEvent(
-      transaction.transactionId.value(), TransactionRefundedData(transaction.status)),
-    TransactionStatusDto.REFUND_REQUESTED)
+      transaction.transactionId.value(),
+      TransactionRefundRequestedData(transactionGatewayAuthorizationData, transaction.status))
+
+  return updateTransactionWithRefundEvent(
+      transaction,
+      transactionsRefundedEventStoreRepository,
+      transactionsViewRepository,
+      event as TransactionEvent<BaseTransactionRefundedData>,
+      TransactionStatusDto.REFUND_REQUESTED)
+    .thenReturn(
+      Pair(
+        (transaction as it.pagopa.ecommerce.commons.domain.v2.Transaction).applyEvent(event)
+          as BaseTransactionWithRefundRequested,
+        event))
 }
 
 fun updateTransactionToRefundError(
   transaction: BaseTransaction,
   transactionsRefundedEventStoreRepository:
-    TransactionsEventStoreRepository<TransactionRefundedData>,
+    TransactionsEventStoreRepository<BaseTransactionRefundedData>,
   transactionsViewRepository: TransactionsViewRepository
 ): Mono<BaseTransaction> {
+  val event =
+    TransactionRefundErrorEvent(
+      transaction.transactionId.value(), TransactionRefundErrorData(transaction.status))
+
   return updateTransactionWithRefundEvent(
     transaction,
     transactionsRefundedEventStoreRepository,
     transactionsViewRepository,
-    TransactionRefundErrorEvent(
-      transaction.transactionId.value(), TransactionRefundedData(transaction.status)),
+    event as TransactionEvent<BaseTransactionRefundedData>,
     TransactionStatusDto.REFUND_ERROR)
 }
 
 fun updateTransactionToRefunded(
   transaction: BaseTransaction,
   transactionsRefundedEventStoreRepository:
-    TransactionsEventStoreRepository<TransactionRefundedData>,
+    TransactionsEventStoreRepository<BaseTransactionRefundedData>,
   transactionsViewRepository: TransactionsViewRepository,
+  gatewayRefundData: GatewayRefundData = EmptyGatewayRefundData()
 ): Mono<BaseTransaction> {
-  return updateTransactionWithRefundEvent(
-    transaction,
-    transactionsRefundedEventStoreRepository,
-    transactionsViewRepository,
+  val event =
     TransactionRefundedEvent(
-      transaction.transactionId.value(), TransactionRefundedData(transaction.status)),
-    TransactionStatusDto.REFUNDED)
+      transaction.transactionId.value(),
+      TransactionRefundedData(gatewayRefundData, transaction.status))
+
+  return updateTransactionWithRefundEvent(
+      transaction,
+      transactionsRefundedEventStoreRepository,
+      transactionsViewRepository,
+      event as TransactionEvent<BaseTransactionRefundedData>,
+      TransactionStatusDto.REFUNDED)
+    .thenReturn(
+      (transaction as it.pagopa.ecommerce.commons.domain.v2.Transaction).applyEvent(event)
+        as BaseTransactionRefunded)
 }
 
 fun updateTransactionWithRefundEvent(
   transaction: BaseTransaction,
   transactionsRefundedEventStoreRepository:
-    TransactionsEventStoreRepository<TransactionRefundedData>,
+    TransactionsEventStoreRepository<BaseTransactionRefundedData>,
   transactionsViewRepository: TransactionsViewRepository,
-  event: TransactionEvent<TransactionRefundedData>,
+  event: TransactionEvent<BaseTransactionRefundedData>,
   status: TransactionStatusDto
 ): Mono<BaseTransaction> {
   return transactionsRefundedEventStoreRepository
@@ -303,7 +344,7 @@ fun patchAuthRequestByState(
                     stateResponseDto.operation!!.additionalData!!["validationServiceId"] as String?
                   errorCode = stateResponseDto.operation!!.additionalData!!["errorCode"] as String?
                 }
-                paymentEndToEndId = stateResponseDto.operation!!.paymentEndToEndId
+                paymentEndToEndId = getPaymentEndToEndId(stateResponseDto.operation!!)
               }
             timestampOperation = getTimeStampOperation(stateResponseDto.operation!!.operationTime!!)
           })
@@ -316,11 +357,85 @@ fun patchAuthRequestByState(
     }
 }
 
+fun getPaymentEndToEndId(operationDto: OperationDto): String? =
+  when (operationDto.paymentCircuit) {
+    // for bancomatPay we expect an `bpayEndToEndId` entry into additional data map to be used as
+    // the paymentEndToEndId
+    NpgClient.PaymentMethod.BANCOMATPAY.serviceName ->
+      operationDto.additionalData?.get(EndToEndId.BANCOMAT_PAY.value) as String?
+    NpgClient.PaymentMethod.MYBANK.serviceName ->
+      operationDto.additionalData?.get(EndToEndId.MYBANK.value) as String?
+    else -> operationDto.paymentEndToEndId
+  }
+
 fun getTimeStampOperation(operationTime: String): OffsetDateTime {
   val operationTimeT: String = operationTime.replace(" ", "T")
   val localDateTime = LocalDateTime.parse(operationTimeT)
   val zonedDateTime = localDateTime.atZone(ZoneId.of("CET"))
   return zonedDateTime.toOffsetDateTime()
+}
+
+fun appendRefundRequestedEventIfNeeded(
+  transaction: BaseTransaction,
+  transactionsEventStoreRepository: TransactionsEventStoreRepository<BaseTransactionRefundedData>,
+  transactionsViewRepository: TransactionsViewRepository,
+  authorizationData: TransactionGatewayAuthorizationData? = null
+): Mono<Pair<BaseTransactionWithRefundRequested, TransactionRefundRequestedEvent?>> {
+  return if (transaction !is BaseTransactionWithRefundRequested) {
+    Mono.just(transaction).flatMap { tx ->
+      updateTransactionToRefundRequested(
+        tx, transactionsEventStoreRepository, transactionsViewRepository, authorizationData)
+    }
+  } else {
+    Mono.just(transaction to null)
+  }
+}
+
+fun requestRefundTransaction(
+  transaction: BaseTransaction,
+  transactionsEventStoreRepository: TransactionsEventStoreRepository<BaseTransactionRefundedData>,
+  transactionsViewRepository: TransactionsViewRepository,
+  npgService: NpgService,
+  tracingInfo: TracingInfo?,
+  refundRequestedAsyncClient: QueueAsyncClient,
+  transientQueueTTLSeconds: Duration
+): Mono<BaseTransactionWithRefundRequested> {
+  val transactionAuthorizationRequestData = getTransactionAuthorizationRequestData(transaction)
+
+  if (transactionAuthorizationRequestData == null) {
+    logger.warn(
+      "Tried to call `requestRefundTransaction` on transaction with null authorization request data in status {}!",
+      transaction.status.value)
+    return Mono.error(
+      IllegalArgumentException(
+        "Tried to call `refundRequested` on transaction with null authorization request data in status ${transaction.status.value}!"))
+  }
+
+  return when (transactionAuthorizationRequestData.paymentGateway) {
+    TransactionAuthorizationRequestData.PaymentGateway.XPAY,
+    TransactionAuthorizationRequestData.PaymentGateway.VPOS,
+    TransactionAuthorizationRequestData.PaymentGateway.REDIRECT ->
+      appendRefundRequestedEventIfNeeded(
+        transaction, transactionsEventStoreRepository, transactionsViewRepository)
+    TransactionAuthorizationRequestData.PaymentGateway.NPG ->
+      appendNpgRefundRequestedEventIfNeeded(
+        transaction, transactionsEventStoreRepository, transactionsViewRepository, npgService)
+    else ->
+      Mono.error(
+        RuntimeException(
+          "Refund request error for transaction ${transaction.transactionId.value()} - unhandled payment-gateway"))
+  }.flatMap { (tx, refundRequestedEvent) ->
+    if (refundRequestedEvent == null) {
+      logger.warn(
+        "Called `requestRefundTransaction` on transaction with id ${tx.transactionId.value()} which seems with a refund already requested. Current transaction status: ${tx.status}")
+      Mono.empty()
+    } else {
+      refundRequestedAsyncClient
+        .sendMessageWithResponse(
+          QueueEvent(refundRequestedEvent, tracingInfo), Duration.ZERO, transientQueueTTLSeconds)
+        .thenReturn(tx)
+    }
+  }
 }
 
 /*
@@ -335,59 +450,68 @@ fun getTimeStampOperation(operationTime: String): OffsetDateTime {
 @SuppressWarnings("kotlin:S107")
 fun refundTransaction(
   tx: BaseTransaction,
-  transactionsEventStoreRepository: TransactionsEventStoreRepository<TransactionRefundedData>,
+  transactionsEventStoreRepository: TransactionsEventStoreRepository<BaseTransactionRefundedData>,
   transactionsViewRepository: TransactionsViewRepository,
   paymentGatewayClient: PaymentGatewayClient,
   refundService: RefundService,
   refundRetryService: RefundRetryService,
-  authorizationStateRetrieverService: AuthorizationStateRetrieverService,
+  npgService: NpgService,
   tracingInfo: TracingInfo?,
   retryCount: Int = 0
 ): Mono<BaseTransaction> {
-  val appendRefundedRequestEvent =
-    if (tx !is BaseTransactionWithRefundRequested) {
-      Mono.just(tx).flatMap {
-        updateTransactionToRefundRequested(
-          it, transactionsEventStoreRepository, transactionsViewRepository)
-      }
-    } else {
-      Mono.just(tx)
-    }
+  val transactionAuthorizationRequestData = getTransactionAuthorizationRequestData(tx)
+
+  if (transactionAuthorizationRequestData == null) {
+    logger.warn(
+      "Tried to call `refundRequested` on transaction with null authorization request data in status {}!",
+      tx.status.value)
+    return Mono.error(
+      IllegalArgumentException(
+        "Tried to call `refundRequested` on transaction with null authorization request data in status ${tx.status.value}!"))
+  }
 
   return Mono.just(tx)
-    .cast(BaseTransactionWithRequestedAuthorization::class.java)
     .flatMap { transaction ->
-      val authorizationRequestId =
-        transaction.transactionAuthorizationRequestData.authorizationRequestId
-      when (transaction.transactionAuthorizationRequestData.paymentGateway) {
+      val authorizationRequestId = transactionAuthorizationRequestData.authorizationRequestId
+      when (transactionAuthorizationRequestData.paymentGateway) {
         TransactionAuthorizationRequestData.PaymentGateway.XPAY ->
-          appendRefundedRequestEvent
+          appendRefundRequestedEventIfNeeded(
+              tx, transactionsEventStoreRepository, transactionsViewRepository)
             .flatMap {
               paymentGatewayClient.requestXPayRefund(UUID.fromString(authorizationRequestId))
             }
             .map { refundResponse -> Pair(refundResponse, transaction) }
         TransactionAuthorizationRequestData.PaymentGateway.VPOS ->
-          appendRefundedRequestEvent
+          appendRefundRequestedEventIfNeeded(
+              tx, transactionsEventStoreRepository, transactionsViewRepository)
             .flatMap {
               paymentGatewayClient.requestVPosRefund(UUID.fromString(authorizationRequestId))
             }
             .map { refundResponse -> Pair(refundResponse, transaction) }
         TransactionAuthorizationRequestData.PaymentGateway.NPG ->
-          refundTransactionNPG(
-            transaction,
-            appendRefundedRequestEvent,
-            authorizationStateRetrieverService,
-            refundService,
-          )
+          appendNpgRefundRequestedEventIfNeeded(
+              transaction, transactionsEventStoreRepository, transactionsViewRepository, npgService)
+            .flatMap { (tx, _) -> refundTransactionNPG(tx, refundService) }
         TransactionAuthorizationRequestData.PaymentGateway.REDIRECT -> {
-          appendRefundedRequestEvent
+          appendRefundRequestedEventIfNeeded(
+              tx, transactionsEventStoreRepository, transactionsViewRepository)
             .flatMap {
               refundService.requestRedirectRefund(
                 transactionId = transaction.transactionId,
-                pspTransactionId =
-                  transaction.transactionAuthorizationRequestData.authorizationRequestId,
-                paymentTypeCode = transaction.transactionAuthorizationRequestData.paymentTypeCode,
-                pspId = transaction.transactionAuthorizationRequestData.pspId)
+                touchpoint =
+                  transaction.clientId.let {
+                    when (it) {
+                      Transaction.ClientId.CHECKOUT_CART -> Transaction.ClientId.CHECKOUT.name
+                      Transaction.ClientId.CHECKOUT,
+                      Transaction.ClientId.IO -> it.name
+                      else ->
+                        throw IllegalArgumentException(
+                          "Cannot determine touch point: [$it] for redirect transaction refund")
+                    }
+                  },
+                pspTransactionId = transactionAuthorizationRequestData.authorizationRequestId,
+                paymentTypeCode = transactionAuthorizationRequestData.paymentTypeCode,
+                pspId = transactionAuthorizationRequestData.pspId)
             }
             .map { refundResponse -> Pair(refundResponse, transaction) }
         }
@@ -422,6 +546,7 @@ fun refundTransaction(
         is it.pagopa.generated.ecommerce.redirect.v1.dto.RefundResponseDto ->
           handleRedirectRefundResponse(
             transaction,
+            transactionAuthorizationRequestData,
             refundResponse,
             transactionsEventStoreRepository,
             transactionsViewRepository)
@@ -431,6 +556,7 @@ fun refundTransaction(
               "Refund error for transaction ${transaction.transactionId}, unhandled refund response: ${refundResponse.javaClass}"))
       }
     }
+    .cast(BaseTransaction::class.java)
     .onErrorResume { exception ->
       logger.error(
         "Transaction requestRefund error for transaction ${tx.transactionId.value()}", exception)
@@ -445,7 +571,10 @@ fun refundTransaction(
           when (exception) {
             // Enqueue retry event only if refund is allowed
             is RefundNotAllowedException -> Mono.error(exception)
-            is RefundError -> Mono.error(exception)
+            is RefundError.UnexpectedPaymentGatewayResponse -> Mono.error(exception)
+            is RefundError.RefundFailed ->
+              refundRetryService.enqueueRetryEvent(
+                it, retryCount, tracingInfo, exception.authorizationData)
             else -> refundRetryService.enqueueRetryEvent(it, retryCount, tracingInfo)
           }
         }
@@ -453,52 +582,98 @@ fun refundTransaction(
     }
 }
 
-private fun refundTransactionNPG(
-  transaction: BaseTransactionWithRequestedAuthorization,
-  appendRefundedRequestEvent: Mono<out BaseTransaction>,
-  authorizationStateRetrieverService: AuthorizationStateRetrieverService,
-  refundService: RefundService
-): Mono<Pair<RefundResponseDto, BaseTransactionWithRequestedAuthorization>> {
-  return getAuthorizationCompletedData(transaction, authorizationStateRetrieverService)
+private fun appendNpgRefundRequestedEventIfNeeded(
+  transaction: BaseTransaction,
+  transactionsEventStoreRepository: TransactionsEventStoreRepository<BaseTransactionRefundedData>,
+  transactionsViewRepository: TransactionsViewRepository,
+  npgService: NpgService,
+): Mono<Pair<BaseTransactionWithRefundRequested, TransactionRefundRequestedEvent?>> {
+  return getAuthorizationCompletedData(transaction, npgService)
     .onErrorResume { error ->
+      val authorizationData =
+        when (error) {
+          is InvalidNpgOrderStateException.OrderAlreadyRefunded -> error.authorizationData
+          else -> null
+        }
       // add refund requested event even the NPG return errors. If empty it doesn't
-      appendRefundedRequestEvent.flatMap { Mono.error(error) }
-    }
-    .onErrorMap({ error ->
-      error is InvalidNPGResponseException || error is NpgBadRequestException
-    },) {
-      RefundError.UnexpectedPaymentGatewayResponse(
-        transaction.transactionId, "Failed to get authorization data from NPG payment gateway")
+      appendRefundRequestedEventIfNeeded(
+          transaction,
+          transactionsEventStoreRepository,
+          transactionsViewRepository,
+          authorizationData)
+        .flatMap { Mono.error(error) }
     }
     .flatMap { authorizationData ->
-      appendRefundedRequestEvent
-        .map { authorizationData }
-        .cast(NpgTransactionGatewayAuthorizationData::class.java)
-        .flatMap {
-          refundService
-            .requestNpgRefund(
-              operationId = it.operationId,
-              idempotenceKey = transaction.transactionId.uuid,
-              amount =
-                BigDecimal(transaction.transactionAuthorizationRequestData.amount)
-                  .add(BigDecimal(transaction.transactionAuthorizationRequestData.fee)),
-              pspId = transaction.transactionAuthorizationRequestData.pspId,
-              correlationId =
-                (transaction.transactionActivatedData.transactionGatewayActivationData
-                    as NpgTransactionGatewayActivationData)
-                  .correlationId,
-              paymentMethod =
-                NpgClient.PaymentMethod.valueOf(
-                  transaction.transactionAuthorizationRequestData.paymentMethodName))
-            .map { refundResponse -> Pair(refundResponse, transaction) }
-        }
+      appendRefundRequestedEventIfNeeded(
+        transaction,
+        transactionsEventStoreRepository,
+        transactionsViewRepository,
+        authorizationData)
+    }
+    .onErrorMap(InvalidNPGResponseException::class.java) {
+      RefundError.UnexpectedPaymentGatewayResponse(
+        transaction.transactionId,
+        "Failed to get authorization data from NPG payment gateway, reason: [${it.message}]")
+    }
+    .onErrorMap(InvalidNpgOrderStateException::class.java) {
+      RefundError.UnexpectedPaymentGatewayResponse(
+        transaction.transactionId,
+        "Failed to get authorization data due to invalid NPG order state, reason: [${it.message}]")
+    }
+    .onErrorMap(NpgBadRequestException::class.java) {
+      RefundError.UnexpectedPaymentGatewayResponse(
+        transaction.transactionId,
+        "Failed to get authorization data due bad request from NPG payment gateway")
+    }
+}
+
+private fun refundTransactionNPG(
+  transaction: BaseTransactionWithRefundRequested,
+  refundService: RefundService
+): Mono<Pair<RefundResponseDto, BaseTransactionWithRefundRequested>> {
+  if (transaction.transactionAuthorizationRequestData.paymentGateway !=
+    TransactionAuthorizationRequestData.PaymentGateway.NPG) {
+    return Mono.error(
+      IllegalStateException(
+        "Tried to call refund for NPG transaction on wrong gateway ${transaction.transactionAuthorizationRequestData.paymentGateway}"))
+  }
+
+  val authorizationData =
+    transaction.transactionAuthorizationGatewayData
+      .map { it as NpgTransactionGatewayAuthorizationData }
+      .orElse(null)
+      ?: return Mono.error(
+        IllegalStateException(
+          "Tried to call refund for NPG transaction without having acquired gateway authorization data!"))
+
+  return refundService
+    .requestNpgRefund(
+      operationId = authorizationData.operationId,
+      idempotenceKey = transaction.transactionId.uuid,
+      amount =
+        BigDecimal(transaction.transactionAuthorizationRequestData.amount)
+          .add(BigDecimal(transaction.transactionAuthorizationRequestData.fee)),
+      pspId = transaction.transactionAuthorizationRequestData.pspId,
+      correlationId =
+        (transaction.transactionActivatedData.transactionGatewayActivationData
+            as NpgTransactionGatewayActivationData)
+          .correlationId,
+      paymentMethod =
+        NpgClient.PaymentMethod.valueOf(
+          transaction.transactionAuthorizationRequestData.paymentMethodName))
+    .map { refundResponse -> Pair(refundResponse, transaction) }
+    .onErrorMap({ e -> e is BadGatewayException || e is NpgResponseException }) { e ->
+      logger.error(
+        "Error during refund NPG for transaction [{}]", transaction.transactionId.value(), e)
+      RefundError.RefundFailed(
+        transaction.transactionId, authorizationData, "Error during refund NPG")
     }
 }
 
 fun handleVposRefundResponse(
-  transaction: BaseTransactionWithRequestedAuthorization,
+  transaction: BaseTransaction,
   refundResponse: VposDeleteResponseDto,
-  transactionsEventStoreRepository: TransactionsEventStoreRepository<TransactionRefundedData>,
+  transactionsEventStoreRepository: TransactionsEventStoreRepository<BaseTransactionRefundedData>,
   transactionsViewRepository: TransactionsViewRepository
 ): Mono<BaseTransaction> {
   logger.info(
@@ -525,9 +700,9 @@ fun handleVposRefundResponse(
 }
 
 fun handleXpayRefundResponse(
-  transaction: BaseTransactionWithRequestedAuthorization,
+  transaction: BaseTransaction,
   refundResponse: XPayRefundResponse200Dto,
-  transactionsEventStoreRepository: TransactionsEventStoreRepository<TransactionRefundedData>,
+  transactionsEventStoreRepository: TransactionsEventStoreRepository<BaseTransactionRefundedData>,
   transactionsViewRepository: TransactionsViewRepository
 ): Mono<BaseTransaction> {
   logger.info(
@@ -554,9 +729,9 @@ fun handleXpayRefundResponse(
 }
 
 fun handleNpgRefundResponse(
-  transaction: BaseTransactionWithRequestedAuthorization,
+  transaction: BaseTransaction,
   refundResponse: RefundResponseDto,
-  transactionsEventStoreRepository: TransactionsEventStoreRepository<TransactionRefundedData>,
+  transactionsEventStoreRepository: TransactionsEventStoreRepository<BaseTransactionRefundedData>,
   transactionsViewRepository: TransactionsViewRepository
 ): Mono<BaseTransaction> {
   logger.info(
@@ -564,19 +739,23 @@ fun handleNpgRefundResponse(
     transaction.transactionId.value(),
     refundResponse.operationId ?: "N/A")
   return updateTransactionToRefunded(
-    transaction, transactionsEventStoreRepository, transactionsViewRepository)
+    transaction,
+    transactionsEventStoreRepository,
+    transactionsViewRepository,
+    NpgGatewayRefundData(refundResponse.operationId))
 }
 
 fun handleRedirectRefundResponse(
-  transaction: BaseTransactionWithRequestedAuthorization,
+  transaction: BaseTransaction,
+  transactionAuthorizationRequestData: TransactionAuthorizationRequestData,
   refundResponse: it.pagopa.generated.ecommerce.redirect.v1.dto.RefundResponseDto,
-  transactionsEventStoreRepository: TransactionsEventStoreRepository<TransactionRefundedData>,
+  transactionsEventStoreRepository: TransactionsEventStoreRepository<BaseTransactionRefundedData>,
   transactionsViewRepository: TransactionsViewRepository
 ): Mono<BaseTransaction> {
   val refundOutcome = refundResponse.outcome
   logger.info(
     "Refund for redirect transaction for psp: [{}] with id: [{}] processed successfully. Received outcome: [{}]",
-    transaction.transactionAuthorizationRequestData.pspId,
+    transactionAuthorizationRequestData.pspId,
     transaction.transactionId.value(),
     refundOutcome)
   return when (refundOutcome) {
@@ -681,55 +860,26 @@ fun getAuthorizationOutcome(tx: BaseTransaction): AuthorizationResultDto? =
 @SuppressWarnings("kotlin:S1871")
 fun getAuthorizationCompletedData(
   tx: BaseTransaction,
-  authorizationStateRetrieverService: AuthorizationStateRetrieverService
+  npgService: NpgService
 ): Mono<TransactionGatewayAuthorizationData> =
   when (tx) {
     is BaseTransactionWithCompletedAuthorization ->
       tx.transactionAuthorizationCompletedData.transactionGatewayAuthorizationData.toMono()
     is BaseTransactionWithRefundRequested ->
-      getAuthorizationCompletedData(
-        tx.transactionAtPreviousState, authorizationStateRetrieverService)
+      tx.transactionAuthorizationGatewayData
+        .map { it.toMono() }
+        .orElse(getAuthorizationCompletedData(tx.transactionAtPreviousState, npgService))
     is TransactionWithClosureError ->
-      getAuthorizationCompletedData(
-        tx.transactionAtPreviousState, authorizationStateRetrieverService)
+      getAuthorizationCompletedData(tx.transactionAtPreviousState, npgService)
     is BaseTransactionExpired ->
-      getAuthorizationCompletedData(
-        tx.transactionAtPreviousState, authorizationStateRetrieverService)
+      getAuthorizationCompletedData(tx.transactionAtPreviousState, npgService)
     is BaseTransactionWithRequestedAuthorization ->
       if (tx.transactionAuthorizationRequestData.paymentGateway ==
         TransactionAuthorizationRequestData.PaymentGateway.NPG) {
-        getNpgTransactionAuthorizationData(tx, authorizationStateRetrieverService)
+        npgService.getAuthorizationDataFromNpgOrder(tx)
       } else Mono.empty()
     else -> Mono.empty()
   }
-
-private fun getNpgTransactionAuthorizationData(
-  trx: BaseTransaction,
-  authorizationStateRetrieverService: AuthorizationStateRetrieverService
-): Mono<TransactionGatewayAuthorizationData> {
-  return retrieveAuthorizationState(trx, authorizationStateRetrieverService).flatMap { stateResponse
-    ->
-    val operation = stateResponse.operation
-    val operationResult = operation?.operationResult
-    val operationId = operation?.operationId
-    logger.info(
-      "Performed get state for transaction with id: [{}], received operations state: [{}], operation result: [{}] and operation id: [{}]",
-      trx.transactionId.value(),
-      stateResponse.state,
-      operationResult,
-      operationId)
-    when {
-      operationResult == OperationResultDto.EXECUTED ->
-        operationId?.let {
-          NpgTransactionGatewayAuthorizationData(
-              operationResult, it, operation.paymentEndToEndId, null, null)
-            .toMono()
-        }
-          ?: Mono.error(InvalidNPGResponseException())
-      else -> Mono.empty()
-    }
-  }
-}
 
 fun wasAuthorizationDenied(tx: BaseTransaction): Boolean =
   getAuthorizationOutcome(tx) == AuthorizationResultDto.KO
@@ -773,7 +923,7 @@ fun updateNotifiedTransactionStatus(
   transaction: BaseTransactionWithRequestedUserReceipt,
   transactionsViewRepository: TransactionsViewRepository,
   transactionUserReceiptRepository: TransactionsEventStoreRepository<TransactionUserReceiptData>
-): Mono<TransactionUserReceiptAddedEvent> {
+): Mono<BaseTransactionWithUserReceipt> {
   val newStatus =
     when (transaction.transactionUserReceiptData.responseOutcome!!) {
       TransactionUserReceiptData.Outcome.OK -> TransactionStatusDto.NOTIFIED_OK
@@ -795,6 +945,9 @@ fun updateNotifiedTransactionStatus(
       transactionsViewRepository.save(tx)
     }
     .flatMap { transactionUserReceiptRepository.save(event) }
+    .thenReturn(
+      (transaction as it.pagopa.ecommerce.commons.domain.v2.Transaction).applyEvent(event)
+        as BaseTransactionWithUserReceipt)
 }
 
 fun updateNotificationErrorTransactionStatus(
@@ -831,13 +984,12 @@ fun updateNotificationErrorTransactionStatus(
 fun notificationRefundTransactionPipeline(
   transaction: BaseTransactionWithRequestedUserReceipt,
   transactionsRefundedEventStoreRepository:
-    TransactionsEventStoreRepository<TransactionRefundedData>,
+    TransactionsEventStoreRepository<BaseTransactionRefundedData>,
   transactionsViewRepository: TransactionsViewRepository,
-  paymentGatewayClient: PaymentGatewayClient,
-  refundService: RefundService,
-  refundRetryService: RefundRetryService,
-  authorizationStateRetrieverService: AuthorizationStateRetrieverService,
+  npgService: NpgService,
   tracingInfo: TracingInfo?,
+  refundRequestedAsyncClient: QueueAsyncClient,
+  transientQueueTTLSeconds: Duration
 ): Mono<BaseTransaction> {
   val userReceiptOutcome = transaction.transactionUserReceiptData.responseOutcome
   val toBeRefunded = userReceiptOutcome == TransactionUserReceiptData.Outcome.KO
@@ -846,16 +998,14 @@ fun notificationRefundTransactionPipeline(
   return Mono.just(transaction)
     .filter { toBeRefunded }
     .flatMap {
-      refundTransaction(
+      requestRefundTransaction(
         transaction,
         transactionsRefundedEventStoreRepository,
         transactionsViewRepository,
-        paymentGatewayClient,
-        refundService,
-        refundRetryService,
-        authorizationStateRetrieverService,
+        npgService,
         tracingInfo,
-      )
+        refundRequestedAsyncClient,
+        transientQueueTTLSeconds)
     }
 }
 
@@ -884,6 +1034,7 @@ fun <T> runTracedPipelineWithDeadLetterQueue(
               DeadLetterTracedQueueAsyncClient.ErrorCategory.RETRY_EVENT_NO_ATTEMPTS_LEFT
             is RefundError.UnexpectedPaymentGatewayResponse ->
               pipelineException.toDeadLetterErrorCategory()
+                ?: DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR
             else -> DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR
           }
         logger.error("Exception processing event $eventLogString", pipelineException)

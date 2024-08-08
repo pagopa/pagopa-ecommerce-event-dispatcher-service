@@ -1,7 +1,8 @@
 package it.pagopa.ecommerce.eventdispatcher.queues.v2
 
 import com.azure.spring.messaging.checkpoint.Checkpointer
-import it.pagopa.ecommerce.commons.documents.v2.TransactionRefundedData
+import it.pagopa.ecommerce.commons.client.QueueAsyncClient
+import it.pagopa.ecommerce.commons.documents.v2.BaseTransactionRefundedData
 import it.pagopa.ecommerce.commons.documents.v2.TransactionUserReceiptData
 import it.pagopa.ecommerce.commons.documents.v2.TransactionUserReceiptRequestedEvent
 import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
@@ -11,20 +12,19 @@ import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.client.NotificationsServiceClient
-import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
-import it.pagopa.ecommerce.eventdispatcher.services.RefundService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.NotificationRetryService
-import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
-import it.pagopa.ecommerce.eventdispatcher.services.v2.AuthorizationStateRetrieverService
+import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.ecommerce.eventdispatcher.utils.v2.UserReceiptMailBuilder
+import java.time.Duration
 import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
 
@@ -40,14 +40,14 @@ class TransactionNotificationsQueueConsumer(
   @Autowired private val notificationsServiceClient: NotificationsServiceClient,
   @Autowired
   private val transactionsRefundedEventStoreRepository:
-    TransactionsEventStoreRepository<TransactionRefundedData>,
-  @Autowired private val paymentGatewayClient: PaymentGatewayClient,
-  @Autowired private val refundService: RefundService,
-  @Autowired private val refundRetryService: RefundRetryService,
+    TransactionsEventStoreRepository<BaseTransactionRefundedData>,
+  @Autowired private val refundRequestedAsyncClient: QueueAsyncClient,
   @Autowired private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient,
   @Autowired private val tracingUtils: TracingUtils,
   @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider,
-  @Autowired private val authorizationStateRetrieverService: AuthorizationStateRetrieverService,
+  @Autowired private val npgService: NpgService,
+  @Value("\${azurestorage.queues.transientQueues.ttlSeconds}")
+  private val transientQueueTTLSeconds: Int,
 ) {
   var logger: Logger = LoggerFactory.getLogger(TransactionNotificationsQueueConsumer::class.java)
 
@@ -91,14 +91,13 @@ class TransactionNotificationsQueueConsumer(
             }
             .flatMap {
               notificationRefundTransactionPipeline(
-                tx,
+                it,
                 transactionsRefundedEventStoreRepository,
                 transactionsViewRepository,
-                paymentGatewayClient,
-                refundService,
-                refundRetryService,
-                authorizationStateRetrieverService,
-                tracingInfo)
+                npgService,
+                tracingInfo,
+                refundRequestedAsyncClient,
+                Duration.ofSeconds(transientQueueTTLSeconds.toLong()))
             }
             .then()
             .onErrorResume { exception ->

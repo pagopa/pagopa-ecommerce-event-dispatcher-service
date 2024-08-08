@@ -14,10 +14,13 @@ import it.pagopa.ecommerce.commons.exceptions.NpgApiKeyConfigurationException
 import it.pagopa.ecommerce.commons.exceptions.NpgResponseException
 import it.pagopa.ecommerce.commons.exceptions.RedirectConfigurationException
 import it.pagopa.ecommerce.commons.utils.NpgApiKeyConfiguration
+import it.pagopa.ecommerce.commons.utils.RedirectKeysConfiguration
 import it.pagopa.ecommerce.commons.v2.TransactionTestUtils
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
+import it.pagopa.ecommerce.eventdispatcher.config.RedirectConfigurationBuilder
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadGatewayException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.RefundNotAllowedException
+import it.pagopa.ecommerce.eventdispatcher.utils.PaymentCode
 import it.pagopa.ecommerce.eventdispatcher.utils.getMockedVPosRefundRequest
 import it.pagopa.ecommerce.eventdispatcher.utils.getMockedXPayRefundRequest
 import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundOutcomeDto
@@ -82,13 +85,17 @@ class RefundServiceTests {
 
   private val redirectBeApiCallUriMap: Map<String, URI> =
     mapOf("pspId-RPIC" to URI.create("http://redirect/RPIC"))
+  private val redirectBeAoiCallUriSet: Set<String> = setOf("pspId-RPIC")
+  private val redirectKeysConfiguration: RedirectKeysConfiguration =
+    RedirectKeysConfiguration(
+      mapOf("pspId-RPIC" to "http://redirect/RPIC"), redirectBeAoiCallUriSet)
   private val refundService: RefundService =
     RefundService(
       paymentGatewayClient = paymentGatewayClient,
       npgClient = npgClient,
       npgApiKeyConfiguration = npgApiKeyConfiguration,
       nodeForwarderRedirectApiClient = nodeForwarderRedirectApiClient,
-      redirectBeApiCallUriMap = redirectBeApiCallUriMap)
+      redirectBeApiCallUriConf = redirectKeysConfiguration)
 
   companion object {
     lateinit var mockWebServer: MockWebServer
@@ -121,13 +128,36 @@ class RefundServiceTests {
     @JvmStatic
     private fun `Redirect refund errors method source`(): Stream<Arguments> =
       Stream.of(
-        Arguments.of(HttpStatus.BAD_REQUEST, RefundNotAllowedException::class.java),
-        Arguments.of(HttpStatus.UNAUTHORIZED, RefundNotAllowedException::class.java),
-        Arguments.of(HttpStatus.NOT_FOUND, RefundNotAllowedException::class.java),
-        Arguments.of(HttpStatus.INTERNAL_SERVER_ERROR, BadGatewayException::class.java),
-        Arguments.of(HttpStatus.GATEWAY_TIMEOUT, BadGatewayException::class.java),
-        Arguments.of(null, BadGatewayException::class.java),
+        Arguments.of(HttpStatus.BAD_REQUEST, RefundNotAllowedException::class.java, "CHECKOUT"),
+        Arguments.of(HttpStatus.UNAUTHORIZED, RefundNotAllowedException::class.java, "IO"),
+        Arguments.of(HttpStatus.NOT_FOUND, RefundNotAllowedException::class.java, "CHECKOUT_CART"),
+        Arguments.of(HttpStatus.INTERNAL_SERVER_ERROR, BadGatewayException::class.java, "CHECKOUT"),
+        Arguments.of(HttpStatus.GATEWAY_TIMEOUT, BadGatewayException::class.java, "IO"),
+        Arguments.of(null, BadGatewayException::class.java, "CHECKOUT_CART"),
       )
+
+    @JvmStatic
+    private fun redirectRetrieveUrlPaymentMethodsTestSearch(): Stream<Arguments> {
+      return Stream.of<Arguments>(
+        Arguments.of(
+          "CHECKOUT",
+          "psp1",
+          PaymentCode.RBPR,
+          URI("http://localhost:8096/redirections1/CHECKOUT")),
+        Arguments.of("IO", "psp1", PaymentCode.RBPR, URI("http://localhost:8096/redirections1/IO")),
+        Arguments.of(
+          "CHECKOUT", "psp2", PaymentCode.RBPB, URI("http://localhost:8096/redirections2")),
+        Arguments.of("IO", "psp2", PaymentCode.RBPB, URI("http://localhost:8096/redirections2")),
+        Arguments.of(
+          "CHECKOUT", "psp3", PaymentCode.RBPS, URI("http://localhost:8096/redirections3")),
+        Arguments.of(
+          "CHECKOUT_CART", "psp3", PaymentCode.RBPS, URI("http://localhost:8096/redirections3")),
+        Arguments.of("IO", "psp3", PaymentCode.RBPS, URI("http://localhost:8096/redirections3")))
+    }
+
+    @JvmStatic
+    private fun touchpoints(): Stream<Arguments> =
+      Stream.of(Arguments.of("CHECKOUT"), Arguments.of("CHECKOUT_CART"), Arguments.of("IO"))
   }
 
   @Test
@@ -254,7 +284,7 @@ class RefundServiceTests {
         npgClient = npgClient,
         npgApiKeyConfiguration = npgApiKeyConfiguration,
         nodeForwarderRedirectApiClient = nodeForwarderRedirectApiClient,
-        redirectBeApiCallUriMap = redirectBeApiCallUriMap)
+        redirectBeApiCallUriConf = redirectKeysConfiguration)
     val operationId = "operationID"
     val idempotenceKey = UUID.randomUUID()
     val correlationId = UUID.randomUUID().toString()
@@ -276,7 +306,7 @@ class RefundServiceTests {
           pspId = pspId,
           correlationId = correlationId,
           paymentMethod = NpgClient.PaymentMethod.CARDS))
-      .expectError(RefundNotAllowedException::class.java)
+      .expectError(NpgResponseException::class.java)
       .verify()
     verify(npgClient, times(1))
       .refundPayment(any(), eq(operationId), eq(idempotenceKey), eq(amount), eq("pspKey1"), any())
@@ -291,7 +321,7 @@ class RefundServiceTests {
         npgClient = npgClient,
         npgApiKeyConfiguration = npgApiKeyConfiguration,
         nodeForwarderRedirectApiClient = nodeForwarderRedirectApiClient,
-        redirectBeApiCallUriMap = redirectBeApiCallUriMap)
+        redirectBeApiCallUriConf = redirectKeysConfiguration)
     val operationId = "operationID"
     val idempotenceKey = UUID.randomUUID()
     val correlationId = UUID.randomUUID().toString()
@@ -341,8 +371,9 @@ class RefundServiceTests {
     assertEquals("CANCELLED", response?.status?.value)
   }
 
-  @Test
-  fun `Should perform redirect refund successfully`() {
+  @ParameterizedTest()
+  @MethodSource("touchpoints")
+  fun `Should perform redirect refund successfully`(touchpoint: String) {
     // pre-requisites
     val transactionId = TransactionTestUtils.TRANSACTION_ID
     val pspTransactionId = "pspTransactionId"
@@ -363,6 +394,7 @@ class RefundServiceTests {
     StepVerifier.create(
         refundService.requestRedirectRefund(
           transactionId = TransactionId(transactionId),
+          touchpoint = touchpoint,
           pspTransactionId = pspTransactionId,
           paymentTypeCode = paymentTypeCode,
           pspId = pspId))
@@ -376,8 +408,9 @@ class RefundServiceTests {
         RedirectRefundResponseDto::class.java)
   }
 
-  @Test
-  fun `Should return error performing redirect refund for missing backend URL`() {
+  @ParameterizedTest()
+  @MethodSource("touchpoints")
+  fun `Should return error performing redirect refund for missing backend URL`(touchpoint: String) {
     // pre-requisites
     val transactionId = TransactionTestUtils.TRANSACTION_ID
     val pspTransactionId = "pspTransactionId"
@@ -386,13 +419,14 @@ class RefundServiceTests {
     StepVerifier.create(
         refundService.requestRedirectRefund(
           transactionId = TransactionId(transactionId),
+          touchpoint = touchpoint,
           pspTransactionId = pspTransactionId,
           paymentTypeCode = paymentTypeCode,
           pspId = "pspId"))
       .expectErrorMatches {
         assertTrue(it is RedirectConfigurationException)
         assertEquals(
-          "Error parsing Redirect PSP BACKEND_URLS configuration, cause: Missing key for redirect return url with key: [pspId-MISSING]",
+          "Error parsing Redirect PSP BACKEND_URLS configuration, cause: Missing key for redirect return url with following search parameters: touchpoint: [${touchpoint}] pspId: [pspId] paymentTypeCode: [MISSING]",
           it.message)
         true
       }
@@ -404,7 +438,8 @@ class RefundServiceTests {
   @MethodSource("Redirect refund errors method source")
   fun `Should handle returned error performing redirect refund call`(
     httpErrorCode: HttpStatus?,
-    expectedErrorClass: Class<Exception>
+    expectedErrorClass: Class<Exception>,
+    touchpoint: String
   ) {
     // pre-requisites
     val transactionId = TransactionTestUtils.TRANSACTION_ID
@@ -436,6 +471,7 @@ class RefundServiceTests {
     StepVerifier.create(
         refundService.requestRedirectRefund(
           transactionId = TransactionId(transactionId),
+          touchpoint = touchpoint,
           pspTransactionId = pspTransactionId,
           paymentTypeCode = paymentTypeCode,
           pspId = pspId))
@@ -447,5 +483,107 @@ class RefundServiceTests {
         redirectBeApiCallUriMap["pspId-$paymentTypeCode"],
         transactionId,
         RedirectRefundResponseDto::class.java)
+  }
+
+  @ParameterizedTest
+  @MethodSource("redirectRetrieveUrlPaymentMethodsTestSearch")
+  fun `Should return URI during search redirectURL searching iteratively`(
+    touchpoint: String,
+    pspId: String,
+    paymentCode: PaymentCode,
+    expectedUri: URI
+  ) {
+    val redirectUrlMapping =
+      java.util.Map.of(
+        "CHECKOUT-psp1-RBPR",
+        "http://localhost:8096/redirections1/CHECKOUT",
+        "IO-psp1-RBPR",
+        "http://localhost:8096/redirections1/IO",
+        "psp2-RBPB",
+        "http://localhost:8096/redirections2",
+        "RBPS",
+        "http://localhost:8096/redirections3")
+    val codeTypeList = setOf("CHECKOUT-psp1-RBPR", "IO-psp1-RBPR", "psp2-RBPB", "RBPS")
+    val transactionId = TransactionTestUtils.TRANSACTION_ID
+    val pspTransactionId = "pspTransactionId"
+    val redirectRefundResponse =
+      RedirectRefundResponseDto().idTransaction(transactionId).outcome(RefundOutcomeDto.OK)
+
+    val refundServiceTest =
+      RefundService(
+        paymentGatewayClient = paymentGatewayClient,
+        npgClient = npgClient,
+        npgApiKeyConfiguration = npgApiKeyConfiguration,
+        nodeForwarderRedirectApiClient = nodeForwarderRedirectApiClient,
+        redirectBeApiCallUriConf =
+          RedirectConfigurationBuilder().redirectBeApiCallUriConf(redirectUrlMapping, codeTypeList))
+
+    given(nodeForwarderRedirectApiClient.proxyRequest(any(), any(), any(), any()))
+      .willReturn(
+        Mono.just(
+          NodeForwarderClient.NodeForwarderResponse(redirectRefundResponse, Optional.empty())))
+
+    StepVerifier.create(
+        refundServiceTest.requestRedirectRefund(
+          transactionId = TransactionId(transactionId),
+          touchpoint = touchpoint,
+          pspTransactionId = pspTransactionId,
+          paymentTypeCode = paymentCode.name,
+          pspId = pspId))
+      .expectNext(redirectRefundResponse)
+      .verifyComplete()
+
+    Mockito.verify(nodeForwarderRedirectApiClient, Mockito.times(1))
+      .proxyRequest(any(), eq(URI.create("$expectedUri/refunds")), any(), any())
+  }
+
+  @Test
+  fun `Should return error during search redirect URL for invalid search key`() {
+    val redirectUrlMapping =
+      java.util.Map.of(
+        "CHECKOUT-psp1-RBPR",
+        "http://localhost:8096/redirections1/CHECKOUT",
+        "IO-psp1-RBPR",
+        "http://localhost:8096/redirections1/IO",
+        "psp2-RBPB",
+        "http://localhost:8096/redirections2",
+        "RBPS",
+        "http://localhost:8096/redirections3")
+    val codeTypeList = setOf("CHECKOUT-psp1-RBPR", "IO-psp1-RBPR", "psp2-RBPB", "RBPS")
+    val transactionId = TransactionTestUtils.TRANSACTION_ID
+    val pspTransactionId = "pspTransactionId"
+    val redirectRefundResponse =
+      RedirectRefundResponseDto().idTransaction(transactionId).outcome(RefundOutcomeDto.OK)
+    val touchpoint = "CHECKOUT"
+    val pspId = "pspId"
+    val paymentTypeCode = PaymentCode.RBPP.name
+
+    val refundServiceTest =
+      RefundService(
+        paymentGatewayClient = paymentGatewayClient,
+        npgClient = npgClient,
+        npgApiKeyConfiguration = npgApiKeyConfiguration,
+        nodeForwarderRedirectApiClient = nodeForwarderRedirectApiClient,
+        redirectBeApiCallUriConf =
+          RedirectConfigurationBuilder().redirectBeApiCallUriConf(redirectUrlMapping, codeTypeList))
+
+    given(nodeForwarderRedirectApiClient.proxyRequest(any(), any(), any(), any()))
+      .willReturn(
+        Mono.just(
+          NodeForwarderClient.NodeForwarderResponse(redirectRefundResponse, Optional.empty())))
+
+    StepVerifier.create(
+        refundServiceTest.requestRedirectRefund(
+          transactionId = TransactionId(transactionId),
+          touchpoint = touchpoint,
+          pspTransactionId = pspTransactionId,
+          paymentTypeCode = paymentTypeCode,
+          pspId = pspId))
+      .consumeErrorWith {
+        assertEquals(
+          "Error parsing Redirect PSP BACKEND_URLS configuration, cause: Missing key for redirect return url with following search parameters: touchpoint: [${touchpoint}] pspId: [${pspId}] paymentTypeCode: [${paymentTypeCode}]",
+          it.message)
+      }
+      .verify()
   }
 }
