@@ -232,7 +232,7 @@ stages:
           - template: azure-templates/stop-receivers.yml
             parameters:
               ENV: DEV
-              TARGET_DEPLOYMENT_VERSION: DEV
+              TARGET_DEPLOYMENT_VERSION: PROD
 
 
   # STEP 3: Deploy new release as Deployment NEW approval task
@@ -333,7 +333,7 @@ stages:
           - template: azure-templates/start-receivers.yml
             parameters:
               ENV: DEV
-              TARGET_DEPLOYMENT_VERSION: DEV
+              TARGET_DEPLOYMENT_VERSION: PROD
           - template: azure-templates/stop-receivers.yml
             parameters:
               ENV: DEV
@@ -446,7 +446,7 @@ stages:
           - template: azure-templates/stop-receivers.yml
             parameters:
               ENV: DEV
-              TARGET_DEPLOYMENT_VERSION: DEV
+              TARGET_DEPLOYMENT_VERSION: PROD
 
   # STEP 2: rollback new release
   - stage: TEST_Rollback_New_Deployment_Helm_Release
@@ -497,7 +497,7 @@ stages:
           - template: azure-templates/start-receivers.yml
             parameters:
               ENV: DEV
-              TARGET_DEPLOYMENT_VERSION: DEV
+              TARGET_DEPLOYMENT_VERSION: PROD
           - template: azure-templates/stop-receivers.yml
             parameters:
               ENV: DEV
