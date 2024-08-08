@@ -100,7 +100,9 @@ stages:
               instructions: "Approve upgrade OLD helm release to version: [$(currentVersion)]"
               onTimeout: 'reject'
   - stage: Old_Version_Deploy_{{ parameters.ENV }}
-    dependsOn: [Current_Helm_Release_{{ parameters.ENV }},Old_Version_Deploy_Approval_{{ parameters.ENV }}]
+    dependsOn:
+      - Current_Helm_Release_{{ parameters.ENV }}
+      - Old_Version_Deploy_Approval_{{ parameters.ENV }}
     condition: succeeded()
     pool:
       name: ${{ parameters.DEPLOY_AGENT_POOL_NAME }}
