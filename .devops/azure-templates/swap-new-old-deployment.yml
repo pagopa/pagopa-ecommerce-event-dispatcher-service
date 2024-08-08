@@ -54,7 +54,7 @@ parameters:
 stages:
 
   # STEP 0: retrieve current release version from helm release
-  - stage: Current_Helm_Release_{{ parameters.ENV }}
+  - stage: Current_Helm_Release_${{ parameters.ENV }}
     displayName: Retrieve current deployed helm release
     pool:
       name: ${{ parameters.DEPLOY_AGENT_POOL_NAME }}
@@ -81,15 +81,15 @@ stages:
               failOnStderr: false
 
   # STEP 1: deploy current PROD version as OLD release (used for rollback purpose)
-  - stage: Old_Version_Deploy_Approval_{{ parameters.ENV }}
+  - stage: Old_Version_Deploy_Approval_${{ parameters.ENV }}
     displayName: Old version deploy approval
-    dependsOn: Current_Helm_Release_{{ parameters.ENV }}
+    dependsOn: Current_Helm_Release_${{ parameters.ENV }}
     condition: succeeded()
     pool: server
     variables:
-      currentVersion: $[ stageDependencies.Current_Helm_Release_{{ parameters.ENV }}.list_event_dispatcher_helm_releases.outputs['helm_chart_version.helm_current_release_version'] ]
+      currentVersion: $[ stageDependencies.Current_Helm_Release_${{ parameters.ENV }}.list_event_dispatcher_helm_releases.outputs['helm_chart_version.helm_current_release_version'] ]
     jobs:
-      - job: Old_Version_Deploy_Approval_{{ parameters.ENV }}
+      - job: Old_Version_Deploy_Approval_${{ parameters.ENV }}
         displayName: Manual old version deploy approval
         timeoutInMinutes: 30
         steps:
@@ -99,17 +99,17 @@ stages:
               notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
               instructions: "Approve upgrade OLD helm release to version: [$(currentVersion)]"
               onTimeout: 'reject'
-  - stage: Old_Version_Deploy_{{ parameters.ENV }}
+  - stage: Old_Version_Deploy_${{ parameters.ENV }}
     dependsOn:
-      - Current_Helm_Release_{{ parameters.ENV }}
-      - Old_Version_Deploy_Approval_{{ parameters.ENV }}
+      - Current_Helm_Release_${{ parameters.ENV }}
+      - Old_Version_Deploy_Approval_${{ parameters.ENV }}
     condition: succeeded()
     pool:
       name: ${{ parameters.DEPLOY_AGENT_POOL_NAME }}
     variables:
-      currentVersion: $[ stageDependencies.Current_Helm_Release_{{ parameters.ENV }}.list_event_dispatcher_helm_releases.outputs['helm_chart_version.helm_current_release_version'] ]
+      currentVersion: $[ stageDependencies.Current_Helm_Release_${{ parameters.ENV }}.list_event_dispatcher_helm_releases.outputs['helm_chart_version.helm_current_release_version'] ]
     jobs:
-      - deployment: Old_Version_Deploy_{{ parameters.ENV }}
+      - deployment: Old_Version_Deploy_${{ parameters.ENV }}
         environment: ${{ parameters.ENV }}
         displayName: Deploy current prod version as OLD version
         strategy:
@@ -147,12 +147,12 @@ stages:
                     overrideValues: microservice-chart.ingress.path=/pagopa-ecommerce-event-dispatcher-old/(.*),microservice-chart.envConfig.DEPLOYMENT_VERSION=old
 
   # STEP 2: enable OLD deployment version receivers and stop new one by command curl
-  - stage: Start_Old_Stop_New_Receivers_Manual_Approve_{{ parameters.ENV }}
+  - stage: Start_Old_Stop_New_Receivers_Manual_Approve_${{ parameters.ENV }}
     displayName: Start OLD receivers and stop new ones approval
-    dependsOn: Old_Version_Deploy_{{ parameters.ENV }}
+    dependsOn: Old_Version_Deploy_${{ parameters.ENV }}
     pool: server
     jobs:
-      - job: Start_Old_Stop_New_Receivers_Manual_Approve_{{ parameters.ENV }}
+      - job: Start_Old_Stop_New_Receivers_Manual_Approve_${{ parameters.ENV }}
         displayName: Manual OLD receiver start and new stop approval
         steps:
           - task: ManualValidation@0
@@ -161,13 +161,13 @@ stages:
               notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
               instructions: "Approve enable OLD receivers"
               onTimeout: 'reject'
-  - stage: Start_Old_Stop_New_Receivers_{{ parameters.ENV }}
-    dependsOn: Start_Old_Stop_New_Receivers_Manual_Approve_{{ parameters.ENV }}
+  - stage: Start_Old_Stop_New_Receivers_${{ parameters.ENV }}
+    dependsOn: Start_Old_Stop_New_Receivers_Manual_Approve_${{ parameters.ENV }}
     condition: succeeded()
     pool:
       name: ${{ parameters.DEPLOY_AGENT_POOL_NAME }}
     jobs:
-      - job: Start_Old_Stop_New_Receivers_{{ parameters.ENV }}
+      - job: Start_Old_Stop_New_Receivers_${{ parameters.ENV }}
         steps:
           - template: start-receivers.yml
             parameters:
@@ -182,9 +182,9 @@ stages:
 
 
   # STEP 3: Deploy new release as Deployment NEW approval task
-  - stage: Deploy_New_Version_Approval_{{ parameters.ENV }}
+  - stage: Deploy_New_Version_Approval_${{ parameters.ENV }}
     displayName: Deploy the new release version ${{ parameters.NEW_VERSION }}
-    dependsOn: Start_Old_Stop_New_Receivers_{{ parameters.ENV }}
+    dependsOn: Start_Old_Stop_New_Receivers_${{ parameters.ENV }}
     condition: succeeded()
     pool: server
     jobs:
@@ -200,7 +200,7 @@ stages:
               onTimeout: 'reject'
   - stage: Deploy_New_Version
     displayName: Deploy NEW version ${{ parameters.NEW_VERSION }}
-    dependsOn: Deploy_New_Version_Approval_{{ parameters.ENV }}
+    dependsOn: Deploy_New_Version_Approval_${{ parameters.ENV }}
     condition: succeeded()
     pool:
       name: ${{ parameters.DEPLOY_AGENT_POOL_NAME }}
@@ -243,12 +243,12 @@ stages:
                     overrideValues: microservice-chart.ingress.path=/pagopa-ecommerce-event-dispatcher-new/(.*),microservice-chart.envConfig.DEPLOYMENT_VERSION=new
 
   # STEP 4: once new version is deployed, proceed to start new receivers and stop old ones
-  - stage: Start_New_Stop_Old_Receivers_Approval_{{ parameters.ENV }}
+  - stage: Start_New_Stop_Old_Receivers_Approval_${{ parameters.ENV }}
     displayName: Start new receivers and stop old ones manual approval
     dependsOn: Deploy_New_Version
     pool: server
     jobs:
-      - job: Start_New_Stop_Old_Receivers_Approval_{{ parameters.ENV }}
+      - job: Start_New_Stop_Old_Receivers_Approval_${{ parameters.ENV }}
         timeoutInMinutes: 30
         displayName: Start new receivers and stop old ones
         steps:
@@ -258,14 +258,14 @@ stages:
               notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
               instructions: "Approve enable NEW receivers and disable old ones"
               onTimeout: 'reject'
-  - stage: Start_New_Stop_Old_Receivers_{{ parameters.ENV }}
+  - stage: Start_New_Stop_Old_Receivers_${{ parameters.ENV }}
     displayName: Start new receivers and stop old ones
-    dependsOn: Start_New_Stop_Old_Receivers_Approval_{{ parameters.ENV }}
+    dependsOn: Start_New_Stop_Old_Receivers_Approval_${{ parameters.ENV }}
     condition: succeeded()
     pool:
       name: ${{ parameters.DEPLOY_AGENT_POOL_NAME }}
     jobs:
-      - job: Start_New_Stop_Old_Receivers_{{ parameters.ENV }}
+      - job: Start_New_Stop_Old_Receivers_${{ parameters.ENV }}
         displayName: Start new receivers by curl command and stop old ones
         steps:
           - template: start-receivers.yml
@@ -281,12 +281,12 @@ stages:
 
 
   # STEP 5: deployment rollout ended, scale down OLD deployment PODS
-  - stage: Scale_Down_Old_Deployment_Approval_{{ parameters.ENV }}
-    dependsOn: Start_New_Stop_Old_Receivers_{{ parameters.ENV }}
+  - stage: Scale_Down_Old_Deployment_Approval_${{ parameters.ENV }}
+    dependsOn: Start_New_Stop_Old_Receivers_${{ parameters.ENV }}
     displayName: Approval for scale down old deployment PODS
     pool: server
     jobs:
-      - job: Scale_Down_Old_Deployment_Approval_{{ parameters.ENV }}
+      - job: Scale_Down_Old_Deployment_Approval_${{ parameters.ENV }}
         timeoutInMinutes: 30
         steps:
           - task: ManualValidation@0
@@ -295,13 +295,13 @@ stages:
               notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
               instructions: "Approve scale OLD deployment down to 0 pods"
               onTimeout: 'reject'
-  - stage: Scale_Down_Old_Deployment_{{ parameters.ENV }}
-    dependsOn: Scale_Down_Old_Deployment_Approval_{{ parameters.ENV }}
+  - stage: Scale_Down_Old_Deployment_${{ parameters.ENV }}
+    dependsOn: Scale_Down_Old_Deployment_Approval_${{ parameters.ENV }}
     displayName: Scale down OLD deployment to 0 pods
     pool:
       name: ${{ parameters.DEPLOY_AGENT_POOL_NAME }}
     jobs:
-      - job: Scale_Down_Old_Deployment_{{ parameters.ENV }}
+      - job: Scale_Down_Old_Deployment_${{ parameters.ENV }}
         displayName: Annotate scaledObject with autoscaling.keda.sh/paused-replicas="0"
         steps:
           - task: Kubernetes@1
