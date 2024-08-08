@@ -40,10 +40,6 @@ parameters:
   - name: "CHART_PATH"
     type: string
     default: "helm"
-  # boolean value to enable blue/green deployment
-  - name: "DO_BLUE_GREEN_DEPLOY"
-    type: boolean
-    default: false
   # boolean value indicating if helm commands have to wait for execution completion
   - name: "WAIT_FOR_EXECUTION"
     type: boolean
@@ -52,10 +48,6 @@ parameters:
   - name: "ARGUMENTS"
     type: string
     default: "--timeout 5m0s"
-  # the blue/green deployment blue version
-  - name: "BLUE_VERSION"
-    type: string
-    default: "none"
 stages:
 
   # STEP 0: retrieve current release version from helm release
@@ -143,7 +135,7 @@ stages:
                     install: true
                     waitForExecution: ${{ parameters.WAIT_FOR_EXECUTION }}
                     arguments: ${{ parameters.ARGUMENTS }}
-                    overrideValues: microservice-chart.ingress.path=/pagopa-ecommerce-event-dispatcher-old/(.*),microservice-chart.envConfig.DEPLOYMENT_VERSION=old,microservice-chart.canaryDelivery.create=${{ parameters.DO_BLUE_GREEN_DEPLOY }},microservice-chart.canaryDelivery.deployment.image.tag=${{ parameters.BLUE_VERSION }}
+                    overrideValues: microservice-chart.ingress.path=/pagopa-ecommerce-event-dispatcher-old/(.*),microservice-chart.envConfig.DEPLOYMENT_VERSION=old
 
   # STEP 2: enable OLD deployment version receivers and stop new one by command curl
   - stage: Start_Old_Stop_New_Receivers_Manual_Approve
@@ -235,7 +227,7 @@ stages:
                     install: true
                     waitForExecution: ${{ parameters.WAIT_FOR_EXECUTION }}
                     arguments: ${{ parameters.ARGUMENTS }}
-                    overrideValues: microservice-chart.ingress.path=/pagopa-ecommerce-event-dispatcher-new/(.*),microservice-chart.envConfig.DEPLOYMENT_VERSION=new,microservice-chart.canaryDelivery.create=${{ parameters.DO_BLUE_GREEN_DEPLOY }},microservice-chart.canaryDelivery.deployment.image.tag=${{ parameters.BLUE_VERSION }}
+                    overrideValues: microservice-chart.ingress.path=/pagopa-ecommerce-event-dispatcher-new/(.*),microservice-chart.envConfig.DEPLOYMENT_VERSION=new
 
   # STEP 4: once new version is deployed, proceed to start new receivers and stop old ones
   - stage: Start_New_Stop_Old_Receivers_Approval
@@ -303,5 +295,5 @@ stages:
               kubernetesCluster: ${{ parameters.KUBERNETES_CLUSTER }}
               namespace: ${{ parameters.NAMESPACE }}
               command: annotate
-              arguments: scaledobjects pagopaecommerceeventdispatcher-old-microservice-chart autoscaling.keda.sh/paused-replicas="0"
+              arguments: scaledobjects ${{ parameters.APP_NAME }}-old-microservice-chart autoscaling.keda.sh/paused-replicas="0"
 
