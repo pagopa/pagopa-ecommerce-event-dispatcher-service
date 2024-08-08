@@ -1,11 +1,5 @@
 #This template will handle command sending to event dispatcher to enable/disable receivers
 parameters:
-  # deployment instance on which send command
-  - name: DEPLOYMENT_INSTANCE_COMMAND_RECEIVER
-    type: string
-    values:
-      - old
-      - new
   # deployment environment
   - name: ENV
     type: string
@@ -33,14 +27,13 @@ steps:
     inputs:
       targetType: "inline"
       script: |
-        deploymentInstance=${{ parameters.DEPLOYMENT_INSTANCE_COMMAND_RECEIVER }}
         command=${{ parameters.COMMAND }}
         deploymentTargetVersion=${{ parameters.TARGET_DEPLOYMENT_VERSION }}
         echo "Sending command: [$command] with deployment target: [$deploymentTargetVersion] to event dispatcher instance: [$deploymentInstance]"
         declare -A commandUrls=(\
-        ["DEV"]="https://weudev.ecommerce.internal.dev.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-$deploymentInstance/event-dispatcher/event-receivers/commands" \
-        ["UAT"]="https://weuuat.ecommerce.internal.uat.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-$deploymentInstance/event-dispatcher/event-receivers/commands" \
-        ["PROD"]="https://weuprod.ecommerce.internal.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-$deploymentInstance/event-dispatcher/event-receivers/commands" \
+        ["DEV"]="https://weudev.ecommerce.internal.dev.platform.pagopa.it/pagopa-ecommerce-event-dispatcher/event-dispatcher/event-receivers/commands" \
+        ["UAT"]="https://weuuat.ecommerce.internal.uat.platform.pagopa.it/pagopa-ecommerce-event-dispatcher/event-dispatcher/event-receivers/commands" \
+        ["PROD"]="https://weuprod.ecommerce.internal.platform.pagopa.it/pagopa-ecommerce-event-dispatcher/event-dispatcher/event-receivers/commands" \
         )
         commandUrl=${commandUrls[${{ parameters.ENV }}]}
         body=$(cat <<EOF
