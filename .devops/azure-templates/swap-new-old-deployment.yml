@@ -31,9 +31,6 @@ parameters:
   # helm release filter to be used to detect the actual deployed version
   - name: "HELM_NEW_RELEASE_FILTER"
     type: string
-  # deploy agent pool name to be used
-  - name: "DEPLOY_AGENT_POOL_NAME"
-    type: string
   #optional parameters
   # chart type
   - name: "CHART_TYPE"
@@ -59,210 +56,244 @@ parameters:
   - name: "BLUE_VERSION"
     type: string
     default: "none"
-jobs:
+stages:
 
   # STEP 0: retrieve current release version from helm release
-  - job: list_event_dispatcher_helm_releases
-    pool:
-      name: ${{ parameters.DEPLOY_AGENT_POOL_NAME }}
-    displayName: List event dispatcher helm releases
-    steps:
-      - task: HelmDeploy@0
-        displayName: List event dispatcher releases
-        name: helm_event_dispatcher_releases
-        inputs:
-          kubernetesServiceEndpoint: ${{ parameters.KUBERNETES_SERVICE_CONN }}
-          namespace: ${{ parameters.NAMESPACE }}
-          command: ls
-          arguments: --filter ${{ parameters.HELM_NEW_RELEASE_FILTER }} --output json
-      - task: Bash@3
-        name: helm_chart_version
-        displayName: 'Retrieve helm chart version associated to helm release'
-        inputs:
-          targetType: "inline"
-          script: |
-            version=$(echo '$(helm_event_dispatcher_releases.helmOutput)' | yq '.[].chart' | sed -e 's/pagopa-ecommerce-event-dispatcher-//g')
-            echo "##vso[task.setvariable variable=helm_current_release_version;isOutput=true]$version"
-          failOnStderr: false
+  - stage: Current_Helm_Release
+    displayName: Retrieve current deployed helm release
+    jobs:
+      - job: list_event_dispatcher_helm_releases
+        displayName: List event dispatcher helm releases
+        steps:
+          - task: HelmDeploy@0
+            displayName: List event dispatcher releases
+            name: helm_event_dispatcher_releases
+            inputs:
+              kubernetesServiceEndpoint: ${{ parameters.KUBERNETES_SERVICE_CONN }}
+              namespace: ${{ parameters.NAMESPACE }}
+              command: ls
+              arguments: --filter ${{ parameters.HELM_NEW_RELEASE_FILTER }} --output json
+          - task: Bash@3
+            name: helm_chart_version
+            displayName: 'Retrieve helm chart version associated to helm release'
+            inputs:
+              targetType: "inline"
+              script: |
+                version=$(echo '$(helm_event_dispatcher_releases.helmOutput)' | yq '.[].chart' | sed -e 's/pagopa-ecommerce-event-dispatcher-//g')
+                echo "##vso[task.setvariable variable=helm_current_release_version;isOutput=true]$version"
+              failOnStderr: false
 
   # STEP 1: deploy current PROD version as OLD release (used for rollback purpose)
-  - job: Old_Version_Deploy_Approval
-    displayName: Manual old version deploy approval
-    timeoutInMinutes: 30
-    pool: server
-    steps:
-      - task: ManualValidation@0
+  - stage: Old_Version_Deploy_Approval
+    displayName: Old version deploy approval
+    dependsOn: Current_Helm_Release
+    condition: succeeded()
+    variables:
+      currentVersion: $[ stageDependencies.Current_Helm_Release.list_event_dispatcher_helm_releases.outputs['helm_chart_version.helm_current_release_version'] ]
+    jobs:
+      - job: Old_Version_Deploy_Approval
+        displayName: Manual old version deploy approval
+        pool: server
         timeoutInMinutes: 30
-        inputs:
-          notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
-          instructions: "Approve upgrade OLD helm release to version: [$(currentVersion)]"
-          onTimeout: 'reject'
-
-  - job: Old_Version_Deploy
-    pool:
-      name: ${{ parameters.DEPLOY_AGENT_POOL_NAME }}
-    displayName: Deploy current prod version as OLD version
-    steps:
-      - script: |
-          checkoutVersion=$(currentVersion)
-          echo "Checkout current version repo tag: [$checkoutVersion]" 
-          git checkout $checkoutVersion
-        displayName: 'Checkout currently deployed source code tag [$(currentVersion)]'
-      - task: Bash@3
-        name: update_chart_version
-        displayName: 'Setup helm microservice chart'
-        inputs:
-          targetType: "inline"
-          script: |
-            helm repo add microservice-chart https://pagopa.github.io/aks-microservice-chart-blueprint
-            helm dep build helm
-      - task: HelmDeploy@0
-        condition: and(succeeded(), eq(${{ parameters.DO_DEPLOY }}, True))
-        displayName: Deploy current PROD version $(currentVersion) as OLD release
-        inputs:
-          kubernetesServiceEndpoint: ${{ parameters.KUBERNETES_SERVICE_CONN }}
-          namespace: ${{ parameters.NAMESPACE }}
-          command: upgrade
-          chartType: ${{ parameters.CHART_TYPE }}
-          chartPath: ${{ parameters.CHART_PATH }}
-          chartName: ${{ parameters.APP_NAME }}-old
-          releaseName: ${{ parameters.APP_NAME }}-old
-          valueFile: ${{ parameters.VALUE_FILE }}
-          install: true
-          waitForExecution: ${{ parameters.WAIT_FOR_EXECUTION }}
-          arguments: ${{ parameters.ARGUMENTS }}
-          overrideValues: microservice-chart.ingress.path=/pagopa-ecommerce-event-dispatcher-old/(.*),microservice-chart.envConfig.DEPLOYMENT_VERSION=old,microservice-chart.canaryDelivery.create=${{ parameters.DO_BLUE_GREEN_DEPLOY }},microservice-chart.canaryDelivery.deployment.image.tag=${{ parameters.BLUE_VERSION }}
+        steps:
+          - task: ManualValidation@0
+            timeoutInMinutes: 30
+            inputs:
+              notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
+              instructions: "Approve upgrade OLD helm release to version: [$(currentVersion)]"
+              onTimeout: 'reject'
+  - stage: Old_Version_Deploy
+    dependsOn: [Current_Helm_Release,Old_Version_Deploy_Approval]
+    condition: succeeded()
+    variables:
+      currentVersion: $[ stageDependencies.Current_Helm_Release.list_event_dispatcher_helm_releases.outputs['helm_chart_version.helm_current_release_version'] ]
+    jobs:
+      - job: Old_Version_Deploy
+        displayName: Deploy current prod version as OLD version
+        steps:
+          - script: |
+              checkoutVersion=$(currentVersion)
+              echo "Checkout current version repo tag: [$checkoutVersion]" 
+              git checkout $checkoutVersion
+            displayName: 'Checkout currently deployed source code tag [$(currentVersion)]'
+          - task: Bash@3
+            name: update_chart_version
+            displayName: 'Setup helm microservice chart'
+            inputs:
+              targetType: "inline"
+              script: |
+                helm repo add microservice-chart https://pagopa.github.io/aks-microservice-chart-blueprint
+                helm dep build helm
+          - task: HelmDeploy@0
+            condition: and(succeeded(), eq(${{ parameters.DO_DEPLOY }}, True))
+            displayName: Deploy current PROD version $(currentVersion) as OLD release
+            inputs:
+              kubernetesServiceEndpoint: ${{ parameters.KUBERNETES_SERVICE_CONN }}
+              namespace: ${{ parameters.NAMESPACE }}
+              command: upgrade
+              chartType: ${{ parameters.CHART_TYPE }}
+              chartPath: ${{ parameters.CHART_PATH }}
+              chartName: ${{ parameters.APP_NAME }}-old
+              releaseName: ${{ parameters.APP_NAME }}-old
+              valueFile: ${{ parameters.VALUE_FILE }}
+              install: true
+              waitForExecution: ${{ parameters.WAIT_FOR_EXECUTION }}
+              arguments: ${{ parameters.ARGUMENTS }}
+              overrideValues: microservice-chart.ingress.path=/pagopa-ecommerce-event-dispatcher-old/(.*),microservice-chart.envConfig.DEPLOYMENT_VERSION=old,microservice-chart.canaryDelivery.create=${{ parameters.DO_BLUE_GREEN_DEPLOY }},microservice-chart.canaryDelivery.deployment.image.tag=${{ parameters.BLUE_VERSION }}
 
   # STEP 2: enable OLD deployment version receivers and stop new one by command curl
-
-  - job: Start_Old_Stop_New_Receivers_Manual_Approve
+  - stage: Start_Old_Stop_New_Receivers_Manual_Approve
+    displayName: Start OLD receivers and stop new ones approval
+    dependsOn: Old_Version_Deploy
     pool: server
-    displayName: Manual OLD receiver start and new stop approval
-    steps:
-      - task: ManualValidation@0
-        timeoutInMinutes: 30
-        inputs:
-          notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
-          instructions: "Approve enable OLD receivers"
-          onTimeout: 'reject'
-  - job: Start_Old_Stop_New_Receivers
-    pool:
-      name: ${{ parameters.DEPLOY_AGENT_POOL_NAME }}
-    steps:
-      - template: start-receivers.yml
-        parameters:
-          DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: old
-          ENV: ${{ parameters.ENV }}
-          TARGET_DEPLOYMENT_VERSION: OLD
-      - template: stop-receivers.yml
-        parameters:
-          DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: old
-          ENV: ${{ parameters.ENV }}
-          TARGET_DEPLOYMENT_VERSION: NEW
+    jobs:
+      - job: Start_Old_Stop_New_Receivers_Manual_Approve
+        displayName: Manual OLD receiver start and new stop approval
+        steps:
+          - task: ManualValidation@0
+            timeoutInMinutes: 30
+            inputs:
+              notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
+              instructions: "Approve enable OLD receivers"
+              onTimeout: 'reject'
+  - stage: Start_Old_Stop_New_Receivers
+    dependsOn: Start_Old_Stop_New_Receivers_Manual_Approve
+    condition: succeeded()
+    jobs:
+      - job: Start_Old_Stop_New_Receivers
+        steps:
+          - template: start-receivers.yml
+            parameters:
+              DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: old
+              ENV: ${{ parameters.ENV }}
+              TARGET_DEPLOYMENT_VERSION: OLD
+          - template: stop-receivers.yml
+            parameters:
+              DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: old
+              ENV: ${{ parameters.ENV }}
+              TARGET_DEPLOYMENT_VERSION: NEW
 
 
   # STEP 3: Deploy new release as Deployment NEW approval task
-
-  - job: New_Version_Deploy_Approval
-    pool: server
-    displayName: New version deploy manual approve
-    timeoutInMinutes: 30
-    steps:
-      - task: ManualValidation@0
+  - stage: Deploy_New_Version_Approval
+    displayName: Deploy the new release version ${{ parameters.NEW_VERSION }}
+    dependsOn: Start_Old_Stop_New_Receivers
+    condition: succeeded()
+    jobs:
+      - job: New_Version_Deploy_Approval
+        displayName: New version deploy manual approve
+        pool: server
         timeoutInMinutes: 30
-        inputs:
-          notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
-          instructions: "Approve upgrade NEW helm release to version: [${{ parameters.NEW_VERSION }}]"
-          onTimeout: 'reject'
-
-  - job: New_Version_Deploy
-    pool:
-      name: ${{ parameters.DEPLOY_AGENT_POOL_NAME }}
-    displayName: New version deploy
-    steps:
-      - script: |
-          checkoutVersion=${{ parameters.NEW_VERSION }} 
-          echo "Checkout new release version repo tag: [$checkoutVersion]" 
-          git checkout $checkoutVersion
-        displayName: 'Checkout new release version tag [${{ parameters.NEW_VERSION }}]'
-      - task: Bash@3
-        name: update_chart_version
-        displayName: 'Setup helm microservice chart'
-        inputs:
-          targetType: "inline"
-          script: |
-            helm repo add microservice-chart https://pagopa.github.io/aks-microservice-chart-blueprint
-            helm dep build helm
-      - task: HelmDeploy@0
-        condition: and(succeeded(), eq(${{ parameters.DO_DEPLOY }}, True))
-        displayName: Deploy new version as NEW release
-        inputs:
-          kubernetesServiceEndpoint: ${{ parameters.KUBERNETES_SERVICE_CONN }}
-          namespace: ${{ parameters.NAMESPACE }}
-          command: upgrade
-          chartType: ${{ parameters.CHART_TYPE }}
-          chartPath: ${{ parameters.CHART_PATH }}
-          chartName: ${{ parameters.APP_NAME }}-new
-          releaseName: ${{ parameters.APP_NAME }}-new
-          valueFile: ${{ parameters.VALUE_FILE }}
-          install: true
-          waitForExecution: ${{ parameters.WAIT_FOR_EXECUTION }}
-          arguments: ${{ parameters.ARGUMENTS }}
-          overrideValues: microservice-chart.ingress.path=/pagopa-ecommerce-event-dispatcher-new/(.*),microservice-chart.envConfig.DEPLOYMENT_VERSION=new,microservice-chart.canaryDelivery.create=${{ parameters.DO_BLUE_GREEN_DEPLOY }},microservice-chart.canaryDelivery.deployment.image.tag=${{ parameters.BLUE_VERSION }}
+        steps:
+          - task: ManualValidation@0
+            timeoutInMinutes: 30
+            inputs:
+              notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
+              instructions: "Approve upgrade NEW helm release to version: [${{ parameters.NEW_VERSION }}]"
+              onTimeout: 'reject'
+  - stage: Deploy_New_Version
+    displayName: Deploy NEW version ${{ parameters.NEW_VERSION }}
+    dependsOn: Deploy_New_Version_Approval
+    condition: succeeded()
+    jobs:
+      - job: New_Version_Deploy
+        displayName: New version deploy
+        steps:
+          - script: |
+              checkoutVersion=${{ parameters.NEW_VERSION }} 
+              echo "Checkout new release version repo tag: [$checkoutVersion]" 
+              git checkout $checkoutVersion
+            displayName: 'Checkout new release version tag [${{ parameters.NEW_VERSION }}]'
+          - task: Bash@3
+            name: update_chart_version
+            displayName: 'Setup helm microservice chart'
+            inputs:
+              targetType: "inline"
+              script: |
+                helm repo add microservice-chart https://pagopa.github.io/aks-microservice-chart-blueprint
+                helm dep build helm
+          - task: HelmDeploy@0
+            condition: and(succeeded(), eq(${{ parameters.DO_DEPLOY }}, True))
+            displayName: Deploy new version as NEW release
+            inputs:
+              kubernetesServiceEndpoint: ${{ parameters.KUBERNETES_SERVICE_CONN }}
+              namespace: ${{ parameters.NAMESPACE }}
+              command: upgrade
+              chartType: ${{ parameters.CHART_TYPE }}
+              chartPath: ${{ parameters.CHART_PATH }}
+              chartName: ${{ parameters.APP_NAME }}-new
+              releaseName: ${{ parameters.APP_NAME }}-new
+              valueFile: ${{ parameters.VALUE_FILE }}
+              install: true
+              waitForExecution: ${{ parameters.WAIT_FOR_EXECUTION }}
+              arguments: ${{ parameters.ARGUMENTS }}
+              overrideValues: microservice-chart.ingress.path=/pagopa-ecommerce-event-dispatcher-new/(.*),microservice-chart.envConfig.DEPLOYMENT_VERSION=new,microservice-chart.canaryDelivery.create=${{ parameters.DO_BLUE_GREEN_DEPLOY }},microservice-chart.canaryDelivery.deployment.image.tag=${{ parameters.BLUE_VERSION }}
 
   # STEP 4: once new version is deployed, proceed to start new receivers and stop old ones
-  - job: Start_New_Stop_Old_Receivers_Approval
-    pool: server
-    timeoutInMinutes: 30
-    displayName: Start new receivers and stop old ones
-    steps:
-      - task: ManualValidation@0
+  - stage: Start_New_Stop_Old_Receivers_Approval
+    displayName: Start new receivers and stop old ones manual approval
+    dependsOn: Deploy_New_Version
+    jobs:
+      - job: Start_New_Stop_Old_Receivers_Approval
+        pool: server
         timeoutInMinutes: 30
-        inputs:
-          notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
-          instructions: "Approve enable NEW receivers and disable old ones"
-          onTimeout: 'reject'
-  - job: Start_New_Stop_Old_Receivers
-    pool:
-      name: ${{ parameters.DEPLOY_AGENT_POOL_NAME }}
-    displayName: Start new receivers by curl command and stop old ones
-    steps:
-      - template: start-receivers.yml
-        parameters:
-          DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: new
-          ENV: ${{ parameters.ENV }}
-          TARGET_DEPLOYMENT_VERSION: NEW
-      - template: stop-receivers.yml
-        parameters:
-          DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: new
-          ENV: ${{ parameters.ENV }}
-          TARGET_DEPLOYMENT_VERSION: OLD
+        displayName: Start new receivers and stop old ones
+        steps:
+          - task: ManualValidation@0
+            timeoutInMinutes: 30
+            inputs:
+              notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
+              instructions: "Approve enable NEW receivers and disable old ones"
+              onTimeout: 'reject'
+  - stage: Start_New_Stop_Old_Receivers
+    displayName: Start new receivers and stop old ones
+    dependsOn: Start_New_Stop_Old_Receivers_Approval
+    condition: succeeded()
+    jobs:
+      - job: Start_New_Stop_Old_Receivers
+        displayName: Start new receivers by curl command and stop old ones
+        steps:
+          - template: start-receivers.yml
+            parameters:
+              DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: new
+              ENV: ${{ parameters.ENV }}
+              TARGET_DEPLOYMENT_VERSION: NEW
+          - template: stop-receivers.yml
+            parameters:
+              DEPLOYMENT_INSTANCE_COMMAND_RECEIVER: new
+              ENV: ${{ parameters.ENV }}
+              TARGET_DEPLOYMENT_VERSION: OLD
 
 
   # STEP 5: deployment rollout ended, scale down OLD deployment PODS
-  - job: Scale_Down_Old_Deployment_Approval
-    pool: server
-    timeoutInMinutes: 30
-    steps:
-      - task: ManualValidation@0
-        timeoutInMinutes: 4320 # 3 days
-        inputs:
-          notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
-          instructions: "Approve scale OLD deployment down to 0 pods"
-          onTimeout: 'reject'
-
-  - job: Scale_Down_Old_Deployment
-    pool:
-      name: ${{ parameters.DEPLOY_AGENT_POOL_NAME }}
-    displayName: Annotate scaledObject with autoscaling.keda.sh/paused-replicas="0"
-    steps:
-      - task: Kubernetes@1
-        displayName: Scale down old receivers PODS (annotate ScaledObject with autoscaling.keda.sh/paused-replicas="0")
-        continueOnError: true
-        inputs:
-          kubernetesServiceEndpoint: ${{ parameters.KUBERNETES_SERVICE_CONN }}
-          kubernetesCluster: ${{ parameters.KUBERNETES_CLUSTER }}
-          namespace: ${{ parameters.NAMESPACE }}
-          command: annotate
-          arguments: scaledobjects ${{ parameters.APP_NAME }}-old-microservice-chart autoscaling.keda.sh/paused-replicas="0"
+  - stage: Scale_Down_Old_Deployment_Approval
+    dependsOn: Start_New_Stop_Old_Receivers
+    displayName: Approval for scale down old deployment PODS
+    jobs:
+      - job: Scale_Down_Old_Deployment_Approval
+        pool: server
+        timeoutInMinutes: 30
+        steps:
+          - task: ManualValidation@0
+            timeoutInMinutes: 4320 # 3 days
+            inputs:
+              notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
+              instructions: "Approve scale OLD deployment down to 0 pods"
+              onTimeout: 'reject'
+  - stage: Scale_Down_Old_Deployment
+    dependsOn: Scale_Down_Old_Deployment_Approval
+    displayName: Scale down OLD deployment to 0 pods
+    jobs:
+      - job: Scale_Down_Old_Deployment
+        displayName: Annotate scaledObject with autoscaling.keda.sh/paused-replicas="0"
+        steps:
+          - task: Kubernetes@1
+            displayName: Scale down old receivers PODS (annotate ScaledObject with autoscaling.keda.sh/paused-replicas="0")
+            continueOnError: true
+            inputs:
+              kubernetesServiceEndpoint: ${{ parameters.KUBERNETES_SERVICE_CONN }}
+              kubernetesCluster: ${{ parameters.KUBERNETES_CLUSTER }}
+              namespace: ${{ parameters.NAMESPACE }}
+              command: annotate
+              arguments: scaledobjects pagopaecommerceeventdispatcher-old-microservice-chart autoscaling.keda.sh/paused-replicas="0"
 
