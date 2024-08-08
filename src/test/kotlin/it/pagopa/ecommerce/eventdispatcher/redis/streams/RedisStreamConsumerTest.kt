@@ -18,7 +18,7 @@ import org.springframework.messaging.support.GenericMessage
 
 class RedisStreamConsumerTest {
 
-  private val deploymentVersion = DeploymentVersionDto.NEW
+  private val deploymentVersion = DeploymentVersionDto.PROD
 
   private val inboundChannelAdapterLifecycleHandlerService:
     InboundChannelAdapterLifecycleHandlerService =
@@ -38,7 +38,7 @@ class RedisStreamConsumerTest {
     val eventMessage =
       GenericMessage(
         EventDispatcherReceiverCommand(
-          receiverCommand = command, version = DeploymentVersionDto.NEW))
+          receiverCommand = command, version = DeploymentVersionDto.PROD))
         as Message<EventDispatcherGenericCommand>
     // test
     redisStreamConsumer.readStreamEvent(eventMessage)

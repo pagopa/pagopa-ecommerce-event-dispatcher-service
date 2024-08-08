@@ -90,7 +90,7 @@ class EventReceiversApiControllerTest {
         listOf(
           EventReceiverStatusDto(
             instanceId = "instanceId",
-            deploymentVersion = DeploymentVersionDto.NEW,
+            deploymentVersion = DeploymentVersionDto.PROD,
             receiverStatuses =
               listOf(ReceiverStatusDto(status = ReceiverStatusDto.Status.DOWN, name = "name")))))
     given(eventReceiverService.getReceiversStatus(null)).willReturn(response)

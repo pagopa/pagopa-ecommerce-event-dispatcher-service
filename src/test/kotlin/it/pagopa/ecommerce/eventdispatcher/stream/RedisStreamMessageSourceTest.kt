@@ -111,7 +111,7 @@ class RedisStreamMessageSourceTest {
     val expectedCommand =
       EventDispatcherReceiverCommand(
         receiverCommand = EventDispatcherReceiverCommand.ReceiverCommand.START,
-        version = DeploymentVersionDto.NEW)
+        version = DeploymentVersionDto.PROD)
     val hashMapSerializedObject =
       LinkedHashMap(Jackson2HashMapper(objectMapper, true).toHash(expectedCommand))
         as LinkedHashMap<*, *>

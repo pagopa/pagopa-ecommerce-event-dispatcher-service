@@ -31,7 +31,7 @@ class EventReceiverStatusPollerTest {
       inboundChannelAdapterLifecycleHandlerService = inboundChannelAdapterLifecycleHandlerService,
       redisStreamEventControllerConfigs = redisStreamEventControllerConfigs,
       eventDispatcherReceiverStatusTemplateWrapper = eventDispatcherReceiverStatusTemplateWrapper,
-      deploymentVersion = DeploymentVersionDto.NEW)
+      deploymentVersion = DeploymentVersionDto.PROD)
 
   @Test
   fun `Should poll for status successfully saving receiver statuses`() {

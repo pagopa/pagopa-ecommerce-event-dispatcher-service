@@ -194,8 +194,8 @@ components:
       type: string
       description: the event receiver deployment verison
       enum:
-        - OLD
-        - NEW
+        - STAGING
+        - PROD
   requestBodies:
     EventReceiverCommandRequest:
       required: true

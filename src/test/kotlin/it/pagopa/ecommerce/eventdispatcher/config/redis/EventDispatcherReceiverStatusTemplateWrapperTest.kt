@@ -29,7 +29,7 @@ class EventDispatcherReceiverStatusTemplateWrapperTest {
         receiverStatuses = listOf(),
         queriedAt = ZonedDateTime.now().toString(),
         consumerInstanceId = consumerId,
-        version = DeploymentVersionDto.NEW)
+        version = DeploymentVersionDto.PROD)
     given(redisTemplate.opsForValue()).willReturn(opsForValue)
     doNothing().`when`(opsForValue).set(any(), any(), any<Duration>())
     eventDispatcherReceiverStatusTemplateWrapper.save(receiverStatus)
