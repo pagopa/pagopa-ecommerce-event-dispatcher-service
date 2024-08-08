@@ -602,6 +602,7 @@ stages:
     jobs:
       - job: Start_Old_Stop_New_Receivers_Manual_Approve
         displayName: Manual OLD receiver start and new stop approval
+        timeoutInMinutes: 30
         steps:
           - task: ManualValidation@0
             timeoutInMinutes: 30
@@ -785,6 +786,7 @@ stages:
       - job: Prod_Rollback_Approval
         displayName: Manual prod rollback approval
         pool: server
+        timeoutInMinutes: 30
         steps:
           - task: ManualValidation@0
             timeoutInMinutes: 30
@@ -819,6 +821,7 @@ stages:
     jobs:
       - job: Start_Old_Stop_New_Receivers_Manual_Approve_Rollback
         displayName: Approve start OLD receivers and stop NEW for rollback processing (swap back deployments)
+        timeoutInMinutes: 30
         steps:
           - task: ManualValidation@0
             timeoutInMinutes: 30
@@ -873,6 +876,7 @@ stages:
     jobs:
       - job: Start_New_Stop_Old_Receivers_Manual_Approve_Rollback
         displayName: Approve start NEW receivers and stop OLD for rollback processing (swap back deployments)
+        timeoutInMinutes: 30
         steps:
           - task: ManualValidation@0
             timeoutInMinutes: 30
@@ -907,7 +911,7 @@ stages:
         timeoutInMinutes: 30
         steps:
           - task: ManualValidation@0
-            timeoutInMinutes: 4320 # 3 days
+            timeoutInMinutes: 30
             inputs:
               notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
               instructions: "Approve scale OLD deployment down to 0 pods"
