@@ -189,7 +189,7 @@ stages:
     displayName: Deploy the new release version
     dependsOn:
       - Start_Old_Stop_New_Receivers_${{ parameters.ENV }}
-      - {{ parameters.RELEASE_TASK_NAME}}
+      - ${{ parameters.RELEASE_TASK_NAME}}
     variables:
       newReleaseVersion: $[ stageDependencies.${{ parameters.RELEASE_TASK_NAME}}.make_release.outputs['${{ parameters.RELEASE_TASK_VERSION_OUTPUT_VARIABLE}}'] ]
     condition: succeeded()
@@ -209,7 +209,7 @@ stages:
     displayName: Deploy NEW version ${{ variables.newReleaseVersion }}
     dependsOn:
       - Deploy_New_Version_Approval_${{ parameters.ENV }}
-      - {{ parameters.RELEASE_TASK_NAME}}
+      - ${{ parameters.RELEASE_TASK_NAME}}
     variables:
       newReleaseVersion: $[ stageDependencies.${{ parameters.RELEASE_TASK_NAME}}.make_release.outputs['${{ parameters.RELEASE_TASK_VERSION_OUTPUT_VARIABLE}}'] ]
     condition: succeeded()
