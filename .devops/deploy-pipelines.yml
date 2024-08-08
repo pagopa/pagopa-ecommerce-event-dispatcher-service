@@ -512,6 +512,7 @@ stages:
       VALUE_FILE: "helm/values-prod.yaml"
       HELM_NEW_RELEASE_FILTER: $(K8S_IMAGE_REPOSITORY_NAME)-new
       NEW_VERSION: $[ stageDependencies.Release.make_release.outputs['chart_current_version.version'] ]
+      DEPLOY_AGENT_POOL_NAME: pagopa-prod-linux
   # --- END Deploy PROD --- #
 
   # --- START ROLLBACK PROD --- #
@@ -544,4 +545,5 @@ stages:
       KUBERNETES_CLUSTER: $(kubernetesCluster)
       NAMESPACE: ecommerce
       APP_NAME: $(K8S_IMAGE_REPOSITORY_NAME)
+      DEPLOY_AGENT_POOL_NAME: pagopa-prod-linux
 # --- END ROLLBACK PROD --- #

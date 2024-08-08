@@ -31,6 +31,9 @@ parameters:
   # helm release filter to be used to detect the actual deployed version
   - name: "HELM_NEW_RELEASE_FILTER"
     type: string
+  # deploy agent pool name to be used
+  - name: "DEPLOY_AGENT_POOL_NAME"
+    type: string
   #optional parameters
   # chart type
   - name: "CHART_TYPE"
@@ -53,6 +56,8 @@ stages:
   # STEP 0: retrieve current release version from helm release
   - stage: Current_Helm_Release
     displayName: Retrieve current deployed helm release
+    pool:
+      name: ${{ parameters.DEPLOY_AGENT_POOL_NAME }}
     jobs:
       - job: list_event_dispatcher_helm_releases
         displayName: List event dispatcher helm releases
@@ -80,12 +85,12 @@ stages:
     displayName: Old version deploy approval
     dependsOn: Current_Helm_Release
     condition: succeeded()
+    pool: server
     variables:
       currentVersion: $[ stageDependencies.Current_Helm_Release.list_event_dispatcher_helm_releases.outputs['helm_chart_version.helm_current_release_version'] ]
     jobs:
       - job: Old_Version_Deploy_Approval
         displayName: Manual old version deploy approval
-        pool: server
         timeoutInMinutes: 30
         steps:
           - task: ManualValidation@0
@@ -97,6 +102,8 @@ stages:
   - stage: Old_Version_Deploy
     dependsOn: [Current_Helm_Release,Old_Version_Deploy_Approval]
     condition: succeeded()
+    pool:
+      name: ${{ parameters.DEPLOY_AGENT_POOL_NAME }}
     variables:
       currentVersion: $[ stageDependencies.Current_Helm_Release.list_event_dispatcher_helm_releases.outputs['helm_chart_version.helm_current_release_version'] ]
     jobs:
@@ -155,6 +162,8 @@ stages:
   - stage: Start_Old_Stop_New_Receivers
     dependsOn: Start_Old_Stop_New_Receivers_Manual_Approve
     condition: succeeded()
+    pool:
+      name: ${{ parameters.DEPLOY_AGENT_POOL_NAME }}
     jobs:
       - job: Start_Old_Stop_New_Receivers
         steps:
@@ -175,10 +184,10 @@ stages:
     displayName: Deploy the new release version ${{ parameters.NEW_VERSION }}
     dependsOn: Start_Old_Stop_New_Receivers
     condition: succeeded()
+    pool: server
     jobs:
       - job: New_Version_Deploy_Approval
         displayName: New version deploy manual approve
-        pool: server
         timeoutInMinutes: 30
         steps:
           - task: ManualValidation@0
@@ -191,6 +200,8 @@ stages:
     displayName: Deploy NEW version ${{ parameters.NEW_VERSION }}
     dependsOn: Deploy_New_Version_Approval
     condition: succeeded()
+    pool:
+      name: ${{ parameters.DEPLOY_AGENT_POOL_NAME }}
     jobs:
       - deployment: New_Version_Deploy
         environment: ${{ parameters.ENV }}
@@ -233,9 +244,9 @@ stages:
   - stage: Start_New_Stop_Old_Receivers_Approval
     displayName: Start new receivers and stop old ones manual approval
     dependsOn: Deploy_New_Version
+    pool: server
     jobs:
       - job: Start_New_Stop_Old_Receivers_Approval
-        pool: server
         timeoutInMinutes: 30
         displayName: Start new receivers and stop old ones
         steps:
@@ -249,6 +260,8 @@ stages:
     displayName: Start new receivers and stop old ones
     dependsOn: Start_New_Stop_Old_Receivers_Approval
     condition: succeeded()
+    pool:
+      name: ${{ parameters.DEPLOY_AGENT_POOL_NAME }}
     jobs:
       - job: Start_New_Stop_Old_Receivers
         displayName: Start new receivers by curl command and stop old ones
@@ -269,9 +282,9 @@ stages:
   - stage: Scale_Down_Old_Deployment_Approval
     dependsOn: Start_New_Stop_Old_Receivers
     displayName: Approval for scale down old deployment PODS
+    pool: server
     jobs:
       - job: Scale_Down_Old_Deployment_Approval
-        pool: server
         timeoutInMinutes: 30
         steps:
           - task: ManualValidation@0
@@ -283,6 +296,8 @@ stages:
   - stage: Scale_Down_Old_Deployment
     dependsOn: Scale_Down_Old_Deployment_Approval
     displayName: Scale down OLD deployment to 0 pods
+    pool:
+      name: ${{ parameters.DEPLOY_AGENT_POOL_NAME }}
     jobs:
       - job: Scale_Down_Old_Deployment
         displayName: Annotate scaledObject with autoscaling.keda.sh/paused-replicas="0"
