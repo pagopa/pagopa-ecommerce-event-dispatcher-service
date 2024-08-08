@@ -518,7 +518,7 @@ stages:
   # --- START ROLLBACK PROD --- #
   - stage: "Prod_RollbackForApproval"
     displayName: 'PROD ROLLBACK'
-    dependsOn: [ Deploy_PROD_Green,Release ]
+    dependsOn: [ Scale_Down_Old_Deployment_PROD,Release ]
     condition: |
       and(
         eq(${{parameters.UAT_PROD_DEPLOY}}, true),
