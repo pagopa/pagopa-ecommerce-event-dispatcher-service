@@ -198,7 +198,7 @@ stages:
               notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
               instructions: "Approve upgrade NEW helm release to version: [${{ parameters.NEW_VERSION }}]"
               onTimeout: 'reject'
-  - stage: Deploy_New_Version
+  - stage: Deploy_New_Version_${{ parameters.ENV }}
     displayName: Deploy NEW version ${{ parameters.NEW_VERSION }}
     dependsOn: Deploy_New_Version_Approval_${{ parameters.ENV }}
     condition: succeeded()
@@ -245,7 +245,7 @@ stages:
   # STEP 4: once new version is deployed, proceed to start new receivers and stop old ones
   - stage: Start_New_Stop_Old_Receivers_Approval_${{ parameters.ENV }}
     displayName: Start new receivers and stop old ones manual approval
-    dependsOn: Deploy_New_Version
+    dependsOn: Deploy_New_Version_${{ parameters.ENV }}
     pool: server
     jobs:
       - job: Start_New_Stop_Old_Receivers_Approval_${{ parameters.ENV }}
