@@ -380,7 +380,7 @@ stages:
   # --- START ROLLBACK DEV --- #
   - stage: TEST_Prod_RollbackForApproval
     displayName: 'DEV ROLLBACK'
-    dependsOn: [ TEST_Scale_Down_Old_Deployment_DEV,TEST_Release ]
+    dependsOn: [ TEST_Scale_Down_Old_Deployment,TEST_Release ]
     variables:
       release_url: $[ stageDependencies.Release.make_release.outputs['chart_current_version.releaseUrl'] ]
     jobs:
