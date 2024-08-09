@@ -244,7 +244,7 @@ stages:
       - TEST_Start_Old_Stop_New_Receivers
       - TEST_Release
     variables:
-      newReleaseVersion: $[ stageDependencies.Release.make_release.outputs['chart_current_version.version'] ]
+      newReleaseVersion: $[ stageDependencies.TEST_Release.make_release.outputs['chart_current_version.version'] ]
     condition: succeeded()
     pool: server
     jobs:
@@ -264,7 +264,7 @@ stages:
       - TEST_Deploy_New_Version_Approval
       - TEST_Release
     variables:
-      newReleaseVersion: $[ stageDependencies.Release.make_release.outputs['chart_current_version.version'] ]
+      newReleaseVersion: $[ stageDependencies.TEST_Release.make_release.outputs['chart_current_version.version'] ]
     condition: succeeded()
     pool:
       name: pagopa-dev-linux
