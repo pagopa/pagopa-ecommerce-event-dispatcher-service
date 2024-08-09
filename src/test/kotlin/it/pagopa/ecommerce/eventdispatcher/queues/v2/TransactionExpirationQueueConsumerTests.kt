@@ -27,7 +27,6 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewReposito
 import it.pagopa.ecommerce.eventdispatcher.services.v2.AuthorizationStateRetrieverService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgService
 import it.pagopa.ecommerce.eventdispatcher.utils.*
-import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
 import java.time.Duration
 import java.time.ZonedDateTime
 import java.util.*
@@ -1293,7 +1292,7 @@ class TransactionExpirationQueueConsumerTests {
     val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
     val authorizationCompletedEvent =
       transactionAuthorizationCompletedEvent(
-        PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
+        NpgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED, "", "", "", ""))
     val closureRequestedEvent = transactionClosureRequestedEvent()
     val closedEvent = transactionClosedEvent(TransactionClosureData.Outcome.OK)
     val userReceiptRequestedEvent = transactionUserReceiptRequestedEvent(transactionUserReceiptData)
@@ -1308,8 +1307,8 @@ class TransactionExpirationQueueConsumerTests {
           closedEvent,
           userReceiptRequestedEvent,
           userReceiptErrorEvent))
-    val gatewayClientResponse = VposDeleteResponseDto()
-    gatewayClientResponse.status(VposDeleteResponseDto.StatusEnum.CANCELLED)
+    val gatewayClientResponse = RefundResponseDto()
+    gatewayClientResponse.operationId("operationId").operationTime("operationTime")
 
     /* preconditions */
     given(checkpointer.success()).willReturn(Mono.empty())
@@ -1393,8 +1392,8 @@ class TransactionExpirationQueueConsumerTests {
           userReceiptRequestedEvent,
           userReceiptErrorEvent,
           refundRequestedEvent))
-    val gatewayClientResponse = VposDeleteResponseDto()
-    gatewayClientResponse.status(VposDeleteResponseDto.StatusEnum.CANCELLED)
+    val gatewayClientResponse = RefundResponseDto()
+    gatewayClientResponse.operationId("operationId").operationTime("operationTime")
 
     /* preconditions */
     given(checkpointer.success()).willReturn(Mono.empty())

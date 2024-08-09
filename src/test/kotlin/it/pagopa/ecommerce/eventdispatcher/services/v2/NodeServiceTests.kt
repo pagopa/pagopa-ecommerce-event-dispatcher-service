@@ -348,12 +348,11 @@ class NodeServiceTests {
                 clientId = Transaction.ClientId.CHECKOUT.name
                 brand =
                   (authEvent.data.transactionGatewayAuthorizationRequestedData
-                      as PgsTransactionGatewayAuthorizationRequestedData)
+                      as NpgTransactionGatewayAuthorizationRequestedData)
                     .brand!!
-                    .name
                 brandLogo =
                   (authEvent.data.transactionGatewayAuthorizationRequestedData
-                      as PgsTransactionGatewayAuthorizationRequestedData)
+                      as NpgTransactionGatewayAuthorizationRequestedData)
                     .logo
                     .toString()
                 paymentMethodName = authEvent.data.paymentMethodName
@@ -620,12 +619,11 @@ class NodeServiceTests {
                 clientId = Transaction.ClientId.CHECKOUT.name
                 brand =
                   (authEvent.data.transactionGatewayAuthorizationRequestedData
-                      as PgsTransactionGatewayAuthorizationRequestedData)
+                      as NpgTransactionGatewayAuthorizationRequestedData)
                     .brand!!
-                    .name
                 brandLogo =
                   (authEvent.data.transactionGatewayAuthorizationRequestedData
-                      as PgsTransactionGatewayAuthorizationRequestedData)
+                      as NpgTransactionGatewayAuthorizationRequestedData)
                     .logo
                     .toString()
                 paymentMethodName = authEvent.data.paymentMethodName
@@ -849,12 +847,11 @@ class NodeServiceTests {
                   clientId = Transaction.ClientId.CHECKOUT.name
                   brand =
                     (authEvent.data.transactionGatewayAuthorizationRequestedData
-                        as PgsTransactionGatewayAuthorizationRequestedData)
+                        as NpgTransactionGatewayAuthorizationRequestedData)
                       .brand!!
-                      .name
                   brandLogo =
                     (authEvent.data.transactionGatewayAuthorizationRequestedData
-                        as PgsTransactionGatewayAuthorizationRequestedData)
+                        as NpgTransactionGatewayAuthorizationRequestedData)
                       .logo
                       .toString()
                   paymentMethodName = authEvent.data.paymentMethodName

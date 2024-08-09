@@ -11,8 +11,6 @@ import it.pagopa.ecommerce.commons.domain.v2.TransactionEventCode
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.RefundResponseDto
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.ClosePaymentOutcome
-import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
-import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.CardClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.transactionauthrequests.v1.dto.PaymentInfoDto
@@ -59,23 +57,6 @@ fun getMockedCardClosePaymentRequest(
   }
 }
 
-fun getMockedXPayRefundRequest(
-  paymentId: String?,
-  result: String = "success",
-): XPayRefundResponse200Dto {
-  if (result == "success") {
-    return XPayRefundResponse200Dto()
-      .requestId(UUID.randomUUID().toString())
-      .status(XPayRefundResponse200Dto.StatusEnum.CANCELLED)
-      .error("")
-  } else {
-    return XPayRefundResponse200Dto()
-      .requestId(UUID.randomUUID().toString())
-      .status(XPayRefundResponse200Dto.StatusEnum.CREATED)
-      .error("err")
-  }
-}
-
 fun getMockedTransactionInfoDto(transactionId: UUID): TransactionInfoDto {
   return TransactionInfoDto()
     .transactionId(transactionId.toString())
@@ -84,23 +65,6 @@ fun getMockedTransactionInfoDto(transactionId: UUID): TransactionInfoDto {
     .clientId(TransactionInfoDto.ClientIdEnum.CHECKOUT)
     .feeTotal(300)
     .addPaymentsItem(PaymentInfoDto().amount(3000).paymentToken("paymentToken"))
-}
-
-fun getMockedVPosRefundRequest(
-  paymentId: String?,
-  result: String = "success",
-): VposDeleteResponseDto {
-  if (result == "success") {
-    return VposDeleteResponseDto()
-      .requestId(UUID.randomUUID().toString())
-      .status(VposDeleteResponseDto.StatusEnum.CANCELLED)
-      .error("")
-  } else {
-    return VposDeleteResponseDto()
-      .requestId(UUID.randomUUID().toString())
-      .status(VposDeleteResponseDto.StatusEnum.CREATED)
-      .error("err")
-  }
 }
 
 fun queueSuccessfulResponse(): Mono<Response<SendMessageResult>> {

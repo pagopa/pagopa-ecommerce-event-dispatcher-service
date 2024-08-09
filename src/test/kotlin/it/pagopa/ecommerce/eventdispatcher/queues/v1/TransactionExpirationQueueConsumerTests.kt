@@ -20,6 +20,8 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewReposito
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v1.RefundRetryService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.ecommerce.eventdispatcher.utils.TRANSIENT_QUEUE_TTL_SECONDS
+import java.time.Duration
+import java.time.ZonedDateTime
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.reactor.mono
 import kotlinx.coroutines.test.runTest
@@ -34,322 +36,279 @@ import org.springframework.test.context.TestPropertySource
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
-import java.time.Duration
-import java.time.ZonedDateTime
 
 @SpringBootTest
 @TestPropertySource(locations = ["classpath:application.test.properties"])
 @OptIn(ExperimentalCoroutinesApi::class)
 class TransactionExpirationQueueConsumerTests {
 
-    private val checkpointer: Checkpointer = mock()
+  private val checkpointer: Checkpointer = mock()
 
-    private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any> = mock()
+  private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any> = mock()
 
-    private val paymentGatewayClient: PaymentGatewayClient = mock()
+  private val paymentGatewayClient: PaymentGatewayClient = mock()
 
-    private val transactionsExpiredEventStoreRepository:
-            TransactionsEventStoreRepository<TransactionExpiredData> =
-        mock()
+  private val transactionsExpiredEventStoreRepository:
+    TransactionsEventStoreRepository<TransactionExpiredData> =
+    mock()
 
-    private val transactionsRefundedEventStoreRepository:
-            TransactionsEventStoreRepository<TransactionRefundedData> =
-        mock()
+  private val transactionsRefundedEventStoreRepository:
+    TransactionsEventStoreRepository<TransactionRefundedData> =
+    mock()
 
-    private val transactionsViewRepository: TransactionsViewRepository = mock()
+  private val transactionsViewRepository: TransactionsViewRepository = mock()
 
-    private val refundRetryService: RefundRetryService = mock()
+  private val refundRetryService: RefundRetryService = mock()
 
-    @Captor
-    private lateinit var transactionViewRepositoryCaptor: ArgumentCaptor<Transaction>
+  @Captor private lateinit var transactionViewRepositoryCaptor: ArgumentCaptor<Transaction>
 
-    @Captor
-    private lateinit var transactionRefundEventStoreCaptor:
-            ArgumentCaptor<TransactionEvent<TransactionRefundedData>>
+  @Captor
+  private lateinit var transactionRefundEventStoreCaptor:
+    ArgumentCaptor<TransactionEvent<TransactionRefundedData>>
 
-    @Captor
-    private lateinit var transactionExpiredEventStoreCaptor:
-            ArgumentCaptor<TransactionEvent<TransactionExpiredData>>
+  @Captor
+  private lateinit var transactionExpiredEventStoreCaptor:
+    ArgumentCaptor<TransactionEvent<TransactionExpiredData>>
 
-    @Captor
-    private lateinit var retryCountCaptor: ArgumentCaptor<Int>
+  @Captor private lateinit var retryCountCaptor: ArgumentCaptor<Int>
 
-    @Captor
-    private lateinit var queueEventCaptor: ArgumentCaptor<BinaryData>
+  @Captor private lateinit var queueEventCaptor: ArgumentCaptor<BinaryData>
 
-    @Captor
-    private lateinit var binaryDataCaptor: ArgumentCaptor<BinaryData>
+  @Captor private lateinit var binaryDataCaptor: ArgumentCaptor<BinaryData>
 
-    @Captor
-    private lateinit var visibilityTimeoutCaptor: ArgumentCaptor<Duration>
+  @Captor private lateinit var visibilityTimeoutCaptor: ArgumentCaptor<Duration>
 
-    private val transactionUtils = TransactionUtils()
+  private val transactionUtils = TransactionUtils()
 
-    private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient = mock()
+  private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient = mock()
 
-    private val expirationQueueAsyncClient: QueueAsyncClient = mock()
+  private val expirationQueueAsyncClient: QueueAsyncClient = mock()
 
-    private val sendPaymentResultTimeout = 120
+  private val sendPaymentResultTimeout = 120
 
-    private val sendPaymentResultOffset = 10
+  private val sendPaymentResultOffset = 10
 
-    private val tracingUtils = TracingUtilsTests.getMock()
+  private val tracingUtils = TracingUtilsTests.getMock()
 
-    private val transactionExpirationQueueConsumer =
-        TransactionExpirationQueueConsumer(
-            paymentGatewayClient = paymentGatewayClient,
-            transactionsEventStoreRepository = transactionsEventStoreRepository,
-            transactionsExpiredEventStoreRepository = transactionsExpiredEventStoreRepository,
-            transactionsRefundedEventStoreRepository = transactionsRefundedEventStoreRepository,
-            transactionsViewRepository = transactionsViewRepository,
-            transactionUtils = transactionUtils,
-            refundRetryService = refundRetryService,
-            deadLetterTracedQueueAsyncClient = deadLetterTracedQueueAsyncClient,
-            expirationQueueAsyncClient = expirationQueueAsyncClient,
-            sendPaymentResultTimeoutSeconds = sendPaymentResultTimeout,
-            sendPaymentResultTimeoutOffsetSeconds = sendPaymentResultOffset,
-            transientQueueTTLSeconds = TRANSIENT_QUEUE_TTL_SECONDS,
-            tracingUtils = tracingUtils
-        )
+  private val transactionExpirationQueueConsumer =
+    TransactionExpirationQueueConsumer(
+      paymentGatewayClient = paymentGatewayClient,
+      transactionsEventStoreRepository = transactionsEventStoreRepository,
+      transactionsExpiredEventStoreRepository = transactionsExpiredEventStoreRepository,
+      transactionsRefundedEventStoreRepository = transactionsRefundedEventStoreRepository,
+      transactionsViewRepository = transactionsViewRepository,
+      transactionUtils = transactionUtils,
+      refundRetryService = refundRetryService,
+      deadLetterTracedQueueAsyncClient = deadLetterTracedQueueAsyncClient,
+      expirationQueueAsyncClient = expirationQueueAsyncClient,
+      sendPaymentResultTimeoutSeconds = sendPaymentResultTimeout,
+      sendPaymentResultTimeoutOffsetSeconds = sendPaymentResultOffset,
+      transientQueueTTLSeconds = TRANSIENT_QUEUE_TTL_SECONDS,
+      tracingUtils = tracingUtils)
 
-    @Test
-    fun `messageReceiver receives activated messages successfully`() {
-        val activatedEvent = transactionActivateEvent()
-        val transactionId = activatedEvent.transactionId
+  @Test
+  fun `messageReceiver receives activated messages successfully`() {
+    val activatedEvent = transactionActivateEvent()
+    val transactionId = activatedEvent.transactionId
 
-        /* preconditions */
-        given(checkpointer.success()).willReturn(Mono.empty())
-        given(
-            transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
-                transactionId,
-            )
-        )
-            .willReturn(Flux.just(activatedEvent as TransactionEvent<Any>))
-        given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
-        given(transactionsExpiredEventStoreRepository.save(any())).willAnswer {
-            Mono.just(it.arguments[0])
-        }
-
-        given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
-            .willReturn(
-                Mono.just(
-                    transactionDocument(TransactionStatusDto.NOTIFICATION_ERROR, ZonedDateTime.now())
-                )
-            )
-
-        /* test */
-        StepVerifier.create(
-            transactionExpirationQueueConsumer.messageReceiver(
-                Either.left<TransactionActivatedEvent, TransactionExpiredEvent>(activatedEvent) to
-                        MOCK_TRACING_INFO,
-                checkpointer,
-                MessageHeaders(mapOf())
-            )
-        )
-            .expectNext(Unit)
-            .expectComplete()
-            .verify()
-
-        /* Asserts */
-        verify(checkpointer, Mockito.times(1)).success()
+    /* preconditions */
+    given(checkpointer.success()).willReturn(Mono.empty())
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+          transactionId,
+        ))
+      .willReturn(Flux.just(activatedEvent as TransactionEvent<Any>))
+    given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
+    given(transactionsExpiredEventStoreRepository.save(any())).willAnswer {
+      Mono.just(it.arguments[0])
     }
 
-    @Test
-    fun `messageReceiver receives legacy activated messages successfully`() {
-        val activatedEvent = transactionActivateEvent()
-        val transactionId = activatedEvent.transactionId
+    given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+      .willReturn(
+        Mono.just(
+          transactionDocument(TransactionStatusDto.NOTIFICATION_ERROR, ZonedDateTime.now())))
 
-        /* preconditions */
-        given(checkpointer.success()).willReturn(Mono.empty())
-        given(
-            transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
-                transactionId,
-            )
-        )
-            .willReturn(Flux.just(activatedEvent as TransactionEvent<Any>))
-        given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
-        given(transactionsExpiredEventStoreRepository.save(any())).willAnswer {
-            Mono.just(it.arguments[0])
-        }
+    /* test */
+    StepVerifier.create(
+        transactionExpirationQueueConsumer.messageReceiver(
+          Either.left<TransactionActivatedEvent, TransactionExpiredEvent>(activatedEvent) to
+            MOCK_TRACING_INFO,
+          checkpointer,
+          MessageHeaders(mapOf())))
+      .expectNext(Unit)
+      .expectComplete()
+      .verify()
 
-        given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
-            .willReturn(
-                Mono.just(
-                    transactionDocument(TransactionStatusDto.NOTIFICATION_ERROR, ZonedDateTime.now())
-                )
-            )
+    /* Asserts */
+    verify(checkpointer, Mockito.times(1)).success()
+  }
 
-        /* test */
-        StepVerifier.create(
-            transactionExpirationQueueConsumer.messageReceiver(
-                Either.left<TransactionActivatedEvent, TransactionExpiredEvent>(activatedEvent) to null,
-                checkpointer,
-                MessageHeaders(mapOf())
-            )
-        )
-            .expectNext(Unit)
-            .expectComplete()
-            .verify()
+  @Test
+  fun `messageReceiver receives legacy activated messages successfully`() {
+    val activatedEvent = transactionActivateEvent()
+    val transactionId = activatedEvent.transactionId
 
-        /* Asserts */
-        verify(checkpointer, Mockito.times(1)).success()
+    /* preconditions */
+    given(checkpointer.success()).willReturn(Mono.empty())
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+          transactionId,
+        ))
+      .willReturn(Flux.just(activatedEvent as TransactionEvent<Any>))
+    given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
+    given(transactionsExpiredEventStoreRepository.save(any())).willAnswer {
+      Mono.just(it.arguments[0])
     }
 
-    @Test
-    fun `messageReceiver receives legacy expiration messages successfully`() {
-        val activatedEvent = transactionActivateEvent()
-        val tx = reduceEvents(activatedEvent)
+    given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+      .willReturn(
+        Mono.just(
+          transactionDocument(TransactionStatusDto.NOTIFICATION_ERROR, ZonedDateTime.now())))
 
-        val expiredEvent = transactionExpiredEvent(tx)
+    /* test */
+    StepVerifier.create(
+        transactionExpirationQueueConsumer.messageReceiver(
+          Either.left<TransactionActivatedEvent, TransactionExpiredEvent>(activatedEvent) to null,
+          checkpointer,
+          MessageHeaders(mapOf())))
+      .expectNext(Unit)
+      .expectComplete()
+      .verify()
 
-        val transactionId = activatedEvent.transactionId
+    /* Asserts */
+    verify(checkpointer, Mockito.times(1)).success()
+  }
 
-        /* preconditions */
-        given(checkpointer.success()).willReturn(Mono.empty())
-        given(
-            transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
-                transactionId,
-            )
-        )
-            .willReturn(
-                Flux.just(activatedEvent as TransactionEvent<Any>, expiredEvent as TransactionEvent<Any>)
-            )
-        given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
-        given(transactionsExpiredEventStoreRepository.save(any())).willAnswer {
-            Mono.just(it.arguments[0])
-        }
+  @Test
+  fun `messageReceiver receives legacy expiration messages successfully`() {
+    val activatedEvent = transactionActivateEvent()
+    val tx = reduceEvents(activatedEvent)
 
-        given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
-            .willReturn(
-                Mono.just(
-                    transactionDocument(TransactionStatusDto.EXPIRED_NOT_AUTHORIZED, ZonedDateTime.now())
-                )
-            )
+    val expiredEvent = transactionExpiredEvent(tx)
 
-        /* test */
-        StepVerifier.create(
-            transactionExpirationQueueConsumer.messageReceiver(
-                Either.right<TransactionActivatedEvent, TransactionExpiredEvent>(expiredEvent) to null,
-                checkpointer,
-                MessageHeaders(mapOf())
-            )
-        )
-            .expectNext(Unit)
-            .expectComplete()
-            .verify()
+    val transactionId = activatedEvent.transactionId
 
-        /* Asserts */
-        verify(checkpointer, Mockito.times(1)).success()
+    /* preconditions */
+    given(checkpointer.success()).willReturn(Mono.empty())
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+          transactionId,
+        ))
+      .willReturn(
+        Flux.just(activatedEvent as TransactionEvent<Any>, expiredEvent as TransactionEvent<Any>))
+    given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
+    given(transactionsExpiredEventStoreRepository.save(any())).willAnswer {
+      Mono.just(it.arguments[0])
     }
 
-    @Test
-    fun `messageReceiver forward event into dead letter queue for exception processing the event`() =
-        runTest {
-            /* preconditions */
+    given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+      .willReturn(
+        Mono.just(
+          transactionDocument(TransactionStatusDto.EXPIRED_NOT_AUTHORIZED, ZonedDateTime.now())))
 
-            val activatedEvent = transactionActivateEvent()
+    /* test */
+    StepVerifier.create(
+        transactionExpirationQueueConsumer.messageReceiver(
+          Either.right<TransactionActivatedEvent, TransactionExpiredEvent>(expiredEvent) to null,
+          checkpointer,
+          MessageHeaders(mapOf())))
+      .expectNext(Unit)
+      .expectComplete()
+      .verify()
 
-            /* preconditions */
-            given(checkpointer.success()).willReturn(Mono.empty())
-            given(
-                transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
-                    any(),
-                )
-            )
-                .willReturn(Flux.error(RuntimeException("Error finding event from event store")))
-            given(
-                deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(
-                    any<BinaryData>(), any()
-                )
-            )
-                .willReturn(mono {})
+    /* Asserts */
+    verify(checkpointer, Mockito.times(1)).success()
+  }
 
-            /* test */
-            StepVerifier.create(
-                transactionExpirationQueueConsumer.messageReceiver(
-                    Either.left<TransactionActivatedEvent, TransactionExpiredEvent>(activatedEvent) to
-                            MOCK_TRACING_INFO,
-                    checkpointer,
-                    MessageHeaders(mapOf())
-                )
-            )
-                .expectNext(Unit)
-                .verifyComplete()
+  @Test
+  fun `messageReceiver forward event into dead letter queue for exception processing the event`() =
+    runTest {
+      /* preconditions */
 
-            /* Asserts */
-            verify(checkpointer, times(1)).success()
-            verify(deadLetterTracedQueueAsyncClient, times(1))
-                .sendAndTraceDeadLetterQueueEvent(
-                    argThat<BinaryData> {
-                        TransactionEventCode.valueOf(
-                            this.toObject(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {})
-                                .event
-                                .eventCode
-                        ) == TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
-                    },
-                    eq(
-                        DeadLetterTracedQueueAsyncClient.ErrorContext(
-                            transactionId = TransactionId(TRANSACTION_ID),
-                            transactionEventCode = TransactionEventCode.TRANSACTION_ACTIVATED_EVENT.toString(),
-                            errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR
-                        )
-                    )
-                )
-        }
+      val activatedEvent = transactionActivateEvent()
 
-    @Test
-    fun `messageReceiver processing should fail for error forward event into dead letter queue for exception processing the event`() =
-        runTest {
-            /* preconditions */
+      /* preconditions */
+      given(checkpointer.success()).willReturn(Mono.empty())
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            any(),
+          ))
+        .willReturn(Flux.error(RuntimeException("Error finding event from event store")))
+      given(
+          deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(
+            any<BinaryData>(), any()))
+        .willReturn(mono {})
 
-            val activatedEvent = transactionActivateEvent()
+      /* test */
+      StepVerifier.create(
+          transactionExpirationQueueConsumer.messageReceiver(
+            Either.left<TransactionActivatedEvent, TransactionExpiredEvent>(activatedEvent) to
+              MOCK_TRACING_INFO,
+            checkpointer,
+            MessageHeaders(mapOf())))
+        .expectNext(Unit)
+        .verifyComplete()
 
-            /* preconditions */
-            given(checkpointer.success()).willReturn(Mono.empty())
-            given(
-                transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
-                    any(),
-                )
-            )
-                .willReturn(Flux.error(RuntimeException("Error finding event from event store")))
-            given(
-                deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(
-                    any<BinaryData>(), any()
-                )
-            )
-                .willReturn(Mono.error(RuntimeException("Error sending event to dead letter queue")))
+      /* Asserts */
+      verify(checkpointer, times(1)).success()
+      verify(deadLetterTracedQueueAsyncClient, times(1))
+        .sendAndTraceDeadLetterQueueEvent(
+          argThat<BinaryData> {
+            TransactionEventCode.valueOf(
+              this.toObject(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {})
+                .event
+                .eventCode) == TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
+          },
+          eq(
+            DeadLetterTracedQueueAsyncClient.ErrorContext(
+              transactionId = TransactionId(TRANSACTION_ID),
+              transactionEventCode = TransactionEventCode.TRANSACTION_ACTIVATED_EVENT.toString(),
+              errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)))
+    }
 
-            /* test */
-            StepVerifier.create(
-                transactionExpirationQueueConsumer.messageReceiver(
-                    Either.left<TransactionActivatedEvent, TransactionExpiredEvent>(activatedEvent) to
-                            MOCK_TRACING_INFO,
-                    checkpointer,
-                    MessageHeaders(mapOf())
-                )
-            )
-                .expectErrorMatches { it.message == "Error sending event to dead letter queue" }
-                .verify()
+  @Test
+  fun `messageReceiver processing should fail for error forward event into dead letter queue for exception processing the event`() =
+    runTest {
+      /* preconditions */
 
-            /* Asserts */
-            verify(checkpointer, times(1)).success()
-            verify(deadLetterTracedQueueAsyncClient, times(1))
-                .sendAndTraceDeadLetterQueueEvent(
-                    argThat<BinaryData> {
-                        TransactionEventCode.valueOf(
-                            this.toObject(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {})
-                                .event
-                                .eventCode
-                        ) == TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
-                    },
-                    eq(
-                        DeadLetterTracedQueueAsyncClient.ErrorContext(
-                            transactionId = TransactionId(TRANSACTION_ID),
-                            transactionEventCode = TransactionEventCode.TRANSACTION_ACTIVATED_EVENT.toString(),
-                            errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR
-                        )
-                    )
-                )
-        }
+      val activatedEvent = transactionActivateEvent()
 
+      /* preconditions */
+      given(checkpointer.success()).willReturn(Mono.empty())
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            any(),
+          ))
+        .willReturn(Flux.error(RuntimeException("Error finding event from event store")))
+      given(
+          deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(
+            any<BinaryData>(), any()))
+        .willReturn(Mono.error(RuntimeException("Error sending event to dead letter queue")))
+
+      /* test */
+      StepVerifier.create(
+          transactionExpirationQueueConsumer.messageReceiver(
+            Either.left<TransactionActivatedEvent, TransactionExpiredEvent>(activatedEvent) to
+              MOCK_TRACING_INFO,
+            checkpointer,
+            MessageHeaders(mapOf())))
+        .expectErrorMatches { it.message == "Error sending event to dead letter queue" }
+        .verify()
+
+      /* Asserts */
+      verify(checkpointer, times(1)).success()
+      verify(deadLetterTracedQueueAsyncClient, times(1))
+        .sendAndTraceDeadLetterQueueEvent(
+          argThat<BinaryData> {
+            TransactionEventCode.valueOf(
+              this.toObject(object : TypeReference<QueueEvent<TransactionActivatedEvent>>() {})
+                .event
+                .eventCode) == TransactionEventCode.TRANSACTION_ACTIVATED_EVENT
+          },
+          eq(
+            DeadLetterTracedQueueAsyncClient.ErrorContext(
+              transactionId = TransactionId(TRANSACTION_ID),
+              transactionEventCode = TransactionEventCode.TRANSACTION_ACTIVATED_EVENT.toString(),
+              errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)))
+    }
 }

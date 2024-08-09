@@ -20,14 +20,14 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRe
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v1.RefundRetryService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
+import java.nio.charset.StandardCharsets
+import java.time.Duration
+import java.time.ZonedDateTime
 import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import java.nio.charset.StandardCharsets
-import java.time.Duration
-import java.time.ZonedDateTime
 
 object QueueCommonsLogger {
   val logger: Logger = LoggerFactory.getLogger(QueueCommonsLogger::class.java)
@@ -42,9 +42,7 @@ fun updateTransactionToExpired(
   return transactionsExpiredEventStoreRepository
     .save(
       TransactionExpiredEvent(
-        transaction.transactionId.value(), TransactionExpiredData(transaction.status)
-      )
-    )
+        transaction.transactionId.value(), TransactionExpiredData(transaction.status)))
     .then(
       transactionsViewRepository
         .findByTransactionId(transaction.transactionId.value())
@@ -58,8 +56,7 @@ fun updateTransactionToExpired(
     }
     .doOnError {
       logger.error(
-        "Transaction expired error for transaction ${transaction.transactionId.value()} : ${it.message}"
-      )
+        "Transaction expired error for transaction ${transaction.transactionId.value()} : ${it.message}")
     }
     .thenReturn(transaction)
 }
@@ -75,14 +72,13 @@ fun getExpiredTransactionStatus(transaction: BaseTransaction): TransactionStatus
           it.fold({ TransactionStatusDto.CANCELLATION_EXPIRED }, { TransactionStatusDto.EXPIRED })
         }
         .orElse(TransactionStatusDto.EXPIRED)
-
     else -> TransactionStatusDto.EXPIRED_NOT_AUTHORIZED
   }
 
 fun updateTransactionToRefundRequested(
   transaction: BaseTransaction,
   transactionsRefundedEventStoreRepository:
-  TransactionsEventStoreRepository<TransactionRefundedData>,
+    TransactionsEventStoreRepository<TransactionRefundedData>,
   transactionsViewRepository: TransactionsViewRepository
 ): Mono<BaseTransaction> {
   return updateTransactionWithRefundEvent(
@@ -90,16 +86,14 @@ fun updateTransactionToRefundRequested(
     transactionsRefundedEventStoreRepository,
     transactionsViewRepository,
     TransactionRefundRequestedEvent(
-      transaction.transactionId.value(), TransactionRefundedData(transaction.status)
-    ),
-    TransactionStatusDto.REFUND_REQUESTED
-  )
+      transaction.transactionId.value(), TransactionRefundedData(transaction.status)),
+    TransactionStatusDto.REFUND_REQUESTED)
 }
 
 fun updateTransactionToRefundError(
   transaction: BaseTransaction,
   transactionsRefundedEventStoreRepository:
-  TransactionsEventStoreRepository<TransactionRefundedData>,
+    TransactionsEventStoreRepository<TransactionRefundedData>,
   transactionsViewRepository: TransactionsViewRepository
 ): Mono<BaseTransaction> {
   return updateTransactionWithRefundEvent(
@@ -107,16 +101,14 @@ fun updateTransactionToRefundError(
     transactionsRefundedEventStoreRepository,
     transactionsViewRepository,
     TransactionRefundErrorEvent(
-      transaction.transactionId.value(), TransactionRefundedData(transaction.status)
-    ),
-    TransactionStatusDto.REFUND_ERROR
-  )
+      transaction.transactionId.value(), TransactionRefundedData(transaction.status)),
+    TransactionStatusDto.REFUND_ERROR)
 }
 
 fun updateTransactionToRefunded(
   transaction: BaseTransaction,
   transactionsRefundedEventStoreRepository:
-  TransactionsEventStoreRepository<TransactionRefundedData>,
+    TransactionsEventStoreRepository<TransactionRefundedData>,
   transactionsViewRepository: TransactionsViewRepository,
 ): Mono<BaseTransaction> {
   return updateTransactionWithRefundEvent(
@@ -124,16 +116,14 @@ fun updateTransactionToRefunded(
     transactionsRefundedEventStoreRepository,
     transactionsViewRepository,
     TransactionRefundedEvent(
-      transaction.transactionId.value(), TransactionRefundedData(transaction.status)
-    ),
-    TransactionStatusDto.REFUNDED
-  )
+      transaction.transactionId.value(), TransactionRefundedData(transaction.status)),
+    TransactionStatusDto.REFUNDED)
 }
 
 fun updateTransactionWithRefundEvent(
   transaction: BaseTransaction,
   transactionsRefundedEventStoreRepository:
-  TransactionsEventStoreRepository<TransactionRefundedData>,
+    TransactionsEventStoreRepository<TransactionRefundedData>,
   transactionsViewRepository: TransactionsViewRepository,
   event: TransactionEvent<TransactionRefundedData>,
   status: TransactionStatusDto
@@ -150,8 +140,7 @@ fun updateTransactionWithRefundEvent(
         })
     .doOnSuccess {
       logger.info(
-        "Updated event for transaction with id ${transaction.transactionId.value()} to status $status"
-      )
+        "Updated event for transaction with id ${transaction.transactionId.value()} to status $status")
     }
     .thenReturn(transaction)
 }
@@ -194,8 +183,7 @@ fun isTransactionRefundable(tx: BaseTransaction): Boolean {
       else -> wasAuthorizationRequested
     }
   logger.info(
-    "Transaction with id ${tx.transactionId.value()} : authorization requested: $wasAuthorizationRequested, authorization denied: $wasAuthorizationDenied, closePaymentResponse.outcome KO: $wasClosePaymentResponseOutcomeKO sendPaymentResult.outcome KO : $wasSendPaymentResultOutcomeKO --> is refundable: $isTransactionRefundable"
-  )
+    "Transaction with id ${tx.transactionId.value()} : authorization requested: $wasAuthorizationRequested, authorization denied: $wasAuthorizationDenied, closePaymentResponse.outcome KO: $wasClosePaymentResponseOutcomeKO sendPaymentResult.outcome KO : $wasSendPaymentResultOutcomeKO --> is refundable: $isTransactionRefundable")
   return isTransactionRefundable
 }
 
@@ -210,7 +198,6 @@ fun wasSendPaymentResultOutcomeKO(tx: BaseTransaction): Boolean =
   when (tx) {
     is BaseTransactionWithRequestedUserReceipt ->
       tx.transactionUserReceiptData.responseOutcome == TransactionUserReceiptData.Outcome.KO
-
     is BaseTransactionExpired -> wasSendPaymentResultOutcomeKO(tx.transactionAtPreviousState)
     else -> false
   }
@@ -223,7 +210,6 @@ fun wasAuthorizationRequested(tx: BaseTransaction): Boolean =
         .transactionAtPreviousState()
         .map { txAtPreviousStep -> txAtPreviousStep.isRight }
         .orElse(false)
-
     else -> false
   }
 
@@ -231,7 +217,6 @@ fun getAuthorizationOutcome(tx: BaseTransaction): AuthorizationResultDto? =
   when (tx) {
     is BaseTransactionWithCompletedAuthorization ->
       tx.transactionAuthorizationCompletedData.authorizationResultDto
-
     is TransactionWithClosureError -> getAuthorizationOutcome(tx.transactionAtPreviousState)
     is BaseTransactionExpired -> getAuthorizationOutcome(tx.transactionAtPreviousState)
     else -> null
@@ -242,8 +227,8 @@ fun wasAuthorizationDenied(tx: BaseTransaction): Boolean =
 
 fun isTransactionExpired(tx: BaseTransaction): Boolean =
   tx.status == TransactionStatusDto.EXPIRED ||
-          tx.status == TransactionStatusDto.EXPIRED_NOT_AUTHORIZED ||
-          tx.status == TransactionStatusDto.CANCELLATION_EXPIRED
+    tx.status == TransactionStatusDto.EXPIRED_NOT_AUTHORIZED ||
+    tx.status == TransactionStatusDto.CANCELLATION_EXPIRED
 
 fun reduceEvents(
   transactionId: Mono<String>,
@@ -261,8 +246,7 @@ fun reduceEvents(
         it as TransactionEvent<Any>
       }
     },
-    emptyTransaction
-  )
+    emptyTransaction)
 
 fun <T> reduceEvents(events: Flux<TransactionEvent<T>>) = reduceEvents(events, EmptyTransaction())
 
@@ -282,13 +266,11 @@ fun updateNotifiedTransactionStatus(
       TransactionUserReceiptData.Outcome.KO -> TransactionStatusDto.NOTIFIED_KO
       else ->
         throw RuntimeException(
-          "Unexpected transaction user receipt data response outcome ${transaction.transactionUserReceiptData.responseOutcome} for transaction with id: ${transaction.transactionId.value()}"
-        )
+          "Unexpected transaction user receipt data response outcome ${transaction.transactionUserReceiptData.responseOutcome} for transaction with id: ${transaction.transactionId.value()}")
     }
   val event =
     TransactionUserReceiptAddedEvent(
-      transaction.transactionId.value(), transaction.transactionUserReceiptData
-    )
+      transaction.transactionId.value(), transaction.transactionUserReceiptData)
   logger.info("Updating transaction {} status to {}", transaction.transactionId.value(), newStatus)
 
   return transactionsViewRepository
@@ -309,8 +291,7 @@ fun updateNotificationErrorTransactionStatus(
   val newStatus = TransactionStatusDto.NOTIFICATION_ERROR
   val event =
     TransactionUserReceiptAddErrorEvent(
-      transaction.transactionId.value(), transaction.transactionUserReceiptData
-    )
+      transaction.transactionId.value(), transaction.transactionUserReceiptData)
   logger.info("Updating transaction {} status to {}", transaction.transactionId.value(), newStatus)
 
   return transactionsViewRepository
@@ -326,7 +307,7 @@ fun updateNotificationErrorTransactionStatus(
 fun notificationRefundTransactionPipeline(
   transaction: BaseTransactionWithRequestedUserReceipt,
   transactionsRefundedEventStoreRepository:
-  TransactionsEventStoreRepository<TransactionRefundedData>,
+    TransactionsEventStoreRepository<TransactionRefundedData>,
   transactionsViewRepository: TransactionsViewRepository,
   paymentGatewayClient: PaymentGatewayClient,
   refundRetryService: RefundRetryService,
@@ -335,14 +316,12 @@ fun notificationRefundTransactionPipeline(
   val userReceiptOutcome = transaction.transactionUserReceiptData.responseOutcome
   val toBeRefunded = userReceiptOutcome == TransactionUserReceiptData.Outcome.KO
   logger.info(
-    "Transaction Nodo sendPaymentResult response outcome: $userReceiptOutcome --> to be refunded: $toBeRefunded"
-  )
+    "Transaction Nodo sendPaymentResult response outcome: $userReceiptOutcome --> to be refunded: $toBeRefunded")
   return Mono.just(transaction)
     .filter { toBeRefunded }
     .flatMap { tx ->
       updateTransactionToRefundRequested(
-        tx, transactionsRefundedEventStoreRepository, transactionsViewRepository
-      )
+        tx, transactionsRefundedEventStoreRepository, transactionsViewRepository)
     }
     .flatMap {
       refundTransaction(
@@ -351,8 +330,7 @@ fun notificationRefundTransactionPipeline(
         transactionsViewRepository,
         paymentGatewayClient,
         refundRetryService,
-        tracingInfo
-      )
+        tracingInfo)
     }
 }
 
@@ -382,9 +360,7 @@ fun <T> runPipelineWithDeadLetterQueue(
         .sendAndTraceDeadLetterQueueEvent(
           binaryData,
           DeadLetterTracedQueueAsyncClient.ErrorContext(
-            transactionId = null, transactionEventCode = null, errorCategory = errorCategory
-          )
-        )
+            transactionId = null, transactionEventCode = null, errorCategory = errorCategory))
         .then()
     }
     .then(mono {})
@@ -421,9 +397,7 @@ fun <T> runTracedPipelineWithDeadLetterQueue(
             DeadLetterTracedQueueAsyncClient.ErrorContext(
               transactionId = TransactionId(queueEvent.event.transactionId),
               transactionEventCode = queueEvent.event.eventCode,
-              errorCategory = errorCategory
-            )
-          )
+              errorCategory = errorCategory))
           .then()
       }
 
@@ -453,8 +427,8 @@ fun <T> timeLeftForSendPaymentResult(
     events
       .filter {
         TransactionEventCode.valueOf(it.eventCode) ==
-                TransactionEventCode.TRANSACTION_CLOSED_EVENT &&
-                (it as TransactionClosedEvent).data.responseOutcome == TransactionClosureData.Outcome.OK
+          TransactionEventCode.TRANSACTION_CLOSED_EVENT &&
+          (it as TransactionClosedEvent).data.responseOutcome == TransactionClosureData.Outcome.OK
       }
       .next()
       .map {
