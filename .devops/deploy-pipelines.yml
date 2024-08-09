@@ -536,38 +536,38 @@ stages:
                 echo "##vso[task.setvariable variable=helm_current_release_version;isOutput=true]$version"
               failOnStderr: false
 
-  # STEP 1: deploy current PROD version as OLD release (used for rollback purpose)
-  - stage: Old_Version_Deploy_Approval
-    displayName: Old version deploy approval
+  # STEP 1: deploy current PROD version as STAGING release (used for rollback purpose)
+  - stage: Staging_Deploy_Approval
+    displayName: Staging deploy approval
     dependsOn: Current_Helm_Release
     condition: succeeded()
     pool: server
     variables:
       currentVersion: $[ stageDependencies.Current_Helm_Release.list_event_dispatcher_helm_releases.outputs['helm_chart_version.helm_current_release_version'] ]
     jobs:
-      - job: Old_Version_Deploy_Approval
-        displayName: Manual old version deploy approval
+      - job: Staging_Deploy_Approval
+        displayName: Manual staging deploy current PROD version approval
         timeoutInMinutes: 30
         steps:
           - task: ManualValidation@0
             timeoutInMinutes: 30
             inputs:
               notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
-              instructions: "Approve upgrade OLD helm release to version: [$(currentVersion)]"
+              instructions: "Approve deploy current PROD version: [$(currentVersion)] as STAGING deploy"
               onTimeout: 'reject'
-  - stage: Old_Version_Deploy
+  - stage: Staging_Deploy
     dependsOn:
       - Current_Helm_Release
-      - Old_Version_Deploy_Approval
+      - Staging_Deploy_Approval
     condition: succeeded()
     pool:
       name: pagopa-prod-linux
     variables:
       currentVersion: $[ stageDependencies.Current_Helm_Release.list_event_dispatcher_helm_releases.outputs['helm_chart_version.helm_current_release_version'] ]
     jobs:
-      - deployment: Old_Version_Deploy
+      - deployment: Staging_Deploy
         environment: PROD
-        displayName: Deploy current prod version as OLD version
+        displayName: Deploy current prod version as STAGING deployment
         strategy:
           runOnce:
             deploy:
@@ -578,7 +578,7 @@ stages:
                     checkoutVersion=$(currentVersion)
                     echo "Checkout current version repo tag: [$checkoutVersion]" 
                     git checkout $checkoutVersion
-                  displayName: 'Checkout currently deployed source code tag [$(currentVersion)]'
+                  displayName: 'Checkout currently PROD deployed source code tag [$(currentVersion)]'
                 - task: Bash@3
                   name: update_chart_version
                   displayName: 'Setup helm microservice chart'
@@ -589,7 +589,7 @@ stages:
                       helm dep build helm
                 - task: HelmDeploy@0
                   condition: succeeded()
-                  displayName: Deploy current PROD version $(currentVersion) as OLD release
+                  displayName: Deploy current PROD version $(currentVersion) as STAGING release
                   inputs:
                     kubernetesServiceEndpoint: $(PROD_KUBERNETES_SERVICE_CONN)
                     namespace: ecommerce
@@ -604,29 +604,30 @@ stages:
                     arguments: --timeout 5m0s
                     overrideValues: microservice-chart.ingress.path=/pagopa-ecommerce-event-dispatcher-staging/(.*),microservice-chart.envConfig.DEPLOYMENT_VERSION=STAGING
 
-  # STEP 2: enable OLD deployment version receivers and stop new one by command curl
-  - stage: Start_Old_Stop_New_Receivers_Manual_Approve
-    displayName: Start OLD receivers and stop new ones approval
-    dependsOn: Old_Version_Deploy
+  # STEP 2: enable STAGING deployment receivers and stop PROD one by command curl
+  - stage: Start_Staging_Stop_Prod_Receivers_Manual_Approve
+    displayName: Start STAGING receivers and stop PROD ones approval
+    dependsOn: Staging_Deploy
     pool: server
     jobs:
-      - job: Start_Old_Stop_New_Receivers_Manual_Approve
-        displayName: Manual OLD receiver start and new stop approval
+      - job: Start_Staging_Stop_Prod_Receivers_Manual_Approve
+        displayName: Manual STAGING receivers start and PROD receivers stop approval
         timeoutInMinutes: 30
         steps:
           - task: ManualValidation@0
             timeoutInMinutes: 30
             inputs:
               notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
-              instructions: "Approve enable OLD receivers"
+              instructions: "Approve enable STAGING deployment receivers"
               onTimeout: 'reject'
-  - stage: Start_Old_Stop_New_Receivers
-    dependsOn: Start_Old_Stop_New_Receivers_Manual_Approve
+  - stage: Start_Staging_Stop_Prod_Receivers
+    displayName: Start STAGING receivers and stop PROD ones 
+    dependsOn: Start_Staging_Stop_Prod_Receivers_Manual_Approve
     condition: succeeded()
     pool:
       name: pagopa-prod-linux
     jobs:
-      - job: Start_Old_Stop_New_Receivers
+      - job: Start_Staging_Stop_Prod_Receivers
         steps:
           - template: azure-templates/start-receivers.yml
             parameters:
@@ -638,11 +639,11 @@ stages:
               TARGET_DEPLOYMENT_VERSION: PROD
 
 
-  # STEP 3: Deploy new release as Deployment NEW approval task
+  # STEP 3: Deploy new release as Deployment PROD approval task
   - stage: Deploy_New_Version_Approval
     displayName: Deploy the new release version
     dependsOn:
-      - Start_Old_Stop_New_Receivers
+      - Start_Staging_Stop_Prod_Receivers
       - Release
     variables:
       newReleaseVersion: $[ stageDependencies.Release.make_release.outputs['chart_current_version.version'] ]
@@ -657,7 +658,7 @@ stages:
             timeoutInMinutes: 30
             inputs:
               notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
-              instructions: "Approve upgrade NEW helm release to version: [$(newReleaseVersion)]"
+              instructions: "Approve upgrade PROD helm release to version: [$(newReleaseVersion)]"
               onTimeout: 'reject'
   - stage: Deploy_New_Version
     displayName: Deploy NEW version
@@ -709,31 +710,31 @@ stages:
                     arguments: --timeout 5m0s
                     overrideValues: microservice-chart.envConfig.DEPLOYMENT_VERSION=PROD
 
-  # STEP 4: once new version is deployed, proceed to start new receivers and stop old ones
-  - stage: Start_New_Stop_Old_Receivers_Approval
-    displayName: Start new receivers and stop old ones manual approval
+  # STEP 4: once new version is deployed, proceed to start new receivers and stop staging ones
+  - stage: Start_New_Stop_Staging_Receivers_Approval
+    displayName: Start new receivers and stop staging ones manual approval
     dependsOn: Deploy_New_Version
     pool: server
     jobs:
-      - job: Start_New_Stop_Old_Receivers_Approval
+      - job: Start_New_Stop_Staging_Receivers_Approval
         timeoutInMinutes: 30
-        displayName: Start new receivers and stop old ones
+        displayName: Start new receivers and stop staging ones
         steps:
           - task: ManualValidation@0
             timeoutInMinutes: 30
             inputs:
               notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
-              instructions: "Approve enable NEW receivers and disable old ones"
+              instructions: "Approve enable PROD receivers and disable staging ones"
               onTimeout: 'reject'
-  - stage: Start_New_Stop_Old_Receivers
-    displayName: Start new receivers and stop old ones
-    dependsOn: Start_New_Stop_Old_Receivers_Approval
+  - stage: Start_New_Stop_Staging_Receivers
+    displayName: Start new receivers and stop staging ones
+    dependsOn: Start_New_Stop_Staging_Receivers_Approval
     condition: succeeded()
     pool:
       name: pagopa-prod-linux
     jobs:
-      - job: Start_New_Stop_Old_Receivers
-        displayName: Start new receivers by curl command and stop old ones
+      - job: Start_New_Stop_Staging_Receivers
+        displayName: Start new receivers by curl command and stop staging ones
         steps:
           - template: azure-templates/start-receivers.yml
             parameters:
@@ -745,32 +746,32 @@ stages:
               TARGET_DEPLOYMENT_VERSION: STAGING
 
 
-  # STEP 5: deployment rollout ended, scale down OLD deployment PODS
-  - stage: Scale_Down_Old_Deployment_Approval
-    dependsOn: Start_New_Stop_Old_Receivers
-    displayName: Approval for scale down old deployment PODS
+  # STEP 5: deployment rollout ended, scale down staging deployment PODS
+  - stage: Scale_Down_Staging_Deployment_Approval
+    dependsOn: Start_New_Stop_Staging_Receivers
+    displayName: Approval for scale down STAGING deployment PODS
     pool: server
     jobs:
-      - job: Scale_Down_Old_Deployment_Approval
+      - job: Scale_Down_Staging_Deployment_Approval
         timeoutInMinutes: 30
         steps:
           - task: ManualValidation@0
             timeoutInMinutes: 30
             inputs:
               notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
-              instructions: "Approve scale OLD deployment down to 0 pods"
+              instructions: "Approve scale STAGING deployment down to 0 pods"
               onTimeout: 'reject'
-  - stage: Scale_Down_Old_Deployment
-    dependsOn: Scale_Down_Old_Deployment_Approval
-    displayName: Scale down OLD deployment to 0 pods
+  - stage: Scale_Down_Staging_Deployment
+    dependsOn: Scale_Down_Staging_Deployment_Approval
+    displayName: Scale down STAGING deployment to 0 pods
     pool:
       name: pagopa-prod-linux
     jobs:
-      - job: Scale_Down_Old_Deployment
+      - job: Scale_Down_Staging_Deployment
         displayName: Annotate scaledObject with autoscaling.keda.sh/paused-replicas="0"
         steps:
           - task: Kubernetes@1
-            displayName: Scale down old receivers PODS (annotate ScaledObject with autoscaling.keda.sh/paused-replicas="0")
+            displayName: Scale down STAGING receivers PODS (annotate ScaledObject with autoscaling.keda.sh/paused-replicas="0")
             continueOnError: true
             inputs:
               kubernetesServiceEndpoint: $(PROD_KUBERNETES_SERVICE_CONN)
@@ -785,7 +786,7 @@ stages:
   # --- START ROLLBACK PROD --- #
   - stage: "Prod_RollbackForApproval"
     displayName: 'PROD ROLLBACK'
-    dependsOn: [ Scale_Down_Old_Deployment,Release ]
+    dependsOn: [ Scale_Down_Staging_Deployment,Release ]
     condition: |
       and(
         eq(${{parameters.UAT_PROD_DEPLOY}}, true),
@@ -806,17 +807,17 @@ stages:
               notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
               instructions: "Please approve or reject PROD rollback for release $(release_url)"
               onTimeout: 'skip'
-  # STEP 0: scale up old release (by removing annotation on old release scaledObject)
-  - stage: Scale_Up_Old_Deployment
-    displayName: Scale up OLD deployment
+  # STEP 0: scale up staging release (by removing annotation on old release scaledObject)
+  - stage: Scale_Up_Staging_Deployment
+    displayName: Scale up STAGING deployment
     pool:
       name: pagopa-prod-linux
     jobs:
-      - job: Scale_Up_Old_Deployment
-        displayName: Remove annotation autoscaling.keda.sh/paused-replicas="0" from old release scaledObject
+      - job: Scale_Up_Staging_Deployment
+        displayName: Remove annotation autoscaling.keda.sh/paused-replicas="0" from staging release scaledObject
         steps:
           - task: Kubernetes@1
-            displayName: Remove annotation autoscaling.keda.sh/paused-replicas="0" from old release scaledObject
+            displayName: Remove annotation autoscaling.keda.sh/paused-replicas="0" from staging release scaledObject
             continueOnError: true
             inputs:
               kubernetesServiceEndpoint: $(PROD_KUBERNETES_SERVICE_CONN)
@@ -825,30 +826,30 @@ stages:
               command: annotate
               arguments: scaledobjects $(K8S_IMAGE_REPOSITORY_NAME)-stage-microservice-chart autoscaling.keda.sh/paused-replicas-
 
-  # STEP 1: start old receivers and stop new ones
-  - stage: Start_Old_Stop_New_Receivers_Manual_Approve_Rollback
+  # STEP 1: start staging receivers and stop new ones
+  - stage: Start_Staging_Stop_New_Receivers_Manual_Approve_Rollback
     displayName: Start OLD receivers and stop new ones approval for Rollback
-    dependsOn: Scale_Up_Old_Deployment
+    dependsOn: Scale_Up_Staging_Deployment
     pool: server
     jobs:
-      - job: Start_Old_Stop_New_Receivers_Manual_Approve_Rollback
-        displayName: Approve start OLD receivers and stop NEW for rollback processing (swap back deployments)
+      - job: Start_Staging_Stop_New_Receivers_Manual_Approve_Rollback
+        displayName: Approve start STAGING receivers and stop NEW for rollback processing (swap back deployments)
         timeoutInMinutes: 30
         steps:
           - task: ManualValidation@0
             timeoutInMinutes: 30
             inputs:
               notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
-              instructions: "Approve enable OLD receivers and stop NEW ones for deploy rollback (swap back)"
+              instructions: "Approve enable STAGING receivers and stop NEW ones for deploy rollback (swap back)"
               onTimeout: 'reject'
-  - stage: Start_Old_Stop_New_Receivers_Rollback
-    displayName: Start OLD receivers and stop new ones
-    dependsOn: Start_Old_Stop_New_Receivers_Manual_Approve_Rollback
+  - stage: Start_Staging_Stop_New_Receivers_Rollback
+    displayName: Start STAGING receivers and stop new ones
+    dependsOn: Start_Staging_Stop_New_Receivers_Manual_Approve_Rollback
     pool:
       name: pagopa-prod-linux
     jobs:
-      - job: Start_Old_Stop_New_Receivers_Rollback
-        displayName: Start OLD receivers and stop new ones for rollback processing (swap back deployments)
+      - job: Start_Staging_Stop_New_Receivers_Rollback
+        displayName: Start STAGING receivers and stop new ones for rollback processing (swap back deployments)
         steps:
           - template: azure-templates/start-receivers.yml
             parameters:
@@ -862,7 +863,7 @@ stages:
   # STEP 2: rollback new release
   - stage: Rollback_New_Deployment_Helm_Release
     displayName: Rollback new deployment helm release
-    dependsOn: Start_Old_Stop_New_Receivers_Rollback
+    dependsOn: Start_Staging_Stop_New_Receivers_Rollback
     pool:
       name: pagopa-prod-linux
     jobs:
@@ -880,30 +881,30 @@ stages:
               install: true
               waitForExecution: true
               arguments: $(K8S_IMAGE_REPOSITORY_NAME)
-  # STEP 3: start new receivers and stop old ones
-  - stage: Start_New_Stop_Old_Receivers_Manual_Approve_Rollback
+  # STEP 3: start new receivers and stop staging ones
+  - stage: Start_New_Stop_Staging_Receivers_Manual_Approve_Rollback
     displayName: Start new receivers and stop old one approval for Rollback
     dependsOn: Rollback_New_Deployment_Helm_Release
     pool: server
     jobs:
-      - job: Start_New_Stop_Old_Receivers_Manual_Approve_Rollback
-        displayName: Approve start NEW receivers and stop OLD for rollback processing (swap back deployments)
+      - job: Start_New_Stop_Staging_Receivers_Manual_Approve_Rollback
+        displayName: Approve start PROD deployment receivers and stop STAGING for rollback processing (swap back deployments)
         timeoutInMinutes: 30
         steps:
           - task: ManualValidation@0
             timeoutInMinutes: 30
             inputs:
               notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
-              instructions: "Approve enable NEW receivers and stop OLD ones for deploy rollback (swap back)"
+              instructions: "Approve enable PROD deployment receivers and stop STAGING ones for deploy rollback (swap back)"
               onTimeout: 'reject'
-  - stage: Start_New_Stop_Old_Receivers_Rollback
+  - stage: Start_New_Stop_Staging_Receivers_Rollback
     displayName: Start new receivers and stop old one approval for Rollback
-    dependsOn: Start_New_Stop_Old_Receivers_Manual_Approve_Rollback
+    dependsOn: Start_New_Stop_Staging_Receivers_Manual_Approve_Rollback
     pool:
       name: pagopa-prod-linux
     jobs:
-      - job: Start_New_Stop_Old_Receivers_Rollback
-        displayName: Start NEW receivers and stop OLD for rollback processing (swap back deployments)
+      - job: Start_New_Stop_Staging_Receivers_Rollback
+        displayName: Start PROD receivers and stop STAGING for rollback processing (swap back deployments)
         steps:
           - template: azure-templates/start-receivers.yml
             parameters:
@@ -913,32 +914,32 @@ stages:
             parameters:
               ENV: PROD
               TARGET_DEPLOYMENT_VERSION: STAGING
-  # STEP 4: scale down old release (by adding back annotation to scaledObject)
-  - stage: Scale_Down_Old_Deployment_Approval_Rollback
-    dependsOn: Start_New_Stop_Old_Receivers_Rollback
-    displayName: Approval for scale down old deployment PODS
+  # STEP 4: scale down staging release (by adding back annotation to scaledObject)
+  - stage: Scale_Down_Staging_Deployment_Approval_Rollback
+    dependsOn: Start_New_Stop_Staging_Receivers_Rollback
+    displayName: Approval for scale down STAGING deployment PODS to 0
     pool: server
     jobs:
-      - job: Scale_Down_Old_Deployment_Approval
+      - job: Scale_Down_Staging_Deployment_Approval
         timeoutInMinutes: 30
         steps:
           - task: ManualValidation@0
             timeoutInMinutes: 30
             inputs:
               notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
-              instructions: "Approve scale OLD deployment down to 0 pods"
+              instructions: "Approve scale STAGING deployment down to 0 pods"
               onTimeout: 'reject'
-  - stage: Scale_Down_Old_Deployment_Rollback
-    dependsOn: Scale_Down_Old_Deployment_Approval_Rollback
+  - stage: Scale_Down_Staging_Deployment_Rollback
+    dependsOn: Scale_Down_Staging_Deployment_Approval_Rollback
     displayName: Scale down OLD deployment to 0 pods
     pool:
       name: pagopa-prod-linux
     jobs:
-      - job: Scale_Down_Old_Deployment_Rollback
-        displayName: Annotate scaledObject with autoscaling.keda.sh/paused-replicas="0"
+      - job: Scale_Down_Staging_Deployment_Rollback
+        displayName: Annotate staging release scaledObject with autoscaling.keda.sh/paused-replicas="0"
         steps:
           - task: Kubernetes@1
-            displayName: Scale down old receivers PODS (annotate ScaledObject with autoscaling.keda.sh/paused-replicas="0")
+            displayName: Scale down staging receivers PODS (annotate ScaledObject with autoscaling.keda.sh/paused-replicas="0")
             continueOnError: true
             inputs:
               kubernetesServiceEndpoint: $(PROD_KUBERNETES_SERVICE_CONN)
