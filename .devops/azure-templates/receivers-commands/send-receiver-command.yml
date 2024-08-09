@@ -31,7 +31,7 @@ steps:
         deploymentTargetVersion=${{ parameters.TARGET_DEPLOYMENT_VERSION }}
         echo "Sending command: [$command] with deployment target: [$deploymentTargetVersion] to event dispatcher instance: [$deploymentInstance]"
         declare -A commandUrls=(\
-        ["DEV"]="https://api.dev.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-staging/event-dispatcher/event-receivers/commands" \
+        ["DEV"]="https://api.dev.platform.pagopa.it/pagopa-ecommerce-event-dispatcher/event-dispatcher/event-receivers/commands" \
         ["UAT"]="https://weuuat.ecommerce.internal.uat.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-staging/event-dispatcher/event-receivers/commands" \
         ["PROD"]="https://weuprod.ecommerce.internal.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-staging/event-dispatcher/event-receivers/commands" \
         )
