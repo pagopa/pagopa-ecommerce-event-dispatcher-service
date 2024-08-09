@@ -807,7 +807,7 @@ stages:
               notifyUsers: $(APPROVE_TOUCHPOINT_MAIL)
               instructions: "Please approve or reject PROD rollback for release $(release_url)"
               onTimeout: 'skip'
-  # STEP 0: scale up staging release (by removing annotation on old release scaledObject)
+  # STEP 0: scale up staging release (by removing annotation on staging release scaledObject)
   - stage: Scale_Up_Staging_Deployment
     displayName: Scale up STAGING deployment
     pool:
@@ -828,7 +828,7 @@ stages:
 
   # STEP 1: start staging receivers and stop new ones
   - stage: Start_Staging_Stop_New_Receivers_Manual_Approve_Rollback
-    displayName: Start OLD receivers and stop new ones approval for Rollback
+    displayName: Start STAGING receivers and stop NEW ones approval for Rollback
     dependsOn: Scale_Up_Staging_Deployment
     pool: server
     jobs:
@@ -862,7 +862,7 @@ stages:
 
   # STEP 2: rollback new release
   - stage: Rollback_New_Deployment_Helm_Release
-    displayName: Rollback new deployment helm release
+    displayName: Rollback NEW deployment helm release
     dependsOn: Start_Staging_Stop_New_Receivers_Rollback
     pool:
       name: pagopa-prod-linux
@@ -881,9 +881,9 @@ stages:
               install: true
               waitForExecution: true
               arguments: $(K8S_IMAGE_REPOSITORY_NAME)
-  # STEP 3: start new receivers and stop staging ones
+  # STEP 3: start prod receivers and stop staging ones
   - stage: Start_New_Stop_Staging_Receivers_Manual_Approve_Rollback
-    displayName: Start new receivers and stop old one approval for Rollback
+    displayName: Start NEW receivers and stop STAGING one approval for Rollback
     dependsOn: Rollback_New_Deployment_Helm_Release
     pool: server
     jobs:
@@ -898,7 +898,7 @@ stages:
               instructions: "Approve enable PROD deployment receivers and stop STAGING ones for deploy rollback (swap back)"
               onTimeout: 'reject'
   - stage: Start_New_Stop_Staging_Receivers_Rollback
-    displayName: Start new receivers and stop old one approval for Rollback
+    displayName: Start PROD receivers and stop STAGING one approval for Rollback
     dependsOn: Start_New_Stop_Staging_Receivers_Manual_Approve_Rollback
     pool:
       name: pagopa-prod-linux
@@ -931,7 +931,7 @@ stages:
               onTimeout: 'reject'
   - stage: Scale_Down_Staging_Deployment_Rollback
     dependsOn: Scale_Down_Staging_Deployment_Approval_Rollback
-    displayName: Scale down OLD deployment to 0 pods
+    displayName: Scale down STAGING deployment to 0 pods
     pool:
       name: pagopa-prod-linux
     jobs:
