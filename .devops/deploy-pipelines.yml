@@ -1350,3 +1350,5 @@ stages:
 #TODO rifai test dopo build immagine per vedere se tutta la pipeline funziona correttamente
 #TODO rename stage da new-old a prod-staging dopo il refactoring
 #TODO scrivere documentazione per la pipeline e poi fare PR preliminare per fix checkout versione corretta prima di helm upgrade
+#TODO cambiare comandi collection postman per spegnimento/accensione receivers (NEW/OLD -> PROD/STAGING)
+#TODO invertire ordine PR, prima quella del codice che predispone il tutto, poi pipeline che si trova tutto predisposto
