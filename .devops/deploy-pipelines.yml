@@ -171,6 +171,8 @@ stages:
           runOnce:
             deploy:
               steps:
+                - checkout: self
+                  displayName: "Checkout repository"
                 - script: |
                     checkoutVersion=$(currentVersion)
                     echo "Checkout current version repo tag: [$checkoutVersion]" 
@@ -274,6 +276,8 @@ stages:
           runOnce:
             deploy:
               steps:
+                - checkout: self
+                  displayName: "Checkout repository"
                 - script: |
                     checkoutVersion=$newReleaseVersion
                     echo "Checkout new release version repo tag: [$checkoutVersion]" 
@@ -965,6 +969,8 @@ stages:
           runOnce:
             deploy:
               steps:
+                - checkout: self
+                  displayName: "Checkout repository"
                 - script: |
                     checkoutVersion=$(currentVersion)
                     echo "Checkout current version repo tag: [$checkoutVersion]" 
@@ -1068,6 +1074,8 @@ stages:
           runOnce:
             deploy:
               steps:
+                - checkout: self
+                  displayName: "Checkout repository"
                 - script: |
                     checkoutVersion=$newReleaseVersion
                     echo "Checkout new release version repo tag: [$checkoutVersion]" 
@@ -1337,3 +1345,8 @@ stages:
               arguments: scaledobjects staging-$(K8S_IMAGE_REPOSITORY_NAME)-microservice-chart autoscaling.keda.sh/paused-replicas="0"
 
 # --- END ROLLBACK PROD --- #
+
+
+#TODO rifai test dopo build immagine per vedere se tutta la pipeline funziona correttamente
+#TODO rename stage da new-old a prod-staging dopo il refactoring
+#TODO scrivere documentazione per la pipeline e poi fare PR preliminare per fix checkout versione corretta prima di helm upgrade
