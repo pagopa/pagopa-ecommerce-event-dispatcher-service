@@ -306,7 +306,7 @@ stages:
                     install: true
                     waitForExecution: true
                     arguments: --timeout 5m0s
-                    overrideValues: microservice-chart.envConfig.DEPLOYMENT_VERSION=DEV
+                    overrideValues: microservice-chart.envConfig.DEPLOYMENT_VERSION=PROD
 
   # STEP 4: once new version is deployed, proceed to start new receivers and stop old ones
   - stage: TEST_Start_New_Stop_Old_Receivers_Approval
