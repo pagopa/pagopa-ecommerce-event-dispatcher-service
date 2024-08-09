@@ -1,0 +1,84 @@
+#This template will handle receiver status polling
+parameters:
+  # deployment environment
+  - name: ENV
+    type: string
+    values:
+      - DEV
+      - UAT
+      - PROD
+  # wanted receiver status
+  - name: WANTED_STATUS
+    type: string
+    values:
+      - UP
+      - DOWN
+  # command target deployment version
+  - name: TARGET_DEPLOYMENT_VERSION
+    type: string
+    values:
+      - PROD
+      - STAGING
+  # status polling max iterations to be performed
+  - name: MAX_ITERATIONS
+    type: number
+    default: 15
+  # status polling interval
+  - name: INTERVAL
+    type: number
+    default: 2
+
+steps:
+  - task: Bash@3
+    name: wait_for_status_${{ parameters.WANTED_STATUS }}_receivers_${{ parameters.TARGET_DEPLOYMENT_VERSION }}
+    displayName: 'Check ${{ parameters.TARGET_DEPLOYMENT_VERSION }} receiver status to become ${{ parameters.WANTED_STATUS }}'
+    inputs:
+      targetType: "inline"
+      script: |
+        continuePolling=true
+        matched=false
+        iteration=1
+        pollingInterval=${{ parameters.INTERVAL }}
+        maxIterations=${{ parameters.MAX_ITERATIONS }}
+        wantedReceiverStatus=${{ parameters.WANTED_STATUS }}
+        targetDeploymentVersion=${{ parameters.TARGET_DEPLOYMENT_VERSION }}
+        declare -A commandUrls=(\
+        ["DEV"]="https://weudev.ecommerce.internal.dev.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-staging/event-dispatcher/event-receivers/status?version=$targetDeploymentVersion" \
+        ["UAT"]="https://weuuat.ecommerce.internal.uat.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-staging/event-dispatcher/event-receivers/status?version=$targetDeploymentVersion" \
+        ["PROD"]="https://weuprod.ecommerce.internal.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-staging/event-dispatcher/event-receivers/status?version=$targetDeploymentVersion" \
+        )
+        commandUrl=${commandUrls[${{ parameters.ENV }}]}
+        echo "Polling receiver status using GET $commandUrl"
+        echo "Wanted status: [$wantedReceiverStatus] on target deployment: [$targetDeploymentVersion]."
+        echo "Polling max iterations: [$maxIterations], polling interval: [$pollingInterval] seconds"
+        while [ $continuePolling = true ];
+        do
+            echo "Checking receiver status... [$iteration/$maxIterations]"
+            response=$(curl $commandUrl)
+            echo "Receiver status response: $response"
+            #filtering received status searching for all receiver that are not in the wanted status
+            filteredResponse=$(echo $response | yq '.status[] | select( .receiverStatuses[].status != "${{ parameters.WANTED_STATUS }}" )')
+            echo "Filtered by status response: $filteredResponse"
+            #if all receiver are in the wanted status then app have reached the wanted status
+            if [ "$filteredResponse" = "" ]; then
+              matched=true
+            fi
+            #continue to iterate until app reached the wanted status or up to the maximum iterations
+            if [ "$matched" = true ] || [ $iteration = $maxIterations ]; then
+                continuePolling=false
+            fi
+            echo "Continue polling: $continuePolling, matched: $matched"
+            ((iteration++))
+            #sleep for the set interval iff we have not reached the polling exit condition
+            if [ $continuePolling = true ]; then
+               sleep $pollingInterval
+            fi
+        done
+        if [ $matched = false ]; then
+            echo "Error waiting for deployment: [$deploymentVersion] receivers to be in status: [$wantedReceiverStatus]"
+            exit 1
+        else
+            echo "Status checked successfully"
+            exit 0
+        fi
+      failOnStderr: false

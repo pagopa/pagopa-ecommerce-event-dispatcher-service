@@ -1,0 +1,27 @@
+#This template will handle receivers start sending command and waiting for receivers to be in status UP
+parameters:
+  # deployment environment
+  - name: ENV
+    type: string
+    values:
+      - DEV
+      - UAT
+      - PROD
+  # command target deployment version
+  - name: TARGET_DEPLOYMENT_VERSION
+    type: string
+    values:
+      - PROD
+      - STAGING
+
+steps:
+  - template: receivers-commands/send-receiver-command.yml
+    parameters:
+      ENV: ${{ parameters.ENV }}
+      COMMAND: START
+      TARGET_DEPLOYMENT_VERSION: ${{ parameters.TARGET_DEPLOYMENT_VERSION }}
+  - template: receivers-commands/polling-receivers-status.yml
+    parameters:
+      ENV: ${{ parameters.ENV }}
+      WANTED_STATUS: UP
+      TARGET_DEPLOYMENT_VERSION: ${{ parameters.TARGET_DEPLOYMENT_VERSION }}
