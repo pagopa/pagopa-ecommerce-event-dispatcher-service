@@ -294,7 +294,8 @@ stages:
         )
       )
     variables:
-      app_version: $[ stageDependencies.Release.make_release.outputs['chart_current_version.appVersion'] ]
+      app_version: $[ stageDependencies.Release.make_release.outputs['chart_current_version.appVersion'] ] #chart app version, can differ from release for chart only version bumps
+      release_version: $[ stageDependencies.Release.make_release.outputs['chart_current_version.version'] ] #chart version, this version is the same of the github release/tag
     jobs:
       - deployment: "Green_deployment"
         displayName: "Green deployment"
@@ -307,6 +308,12 @@ stages:
               steps:
                 - checkout: self
                   displayName: "Checkout"
+                  # without the below checkout git head is set on the commit before release version bump
+                  # so deployed helm release have the previous version instead of the app one
+                - script: |
+                    checkoutVersion=$(release_version)
+                    echo "Checkout release version repo tag: [$checkoutVersion]" 
+                    git checkout $checkoutVersion
                 - task: KubectlInstaller@0
                 - task: Bash@3
                   name: update_chart_version
