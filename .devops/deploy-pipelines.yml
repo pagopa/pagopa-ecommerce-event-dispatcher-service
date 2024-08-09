@@ -195,8 +195,8 @@ stages:
                     command: upgrade
                     chartType: filepath
                     chartPath: helm
-                    chartName: staging-$(K8S_IMAGE_REPOSITORY_NAME)
-                    releaseName: staging-$(K8S_IMAGE_REPOSITORY_NAME)
+                    chartName: $(K8S_IMAGE_REPOSITORY_NAME)-stage
+                    releaseName: $(K8S_IMAGE_REPOSITORY_NAME)-stage
                     valueFile: helm/values-dev.yaml
                     install: true
                     waitForExecution: true
@@ -376,7 +376,7 @@ stages:
               kubernetesCluster: $(kubernetesCluster)
               namespace: ecommerce
               command: annotate
-              arguments: scaledobjects staging-$(K8S_IMAGE_REPOSITORY_NAME)-microservice-chart autoscaling.keda.sh/paused-replicas="0"
+              arguments: scaledobjects $(K8S_IMAGE_REPOSITORY_NAME)-stage-microservice-chart autoscaling.keda.sh/paused-replicas="0"
 
 
   # --- END Deploy DEV --- #
@@ -416,7 +416,7 @@ stages:
               kubernetesCluster: $(kubernetesCluster)
               namespace: ecommerce
               command: annotate
-              arguments: scaledobjects staging-$(K8S_IMAGE_REPOSITORY_NAME)-microservice-chart autoscaling.keda.sh/paused-replicas-
+              arguments: scaledobjects $(K8S_IMAGE_REPOSITORY_NAME)-stage-microservice-chart autoscaling.keda.sh/paused-replicas-
 
   # STEP 1: start old receivers and stop new ones
   - stage: TEST_Start_Old_Stop_New_Receivers_Manual_Approve_Rollback
@@ -538,7 +538,7 @@ stages:
               kubernetesCluster: $(kubernetesCluster)
               namespace: ecommerce
               command: annotate
-              arguments: scaledobjects staging-$(K8S_IMAGE_REPOSITORY_NAME)-microservice-chart autoscaling.keda.sh/paused-replicas="0"
+              arguments: scaledobjects $(K8S_IMAGE_REPOSITORY_NAME)-stage-microservice-chart autoscaling.keda.sh/paused-replicas="0"
 
 # --- END ROLLBACK DEV --- #
 
@@ -993,8 +993,8 @@ stages:
                     command: upgrade
                     chartType: filepath
                     chartPath: helm
-                    chartName: staging-$(K8S_IMAGE_REPOSITORY_NAME)
-                    releaseName: staging-$(K8S_IMAGE_REPOSITORY_NAME)
+                    chartName: $(K8S_IMAGE_REPOSITORY_NAME)-stage
+                    releaseName: $(K8S_IMAGE_REPOSITORY_NAME)-stage
                     valueFile: helm/values-prod.yaml
                     install: true
                     waitForExecution: true
@@ -1174,7 +1174,7 @@ stages:
               kubernetesCluster: $(kubernetesCluster)
               namespace: ecommerce
               command: annotate
-              arguments: scaledobjects staging-$(K8S_IMAGE_REPOSITORY_NAME)-microservice-chart autoscaling.keda.sh/paused-replicas="0"
+              arguments: scaledobjects $(K8S_IMAGE_REPOSITORY_NAME)-stage-microservice-chart autoscaling.keda.sh/paused-replicas="0"
 
 
   # --- END Deploy PROD --- #
@@ -1220,7 +1220,7 @@ stages:
               kubernetesCluster: $(kubernetesCluster)
               namespace: ecommerce
               command: annotate
-              arguments: scaledobjects staging-$(K8S_IMAGE_REPOSITORY_NAME)-microservice-chart autoscaling.keda.sh/paused-replicas-
+              arguments: scaledobjects $(K8S_IMAGE_REPOSITORY_NAME)-stage-microservice-chart autoscaling.keda.sh/paused-replicas-
 
   # STEP 1: start old receivers and stop new ones
   - stage: Start_Old_Stop_New_Receivers_Manual_Approve_Rollback
@@ -1342,7 +1342,7 @@ stages:
               kubernetesCluster: $(kubernetesCluster)
               namespace: ecommerce
               command: annotate
-              arguments: scaledobjects staging-$(K8S_IMAGE_REPOSITORY_NAME)-microservice-chart autoscaling.keda.sh/paused-replicas="0"
+              arguments: scaledobjects $(K8S_IMAGE_REPOSITORY_NAME)-stage-microservice-chart autoscaling.keda.sh/paused-replicas="0"
 
 # --- END ROLLBACK PROD --- #
 
