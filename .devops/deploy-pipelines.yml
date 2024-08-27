@@ -621,7 +621,7 @@ stages:
               instructions: "Approve enable STAGING deployment receivers"
               onTimeout: 'reject'
   - stage: Start_Staging_Stop_Prod_Receivers
-    displayName: Start STAGING receivers and stop PROD ones 
+    displayName: Start STAGING receivers and stop PROD ones
     dependsOn: Start_Staging_Stop_Prod_Receivers_Manual_Approve
     condition: succeeded()
     pool:
