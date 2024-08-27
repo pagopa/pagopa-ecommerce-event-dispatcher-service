@@ -90,9 +90,10 @@ class EventReceiversApiControllerTest {
         listOf(
           EventReceiverStatusDto(
             instanceId = "instanceId",
+            deploymentVersion = DeploymentVersionDto.PROD,
             receiverStatuses =
               listOf(ReceiverStatusDto(status = ReceiverStatusDto.Status.DOWN, name = "name")))))
-    given(eventReceiverService.getReceiversStatus()).willReturn(response)
+    given(eventReceiverService.getReceiversStatus(null)).willReturn(response)
     webClient
       .get()
       .uri("/event-dispatcher/event-receivers/status")
@@ -108,7 +109,7 @@ class EventReceiversApiControllerTest {
     val expectedProblemJsonDto =
       ProblemJsonDto(
         title = "Not found", status = 404, detail = "No data found for receiver statuses")
-    given(eventReceiverService.getReceiversStatus()).willThrow(NoEventReceiverStatusFound())
+    given(eventReceiverService.getReceiversStatus(null)).willThrow(NoEventReceiverStatusFound())
     webClient
       .get()
       .uri("/event-dispatcher/event-receivers/status")
