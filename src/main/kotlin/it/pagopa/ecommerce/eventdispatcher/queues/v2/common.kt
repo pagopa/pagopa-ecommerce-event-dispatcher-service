@@ -6,7 +6,10 @@ import it.pagopa.ecommerce.commons.client.NpgClient
 import it.pagopa.ecommerce.commons.client.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.documents.v2.activation.NpgTransactionGatewayActivationData
-import it.pagopa.ecommerce.commons.documents.v2.authorization.*
+import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationData
+import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationRequestedData
+import it.pagopa.ecommerce.commons.documents.v2.authorization.RedirectTransactionGatewayAuthorizationData
+import it.pagopa.ecommerce.commons.documents.v2.authorization.TransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.documents.v2.refund.EmptyGatewayRefundData
 import it.pagopa.ecommerce.commons.documents.v2.refund.GatewayRefundData
 import it.pagopa.ecommerce.commons.documents.v2.refund.NpgGatewayRefundData
@@ -408,8 +411,6 @@ fun requestRefundTransaction(
   }
 
   return when (transactionAuthorizationRequestData.paymentGateway) {
-    TransactionAuthorizationRequestData.PaymentGateway.XPAY,
-    TransactionAuthorizationRequestData.PaymentGateway.VPOS,
     TransactionAuthorizationRequestData.PaymentGateway.REDIRECT ->
       appendRefundRequestedEventIfNeeded(
         transaction, transactionsEventStoreRepository, transactionsViewRepository)
@@ -739,7 +740,6 @@ fun getGatewayAuthorizationOutcome(
       } else {
         AuthorizationResultDto.KO
       }
-    is PgsTransactionGatewayAuthorizationData -> gatewayAuthorizationData.authorizationResultDto
     is RedirectTransactionGatewayAuthorizationData ->
       if (gatewayAuthorizationData.outcome ==
         RedirectTransactionGatewayAuthorizationData.Outcome.OK) {

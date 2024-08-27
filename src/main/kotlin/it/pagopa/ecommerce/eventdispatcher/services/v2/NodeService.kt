@@ -283,8 +283,6 @@ class NodeService(
                   } else {
                     authCompleted.transactionAuthorizationRequestData.paymentTypeCode
                   }
-                is PgsTransactionGatewayAuthorizationRequestedData ->
-                  authRequestedData.brand?.toString()
                 is RedirectTransactionGatewayAuthorizationRequestedData ->
                   authCompleted.transactionAuthorizationRequestData.paymentTypeCode
                 else -> null
@@ -299,15 +297,6 @@ class NodeService(
       }
 
     return when (authRequestedData.type!!) {
-      TransactionGatewayAuthorizationRequestedData.AuthorizationDataType.PGS ->
-        buildAuthorizationCompletedCardClosePaymentRequest(
-            authCompleted,
-            transactionOutcome,
-            transactionId,
-            totalAmountEuro,
-            feeEuro,
-            closePaymentTransactionDetails)
-          .cast(ClosePaymentRequestV2Dto::class.java)
       TransactionGatewayAuthorizationRequestedData.AuthorizationDataType.NPG ->
         when (authCompleted.transactionAuthorizationRequestData.paymentTypeCode) {
           PaymentCode.CP.name ->
@@ -872,12 +861,6 @@ class NodeService(
     transactionGatewayAuthData: TransactionGatewayAuthorizationData
   ): CardAdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum =
     when (transactionGatewayAuthData) {
-      is PgsTransactionGatewayAuthorizationData ->
-        if (transactionGatewayAuthData.authorizationResultDto == AuthorizationResultDto.OK) {
-          CardAdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.OK
-        } else {
-          CardAdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.KO
-        }
       is NpgTransactionGatewayAuthorizationData ->
         if (transactionGatewayAuthData.operationResult == OperationResultDto.EXECUTED) {
           CardAdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.OK
@@ -897,7 +880,6 @@ class NodeService(
     transactionGatewayAuthData: TransactionGatewayAuthorizationData
   ): String? =
     when (transactionGatewayAuthData) {
-      is PgsTransactionGatewayAuthorizationData -> transactionGatewayAuthData.errorCode
       is NpgTransactionGatewayAuthorizationData -> transactionGatewayAuthData.errorCode
       is RedirectTransactionGatewayAuthorizationData -> transactionGatewayAuthData.errorCode
     }
