@@ -1,6 +1,7 @@
 package it.pagopa.ecommerce.eventdispatcher.config.redis
 
 import it.pagopa.ecommerce.eventdispatcher.config.redis.bean.ReceiversStatus
+import it.pagopa.generated.eventdispatcher.server.model.DeploymentVersionDto
 import java.time.Duration
 import java.time.ZonedDateTime
 import org.junit.jupiter.api.Test
@@ -27,7 +28,8 @@ class EventDispatcherReceiverStatusTemplateWrapperTest {
       ReceiversStatus(
         receiverStatuses = listOf(),
         queriedAt = ZonedDateTime.now().toString(),
-        consumerInstanceId = consumerId)
+        consumerInstanceId = consumerId,
+        version = DeploymentVersionDto.PROD)
     given(redisTemplate.opsForValue()).willReturn(opsForValue)
     doNothing().`when`(opsForValue).set(any(), any(), any<Duration>())
     eventDispatcherReceiverStatusTemplateWrapper.save(receiverStatus)

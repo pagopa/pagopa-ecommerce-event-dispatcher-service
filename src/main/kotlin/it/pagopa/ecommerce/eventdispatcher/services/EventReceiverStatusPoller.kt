@@ -3,9 +3,11 @@ package it.pagopa.ecommerce.eventdispatcher.services
 import it.pagopa.ecommerce.eventdispatcher.config.RedisStreamEventControllerConfigs
 import it.pagopa.ecommerce.eventdispatcher.config.redis.EventDispatcherReceiverStatusTemplateWrapper
 import it.pagopa.ecommerce.eventdispatcher.config.redis.bean.ReceiversStatus
+import it.pagopa.generated.eventdispatcher.server.model.DeploymentVersionDto
 import java.time.OffsetDateTime
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 
@@ -22,7 +24,9 @@ class EventReceiverStatusPoller(
   @Autowired
   private val inboundChannelAdapterLifecycleHandlerService:
     InboundChannelAdapterLifecycleHandlerService,
-  @Autowired private val redisStreamEventControllerConfigs: RedisStreamEventControllerConfigs
+  @Autowired private val redisStreamEventControllerConfigs: RedisStreamEventControllerConfigs,
+  @Value("\${eventController.deploymentVersion}")
+  private val deploymentVersion: DeploymentVersionDto
 ) {
 
   private val logger = LoggerFactory.getLogger(javaClass)
@@ -35,7 +39,10 @@ class EventReceiverStatusPoller(
     val queriedAt = OffsetDateTime.now().toString()
     val receiversStatus =
       ReceiversStatus(
-        queriedAt = queriedAt, receiverStatuses = statuses, consumerInstanceId = consumerName)
+        queriedAt = queriedAt,
+        receiverStatuses = statuses,
+        consumerInstanceId = consumerName,
+        version = deploymentVersion)
     // save new receivers status as redis instance, all records will be saved with the same key,
     // making this document to be updated automatically for each poll
     eventDispatcherReceiverStatusTemplateWrapper.save(receiversStatus)
