@@ -6,10 +6,7 @@ import it.pagopa.ecommerce.eventdispatcher.config.redis.EventDispatcherReceiverS
 import it.pagopa.ecommerce.eventdispatcher.config.redis.stream.RedisStreamMessageSource
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoEventReceiverStatusFound
 import it.pagopa.ecommerce.eventdispatcher.redis.streams.commands.EventDispatcherReceiverCommand
-import it.pagopa.generated.eventdispatcher.server.model.EventReceiverCommandRequestDto
-import it.pagopa.generated.eventdispatcher.server.model.EventReceiverStatusDto
-import it.pagopa.generated.eventdispatcher.server.model.EventReceiverStatusResponseDto
-import it.pagopa.generated.eventdispatcher.server.model.ReceiverStatusDto
+import it.pagopa.generated.eventdispatcher.server.model.*
 import javax.annotation.PreDestroy
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -41,25 +38,38 @@ class EventReceiverService(
     val recordId =
       eventDispatcherCommandsTemplateWrapper.writeEventToStreamTrimmingEvents(
         redisStreamConf.streamKey,
-        EventDispatcherReceiverCommand(receiverCommand = commandToSend),
+        EventDispatcherReceiverCommand(
+          receiverCommand = commandToSend,
+          version = eventReceiverCommandRequestDto.deploymentVersion),
         0)
 
     logger.info("Sent new event to Redis stream with id: [{}]", recordId)
   }
 
-  suspend fun getReceiversStatus(): EventReceiverStatusResponseDto {
+  suspend fun getReceiversStatus(
+    deploymentVersionDto: DeploymentVersionDto?
+  ): EventReceiverStatusResponseDto {
     val lastStatuses =
-      eventDispatcherReceiverStatusTemplateWrapper.allValuesInKeySpace.map { receiverStatuses ->
-        EventReceiverStatusDto(
-          receiverStatuses =
-            receiverStatuses.receiverStatuses.map { receiverStatus ->
-              ReceiverStatusDto(
-                status =
-                  receiverStatus.status.let { ReceiverStatusDto.Status.valueOf(it.toString()) },
-                name = receiverStatus.name)
-            },
-          instanceId = receiverStatuses.consumerInstanceId)
-      }
+      eventDispatcherReceiverStatusTemplateWrapper.allValuesInKeySpace
+        .filter {
+          if (deploymentVersionDto != null) {
+            it.version == deploymentVersionDto
+          } else {
+            true
+          }
+        }
+        .map { receiverStatuses ->
+          EventReceiverStatusDto(
+            receiverStatuses =
+              receiverStatuses.receiverStatuses.map { receiverStatus ->
+                ReceiverStatusDto(
+                  status =
+                    receiverStatus.status.let { ReceiverStatusDto.Status.valueOf(it.toString()) },
+                  name = receiverStatus.name)
+              },
+            instanceId = receiverStatuses.consumerInstanceId,
+            deploymentVersion = receiverStatuses.version)
+        }
     if (lastStatuses.isEmpty()) {
       throw NoEventReceiverStatusFound()
     }

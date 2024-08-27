@@ -2,6 +2,7 @@ package it.pagopa.ecommerce.eventdispatcher.controller
 
 import it.pagopa.ecommerce.eventdispatcher.services.EventReceiverService
 import it.pagopa.generated.eventdispatcher.server.api.EventReceiversApi
+import it.pagopa.generated.eventdispatcher.server.model.DeploymentVersionDto
 import it.pagopa.generated.eventdispatcher.server.model.EventReceiverCommandRequestDto
 import it.pagopa.generated.eventdispatcher.server.model.EventReceiverStatusResponseDto
 import org.springframework.beans.factory.annotation.Autowired
@@ -24,7 +25,11 @@ class EventReceiversApiController(
   }
 
   /** Returns receiver statuses */
-  override suspend fun retrieveReceiverStatus(): ResponseEntity<EventReceiverStatusResponseDto> {
-    return eventReceiverService.getReceiversStatus().let { ResponseEntity.ok(it) }
+  override suspend fun retrieveReceiverStatus(
+    version: DeploymentVersionDto?
+  ): ResponseEntity<EventReceiverStatusResponseDto> {
+    return eventReceiverService.getReceiversStatus(deploymentVersionDto = version).let {
+      ResponseEntity.ok(it)
+    }
   }
 }
