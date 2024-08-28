@@ -6,6 +6,7 @@ import it.pagopa.ecommerce.commons.documents.PaymentNotice
 import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationRequestedData
+import it.pagopa.ecommerce.commons.documents.v2.authorization.RedirectTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.domain.Email
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithRequestedUserReceipt
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
@@ -829,8 +830,8 @@ class UserReceiptMailBuilderTest {
         transactionActivatedEvent as TransactionEvent<*>,
         authEvent,
         transactionAuthorizationCompletedEvent(
-          NpgTransactionGatewayAuthorizationData(
-            OperationResultDto.EXECUTED, "operationId", "paymentEnd2EndId", null, null)),
+          RedirectTransactionGatewayAuthorizationData(
+            RedirectTransactionGatewayAuthorizationData.Outcome.OK, null)),
         transactionClosureRequestedEvent() as TransactionEvent<*>,
         transactionClosedEvent(TransactionClosureData.Outcome.OK) as TransactionEvent<*>,
         transactionUserReceiptRequestedEvent(
