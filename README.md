@@ -180,7 +180,7 @@ There are common scenarios for which an event can be written to a dead letter qu
 1. syntactically incorrect input event
 2. unhandled exception raised during event processing
 3. retry attempt exhaustion for a refund retry event or refund process interruption (because of blocking error codes as
-   HTTP 400 for which a retry has no meaning)
+HTTP 400 for which a retry has no meaning)
 4. retry attempt exhaustion for sending user notification (mail)
 
 ### Monitoring
