@@ -154,7 +154,7 @@ fun refundTransaction(
   tracingInfo: TracingInfo?,
   retryCount: Int = 0
 ): Mono<BaseTransaction> {
-  return Mono.empty()
+  return Mono.error(RuntimeException("PGS refund not handled"))
 }
 
 fun isTransactionRefundable(tx: BaseTransaction): Boolean {
