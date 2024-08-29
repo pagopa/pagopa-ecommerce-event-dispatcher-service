@@ -1,5 +1,5 @@
 microservice-chart:
-  namespace: "ecommerce"
+  namespace: "default"
   nameOverride: ""
   fullnameOverride: ""
   canaryDelivery:
@@ -56,7 +56,7 @@ microservice-chart:
   ingress:
     create: true
     host: "weuuat.ecommerce.internal.uat.platform.pagopa.it"
-    path: /pagopa-ecommerce-event-dispatcher/(.*)
+    path: /pagopa-ecommerce-event-dispatcher-test/(.*)
     servicePort: 9000
   serviceAccount:
     create: false
@@ -94,25 +94,25 @@ microservice-chart:
           metricAggregationType: Count
           targetValue: "30"
   envConfig:
-    TRANSACTIONS_CLOSE_PAYMENT_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-close-payment-queue
-    TRANSACTIONS_CLOSE_PAYMENT_RETRY_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-close-payment-retry-queue
-    TRANSACTIONS_EXPIRATION_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-expiration-queue
-    TRANSACTIONS_REFUND_RETRY_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-refund-retry-queue
-    TRANSACTIONS_REFUND_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-refund-queue
-    TRANSACTIONS_NOTIFICATIONS_RETRY_QUEUE_NAME: pagopa-u-weu-ecommerce-transaction-notifications-retry-queue
-    TRANSACTIONS_NOTIFICATIONS_QUEUE_NAME: pagopa-u-weu-ecommerce-transaction-notifications-queue
-    TRANSACTIONS_DEAD_LETTER_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-dead-letter-queue
-    TRANSACTIONS_AUTHORIZATION_REQUESTED_QUEUE_NAME: pagopa-u-weu-ecommerce-transaction-auth-requested-queue
-    TRANSACTIONS_AUTHORIZATION_OUTCOME_WAITING_QUEUE_NAME: pagopa-u-weu-ecommerce-transaction-auth-outcome-waiting-queue
-    PAYMENT_TRANSACTIONS_GATEWAY_URI: https://api.uat.platform.pagopa.it/payment-transactions-gateway/internal/v1
+    TRANSACTIONS_CLOSE_PAYMENT_QUEUE_NAME: fake
+    TRANSACTIONS_CLOSE_PAYMENT_RETRY_QUEUE_NAME: fake
+    TRANSACTIONS_EXPIRATION_QUEUE_NAME: fake
+    TRANSACTIONS_REFUND_RETRY_QUEUE_NAME: fake
+    TRANSACTIONS_REFUND_QUEUE_NAME: fake
+    TRANSACTIONS_NOTIFICATIONS_RETRY_QUEUE_NAME: fake
+    TRANSACTIONS_NOTIFICATIONS_QUEUE_NAME: fake
+    TRANSACTIONS_DEAD_LETTER_QUEUE_NAME: fake
+    TRANSACTIONS_AUTHORIZATION_REQUESTED_QUEUE_NAME: fake
+    TRANSACTIONS_AUTHORIZATION_OUTCOME_WAITING_QUEUE_NAME: fake
+    PAYMENT_TRANSACTIONS_GATEWAY_URI: http://localhost
     PAYMENT_TRANSACTIONS_GATEWAY_READ_TIMEOUT: "10000"
     PAYMENT_TRANSACTIONS_GATEWAY_CONNECTION_TIMEOUT: "10000"
-    NODO_URI: https://api.uat.platform.pagopa.it/nodo/nodo-per-pm/v2
+    NODO_URI: http://localhost
     NODO_READ_TIMEOUT: "14000"
     NODO_CONNECTION_TIMEOUT: "14000"
     NODO_ECOMMERCE_CLIENT_ID: ecomm
-    MONGO_HOST: pagopa-u-weu-ecommerce-cosmos-account.mongo.cosmos.azure.com
-    MONGO_USERNAME: pagopa-u-weu-ecommerce-cosmos-account
+    MONGO_HOST: localhost
+    MONGO_USERNAME: fake
     MONGO_PORT: "10255"
     MONGO_SSL_ENABLED: "true"
     MONGO_MIN_POOL_SIZE: "0"
@@ -135,14 +135,14 @@ microservice-chart:
     NOTIFICATION_RETRY_EVENT_MAX_ATTEMPTS: "3"
     AUTHORIZATION_OUTCOME_WAITING_EVENT_BASE_INTERVAL_SECONDS: "80"
     AUTHORIZATION_OUTCOME_WAITING_EVENT_MAX_ATTEMPTS: "3"
-    NOTIFICATIONS_SERVICE_URI: https://api.uat.platform.pagopa.it/ecommerce/notifications-service/v1
+    NOTIFICATIONS_SERVICE_URI: http://localhost
     NOTIFICATIONS_SERVICE_READ_TIMEOUT: "10000"
     NOTIFICATIONS_SERVICE_CONNECTION_TIMEOUT: "10000"
-    TRANSACTIONS_SERVICE_URI: https://api.uat.platform.pagopa.it/ecommerce/transaction-auth-requests-service/v1
+    TRANSACTIONS_SERVICE_URI: http://localhost
     TRANSACTIONS_SERVICE_READ_TIMEOUT: "10000"
     TRANSACTIONS_SERVICE_CONNECTION_TIMEOUT: "10000"
-    PERSONAL_DATA_VAULT_API_BASE_PATH: "https://api.uat.tokenizer.pdv.pagopa.it/tokenizer/v1"
-    OTEL_RESOURCE_ATTRIBUTES: "service.name=pagopa-ecommerce-event-dispatcher-service,service.deployment.environment=uat"
+    PERSONAL_DATA_VAULT_API_BASE_PATH: "http://localhost"
+    OTEL_RESOURCE_ATTRIBUTES: "service.name=pagopa-ecommerce-event-dispatcher-service-test,service.deployment.environment=uat"
     OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.elastic-system.svc:4317"
     OTEL_EXPORTER_OTLP_PROTOCOL: grpc
     OTEL_TRACES_EXPORTER: otlp
@@ -151,48 +151,48 @@ microservice-chart:
     OTEL_TRACES_SAMPLER: "always_on"
     SEND_PAYMENT_RESULT_TIMEOUT_SECONDS: "3900"
     SEND_PAYMENT_RESULT_EXPIRATION_OFFSET_SECONDS: "5"
-    NPG_URI: https://stg-ta.nexigroup.com/api/phoenix-0.0
+    NPG_URI: http://localhost
     NPG_READ_TIMEOUT: "10000"
     NPG_CONNECTION_TIMEOUT: "10000"
-    NPG_CARDS_PSP_LIST: "BCITITMM,CIPBITMM,BIC36019,UNCRITMM,BPPIITRRXXX,PPAYITR1XXX,BNLIITRR,PASCITMM,WOLLNLB1,IFSPIT21,BPMOIT22,SARDIT31"
-    NPG_PAYPAL_PSP_LIST: "BCITITMM,SIGPITM1XXX"
-    NPG_MYBANK_PSP_LIST: "BCITITMM,UNCRITMM"
-    NPG_BANCOMATPAY_PSP_LIST: "BCITITMM"
-    NPG_SATISPAY_PSP_LIST: "SATYLUL1"
-    NPG_APPLEPAY_PSP_LIST: "SIGPITM1XXX"
-    ECS_SERVICE_NAME: pagopa-ecommerce-event-dispatcher-service
+    NPG_CARDS_PSP_LIST: ""
+    NPG_PAYPAL_PSP_LIST: ""
+    NPG_MYBANK_PSP_LIST: ""
+    NPG_BANCOMATPAY_PSP_LIST: ""
+    NPG_SATISPAY_PSP_LIST: ""
+    NPG_APPLEPAY_PSP_LIST: ""
+    ECS_SERVICE_NAME: pagopa-ecommerce-event-dispatcher-service-test
     ECS_SERVICE_ENVIRONMENT: uat
-    REDIS_STREAM_EVENT_CONTROLLER_STREAM_KEY: "event-dispatcher-commands"
-    REDIS_STREAM_EVENT_CONTROLLER_CONSUMER_GROUP_PREFIX: "event-dispatcher"
-    REDIS_STREAM_EVENT_CONTROLLER_CONSUMER_NAME_PREFIX: "event-dispatcher"
+    REDIS_STREAM_EVENT_CONTROLLER_STREAM_KEY: "event-dispatcher-commands-test"
+    REDIS_STREAM_EVENT_CONTROLLER_CONSUMER_GROUP_PREFIX: "event-dispatcher-test"
+    REDIS_STREAM_EVENT_CONTROLLER_CONSUMER_NAME_PREFIX: "event-dispatcher-test"
     EVENT_CONTROLLER_STATUS_POLLING_CHRON: "*/10 * * * * *"
-    NODE_FORWARDER_URL: "https://api.uat.platform.pagopa.it/pagopa-node-forwarder/api/v1"
+    NODE_FORWARDER_URL: "http://localhost"
     NODE_FORWARDER_READ_TIMEOUT: "10000"
     NODE_FORWARDER_CONNECTION_TIMEOUT: "10000"
-    REDIRECT_PAYMENT_TYPE_CODES: "BPPIITRRXXX-RBPR,BPPIITRRXXX-RBPP,BPPIITRRXXX-RBPB,PPAYITR1XXX-RBPB,CHECKOUT-PPAYITR1XXX-RBPP,IO-PPAYITR1XXX-RBPP,PPAYITR1XXX-RBPR,RBPS,RPIC"
+    REDIRECT_PAYMENT_TYPE_CODES: ""
+    PAYMENT_TRANSACTIONS_GATEWAY_API_KEY: "payment-transactions-gateway-api-key"
+    NPG_API_KEY: "npg-api-key"
+    NPG_CARDS_PSP_KEYS: "{}"
+    NODE_FORWARDER_API_KEY: "node-forwarder-api-key"
+    REDIRECT_URL_MAPPING: "{}"
+    NPG_PAYPAL_PSP_KEYS: "{}"
+    NPG_BANCOMATPAY_PSP_KEYS: "{}"
+    NPG_MYBANK_PSP_KEYS: "{}"
+    NPG_SATISPAY_PSP_KEYS: "{}"
+    NPG_APPLEPAY_PSP_KEYS: "{}"
+    MONGO_PASSWORD: ""
+    NOTIFICATIONS_SERVICE_API_KEY: "notifications-service-api-key"
+    TRANSACTIONS_SERVICE_API_KEY: "transactions-service-auth-update-api-key"
+    ECOMMERCE_PERSONAL_DATA_VAULT_API_KEY: "personal-data-vault-api-key"
+    WALLET_SESSION_PERSONAL_DATA_VAULT_API_KEY: "personal-data-vault-api-key-wallet-session"
+    NODO_CONNECTION_STRING: '{"idPSP":"idPsp","idChannel":"idChannel","idBrokerPSP":"idBrokerPsp","password":"password"}'
   envSecret:
     ECOMMERCE_STORAGE_TRANSIENT_QUEUE_KEY: ecommerce-storage-transient-account-key
-    MONGO_PASSWORD: mongo-ecommerce-password
     REDIS_PASSWORD: redis-ecommerce-access-key
     REDIS_HOST: redis-ecommerce-hostname
-    NODO_CONNECTION_STRING: nodo-connection-string
     QUEUE_TRANSIENT_CONNECTION_STRING: ecommerce-storage-transient-connection-string
     QUEUE_DEADLETTER_CONNECTION_STRING: ecommerce-storage-deadletter-connection-string
-    NOTIFICATIONS_SERVICE_API_KEY: notifications-service-api-key
-    TRANSACTIONS_SERVICE_API_KEY: transactions-service-auth-update-api-key
-    ECOMMERCE_PERSONAL_DATA_VAULT_API_KEY: personal-data-vault-api-key
-    WALLET_SESSION_PERSONAL_DATA_VAULT_API_KEY: personal-data-vault-api-key-wallet-session
     OTEL_EXPORTER_OTLP_HEADERS: elastic-otel-token-header
-    PAYMENT_TRANSACTIONS_GATEWAY_API_KEY: payment-transactions-gateway-api-key
-    NPG_API_KEY: npg-api-key
-    NPG_CARDS_PSP_KEYS: npg-cards-psp-keys
-    NODE_FORWARDER_API_KEY: node-forwarder-api-key
-    REDIRECT_URL_MAPPING: redirect-url-mapping
-    NPG_PAYPAL_PSP_KEYS: npg-paypal-psp-keys
-    NPG_BANCOMATPAY_PSP_KEYS: npg-bancomatpay-psp-keys
-    NPG_MYBANK_PSP_KEYS: npg-mybank-psp-keys
-    NPG_SATISPAY_PSP_KEYS: npg-satispay-psp-keys
-    NPG_APPLEPAY_PSP_KEYS: npg-apple-pay-psp-keys
   keyvault:
     name: "pagopa-u-ecommerce-kv"
     tenantId: "7788edaf-0346-4068-9d79-c868aed15b3d"

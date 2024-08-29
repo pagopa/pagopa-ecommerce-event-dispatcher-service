@@ -43,9 +43,9 @@ steps:
         wantedReceiverStatus=${{ parameters.WANTED_STATUS }}
         targetDeploymentVersion=${{ parameters.TARGET_DEPLOYMENT_VERSION }}
         declare -A commandUrls=(\
-        ["DEV"]="https://weudev.ecommerce.internal.dev.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-staging/event-dispatcher/event-receivers/status?version=$targetDeploymentVersion" \
-        ["UAT"]="https://weuuat.ecommerce.internal.uat.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-staging/event-dispatcher/event-receivers/status?version=$targetDeploymentVersion" \
-        ["PROD"]="https://weuprod.ecommerce.internal.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-staging/event-dispatcher/event-receivers/status?version=$targetDeploymentVersion" \
+        ["DEV"]="https://weudev.ecommerce.internal.dev.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-staging-test/event-dispatcher/event-receivers/status?version=$targetDeploymentVersion" \
+        ["UAT"]="https://weuuat.ecommerce.internal.uat.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-staging-test/event-dispatcher/event-receivers/status?version=$targetDeploymentVersion" \
+        ["PROD"]="https://weuprod.ecommerce.internal.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-staging-test/event-dispatcher/event-receivers/status?version=$targetDeploymentVersion" \
         )
         commandUrl=${commandUrls[${{ parameters.ENV }}]}
         echo "Polling receiver status using GET $commandUrl"

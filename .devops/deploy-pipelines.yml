@@ -602,7 +602,7 @@ stages:
                     install: true
                     waitForExecution: true
                     arguments: --timeout 5m0s
-                    overrideValues: microservice-chart.ingress.path=/pagopa-ecommerce-event-dispatcher-staging/(.*),microservice-chart.envConfig.DEPLOYMENT_VERSION=STAGING
+                    overrideValues: microservice-chart.ingress.path=/pagopa-ecommerce-event-dispatcher-staging-test/(.*),microservice-chart.envConfig.DEPLOYMENT_VERSION=STAGING
 
   # STEP 2: enable STAGING deployment receivers and stop PROD one by command curl
   - stage: Start_Staging_Stop_Prod_Receivers_Manual_Approve
