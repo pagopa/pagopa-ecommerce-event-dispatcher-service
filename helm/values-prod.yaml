@@ -153,7 +153,7 @@ microservice-chart:
     OTEL_TRACES_SAMPLER: "always_on"
     SEND_PAYMENT_RESULT_TIMEOUT_SECONDS: "3900"
     SEND_PAYMENT_RESULT_EXPIRATION_OFFSET_SECONDS: "5"
-    ECS_SERVICE_NAME: pagopa-ecommerce-event-dispatcher-service
+    ECS_SERVICE_NAME: pagopa-ecommerce-event-dispatcher-service-test
     ECS_SERVICE_ENVIRONMENT: prod
     TRANSIENT_QUEUES_TTL_SECONDS: "2592000"
     NPG_URI: http://localhost
@@ -165,9 +165,9 @@ microservice-chart:
     NPG_BANCOMATPAY_PSP_LIST: "" #TODO to be filled with psp id list that are expected to be present into psp api keys configuration
     NPG_SATISPAY_PSP_LIST: "" #TODO to be filled with psp id list that are expected to be present into psp api keys configuration
     NPG_APPLEPAY_PSP_LIST: "" #TODO to be filled with psp id list that are expected to be present into psp api keys configuration
-    REDIS_STREAM_EVENT_CONTROLLER_STREAM_KEY: "event-dispatcher-commands"
-    REDIS_STREAM_EVENT_CONTROLLER_CONSUMER_GROUP_PREFIX: "event-dispatcher"
-    REDIS_STREAM_EVENT_CONTROLLER_CONSUMER_NAME_PREFIX: "event-dispatcher"
+    REDIS_STREAM_EVENT_CONTROLLER_STREAM_KEY: "event-dispatcher-commands-test"
+    REDIS_STREAM_EVENT_CONTROLLER_CONSUMER_GROUP_PREFIX: "event-dispatcher-test"
+    REDIS_STREAM_EVENT_CONTROLLER_CONSUMER_NAME_PREFIX: "event-dispatcher-test"
     EVENT_CONTROLLER_STATUS_POLLING_CHRON: "*/10 * * * * *"
     NODE_FORWARDER_URL: "https://api.platform.pagopa.it/pagopa-node-forwarder/api/v1"
     NODE_FORWARDER_READ_TIMEOUT: "10000"
