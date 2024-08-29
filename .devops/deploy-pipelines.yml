@@ -127,7 +127,7 @@ stages:
                   inputs:
                     kubernetesServiceEndpoint: $(DEV_KUBERNETES_SERVICE_CONN)
                     kubernetesCluster: $(kubernetesCluster)
-                    namespace: ecommerce
+                    namespace: default
                     command: delete
                     arguments: deployment beta-pagopaecommerceeventdispatcherservice-microservice-chart
                 - template: azure-templates/helm-microservice-chart-deploy.yml
@@ -136,7 +136,7 @@ stages:
                     DO_BLUE_GREEN_DEPLOY: true
                     ENV: 'DEV'
                     KUBERNETES_SERVICE_CONN: $(DEV_KUBERNETES_SERVICE_CONN)
-                    NAMESPACE: ecommerce
+                    NAMESPACE: default
                     APP_NAME: $(K8S_IMAGE_REPOSITORY_NAME)
                     VALUE_FILE: "helm/values-dev.yaml"
                     GREEN_VERSION: $(Build.SourceVersion)
@@ -150,7 +150,7 @@ stages:
         succeeded(),
         eq(${{parameters.UAT_PROD_DEPLOY}}, true),
         or(
-         eq(variables['Build.SourceBranch'], 'refs/heads/main'),
+         eq(variables['Build.SourceBranch'], 'refs/heads/test-prod-pipeline'),
          startsWith(variables['Build.SourceBranch'], 'refs/tags')
          )
       )
@@ -204,7 +204,7 @@ stages:
                     DO_BLUE_GREEN_DEPLOY: true
                     ENV: 'UAT'
                     KUBERNETES_SERVICE_CONN: $(UAT_KUBERNETES_SERVICE_CONN)
-                    NAMESPACE: ecommerce
+                    NAMESPACE: default
                     APP_NAME: $(K8S_IMAGE_REPOSITORY_NAME)
                     VALUE_FILE: "helm/values-uat.yaml"
                     GREEN_VERSION: $(green_app_version)
@@ -289,7 +289,7 @@ stages:
         in(dependencies.tag_docker_release.result, 'Succeeded', 'Skipped'),
         in(dependencies.Release.result, 'Succeeded', 'Skipped'),
         or(
-          eq(variables['Build.SourceBranch'], 'refs/heads/main'),
+          eq(variables['Build.SourceBranch'], 'refs/heads/test-prod-pipeline'),
           startsWith(variables['Build.SourceBranch'], 'refs/tags')
         )
       )
@@ -329,7 +329,7 @@ stages:
                     DO_BLUE_GREEN_DEPLOY: false
                     ENV: 'UAT'
                     KUBERNETES_SERVICE_CONN: $(UAT_KUBERNETES_SERVICE_CONN)
-                    NAMESPACE: ecommerce
+                    NAMESPACE: default
                     APP_NAME: $(K8S_IMAGE_REPOSITORY_NAME)
                     VALUE_FILE: "helm/values-uat.yaml"
                     GREEN_VERSION: $(app_version)
@@ -437,7 +437,7 @@ stages:
 #                    DO_BLUE_GREEN_DEPLOY: true
 #                    ENV: 'PROD'
 #                    KUBERNETES_SERVICE_CONN: $(PROD_KUBERNETES_SERVICE_CONN)
-#                    NAMESPACE: ecommerce
+#                    NAMESPACE: default
 #                    APP_NAME: $(K8S_IMAGE_REPOSITORY_NAME)
 #                    VALUE_FILE: "helm/values-prod.yaml"
 #                    GREEN_VERSION: $(app_version)
@@ -523,7 +523,7 @@ stages:
             name: helm_event_dispatcher_releases
             inputs:
               kubernetesServiceEndpoint: $(PROD_KUBERNETES_SERVICE_CONN)
-              namespace: ecommerce
+              namespace: default
               command: ls
               arguments: --filter ^$(K8S_IMAGE_REPOSITORY_NAME)$ --output json
           - task: Bash@3
@@ -592,7 +592,7 @@ stages:
                   displayName: Deploy current PROD version $(currentVersion) as STAGING release
                   inputs:
                     kubernetesServiceEndpoint: $(PROD_KUBERNETES_SERVICE_CONN)
-                    namespace: ecommerce
+                    namespace: default
                     command: upgrade
                     chartType: filepath
                     chartPath: helm
@@ -698,7 +698,7 @@ stages:
                   displayName: Deploy new version as NEW release
                   inputs:
                     kubernetesServiceEndpoint: $(PROD_KUBERNETES_SERVICE_CONN)
-                    namespace: ecommerce
+                    namespace: default
                     command: upgrade
                     chartType: filepath
                     chartPath: helm
@@ -776,7 +776,7 @@ stages:
             inputs:
               kubernetesServiceEndpoint: $(PROD_KUBERNETES_SERVICE_CONN)
               kubernetesCluster: $(kubernetesCluster)
-              namespace: ecommerce
+              namespace: default
               command: annotate
               arguments: scaledobjects $(K8S_IMAGE_REPOSITORY_NAME)-stage-microservice-chart autoscaling.keda.sh/paused-replicas="0"
 
@@ -822,7 +822,7 @@ stages:
             inputs:
               kubernetesServiceEndpoint: $(PROD_KUBERNETES_SERVICE_CONN)
               kubernetesCluster: $(kubernetesCluster)
-              namespace: ecommerce
+              namespace: default
               command: annotate
               arguments: scaledobjects $(K8S_IMAGE_REPOSITORY_NAME)-stage-microservice-chart autoscaling.keda.sh/paused-replicas-
 
@@ -874,7 +874,7 @@ stages:
             displayName: Helm Rollback PROD new release
             inputs:
               kubernetesServiceEndpoint: $(PROD_KUBERNETES_SERVICE_CONN)
-              namespace: ecommerce
+              namespace: default
               command: rollback
               chartName: $(K8S_IMAGE_REPOSITORY_NAME)
               releaseName: $(K8S_IMAGE_REPOSITORY_NAME)
@@ -944,7 +944,7 @@ stages:
             inputs:
               kubernetesServiceEndpoint: $(PROD_KUBERNETES_SERVICE_CONN)
               kubernetesCluster: $(kubernetesCluster)
-              namespace: ecommerce
+              namespace: default
               command: annotate
               arguments: scaledobjects $(K8S_IMAGE_REPOSITORY_NAME)-stage-microservice-chart autoscaling.keda.sh/paused-replicas="0"
 
