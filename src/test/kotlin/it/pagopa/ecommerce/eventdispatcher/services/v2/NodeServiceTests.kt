@@ -5,13 +5,11 @@ import it.pagopa.ecommerce.commons.documents.v2.Transaction
 import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationRequestData
 import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationRequestedEvent
 import it.pagopa.ecommerce.commons.documents.v2.TransactionEvent
-import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationData
-import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationRequestedData
-import it.pagopa.ecommerce.commons.documents.v2.authorization.RedirectTransactionGatewayAuthorizationData
-import it.pagopa.ecommerce.commons.documents.v2.authorization.RedirectTransactionGatewayAuthorizationRequestedData
+import it.pagopa.ecommerce.commons.documents.v2.authorization.*
 import it.pagopa.ecommerce.commons.domain.Email
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
+import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.utils.EuroUtils
 import it.pagopa.ecommerce.commons.v2.TransactionTestUtils.*
 import it.pagopa.ecommerce.eventdispatcher.client.NodeClient
@@ -716,6 +714,35 @@ class NodeServiceTests {
       assertEquals(
         closePaymentResponse, nodeService.closePayment(TransactionId(transactionId), npgOutcome))
     }
+
+  @Test
+  fun `closePayment throws error for close payment with PGS`() = runTest {
+    val activatedEvent = transactionActivateEvent()
+    val authEvent =
+      transactionAuthorizationRequestedEvent(
+        TransactionAuthorizationRequestData.PaymentGateway.VPOS,
+        PgsTransactionGatewayAuthorizationRequestedData())
+        as TransactionEvent<Any>
+    val authCompletedEvent =
+      transactionAuthorizationCompletedEvent(
+        PgsTransactionGatewayAuthorizationData("000", AuthorizationResultDto.OK))
+        as TransactionEvent<Any>
+    val closureRequestedEvent = transactionClosureRequestedEvent()
+    val transactionId = activatedEvent.transactionId
+    val events =
+      listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent)
+        as List<TransactionEvent<Any>>
+
+    /* preconditions */
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
+      .willReturn(events.toFlux())
+
+    /* test */
+    assertThrows<IllegalArgumentException> {
+      nodeService.closePayment(TransactionId(transactionId), ClosePaymentOutcome.OK)
+    }
+  }
 
   @Test
   fun `closePayment returns error for close payment missing authorization completed event`() =
