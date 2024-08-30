@@ -7,6 +7,7 @@ import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.documents.v2.Transaction
 import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationRequestedData
+import it.pagopa.ecommerce.commons.documents.v2.authorization.PgsTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.RedirectTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.domain.v2.*
 import it.pagopa.ecommerce.commons.domain.v2.pojos.*
@@ -456,6 +457,9 @@ class ClosePaymentHelper(
         transactionGatewayData.operationResult == OperationResultDto.EXECUTED
       is RedirectTransactionGatewayAuthorizationData ->
         transactionGatewayData.outcome == RedirectTransactionGatewayAuthorizationData.Outcome.OK
+      is PgsTransactionGatewayAuthorizationData ->
+        throw IllegalArgumentException(
+          "Unhandled or invalid auth data type 'PgsTransactionGatewayAuthorizationData'")
     }
   }
 
@@ -532,6 +536,9 @@ class ClosePaymentHelper(
             RedirectTransactionGatewayAuthorizationData.Outcome.OK -> ClosePaymentOutcome.OK
             else -> ClosePaymentOutcome.KO
           }
+        is PgsTransactionGatewayAuthorizationData ->
+          throw IllegalArgumentException(
+            "Unhandled or invalid auth data type 'PgsTransactionGatewayAuthorizationData'")
       }
 
     return closureOutcome

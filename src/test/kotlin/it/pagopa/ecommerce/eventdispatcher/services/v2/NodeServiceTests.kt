@@ -304,6 +304,7 @@ class NodeServiceTests {
             } else {
               OutcomePaymentGatewayEnum.KO
             }
+          else -> throw IllegalArgumentException("Unhandled authorization data type")
         }
       }
 

@@ -6,10 +6,7 @@ import it.pagopa.ecommerce.commons.client.NpgClient
 import it.pagopa.ecommerce.commons.client.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.documents.v2.activation.NpgTransactionGatewayActivationData
-import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationData
-import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationRequestedData
-import it.pagopa.ecommerce.commons.documents.v2.authorization.RedirectTransactionGatewayAuthorizationData
-import it.pagopa.ecommerce.commons.documents.v2.authorization.TransactionGatewayAuthorizationData
+import it.pagopa.ecommerce.commons.documents.v2.authorization.*
 import it.pagopa.ecommerce.commons.documents.v2.refund.EmptyGatewayRefundData
 import it.pagopa.ecommerce.commons.documents.v2.refund.GatewayRefundData
 import it.pagopa.ecommerce.commons.documents.v2.refund.NpgGatewayRefundData
@@ -747,6 +744,9 @@ fun getGatewayAuthorizationOutcome(
       } else {
         AuthorizationResultDto.KO
       }
+    is PgsTransactionGatewayAuthorizationData ->
+      throw IllegalArgumentException(
+        "Unhandled or invalid auth data type 'PgsTransactionGatewayAuthorizationData'")
   }
 }
 

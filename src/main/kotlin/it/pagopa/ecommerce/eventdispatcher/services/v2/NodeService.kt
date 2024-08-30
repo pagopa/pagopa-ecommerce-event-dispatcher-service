@@ -367,6 +367,9 @@ class NodeService(
             totalAmountEuro,
             feeEuro,
             closePaymentTransactionDetails))
+      else ->
+        throw IllegalArgumentException(
+          "Unhandled or invalid authorization request type: '%s'".format(authRequestedData.type))
     }
   }
 
@@ -874,6 +877,9 @@ class NodeService(
         } else {
           CardAdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.KO
         }
+      is PgsTransactionGatewayAuthorizationData ->
+        throw IllegalArgumentException(
+          "Unhandled or invalid auth data type 'PgsTransactionGatewayAuthorizationData'")
     }
 
   private fun getAuthorizationErrorCode(
@@ -882,6 +888,9 @@ class NodeService(
     when (transactionGatewayAuthData) {
       is NpgTransactionGatewayAuthorizationData -> transactionGatewayAuthData.errorCode
       is RedirectTransactionGatewayAuthorizationData -> transactionGatewayAuthData.errorCode
+      is PgsTransactionGatewayAuthorizationData ->
+        throw IllegalArgumentException(
+          "Unhandled or invalid auth data type 'PgsTransactionGatewayAuthorizationData'")
     }
 
   private fun buildUserInfo(
