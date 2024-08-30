@@ -21,6 +21,7 @@ import it.pagopa.ecommerce.eventdispatcher.utils.PaymentCode
 import it.pagopa.generated.ecommerce.nodo.v2.dto.*
 import it.pagopa.generated.ecommerce.nodo.v2.dto.CardAdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum
 import java.math.BigDecimal
+import java.net.URI
 import java.time.OffsetDateTime
 import java.time.ZonedDateTime
 import java.util.stream.Stream
@@ -42,6 +43,7 @@ import org.mockito.kotlin.capture
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.springframework.test.context.junit.jupiter.SpringExtension
+import reactor.core.publisher.Hooks
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toFlux
 
@@ -716,17 +718,55 @@ class NodeServiceTests {
     }
 
   @Test
-  fun `closePayment throws error for close payment with PGS`() = runTest {
+  fun `closePayment throws error for close payment with auth request and auth completed PGS`() =
+    runTest {
+      val activatedEvent = transactionActivateEvent()
+      val authEvent =
+        transactionAuthorizationRequestedEvent(
+          TransactionAuthorizationRequestData.PaymentGateway.VPOS,
+          PgsTransactionGatewayAuthorizationRequestedData().apply {
+            logo = URI("http://localhost")
+            brand = PgsTransactionGatewayAuthorizationRequestedData.CardBrand.VISA
+          })
+          as TransactionEvent<Any>
+      val authCompletedEvent =
+        transactionAuthorizationCompletedEvent(
+          PgsTransactionGatewayAuthorizationData("000", AuthorizationResultDto.OK))
+          as TransactionEvent<Any>
+      val closureRequestedEvent = transactionClosureRequestedEvent()
+      val transactionId = activatedEvent.transactionId
+      val events =
+        listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent)
+          as List<TransactionEvent<Any>>
+
+      /* preconditions */
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
+        .willReturn(events.toFlux())
+
+      /* test */
+      assertThrows<IllegalArgumentException> {
+        nodeService.closePayment(TransactionId(transactionId), ClosePaymentOutcome.OK)
+      }
+    }
+
+  @Test
+  fun `closePayment throws error for close payment with auth request with PGS`() = runTest {
     val activatedEvent = transactionActivateEvent()
     val authEvent =
       transactionAuthorizationRequestedEvent(
         TransactionAuthorizationRequestData.PaymentGateway.VPOS,
-        PgsTransactionGatewayAuthorizationRequestedData())
+        PgsTransactionGatewayAuthorizationRequestedData().apply {
+          logo = URI("http://localhost")
+          brand = PgsTransactionGatewayAuthorizationRequestedData.CardBrand.VISA
+        })
         as TransactionEvent<Any>
     val authCompletedEvent =
       transactionAuthorizationCompletedEvent(
-        PgsTransactionGatewayAuthorizationData("000", AuthorizationResultDto.OK))
-        as TransactionEvent<Any>
+        NpgTransactionGatewayAuthorizationData(
+          OperationResultDto.EXECUTED, "operationId", "paymentEndTOEndId", null, null))
+
     val closureRequestedEvent = transactionClosureRequestedEvent()
     val transactionId = activatedEvent.transactionId
     val events =
@@ -737,7 +777,7 @@ class NodeServiceTests {
     given(
         transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
       .willReturn(events.toFlux())
-
+    Hooks.onOperatorDebug()
     /* test */
     assertThrows<IllegalArgumentException> {
       nodeService.closePayment(TransactionId(transactionId), ClosePaymentOutcome.OK)

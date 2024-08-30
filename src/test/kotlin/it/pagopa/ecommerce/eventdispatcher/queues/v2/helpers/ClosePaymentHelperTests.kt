@@ -224,6 +224,80 @@ class ClosePaymentHelperTests {
     }
 
   @Test
+  fun `consumer throw exception when the transaction is authorized via pgs `() = runTest {
+    val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
+    val authorizationRequestEvent =
+      transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
+    val authorizationCompleteEvent =
+      transactionAuthorizationCompletedEvent(
+        PgsTransactionGatewayAuthorizationData("000", AuthorizationResultDto.OK))
+        as TransactionEvent<Any>
+    val closureRequestedEvent = transactionClosureRequestedEvent() as TransactionEvent<Any>
+    val closureErrorEvent = transactionClosureErrorEvent() as TransactionEvent<Any>
+
+    val events =
+      listOf(
+        activationEvent,
+        authorizationRequestEvent,
+        authorizationCompleteEvent,
+        closureRequestedEvent,
+        closureErrorEvent)
+
+    val expectedUpdatedTransaction =
+      transactionDocument(
+          TransactionStatusDto.CLOSED, ZonedDateTime.parse(activationEvent.creationDate))
+        .apply { this.sendPaymentResultOutcome = TransactionUserReceiptData.Outcome.NOT_RECEIVED }
+
+    val transactionDocument =
+      transactionDocument(
+        TransactionStatusDto.CLOSURE_ERROR, ZonedDateTime.parse(activationEvent.creationDate))
+
+    /* preconditions */
+    given(checkpointer.success()).willReturn(Mono.empty())
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
+      .willReturn(events.toFlux())
+    given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+      .willReturn(Mono.just(transactionDocument))
+
+    doNothing().`when`(updateTransactionStatusTracerUtils).traceStatusUpdateOperation(any())
+    /* test */
+    Hooks.onOperatorDebug()
+    StepVerifier.create(
+        closePaymentHelper.closePayment(
+          ClosePaymentEvent.errored(
+            QueueEvent(closureErrorEvent as TransactionClosureErrorEvent, MOCK_TRACING_INFO)),
+          checkpointer,
+          EmptyTransaction()))
+      .expectError()
+      .verify()
+
+    /* Asserts */
+    verify(checkpointer, Mockito.times(1)).success()
+    verify(nodeService, Mockito.times(0)).closePayment(any(), any())
+    verify(transactionClosedEventRepository, Mockito.times(0)).save(any())
+
+    verify(transactionsViewRepository, Mockito.times(0)).save(expectedUpdatedTransaction)
+    verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+    verify(deadLetterTracedQueueAsyncClient, times(1))
+      .sendAndTraceDeadLetterQueueEvent(
+        argThat<BinaryData> {
+          TransactionEventCode.valueOf(
+            this.toObject(
+                object : TypeReference<QueueEvent<TransactionClosureErrorEvent>>() {},
+                jsonSerializerV2)
+              .event
+              .eventCode) == TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT
+        },
+        eq(
+          DeadLetterTracedQueueAsyncClient.ErrorContext(
+            transactionId = TransactionId(TRANSACTION_ID),
+            transactionEventCode = TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT.toString(),
+            errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)),
+      )
+  }
+
+  @Test
   fun `consumer processes bare closure error message correctly with OK closure outcome for authorization completed transaction`() =
     runTest {
       val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
