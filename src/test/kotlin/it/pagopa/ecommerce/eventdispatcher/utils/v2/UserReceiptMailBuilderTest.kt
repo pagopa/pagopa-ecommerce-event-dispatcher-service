@@ -587,6 +587,7 @@ class UserReceiptMailBuilderTest {
         createRedirectTemplateFieldsMethodSource(PaymentCode.RBPR.name),
         createRedirectTemplateFieldsMethodSource(PaymentCode.RBPS.name),
         createRedirectTemplateFieldsMethodSource(PaymentCode.RPIC.name),
+        createRedirectTemplateFieldsMethodSource(PaymentCode.RICO.name),
         Arguments.of(
           PaymentCode.SATY.name,
           "-",
@@ -623,7 +624,7 @@ class UserReceiptMailBuilderTest {
               npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)))),
       )
 
-    fun createRedirectTemplateFieldsMethodSource(code: String): Arguments {
+    private fun createRedirectTemplateFieldsMethodSource(code: String): Arguments {
       return Arguments.of(
         code,
         "-",
@@ -809,6 +810,7 @@ class UserReceiptMailBuilderTest {
       "Unexpected TransactionGatewayAuthorization for paymentTypeCode BPAY. Expected NPG gateway.",
       exec.message)
   }
+
   @Test
   fun `Should throw error for invalid payment type code during the build of success template`() =
     runTest {
