@@ -172,6 +172,12 @@ class NodeService(
           .stream()
           .mapToInt { el -> el.transactionAmount.value }
           .sum())
+    logger.info(
+      "Building close payment for cancellation transactionId: [{}], effective clientId: [{}], activation client: [{}]",
+      transactionId.value(),
+      transactionWithCancellation.clientId.effectiveClient.name,
+      transactionWithCancellation.clientId.name,
+    )
     // In case of cancellation we only populate the fields shared by both
     // `CardClosePaymentRequestV2Dto` and `RedirectClosePaymentRequestV2Dto`,
     // so either implementation is fine.
@@ -193,7 +199,7 @@ class NodeService(
           info =
             InfoDto().apply {
               type = getPaymentTypeCode(transactionWithCancellation)
-              clientId = transactionWithCancellation.clientId.name
+              clientId = transactionWithCancellation.clientId.effectiveClient.name
             }
           user = userDto
         }
@@ -233,6 +239,12 @@ class NodeService(
         is PaypalWalletDetails -> Triple(null, null, walletDetails.maskedEmail)
         else -> Triple(null, null, null)
       }
+
+    logger.info(
+      "Building close payment for completed transactionId: [{}], effective clientId: [{}], activation client: [{}]",
+      transactionId.value(),
+      authCompleted.transactionActivatedData.clientId.effectiveClient.name,
+      authCompleted.transactionActivatedData.clientId.name)
     val closePaymentTransactionDetails =
       TransactionDetailsDto().apply {
         transaction =
@@ -290,7 +302,7 @@ class NodeService(
                 else -> null
               }
             paymentMethodName = authCompleted.transactionAuthorizationRequestData.paymentMethodName
-            clientId = authCompleted.transactionActivatedData.clientId.name
+            clientId = authCompleted.transactionActivatedData.clientId.effectiveClient.name
             bin = walletBin
             lastFourDigits = walletLastFourDigits
             maskedEmail = walletMaskedEmail
@@ -906,7 +918,7 @@ class NodeService(
     baseTransaction: BaseTransactionWithPaymentToken,
     outcome: ClosePaymentOutcome
   ): Mono<UserDto> =
-    when (baseTransaction.clientId) {
+    when (baseTransaction.clientId.effectiveClient) {
       it.pagopa.ecommerce.commons.documents.v2.Transaction.ClientId.CHECKOUT,
       it.pagopa.ecommerce.commons.documents.v2.Transaction.ClientId.CHECKOUT_CART ->
         mono { UserDto().apply { type = UserDto.TypeEnum.GUEST } }

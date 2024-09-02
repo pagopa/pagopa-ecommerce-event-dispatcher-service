@@ -37,10 +37,7 @@ import org.junit.jupiter.params.provider.MethodSource
 import org.mockito.ArgumentCaptor
 import org.mockito.BDDMockito.given
 import org.mockito.Captor
-import org.mockito.kotlin.any
-import org.mockito.kotlin.capture
-import org.mockito.kotlin.eq
-import org.mockito.kotlin.mock
+import org.mockito.kotlin.*
 import org.springframework.test.context.junit.jupiter.SpringExtension
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toFlux
@@ -6201,67 +6198,77 @@ class NodeServiceTests {
     }
 
   @Test
-  fun `Should return error building ClosePaymentRequestV2Dto OK for registered user for unhandled client id`() =
-    runTest {
-      val transactionOutcome = ClosePaymentOutcome.OK
-      val authRequestedData =
-        NpgTransactionGatewayAuthorizationRequestedData(
-          LOGO_URI,
-          NpgClient.PaymentMethod.PAYPAL.toString(),
-          "npgSessionId",
-          "npgConfirmPaymentSessionId",
-          cardsWalletInfo())
-      val authData = npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)
+  fun `Should perform ClosePaymentRequestV2 using effective client id`() = runTest {
+    val transactionOutcome = ClosePaymentOutcome.OK
+    val authRequestedData =
+      NpgTransactionGatewayAuthorizationRequestedData(
+        LOGO_URI,
+        NpgClient.PaymentMethod.PAYPAL.toString(),
+        "npgSessionId",
+        "npgConfirmPaymentSessionId",
+        cardsWalletInfo())
+    val authData = npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)
 
-      val activatedEvent = transactionActivateEvent()
-      activatedEvent.data.clientId = null
-      activatedEvent.data.userId = null
-      val authEvent =
-        TransactionAuthorizationRequestedEvent(
-          TRANSACTION_ID,
-          TransactionAuthorizationRequestData(
-            100,
-            10,
-            "paymentInstrumentId",
-            "pspId",
-            PaymentCode.PPAL.name,
-            "brokerName",
-            "pspChannelCode",
-            "paymentMethodName",
-            "pspBusinessName",
-            false,
-            AUTHORIZATION_REQUEST_ID,
-            TransactionAuthorizationRequestData.PaymentGateway.NPG,
-            "paymentMethodDescription",
-            authRequestedData))
-      val authCompletedEvent = transactionAuthorizationCompletedEvent(authData)
-      val closureRequestedEvent = transactionClosureRequestedEvent()
-      val closureError = transactionClosureErrorEvent()
-      val transactionId = activatedEvent.transactionId
-      val events =
-        listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent, closureError)
-          as List<TransactionEvent<Any>>
+    val activatedEvent = transactionActivateEvent()
+    activatedEvent.data.clientId = Transaction.ClientId.WISP_REDIRECT
+    activatedEvent.data.userId = null
+    val authEvent =
+      TransactionAuthorizationRequestedEvent(
+        TRANSACTION_ID,
+        TransactionAuthorizationRequestData(
+          100,
+          10,
+          "paymentInstrumentId",
+          "pspId",
+          PaymentCode.PPAL.name,
+          "brokerName",
+          "pspChannelCode",
+          "paymentMethodName",
+          "pspBusinessName",
+          false,
+          AUTHORIZATION_REQUEST_ID,
+          TransactionAuthorizationRequestData.PaymentGateway.NPG,
+          "paymentMethodDescription",
+          authRequestedData))
+    val authCompletedEvent = transactionAuthorizationCompletedEvent(authData)
+    val closureRequestedEvent = transactionClosureRequestedEvent()
+    val closureError = transactionClosureErrorEvent()
+    val transactionId = activatedEvent.transactionId
+    val events =
+      listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent, closureError)
+        as List<TransactionEvent<Any>>
 
-      val closePaymentResponse =
-        ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
-      val userFiscalCode = "userFiscalCode"
+    val closePaymentResponse =
+      ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
+    val userFiscalCode = "userFiscalCode"
 
-      /* preconditions */
-      given(confidentialDataUtils.decryptWalletSessionToken(any()))
-        .willReturn(mono { userFiscalCode })
-      given(
-          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
-            TRANSACTION_ID))
-        .willReturn(events.toFlux())
+    /* preconditions */
+    given(confidentialDataUtils.decryptWalletSessionToken(any()))
+      .willReturn(mono { userFiscalCode })
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
+      .willReturn(events.toFlux())
 
-      given(nodeClient.closePayment(capture(paypalClosePaymentRequestCaptor)))
-        .willReturn(Mono.just(closePaymentResponse))
+    given(nodeClient.closePayment(capture(paypalClosePaymentRequestCaptor)))
+      .willReturn(Mono.just(closePaymentResponse))
 
-      /* test */
-      val result = runCatching {
-        nodeService.closePayment(TransactionId(transactionId), transactionOutcome)
-      }
-      assertTrue(result.isFailure)
-      assertEquals("Unhandled client id: [null]", result.exceptionOrNull()?.message)
+    given(confidentialDataUtils.eCommerceDecrypt(eq(activatedEvent.data.email), any()))
+      .willReturn(Mono.just(Email(EMAIL_STRING)))
+
+    /* test */
+    val result = runCatching {
+      nodeService.closePayment(TransactionId(transactionId), transactionOutcome)
     }
+    val closeRequestCaptor =
+      argumentCaptor<ClosePaymentRequestV2Dto> {
+        verify(nodeClient, times(1)).closePayment(capture())
+      }
+
+    assertEquals(
+      (closeRequestCaptor.lastValue as PayPalClosePaymentRequestV2Dto)
+        .transactionDetails
+        .info
+        .clientId,
+      Transaction.ClientId.CHECKOUT_CART.effectiveClient.name)
+  }
 }
