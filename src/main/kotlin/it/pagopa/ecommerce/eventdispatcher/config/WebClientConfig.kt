@@ -8,9 +8,6 @@ import io.netty.channel.ChannelOption
 import io.netty.handler.timeout.ReadTimeoutHandler
 import it.pagopa.ecommerce.commons.client.NodeForwarderClient
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.ClosePaymentRequestMixin
-import it.pagopa.generated.ecommerce.gateway.v1.ApiClient as GatewayApiClient
-import it.pagopa.generated.ecommerce.gateway.v1.api.VposInternalApi
-import it.pagopa.generated.ecommerce.gateway.v1.api.XPayInternalApi
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundRequestDto as RedirectRefundRequestDto
 import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundResponseDto as RedirectRefundResponseDto
@@ -81,66 +78,6 @@ class WebClientConfig {
       .exchangeStrategies(exchangeStrategies)
       .baseUrl(nodoUri)
       .build()
-  }
-
-  @Bean(name = ["VposApiWebClient"])
-  fun vposApiWebClient(
-    @Value("\${paymentTransactionsGateway.uri}") paymentTransactionGatewayUri: String,
-    @Value("\${paymentTransactionsGateway.readTimeout}") paymentTransactionGatewayReadTimeout: Int,
-    @Value("\${paymentTransactionsGateway.connectionTimeout}")
-    paymentTransactionGatewayConnectionTimeout: Int,
-    @Value("\${paymentTransactionsGateway.apiKey}") paymentTransactionGatewayApiKey: String
-  ): VposInternalApi {
-    val httpClient =
-      HttpClient.create()
-        .resolver { it.ndots(1) }
-        .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, paymentTransactionGatewayConnectionTimeout)
-        .doOnConnected { connection: Connection ->
-          connection.addHandlerLast(
-            ReadTimeoutHandler(
-              paymentTransactionGatewayReadTimeout.toLong(), TimeUnit.MILLISECONDS))
-        }
-    val webClient =
-      GatewayApiClient.buildWebClientBuilder()
-        .clientConnector(ReactorClientHttpConnector(httpClient))
-        .baseUrl(paymentTransactionGatewayUri)
-        .build()
-
-    val gatewayApiClient = GatewayApiClient(webClient)
-    gatewayApiClient.setApiKey(paymentTransactionGatewayApiKey)
-    gatewayApiClient.basePath = paymentTransactionGatewayUri
-
-    return VposInternalApi(gatewayApiClient)
-  }
-
-  @Bean(name = ["XpayApiWebClient"])
-  fun xpayApiWebClient(
-    @Value("\${paymentTransactionsGateway.uri}") paymentTransactionGatewayUri: String,
-    @Value("\${paymentTransactionsGateway.readTimeout}") paymentTransactionGatewayReadTimeout: Int,
-    @Value("\${paymentTransactionsGateway.connectionTimeout}")
-    paymentTransactionGatewayConnectionTimeout: Int,
-    @Value("\${paymentTransactionsGateway.apiKey}") paymentTransactionGatewayApiKey: String
-  ): XPayInternalApi {
-    val httpClient =
-      HttpClient.create()
-        .resolver { it.ndots(1) }
-        .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, paymentTransactionGatewayConnectionTimeout)
-        .doOnConnected { connection: Connection ->
-          connection.addHandlerLast(
-            ReadTimeoutHandler(
-              paymentTransactionGatewayReadTimeout.toLong(), TimeUnit.MILLISECONDS))
-        }
-    val webClient =
-      GatewayApiClient.buildWebClientBuilder()
-        .clientConnector(ReactorClientHttpConnector(httpClient))
-        .baseUrl(paymentTransactionGatewayUri)
-        .build()
-
-    val gatewayApiClient = GatewayApiClient(webClient)
-    gatewayApiClient.setApiKey(paymentTransactionGatewayApiKey)
-    gatewayApiClient.basePath = paymentTransactionGatewayUri
-
-    return XPayInternalApi(gatewayApiClient)
   }
 
   @Bean(name = ["notificationsServiceWebClient"])

@@ -6,11 +6,14 @@ import com.azure.core.util.BinaryData
 import com.azure.core.util.serializer.TypeReference
 import com.azure.storage.queue.QueueAsyncClient
 import com.azure.storage.queue.models.SendMessageResult
-import it.pagopa.ecommerce.commons.documents.v2.*
+import it.pagopa.ecommerce.commons.documents.v2.BaseTransactionRetriedData
+import it.pagopa.ecommerce.commons.documents.v2.Transaction
+import it.pagopa.ecommerce.commons.documents.v2.TransactionClosureRetriedEvent
+import it.pagopa.ecommerce.commons.documents.v2.TransactionEvent
 import it.pagopa.ecommerce.commons.documents.v2.activation.EmptyTransactionGatewayActivationData
-import it.pagopa.ecommerce.commons.documents.v2.authorization.PgsTransactionGatewayAuthorizationData
+import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.domain.v2.TransactionEventCode
-import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
+import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.TracingInfoTest.MOCK_TRACING_INFO
@@ -80,7 +83,8 @@ class ClosureRetryServiceTests {
         TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
         TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>,
         TransactionTestUtils.transactionAuthorizationCompletedEvent(
-          PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
+          NpgTransactionGatewayAuthorizationData(
+            OperationResultDto.EXECUTED, "operationId", "paymentEnd2EndId", null, null))
           as TransactionEvent<Any>,
         TransactionTestUtils.transactionClosureErrorEvent() as TransactionEvent<Any>)
 
@@ -138,7 +142,8 @@ class ClosureRetryServiceTests {
         TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
         TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>,
         TransactionTestUtils.transactionAuthorizationCompletedEvent(
-          PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
+          NpgTransactionGatewayAuthorizationData(
+            OperationResultDto.EXECUTED, "operationId", "paymentEnd2EndId", null, null))
           as TransactionEvent<Any>,
         TransactionTestUtils.transactionClosureErrorEvent() as TransactionEvent<Any>)
 
@@ -196,7 +201,8 @@ class ClosureRetryServiceTests {
         TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
         TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>,
         TransactionTestUtils.transactionAuthorizationCompletedEvent(
-          PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
+          NpgTransactionGatewayAuthorizationData(
+            OperationResultDto.EXECUTED, "operationId", "paymentEnd2EndId", null, null))
           as TransactionEvent<Any>,
         TransactionTestUtils.transactionClosureErrorEvent() as TransactionEvent<Any>)
 
@@ -237,7 +243,8 @@ class ClosureRetryServiceTests {
         TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
         TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>,
         TransactionTestUtils.transactionAuthorizationCompletedEvent(
-          PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
+          NpgTransactionGatewayAuthorizationData(
+            OperationResultDto.EXECUTED, "operationId", "paymentEnd2EndId", null, null))
           as TransactionEvent<Any>,
         TransactionTestUtils.transactionClosureErrorEvent() as TransactionEvent<Any>)
 
@@ -278,7 +285,8 @@ class ClosureRetryServiceTests {
         TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
         TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>,
         TransactionTestUtils.transactionAuthorizationCompletedEvent(
-          PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
+          NpgTransactionGatewayAuthorizationData(
+            OperationResultDto.EXECUTED, "operationId", "paymentEnd2EndId", null, null))
           as TransactionEvent<Any>,
         TransactionTestUtils.transactionClosureErrorEvent() as TransactionEvent<Any>)
 
@@ -317,7 +325,8 @@ class ClosureRetryServiceTests {
         TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
         TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>,
         TransactionTestUtils.transactionAuthorizationCompletedEvent(
-          PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
+          NpgTransactionGatewayAuthorizationData(
+            OperationResultDto.EXECUTED, "operationId", "paymentEnd2EndId", null, null))
           as TransactionEvent<Any>,
         TransactionTestUtils.transactionClosureErrorEvent() as TransactionEvent<Any>)
 
@@ -363,7 +372,8 @@ class ClosureRetryServiceTests {
           as TransactionEvent<Any>,
         TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>,
         TransactionTestUtils.transactionAuthorizationCompletedEvent(
-          PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
+          NpgTransactionGatewayAuthorizationData(
+            OperationResultDto.EXECUTED, "operationId", "paymentEnd2EndId", null, null))
           as TransactionEvent<Any>,
         TransactionTestUtils.transactionClosureErrorEvent() as TransactionEvent<Any>)
 

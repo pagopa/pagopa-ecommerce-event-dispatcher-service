@@ -7,11 +7,11 @@ import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.documents.v2.activation.EmptyTransactionGatewayActivationData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationRequestedData
-import it.pagopa.ecommerce.commons.documents.v2.authorization.PgsTransactionGatewayAuthorizationData
+import it.pagopa.ecommerce.commons.documents.v2.authorization.RedirectTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.domain.Email
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithRequestedUserReceipt
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
-import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
+import it.pagopa.ecommerce.commons.v2.TransactionTestUtils
 import it.pagopa.ecommerce.commons.v2.TransactionTestUtils.*
 import it.pagopa.ecommerce.eventdispatcher.client.NotificationsServiceClient
 import it.pagopa.ecommerce.eventdispatcher.utils.ConfidentialDataUtils
@@ -146,10 +146,11 @@ class UserReceiptMailBuilderTest {
       given(confidentialDataUtils.toEmail(any())).willReturn(Email(EMAIL_STRING))
       val events =
         listOf<TransactionEvent<*>>(
-          transactionActivateEvent() as TransactionEvent<*>,
-          transactionAuthorizationRequestedEvent() as TransactionEvent<*>,
-          transactionAuthorizationCompletedEvent(
-            PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
+          TransactionTestUtils.transactionActivateEvent() as TransactionEvent<*>,
+          TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<*>,
+          TransactionTestUtils.transactionAuthorizationCompletedEvent(
+            NpgTransactionGatewayAuthorizationData(
+              OperationResultDto.EXECUTED, "operationId", "paymentEnd2EndId", null, null))
             as TransactionEvent<*>,
           transactionClosureRequestedEvent() as TransactionEvent<*>,
           transactionClosedEvent(TransactionClosureData.Outcome.OK) as TransactionEvent<*>,
@@ -234,10 +235,11 @@ class UserReceiptMailBuilderTest {
       given(confidentialDataUtils.toEmail(any())).willReturn(Email(EMAIL_STRING))
       val events =
         listOf<TransactionEvent<*>>(
-          transactionActivateEvent() as TransactionEvent<*>,
-          transactionAuthorizationRequestedEvent() as TransactionEvent<*>,
-          transactionAuthorizationCompletedEvent(
-            PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
+          TransactionTestUtils.transactionActivateEvent() as TransactionEvent<*>,
+          TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<*>,
+          TransactionTestUtils.transactionAuthorizationCompletedEvent(
+            NpgTransactionGatewayAuthorizationData(
+              OperationResultDto.EXECUTED, "operationId", "paymentEnd2EndId", null, null))
             as TransactionEvent<*>,
           transactionClosureRequestedEvent() as TransactionEvent<*>,
           transactionClosedEvent(TransactionClosureData.Outcome.OK) as TransactionEvent<*>,
@@ -320,10 +322,11 @@ class UserReceiptMailBuilderTest {
       given(confidentialDataUtils.toEmail(any())).willReturn(Email(EMAIL_STRING))
       val events =
         listOf<TransactionEvent<*>>(
-          transactionActivateEvent() as TransactionEvent<*>,
-          transactionAuthorizationRequestedEvent() as TransactionEvent<*>,
-          transactionAuthorizationCompletedEvent(
-            PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
+          TransactionTestUtils.transactionActivateEvent() as TransactionEvent<*>,
+          TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<*>,
+          TransactionTestUtils.transactionAuthorizationCompletedEvent(
+            NpgTransactionGatewayAuthorizationData(
+              OperationResultDto.EXECUTED, "operationId", "paymentEnd2EndId", null, null))
             as TransactionEvent<*>,
           transactionClosureRequestedEvent() as TransactionEvent<*>,
           transactionClosedEvent(TransactionClosureData.Outcome.OK) as TransactionEvent<*>,
@@ -378,10 +381,11 @@ class UserReceiptMailBuilderTest {
       given(confidentialDataUtils.toEmail(any())).willReturn(Email(EMAIL_STRING))
       val events =
         listOf<TransactionEvent<*>>(
-          transactionActivateEvent() as TransactionEvent<*>,
-          transactionAuthorizationRequestedEvent() as TransactionEvent<*>,
-          transactionAuthorizationCompletedEvent(
-            PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
+          TransactionTestUtils.transactionActivateEvent() as TransactionEvent<*>,
+          TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<*>,
+          TransactionTestUtils.transactionAuthorizationCompletedEvent(
+            NpgTransactionGatewayAuthorizationData(
+              OperationResultDto.EXECUTED, "operationId", "paymentEnd2EndId", null, null))
             as TransactionEvent<*>,
           transactionClosureRequestedEvent() as TransactionEvent<*>,
           transactionClosedEvent(TransactionClosureData.Outcome.OK) as TransactionEvent<*>,
@@ -441,9 +445,10 @@ class UserReceiptMailBuilderTest {
     val events =
       listOf<TransactionEvent<*>>(
         transactionActivatedEvent as TransactionEvent<*>,
-        transactionAuthorizationRequestedEvent() as TransactionEvent<*>,
-        transactionAuthorizationCompletedEvent(
-          PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
+        TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<*>,
+        TransactionTestUtils.transactionAuthorizationCompletedEvent(
+          NpgTransactionGatewayAuthorizationData(
+            OperationResultDto.EXECUTED, "operationId", "paymentEnd2EndId", null, null))
           as TransactionEvent<*>,
         transactionClosureRequestedEvent() as TransactionEvent<*>,
         transactionClosedEvent(TransactionClosureData.Outcome.OK) as TransactionEvent<*>,
@@ -793,7 +798,8 @@ class UserReceiptMailBuilderTest {
         transactionActivatedEvent as TransactionEvent<*>,
         authEvent,
         transactionAuthorizationCompletedEvent(
-          PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+          RedirectTransactionGatewayAuthorizationData(
+            RedirectTransactionGatewayAuthorizationData.Outcome.OK, null)),
         transactionClosureRequestedEvent() as TransactionEvent<*>,
         transactionClosedEvent(TransactionClosureData.Outcome.OK) as TransactionEvent<*>,
         transactionUserReceiptRequestedEvent(
@@ -866,7 +872,8 @@ class UserReceiptMailBuilderTest {
           transactionActivatedEvent as TransactionEvent<*>,
           authEvent,
           transactionAuthorizationCompletedEvent(
-            PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+            NpgTransactionGatewayAuthorizationData(
+              OperationResultDto.EXECUTED, "operationId", "paymentEnd2EndId", null, null)),
           transactionClosureRequestedEvent() as TransactionEvent<*>,
           transactionClosedEvent(TransactionClosureData.Outcome.OK) as TransactionEvent<*>,
           transactionUserReceiptRequestedEvent(

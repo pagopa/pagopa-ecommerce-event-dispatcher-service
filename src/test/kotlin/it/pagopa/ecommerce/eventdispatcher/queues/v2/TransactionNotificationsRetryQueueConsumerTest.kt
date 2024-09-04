@@ -5,11 +5,11 @@ import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.documents.v2.*
-import it.pagopa.ecommerce.commons.documents.v2.authorization.PgsTransactionGatewayAuthorizationData
+import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.v2.TransactionEventCode
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithRequestedUserReceipt
-import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
+import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.TracingInfoTest.MOCK_TRACING_INFO
@@ -31,7 +31,6 @@ import it.pagopa.generated.notifications.v1.dto.NotificationEmailRequestDto
 import it.pagopa.generated.notifications.v1.dto.NotificationEmailResponseDto
 import java.nio.charset.StandardCharsets
 import java.time.ZonedDateTime
-import java.util.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.reactor.mono
 import kotlinx.coroutines.test.runTest
@@ -121,7 +120,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
         transactionActivateEvent(),
         transactionAuthorizationRequestedEvent(),
         transactionAuthorizationCompletedEvent(
-          PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+          NpgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED, "", "", "", "")),
         transactionClosureRequestedEvent(),
         transactionClosedEvent(TransactionClosureData.Outcome.OK),
         transactionUserReceiptRequestedEvent(transactionUserReceiptData),
@@ -182,7 +181,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
         transactionActivateEvent(),
         transactionAuthorizationRequestedEvent(),
         transactionAuthorizationCompletedEvent(
-          PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+          NpgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED, "", "", "", "")),
         transactionClosureRequestedEvent(),
         transactionClosedEvent(TransactionClosureData.Outcome.OK),
         transactionUserReceiptRequestedEvent(transactionUserReceiptData),
@@ -270,7 +269,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
           transactionActivateEvent(),
           transactionAuthorizationRequestedEvent(),
           transactionAuthorizationCompletedEvent(
-            PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+            NpgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED, "", "", "", "")),
           transactionClosureRequestedEvent(),
           transactionClosedEvent(TransactionClosureData.Outcome.OK),
           transactionUserReceiptRequestedEvent(transactionUserReceiptData),
@@ -333,7 +332,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
           transactionActivateEvent(),
           transactionAuthorizationRequestedEvent(),
           transactionAuthorizationCompletedEvent(
-            PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+            NpgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED, "", "", "", "")),
           transactionClosureRequestedEvent(),
           transactionClosedEvent(TransactionClosureData.Outcome.OK),
           transactionUserReceiptRequestedEvent(transactionUserReceiptData),
@@ -422,7 +421,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
           transactionActivateEvent(),
           transactionAuthorizationRequestedEvent(),
           transactionAuthorizationCompletedEvent(
-            PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+            NpgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED, "", "", "", "")),
           transactionClosureRequestedEvent(),
           transactionClosedEvent(TransactionClosureData.Outcome.OK),
           transactionUserReceiptRequestedEvent(transactionUserReceiptData),
@@ -485,7 +484,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
           transactionActivateEvent(),
           transactionAuthorizationRequestedEvent(),
           transactionAuthorizationCompletedEvent(
-            PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+            NpgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED, "", "", "", "")),
           transactionClosureRequestedEvent(),
           transactionClosedEvent(TransactionClosureData.Outcome.OK),
           transactionUserReceiptRequestedEvent(transactionUserReceiptData),
@@ -549,7 +548,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
           transactionActivateEvent(),
           transactionAuthorizationRequestedEvent(),
           transactionAuthorizationCompletedEvent(
-            PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+            NpgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED, "", "", "", "")),
           transactionClosureRequestedEvent(),
           transactionClosedEvent(TransactionClosureData.Outcome.OK),
           transactionUserReceiptRequestedEvent(transactionUserReceiptData),
@@ -614,7 +613,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
           transactionActivateEvent(),
           transactionAuthorizationRequestedEvent(),
           transactionAuthorizationCompletedEvent(
-            PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+            NpgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED, "", "", "", "")),
           transactionClosureRequestedEvent(),
           transactionClosedEvent(TransactionClosureData.Outcome.OK),
           transactionUserReceiptRequestedEvent(transactionUserReceiptData),
@@ -680,7 +679,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
           transactionActivateEvent(),
           transactionAuthorizationRequestedEvent(),
           transactionAuthorizationCompletedEvent(
-            PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+            NpgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED, "", "", "", "")),
           transactionClosureRequestedEvent(),
           transactionClosedEvent(TransactionClosureData.Outcome.OK),
           transactionUserReceiptRequestedEvent(transactionUserReceiptData),
@@ -755,7 +754,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
           transactionActivateEvent(),
           transactionAuthorizationRequestedEvent(),
           transactionAuthorizationCompletedEvent(
-            PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+            NpgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED, "", "", "", "")),
           transactionClosureRequestedEvent(),
           transactionClosedEvent(TransactionClosureData.Outcome.OK),
           transactionUserReceiptRequestedEvent(transactionUserReceiptData),
@@ -854,7 +853,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
           transactionActivateEvent(),
           transactionAuthorizationRequestedEvent(),
           transactionAuthorizationCompletedEvent(
-            PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+            NpgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED, "", "", "", "")),
           transactionClosureRequestedEvent(),
           transactionClosedEvent(TransactionClosureData.Outcome.OK),
           transactionUserReceiptRequestedEvent(transactionUserReceiptData),
@@ -1020,7 +1019,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
           transactionActivateEvent(),
           transactionAuthorizationRequestedEvent(),
           transactionAuthorizationCompletedEvent(
-            PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+            NpgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED, "", "", "", "")),
           transactionClosureRequestedEvent(),
           transactionClosedEvent(TransactionClosureData.Outcome.OK),
           transactionUserReceiptRequestedEvent(transactionUserReceiptData),

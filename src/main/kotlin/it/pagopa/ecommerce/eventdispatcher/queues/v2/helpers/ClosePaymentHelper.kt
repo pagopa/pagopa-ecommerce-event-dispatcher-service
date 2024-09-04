@@ -12,7 +12,6 @@ import it.pagopa.ecommerce.commons.documents.v2.authorization.RedirectTransactio
 import it.pagopa.ecommerce.commons.domain.v2.*
 import it.pagopa.ecommerce.commons.domain.v2.pojos.*
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
-import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
@@ -454,12 +453,13 @@ class ClosePaymentHelper(
     val transactionGatewayData =
       transaction.transactionAuthorizationCompletedData.transactionGatewayAuthorizationData
     return when (transactionGatewayData) {
-      is PgsTransactionGatewayAuthorizationData ->
-        transactionGatewayData.authorizationResultDto == AuthorizationResultDto.OK
       is NpgTransactionGatewayAuthorizationData ->
         transactionGatewayData.operationResult == OperationResultDto.EXECUTED
       is RedirectTransactionGatewayAuthorizationData ->
         transactionGatewayData.outcome == RedirectTransactionGatewayAuthorizationData.Outcome.OK
+      is PgsTransactionGatewayAuthorizationData ->
+        throw IllegalArgumentException(
+          "Unhandled or invalid auth data type 'PgsTransactionGatewayAuthorizationData'")
     }
   }
 
@@ -526,11 +526,6 @@ class ClosePaymentHelper(
 
     val closureOutcome =
       when (transactionAuthGatewayData) {
-        is PgsTransactionGatewayAuthorizationData ->
-          when (transactionAuthGatewayData.authorizationResultDto) {
-            AuthorizationResultDto.OK -> ClosePaymentOutcome.OK
-            else -> ClosePaymentOutcome.KO
-          }
         is NpgTransactionGatewayAuthorizationData ->
           when (transactionAuthGatewayData.operationResult) {
             OperationResultDto.EXECUTED -> ClosePaymentOutcome.OK
@@ -541,6 +536,9 @@ class ClosePaymentHelper(
             RedirectTransactionGatewayAuthorizationData.Outcome.OK -> ClosePaymentOutcome.OK
             else -> ClosePaymentOutcome.KO
           }
+        is PgsTransactionGatewayAuthorizationData ->
+          throw IllegalArgumentException(
+            "Unhandled or invalid auth data type 'PgsTransactionGatewayAuthorizationData'")
       }
 
     return closureOutcome

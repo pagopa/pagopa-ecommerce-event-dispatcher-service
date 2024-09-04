@@ -4,12 +4,12 @@ import com.azure.core.util.BinaryData
 import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import it.pagopa.ecommerce.commons.documents.v2.*
-import it.pagopa.ecommerce.commons.documents.v2.authorization.PgsTransactionGatewayAuthorizationData
+import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.domain.Email
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.v2.TransactionEventCode
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithRequestedUserReceipt
-import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
+import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.TracingInfoTest.MOCK_TRACING_INFO
@@ -22,7 +22,10 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewReposito
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.NotificationRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.AuthorizationStateRetrieverService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgService
-import it.pagopa.ecommerce.eventdispatcher.utils.*
+import it.pagopa.ecommerce.eventdispatcher.utils.ConfidentialDataUtils
+import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
+import it.pagopa.ecommerce.eventdispatcher.utils.TRANSIENT_QUEUE_TTL_SECONDS
+import it.pagopa.ecommerce.eventdispatcher.utils.queueSuccessfulResponse
 import it.pagopa.ecommerce.eventdispatcher.utils.v2.UserReceiptMailBuilder
 import it.pagopa.generated.notifications.templates.success.SuccessTemplate
 import it.pagopa.generated.notifications.v1.dto.NotificationEmailRequestDto
@@ -116,7 +119,8 @@ class TransactionNotificationsQueueConsumerTest {
         transactionActivateEvent(),
         transactionAuthorizationRequestedEvent(),
         transactionAuthorizationCompletedEvent(
-          PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+          NpgTransactionGatewayAuthorizationData(
+            OperationResultDto.EXECUTED, "operationId", "paymentEnd2EndId", null, null)),
         transactionClosureRequestedEvent(),
         transactionClosedEvent(TransactionClosureData.Outcome.OK),
         notificationRequested)
@@ -178,7 +182,8 @@ class TransactionNotificationsQueueConsumerTest {
           transactionActivateEvent(),
           transactionAuthorizationRequestedEvent(),
           transactionAuthorizationCompletedEvent(
-            PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+            NpgTransactionGatewayAuthorizationData(
+              OperationResultDto.EXECUTED, "operationId", "paymentEnd2EndId", null, null)),
           transactionClosureRequestedEvent(),
           transactionClosedEvent(TransactionClosureData.Outcome.OK),
           notificationRequested)
@@ -263,7 +268,8 @@ class TransactionNotificationsQueueConsumerTest {
           transactionActivateEvent(),
           transactionAuthorizationRequestedEvent(),
           transactionAuthorizationCompletedEvent(
-            PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+            NpgTransactionGatewayAuthorizationData(
+              OperationResultDto.EXECUTED, "operationId", "paymentEnd2EndId", null, null)),
           transactionClosureRequestedEvent(),
           transactionClosedEvent(TransactionClosureData.Outcome.OK),
           notificationRequested)
@@ -325,7 +331,8 @@ class TransactionNotificationsQueueConsumerTest {
           transactionActivateEvent(),
           transactionAuthorizationRequestedEvent(),
           transactionAuthorizationCompletedEvent(
-            PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+            NpgTransactionGatewayAuthorizationData(
+              OperationResultDto.EXECUTED, "operationId", "paymentEnd2EndId", null, null)),
           transactionClosureRequestedEvent(),
           transactionClosedEvent(TransactionClosureData.Outcome.OK),
           notificationRequested)
@@ -410,7 +417,8 @@ class TransactionNotificationsQueueConsumerTest {
           transactionActivateEvent(),
           transactionAuthorizationRequestedEvent(),
           transactionAuthorizationCompletedEvent(
-            PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+            NpgTransactionGatewayAuthorizationData(
+              OperationResultDto.EXECUTED, "operationId", "paymentEnd2EndId", null, null)),
           transactionClosureRequestedEvent(),
           transactionClosedEvent(TransactionClosureData.Outcome.OK),
           notificationRequested)
@@ -478,7 +486,8 @@ class TransactionNotificationsQueueConsumerTest {
           transactionActivateEvent(),
           transactionAuthorizationRequestedEvent(),
           transactionAuthorizationCompletedEvent(
-            PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+            NpgTransactionGatewayAuthorizationData(
+              OperationResultDto.EXECUTED, "operationId", "paymentEnd2EndId", null, null)),
           transactionClosureRequestedEvent(),
           transactionClosedEvent(TransactionClosureData.Outcome.OK),
           notificationRequested)
@@ -551,7 +560,8 @@ class TransactionNotificationsQueueConsumerTest {
           transactionActivateEvent(),
           transactionAuthorizationRequestedEvent(),
           transactionAuthorizationCompletedEvent(
-            PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+            NpgTransactionGatewayAuthorizationData(
+              OperationResultDto.EXECUTED, "operationId", "paymentEnd2EndId", null, null)),
           transactionClosureRequestedEvent(),
           transactionClosedEvent(TransactionClosureData.Outcome.OK),
           notificationRequested)
@@ -700,7 +710,8 @@ class TransactionNotificationsQueueConsumerTest {
           transactionActivatedEvent,
           transactionAuthorizationRequestedEvent(),
           transactionAuthorizationCompletedEvent(
-            PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+            NpgTransactionGatewayAuthorizationData(
+              OperationResultDto.EXECUTED, "operationId", "paymentEnd2EndId", null, null)),
           transactionClosureRequestedEvent(),
           transactionClosedEvent(TransactionClosureData.Outcome.OK),
           notificationRequested)
@@ -742,7 +753,8 @@ class TransactionNotificationsQueueConsumerTest {
           transactionActivatedEvent,
           transactionAuthorizationRequestedEvent(),
           transactionAuthorizationCompletedEvent(
-            PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+            NpgTransactionGatewayAuthorizationData(
+              OperationResultDto.EXECUTED, "operationId", "paymentEnd2EndId", null, null)),
           transactionClosureRequestedEvent(),
           transactionClosedEvent(TransactionClosureData.Outcome.OK),
           notificationRequested)
@@ -779,7 +791,8 @@ class TransactionNotificationsQueueConsumerTest {
           transactionActivateEvent(),
           transactionAuthorizationRequestedEvent(),
           transactionAuthorizationCompletedEvent(
-            PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+            NpgTransactionGatewayAuthorizationData(
+              OperationResultDto.EXECUTED, "operationId", "paymentEnd2EndId", null, null)),
           transactionClosureRequestedEvent(),
           transactionClosedEvent(TransactionClosureData.Outcome.OK),
           notificationRequested)
