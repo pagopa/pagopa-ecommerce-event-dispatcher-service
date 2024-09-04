@@ -32,7 +32,7 @@ microservice-chart:
         ECS_SERVICE_NAME: pagopa-ecommerce-event-dispatcher-service-blue
   image:
     repository: pagopapcommonacr.azurecr.io/pagopaecommerceeventdispatcherservice
-    tag: "1.19.0"
+    tag: "1.21.0"
     pullPolicy: Always
   livenessProbe:
     httpGet:
