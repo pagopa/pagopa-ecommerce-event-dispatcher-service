@@ -70,10 +70,10 @@ microservice-chart:
     allowPrivilegeEscalation: false
   resources:
     requests:
-      memory: "512Mi"
+      memory: "768Mi"
       cpu: "300m"
     limits:
-      memory: "512Mi"
+      memory: "768Mi"
       cpu: "500m"
   deployment:
     create: true
