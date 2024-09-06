@@ -478,10 +478,9 @@ fun refundTransaction(
               refundService.requestRedirectRefund(
                 transactionId = transaction.transactionId,
                 touchpoint =
-                  transaction.clientId.let {
+                  transaction.clientId.effectiveClient.let {
                     when (it) {
                       Transaction.ClientId.CHECKOUT_CART -> Transaction.ClientId.CHECKOUT.name
-                      Transaction.ClientId.WISP_REDIRECT,
                       Transaction.ClientId.CHECKOUT,
                       Transaction.ClientId.IO -> it.name
                       else ->
