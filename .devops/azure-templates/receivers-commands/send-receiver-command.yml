@@ -1,0 +1,50 @@
+#This template will handle command sending to event dispatcher to enable/disable receivers
+parameters:
+  # deployment environment
+  - name: ENV
+    type: string
+    values:
+      - DEV
+      - UAT
+      - PROD
+  # command to be sent
+  - name: COMMAND
+    type: string
+    values:
+      - START
+      - STOP
+  # command target deployment version
+  - name: TARGET_DEPLOYMENT_VERSION
+    type: string
+    values:
+      - PROD
+      - STAGING
+
+steps:
+  - task: Bash@3
+    name: ${{ parameters.COMMAND }}_receivers_${{ parameters.TARGET_DEPLOYMENT_VERSION }}
+    displayName: 'Sending command ${{ parameters.COMMAND }} to deployment ${{ parameters.TARGET_DEPLOYMENT_VERSION }}'
+    inputs:
+      targetType: "inline"
+      script: |
+        command=${{ parameters.COMMAND }}
+        deploymentTargetVersion=${{ parameters.TARGET_DEPLOYMENT_VERSION }}
+        echo "Sending command: [$command] with deployment target: [$deploymentTargetVersion] to event dispatcher instance: [$deploymentInstance]"
+        declare -A commandUrls=(\
+        ["DEV"]="https://weudev.ecommerce.internal.dev.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-staging/event-dispatcher/event-receivers/commands" \
+        ["UAT"]="https://weuuat.ecommerce.internal.uat.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-staging/event-dispatcher/event-receivers/commands" \
+        ["PROD"]="https://weuprod.ecommerce.internal.platform.pagopa.it/pagopa-ecommerce-event-dispatcher-staging/event-dispatcher/event-receivers/commands" \
+        )
+        commandUrl=${commandUrls[${{ parameters.ENV }}]}
+        body=$(cat <<EOF
+        {
+          "command": "$command",
+          "deploymentVersion": "$deploymentTargetVersion"
+        }
+        EOF
+        )
+        echo "Performing POST $commandUrl with body $body"
+        curl --location $commandUrl \
+        --header 'Content-Type: application/json' \
+        --data "$body"
+      failOnStderr: false
