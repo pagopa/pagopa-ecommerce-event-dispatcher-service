@@ -12,8 +12,6 @@ import it.pagopa.ecommerce.commons.utils.RedirectKeysConfiguration
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadGatewayException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.RefundNotAllowedException
-import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
-import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
 import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundRequestDto as RedirectRefundRequestDto
 import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundResponseDto as RedirectRefundResponseDto
 import java.math.BigDecimal
@@ -83,14 +81,6 @@ class RefundService(
               .orElse(exception)
           }
       })
-  }
-
-  fun requestVposRefund(requestID: String): Mono<VposDeleteResponseDto> {
-    return paymentGatewayClient.requestVPosRefund(UUID.fromString(requestID))
-  }
-
-  fun requestXpayRefund(requestID: String): Mono<XPayRefundResponse200Dto> {
-    return paymentGatewayClient.requestXPayRefund(UUID.fromString(requestID))
   }
 
   fun requestRedirectRefund(

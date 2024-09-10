@@ -21,6 +21,7 @@ import it.pagopa.ecommerce.eventdispatcher.utils.PaymentCode
 import it.pagopa.generated.ecommerce.nodo.v2.dto.*
 import it.pagopa.generated.ecommerce.nodo.v2.dto.CardAdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum
 import java.math.BigDecimal
+import java.net.URI
 import java.time.OffsetDateTime
 import java.time.ZonedDateTime
 import java.util.stream.Stream
@@ -37,11 +38,9 @@ import org.junit.jupiter.params.provider.MethodSource
 import org.mockito.ArgumentCaptor
 import org.mockito.BDDMockito.given
 import org.mockito.Captor
-import org.mockito.kotlin.any
-import org.mockito.kotlin.capture
-import org.mockito.kotlin.eq
-import org.mockito.kotlin.mock
+import org.mockito.kotlin.*
 import org.springframework.test.context.junit.jupiter.SpringExtension
+import reactor.core.publisher.Hooks
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toFlux
 
@@ -232,150 +231,6 @@ class NodeServiceTests {
 
   @ParameterizedTest
   @MethodSource("closePaymentDateFormat")
-  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for PGS payment gateway`(
-    timestampOperation: String,
-    expectedLocalDate: String
-  ) = runTest {
-    val transactionOutcome = ClosePaymentOutcome.OK
-
-    val activatedEvent = transactionActivateEvent()
-    val authEvent = transactionAuthorizationRequestedEvent()
-    val authCompletedEvent =
-      transactionAuthorizationCompletedEvent(
-        pgsTransactionGatewayAuthorizationData(AuthorizationResultDto.OK))
-    val closureRequestedEvent = transactionClosureRequestedEvent()
-    val closureError = transactionClosureErrorEvent()
-    val transactionId = activatedEvent.transactionId
-    val nodoTimestampOperation = OffsetDateTime.parse(timestampOperation)
-    authCompletedEvent.data.timestampOperation = nodoTimestampOperation.toString()
-    val events =
-      listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent, closureError)
-        as List<TransactionEvent<Any>>
-
-    val closePaymentResponse =
-      ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
-
-    val fee = authEvent.data.fee
-    val amount = authEvent.data.amount
-    val totalAmount = amount + fee
-
-    val feeEuro = EuroUtils.euroCentsToEuro(fee)
-    val totalAmountEuro = EuroUtils.euroCentsToEuro(totalAmount)
-
-    val feeEuroCents = BigDecimal(fee)
-    val amountEuroCents = BigDecimal(amount)
-    val totalAmountEuroCents = BigDecimal(totalAmount)
-
-    /* preconditions */
-    given(
-        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
-      .willReturn(events.toFlux())
-
-    given(nodeClient.closePayment(capture(closePaymentRequestCaptor)))
-      .willReturn(Mono.just(closePaymentResponse))
-
-    given(confidentialDataUtils.eCommerceDecrypt(eq(activatedEvent.data.email), any()))
-      .willReturn(Mono.just(Email(EMAIL_STRING)))
-
-    /* test */
-    assertEquals(
-      closePaymentResponse,
-      nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
-
-    val expectedOutcome =
-      authCompletedEvent.data.transactionGatewayAuthorizationData.let {
-        when (it) {
-          is PgsTransactionGatewayAuthorizationData ->
-            OutcomePaymentGatewayEnum.valueOf(it.authorizationResultDto.toString())
-          is NpgTransactionGatewayAuthorizationData ->
-            if (it.operationResult == OperationResultDto.EXECUTED) {
-              OutcomePaymentGatewayEnum.OK
-            } else {
-              OutcomePaymentGatewayEnum.KO
-            }
-          is RedirectTransactionGatewayAuthorizationData ->
-            if (it.outcome == RedirectTransactionGatewayAuthorizationData.Outcome.OK) {
-              OutcomePaymentGatewayEnum.OK
-            } else {
-              OutcomePaymentGatewayEnum.KO
-            }
-        }
-      }
-
-    // Check close payment request information
-    val expected =
-      CardClosePaymentRequestV2Dto().apply {
-        outcome = CardClosePaymentRequestV2Dto.OutcomeEnum.OK
-        this.transactionId = transactionId
-        paymentTokens =
-          activatedEvent.data.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken }
-        this.timestampOperation = OffsetDateTime.parse(authCompletedEvent.data.timestampOperation)
-        this.fee = feeEuro
-        idPSP = authEvent.data.pspId
-        idChannel = authEvent.data.pspChannelCode
-        idBrokerPSP = authEvent.data.brokerName
-        paymentMethod = authEvent.data.paymentTypeCode
-        this.totalAmount = totalAmountEuro
-        transactionDetails =
-          TransactionDetailsDto().apply {
-            transaction =
-              TransactionDto().apply {
-                transactionStatus =
-                  TransactionDetailsStatusEnum.TRANSACTION_DETAILS_STATUS_CONFIRMED.status
-                this.transactionId = transactionId
-                this.fee = feeEuroCents
-                this.amount = amountEuroCents
-                grandTotal = totalAmountEuroCents
-                this.errorCode = errorCode
-                rrn = authCompletedEvent.data.rrn
-                creationDate = ZonedDateTime.parse(activatedEvent.creationDate).toOffsetDateTime()
-                psp =
-                  PspDto().apply {
-                    idPsp = authEvent.data.pspId
-                    brokerName = authEvent.data.brokerName
-                    idChannel = authEvent.data.pspChannelCode
-                    businessName = authEvent.data.pspBusinessName
-                    pspOnUs = authEvent.data.isPspOnUs
-                  }
-                authorizationCode = authCompletedEvent.data.authorizationCode
-                this.timestampOperation = authCompletedEvent.data.timestampOperation
-                paymentGateway = authEvent.data.paymentGateway.name
-              }
-            user = UserDto().apply { type = UserDto.TypeEnum.GUEST }
-            info =
-              InfoDto().apply {
-                type = authEvent.data.paymentTypeCode
-                clientId = Transaction.ClientId.CHECKOUT.name
-                brand =
-                  (authEvent.data.transactionGatewayAuthorizationRequestedData
-                      as PgsTransactionGatewayAuthorizationRequestedData)
-                    .brand!!
-                    .name
-                brandLogo =
-                  (authEvent.data.transactionGatewayAuthorizationRequestedData
-                      as PgsTransactionGatewayAuthorizationRequestedData)
-                    .logo
-                    .toString()
-                paymentMethodName = authEvent.data.paymentMethodName
-              }
-          }
-        additionalPaymentInformations =
-          CardAdditionalPaymentInformationsDto().apply {
-            authorizationCode = authCompletedEvent.data.authorizationCode
-            this.fee = feeEuro.toString()
-            outcomePaymentGateway = expectedOutcome
-            rrn = authCompletedEvent.data.rrn
-            this.timestampOperation = expectedLocalDate
-            this.totalAmount = totalAmountEuro.toString()
-            this.email = EMAIL_STRING
-          }
-      }
-
-    assertEquals(expected, closePaymentRequestCaptor.value)
-  }
-
-  @ParameterizedTest
-  @MethodSource("closePaymentDateFormat")
   fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for NPG payment gateway`(
     timestampOperation: String,
     expectedLocalDate: String
@@ -434,8 +289,6 @@ class NodeServiceTests {
     val expectedOutcome =
       authCompletedEvent.data.transactionGatewayAuthorizationData.let {
         when (it) {
-          is PgsTransactionGatewayAuthorizationData ->
-            OutcomePaymentGatewayEnum.valueOf(it.authorizationResultDto.toString())
           is NpgTransactionGatewayAuthorizationData ->
             if (it.operationResult == OperationResultDto.EXECUTED) {
               OutcomePaymentGatewayEnum.OK
@@ -448,6 +301,7 @@ class NodeServiceTests {
             } else {
               OutcomePaymentGatewayEnum.KO
             }
+          else -> throw IllegalArgumentException("Unhandled authorization data type")
         }
       }
 
@@ -518,149 +372,6 @@ class NodeServiceTests {
             this.email = EMAIL_STRING
           }
       }
-
-    assertEquals(expected, closePaymentRequestCaptor.value)
-  }
-
-  @ParameterizedTest
-  @MethodSource("closePaymentDateFormat")
-  fun `ClosePaymentRequestV2Dto for close payment OK authorization KO has additional properties and transaction details valued correctly for PGS payment gateway`(
-    timestampOperation: String,
-    expectedLocalDate: String
-  ) = runTest {
-    val transactionOutcome = ClosePaymentOutcome.OK
-
-    val activatedEvent = transactionActivateEvent()
-    val authEvent = transactionAuthorizationRequestedEvent()
-    val authCompletedEvent =
-      transactionAuthorizationCompletedEvent(
-        pgsTransactionGatewayAuthorizationData(AuthorizationResultDto.KO))
-    val closureRequestedEvent = transactionClosureRequestedEvent()
-    val closureError = transactionClosureErrorEvent()
-    val transactionId = activatedEvent.transactionId
-    val nodoTimestampOperation = OffsetDateTime.parse(timestampOperation)
-    authCompletedEvent.data.timestampOperation = nodoTimestampOperation.toString()
-    val events =
-      listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent, closureError)
-        as List<TransactionEvent<Any>>
-
-    val expectedOutcome =
-      authCompletedEvent.data.transactionGatewayAuthorizationData.let {
-        when (it) {
-          is PgsTransactionGatewayAuthorizationData ->
-            OutcomePaymentGatewayEnum.valueOf(it.authorizationResultDto.toString())
-          is NpgTransactionGatewayAuthorizationData ->
-            if (it.operationResult == OperationResultDto.EXECUTED) {
-              OutcomePaymentGatewayEnum.OK
-            } else {
-              OutcomePaymentGatewayEnum.KO
-            }
-          is RedirectTransactionGatewayAuthorizationData ->
-            if (it.outcome == RedirectTransactionGatewayAuthorizationData.Outcome.OK) {
-              OutcomePaymentGatewayEnum.OK
-            } else {
-              OutcomePaymentGatewayEnum.KO
-            }
-        }
-      }
-
-    val fee = authEvent.data.fee
-    val amount = authEvent.data.amount
-    val totalAmount = amount + fee
-
-    val feeEuro = EuroUtils.euroCentsToEuro(fee)
-    val totalAmountEuro = EuroUtils.euroCentsToEuro(totalAmount)
-
-    val feeEuroCents = BigDecimal(fee)
-    val amountEuroCents = BigDecimal(amount)
-    val totalAmountEuroCents = BigDecimal(totalAmount)
-
-    val expected =
-      CardClosePaymentRequestV2Dto().apply {
-        outcome = CardClosePaymentRequestV2Dto.OutcomeEnum.OK
-        this.transactionId = transactionId
-        paymentTokens =
-          activatedEvent.data.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken }
-        this.timestampOperation = OffsetDateTime.parse(authCompletedEvent.data.timestampOperation)
-        this.fee = feeEuro
-        idPSP = authEvent.data.pspId
-        idChannel = authEvent.data.pspChannelCode
-        idBrokerPSP = authEvent.data.brokerName
-        paymentMethod = authEvent.data.paymentTypeCode
-        this.totalAmount = totalAmountEuro
-        transactionDetails =
-          TransactionDetailsDto().apply {
-            transaction =
-              TransactionDto().apply {
-                transactionStatus =
-                  TransactionDetailsStatusEnum.TRANSACTION_DETAILS_STATUS_DENIED.status
-                this.transactionId = transactionId
-                this.fee = feeEuroCents
-                this.amount = amountEuroCents
-                grandTotal = totalAmountEuroCents
-                this.errorCode = errorCode
-                rrn = authCompletedEvent.data.rrn
-                creationDate = ZonedDateTime.parse(activatedEvent.creationDate).toOffsetDateTime()
-                psp =
-                  PspDto().apply {
-                    idPsp = authEvent.data.pspId
-                    brokerName = authEvent.data.brokerName
-                    idChannel = authEvent.data.pspChannelCode
-                    businessName = authEvent.data.pspBusinessName
-                    pspOnUs = authEvent.data.isPspOnUs
-                  }
-                authorizationCode = authCompletedEvent.data.authorizationCode
-                this.timestampOperation = authCompletedEvent.data.timestampOperation
-                paymentGateway = authEvent.data.paymentGateway.name
-              }
-            user = UserDto().apply { type = UserDto.TypeEnum.GUEST }
-            info =
-              InfoDto().apply {
-                type = authEvent.data.paymentTypeCode
-                clientId = Transaction.ClientId.CHECKOUT.name
-                brand =
-                  (authEvent.data.transactionGatewayAuthorizationRequestedData
-                      as PgsTransactionGatewayAuthorizationRequestedData)
-                    .brand!!
-                    .name
-                brandLogo =
-                  (authEvent.data.transactionGatewayAuthorizationRequestedData
-                      as PgsTransactionGatewayAuthorizationRequestedData)
-                    .logo
-                    .toString()
-                paymentMethodName = authEvent.data.paymentMethodName
-              }
-          }
-        additionalPaymentInformations =
-          CardAdditionalPaymentInformationsDto().apply {
-            authorizationCode = authCompletedEvent.data.authorizationCode
-            this.fee = feeEuro.toString()
-            outcomePaymentGateway = expectedOutcome
-            rrn = authCompletedEvent.data.rrn
-            this.timestampOperation = expectedLocalDate
-            this.totalAmount = totalAmountEuro.toString()
-            this.email = EMAIL_STRING
-          }
-      }
-
-    val closePaymentResponse =
-      ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
-
-    /* preconditions */
-    given(
-        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
-      .willReturn(events.toFlux())
-
-    given(nodeClient.closePayment(capture(closePaymentRequestCaptor)))
-      .willReturn(Mono.just(closePaymentResponse))
-
-    given(confidentialDataUtils.eCommerceDecrypt(eq(activatedEvent.data.email), any()))
-      .willReturn(Mono.just(Email(EMAIL_STRING)))
-
-    /* test */
-    assertEquals(
-      closePaymentResponse,
-      nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
 
     assertEquals(expected, closePaymentRequestCaptor.value)
   }
@@ -754,107 +465,6 @@ class NodeServiceTests {
                   brandLogo =
                     (authEvent.data.transactionGatewayAuthorizationRequestedData
                         as NpgTransactionGatewayAuthorizationRequestedData)
-                      .logo
-                      .toString()
-                  paymentMethodName = authEvent.data.paymentMethodName
-                }
-            }
-          additionalPaymentInformations = null
-        }
-
-      assertEquals(expected, closePaymentRequestCaptor.value)
-    }
-
-  @Test
-  fun `ClosePaymentRequestV2Dto for close payment KO for authorization KO has not additional properties and transaction details valued correctly for PGS gateway`() =
-    runTest {
-      val transactionOutcome = ClosePaymentOutcome.KO
-
-      val authKO = AuthorizationResultDto.KO
-      val errorCode = "errorCode"
-
-      val activatedEvent = transactionActivateEvent()
-      val authEvent = transactionAuthorizationRequestedEvent()
-      val authCompletedEvent =
-        transactionAuthorizationCompletedEvent(
-          PgsTransactionGatewayAuthorizationData(errorCode, authKO))
-      val closureRequestedEvent = transactionClosureRequestedEvent()
-      val closureError = transactionClosureErrorEvent()
-      val transactionId = activatedEvent.transactionId
-      val events =
-        listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent, closureError)
-          as List<TransactionEvent<Any>>
-
-      val closePaymentResponse =
-        ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
-
-      val fee = authEvent.data.fee
-      val amount = authEvent.data.amount
-      val totalAmount = amount + fee
-
-      val feeEuroCents = BigDecimal(fee)
-      val amountEuroCents = BigDecimal(amount)
-      val totalAmountEuroCents = BigDecimal(totalAmount)
-
-      /* preconditions */
-      given(
-          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
-            TRANSACTION_ID))
-        .willReturn(events.toFlux())
-
-      given(nodeClient.closePayment(capture(closePaymentRequestCaptor)))
-        .willReturn(Mono.just(closePaymentResponse))
-
-      /* test */
-      assertEquals(
-        closePaymentResponse,
-        nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
-
-      // Check close payment request information
-      val expected =
-        CardClosePaymentRequestV2Dto().apply {
-          outcome = CardClosePaymentRequestV2Dto.OutcomeEnum.KO
-          this.transactionId = transactionId
-          paymentTokens =
-            activatedEvent.data.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken }
-          transactionDetails =
-            TransactionDetailsDto().apply {
-              transaction =
-                TransactionDto().apply {
-                  transactionStatus =
-                    TransactionDetailsStatusEnum.TRANSACTION_DETAILS_STATUS_DENIED.status
-                  this.transactionId = transactionId
-                  this.fee = feeEuroCents
-                  this.amount = amountEuroCents
-                  grandTotal = totalAmountEuroCents
-                  this.errorCode = errorCode
-                  rrn = authCompletedEvent.data.rrn
-                  creationDate = ZonedDateTime.parse(activatedEvent.creationDate).toOffsetDateTime()
-                  psp =
-                    PspDto().apply {
-                      idPsp = authEvent.data.pspId
-                      brokerName = authEvent.data.brokerName
-                      idChannel = authEvent.data.pspChannelCode
-                      businessName = authEvent.data.pspBusinessName
-                      pspOnUs = authEvent.data.isPspOnUs
-                    }
-                  authorizationCode = null
-                  timestampOperation = authCompletedEvent.data.timestampOperation
-                  paymentGateway = authEvent.data.paymentGateway.name
-                }
-              user = UserDto().apply { type = UserDto.TypeEnum.GUEST }
-              info =
-                InfoDto().apply {
-                  type = authEvent.data.paymentTypeCode
-                  clientId = Transaction.ClientId.CHECKOUT.name
-                  brand =
-                    (authEvent.data.transactionGatewayAuthorizationRequestedData
-                        as PgsTransactionGatewayAuthorizationRequestedData)
-                      .brand!!
-                      .name
-                  brandLogo =
-                    (authEvent.data.transactionGatewayAuthorizationRequestedData
-                        as PgsTransactionGatewayAuthorizationRequestedData)
                       .logo
                       .toString()
                   paymentMethodName = authEvent.data.paymentMethodName
@@ -1103,6 +713,73 @@ class NodeServiceTests {
       assertEquals(
         closePaymentResponse, nodeService.closePayment(TransactionId(transactionId), npgOutcome))
     }
+
+  @Test
+  fun `closePayment throws error for close payment with auth request and auth completed PGS`() =
+    runTest {
+      val activatedEvent = transactionActivateEvent()
+      val authEvent =
+        transactionAuthorizationRequestedEvent(
+          TransactionAuthorizationRequestData.PaymentGateway.VPOS,
+          PgsTransactionGatewayAuthorizationRequestedData().apply {
+            logo = URI("http://localhost")
+            brand = PgsTransactionGatewayAuthorizationRequestedData.CardBrand.VISA
+          })
+          as TransactionEvent<Any>
+      val authCompletedEvent =
+        transactionAuthorizationCompletedEvent(
+          PgsTransactionGatewayAuthorizationData("000", AuthorizationResultDto.OK))
+          as TransactionEvent<Any>
+      val closureRequestedEvent = transactionClosureRequestedEvent()
+      val transactionId = activatedEvent.transactionId
+      val events =
+        listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent)
+          as List<TransactionEvent<Any>>
+
+      /* preconditions */
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
+        .willReturn(events.toFlux())
+
+      /* test */
+      assertThrows<IllegalArgumentException> {
+        nodeService.closePayment(TransactionId(transactionId), ClosePaymentOutcome.OK)
+      }
+    }
+
+  @Test
+  fun `closePayment throws error for close payment with auth request with PGS`() = runTest {
+    val activatedEvent = transactionActivateEvent()
+    val authEvent =
+      transactionAuthorizationRequestedEvent(
+        TransactionAuthorizationRequestData.PaymentGateway.VPOS,
+        PgsTransactionGatewayAuthorizationRequestedData().apply {
+          logo = URI("http://localhost")
+          brand = PgsTransactionGatewayAuthorizationRequestedData.CardBrand.VISA
+        })
+        as TransactionEvent<Any>
+    val authCompletedEvent =
+      transactionAuthorizationCompletedEvent(
+        NpgTransactionGatewayAuthorizationData(
+          OperationResultDto.EXECUTED, "operationId", "paymentEndTOEndId", null, null))
+
+    val closureRequestedEvent = transactionClosureRequestedEvent()
+    val transactionId = activatedEvent.transactionId
+    val events =
+      listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent)
+        as List<TransactionEvent<Any>>
+
+    /* preconditions */
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
+      .willReturn(events.toFlux())
+    Hooks.onOperatorDebug()
+    /* test */
+    assertThrows<IllegalArgumentException> {
+      nodeService.closePayment(TransactionId(transactionId), ClosePaymentOutcome.OK)
+    }
+  }
 
   @Test
   fun `closePayment returns error for close payment missing authorization completed event`() =
@@ -6201,67 +5878,77 @@ class NodeServiceTests {
     }
 
   @Test
-  fun `Should return error building ClosePaymentRequestV2Dto OK for registered user for unhandled client id`() =
-    runTest {
-      val transactionOutcome = ClosePaymentOutcome.OK
-      val authRequestedData =
-        NpgTransactionGatewayAuthorizationRequestedData(
-          LOGO_URI,
-          NpgClient.PaymentMethod.PAYPAL.toString(),
-          "npgSessionId",
-          "npgConfirmPaymentSessionId",
-          cardsWalletInfo())
-      val authData = npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)
+  fun `Should perform ClosePaymentRequestV2 using effective client id`() = runTest {
+    val transactionOutcome = ClosePaymentOutcome.OK
+    val authRequestedData =
+      NpgTransactionGatewayAuthorizationRequestedData(
+        LOGO_URI,
+        NpgClient.PaymentMethod.PAYPAL.toString(),
+        "npgSessionId",
+        "npgConfirmPaymentSessionId",
+        cardsWalletInfo())
+    val authData = npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)
 
-      val activatedEvent = transactionActivateEvent()
-      activatedEvent.data.clientId = null
-      activatedEvent.data.userId = null
-      val authEvent =
-        TransactionAuthorizationRequestedEvent(
-          TRANSACTION_ID,
-          TransactionAuthorizationRequestData(
-            100,
-            10,
-            "paymentInstrumentId",
-            "pspId",
-            PaymentCode.PPAL.name,
-            "brokerName",
-            "pspChannelCode",
-            "paymentMethodName",
-            "pspBusinessName",
-            false,
-            AUTHORIZATION_REQUEST_ID,
-            TransactionAuthorizationRequestData.PaymentGateway.NPG,
-            "paymentMethodDescription",
-            authRequestedData))
-      val authCompletedEvent = transactionAuthorizationCompletedEvent(authData)
-      val closureRequestedEvent = transactionClosureRequestedEvent()
-      val closureError = transactionClosureErrorEvent()
-      val transactionId = activatedEvent.transactionId
-      val events =
-        listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent, closureError)
-          as List<TransactionEvent<Any>>
+    val activatedEvent = transactionActivateEvent()
+    activatedEvent.data.clientId = Transaction.ClientId.WISP_REDIRECT
+    activatedEvent.data.userId = null
+    val authEvent =
+      TransactionAuthorizationRequestedEvent(
+        TRANSACTION_ID,
+        TransactionAuthorizationRequestData(
+          100,
+          10,
+          "paymentInstrumentId",
+          "pspId",
+          PaymentCode.PPAL.name,
+          "brokerName",
+          "pspChannelCode",
+          "paymentMethodName",
+          "pspBusinessName",
+          false,
+          AUTHORIZATION_REQUEST_ID,
+          TransactionAuthorizationRequestData.PaymentGateway.NPG,
+          "paymentMethodDescription",
+          authRequestedData))
+    val authCompletedEvent = transactionAuthorizationCompletedEvent(authData)
+    val closureRequestedEvent = transactionClosureRequestedEvent()
+    val closureError = transactionClosureErrorEvent()
+    val transactionId = activatedEvent.transactionId
+    val events =
+      listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent, closureError)
+        as List<TransactionEvent<Any>>
 
-      val closePaymentResponse =
-        ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
-      val userFiscalCode = "userFiscalCode"
+    val closePaymentResponse =
+      ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
+    val userFiscalCode = "userFiscalCode"
 
-      /* preconditions */
-      given(confidentialDataUtils.decryptWalletSessionToken(any()))
-        .willReturn(mono { userFiscalCode })
-      given(
-          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
-            TRANSACTION_ID))
-        .willReturn(events.toFlux())
+    /* preconditions */
+    given(confidentialDataUtils.decryptWalletSessionToken(any()))
+      .willReturn(mono { userFiscalCode })
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
+      .willReturn(events.toFlux())
 
-      given(nodeClient.closePayment(capture(paypalClosePaymentRequestCaptor)))
-        .willReturn(Mono.just(closePaymentResponse))
+    given(nodeClient.closePayment(capture(paypalClosePaymentRequestCaptor)))
+      .willReturn(Mono.just(closePaymentResponse))
 
-      /* test */
-      val result = runCatching {
-        nodeService.closePayment(TransactionId(transactionId), transactionOutcome)
-      }
-      assertTrue(result.isFailure)
-      assertEquals("Unhandled client id: [null]", result.exceptionOrNull()?.message)
+    given(confidentialDataUtils.eCommerceDecrypt(eq(activatedEvent.data.email), any()))
+      .willReturn(Mono.just(Email(EMAIL_STRING)))
+
+    /* test */
+    val result = runCatching {
+      nodeService.closePayment(TransactionId(transactionId), transactionOutcome)
     }
+    val closeRequestCaptor =
+      argumentCaptor<ClosePaymentRequestV2Dto> {
+        verify(nodeClient, times(1)).closePayment(capture())
+      }
+
+    assertEquals(
+      (closeRequestCaptor.lastValue as PayPalClosePaymentRequestV2Dto)
+        .transactionDetails
+        .info
+        .clientId,
+      Transaction.ClientId.CHECKOUT_CART.effectiveClient.name)
+  }
 }

@@ -77,7 +77,6 @@ class TransactionRefundRetryQueueConsumer(
             tx,
             transactionsRefundedEventStoreRepository,
             transactionsViewRepository,
-            paymentGatewayClient,
             refundService,
             refundRetryService,
             ngpService,

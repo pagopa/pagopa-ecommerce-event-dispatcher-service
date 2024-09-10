@@ -23,7 +23,6 @@ import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.commons.queues.TracingUtils
-import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.client.TransactionsServiceClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.*
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.QueueCommonsLogger.logger
@@ -36,9 +35,6 @@ import it.pagopa.ecommerce.eventdispatcher.services.v2.AuthorizationStateRetriev
 import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.ecommerce.eventdispatcher.utils.EndToEndId
-import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
-import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto.StatusEnum
-import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
 import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundOutcomeDto
 import it.pagopa.generated.transactionauthrequests.v1.dto.OutcomeNpgGatewayDto
 import it.pagopa.generated.transactionauthrequests.v1.dto.TransactionInfoDto
@@ -412,8 +408,6 @@ fun requestRefundTransaction(
   }
 
   return when (transactionAuthorizationRequestData.paymentGateway) {
-    TransactionAuthorizationRequestData.PaymentGateway.XPAY,
-    TransactionAuthorizationRequestData.PaymentGateway.VPOS,
     TransactionAuthorizationRequestData.PaymentGateway.REDIRECT ->
       appendRefundRequestedEventIfNeeded(
         transaction, transactionsEventStoreRepository, transactionsViewRepository)
@@ -452,7 +446,6 @@ fun refundTransaction(
   tx: BaseTransaction,
   transactionsEventStoreRepository: TransactionsEventStoreRepository<BaseTransactionRefundedData>,
   transactionsViewRepository: TransactionsViewRepository,
-  paymentGatewayClient: PaymentGatewayClient,
   refundService: RefundService,
   refundRetryService: RefundRetryService,
   npgService: NpgService,
@@ -474,20 +467,6 @@ fun refundTransaction(
     .flatMap { transaction ->
       val authorizationRequestId = transactionAuthorizationRequestData.authorizationRequestId
       when (transactionAuthorizationRequestData.paymentGateway) {
-        TransactionAuthorizationRequestData.PaymentGateway.XPAY ->
-          appendRefundRequestedEventIfNeeded(
-              tx, transactionsEventStoreRepository, transactionsViewRepository)
-            .flatMap {
-              paymentGatewayClient.requestXPayRefund(UUID.fromString(authorizationRequestId))
-            }
-            .map { refundResponse -> Pair(refundResponse, transaction) }
-        TransactionAuthorizationRequestData.PaymentGateway.VPOS ->
-          appendRefundRequestedEventIfNeeded(
-              tx, transactionsEventStoreRepository, transactionsViewRepository)
-            .flatMap {
-              paymentGatewayClient.requestVPosRefund(UUID.fromString(authorizationRequestId))
-            }
-            .map { refundResponse -> Pair(refundResponse, transaction) }
         TransactionAuthorizationRequestData.PaymentGateway.NPG ->
           appendNpgRefundRequestedEventIfNeeded(
               transaction, transactionsEventStoreRepository, transactionsViewRepository, npgService)
@@ -499,7 +478,7 @@ fun refundTransaction(
               refundService.requestRedirectRefund(
                 transactionId = transaction.transactionId,
                 touchpoint =
-                  transaction.clientId.let {
+                  transaction.clientId.effectiveClient.let {
                     when (it) {
                       Transaction.ClientId.CHECKOUT_CART -> Transaction.ClientId.CHECKOUT.name
                       Transaction.ClientId.CHECKOUT,
@@ -525,18 +504,6 @@ fun refundTransaction(
       val (refundResponse, transaction) = it
 
       when (refundResponse) {
-        is VposDeleteResponseDto ->
-          handleVposRefundResponse(
-            transaction,
-            refundResponse,
-            transactionsEventStoreRepository,
-            transactionsViewRepository)
-        is XPayRefundResponse200Dto ->
-          handleXpayRefundResponse(
-            transaction,
-            refundResponse,
-            transactionsEventStoreRepository,
-            transactionsViewRepository)
         is RefundResponseDto ->
           handleNpgRefundResponse(
             transaction,
@@ -670,64 +637,6 @@ private fun refundTransactionNPG(
     }
 }
 
-fun handleVposRefundResponse(
-  transaction: BaseTransaction,
-  refundResponse: VposDeleteResponseDto,
-  transactionsEventStoreRepository: TransactionsEventStoreRepository<BaseTransactionRefundedData>,
-  transactionsViewRepository: TransactionsViewRepository
-): Mono<BaseTransaction> {
-  logger.info(
-    "Transaction requestRefund for transaction ${transaction.transactionId} PGS refund status [${refundResponse.status}]")
-
-  return when (refundResponse.status) {
-    StatusEnum.CANCELLED -> {
-      logger.info(
-        "Refund for transaction with id: [${transaction.transactionId.value()}] processed successfully")
-      updateTransactionToRefunded(
-        transaction, transactionsEventStoreRepository, transactionsViewRepository)
-    }
-    StatusEnum.DENIED -> {
-      logger.info(
-        "Refund for transaction with id: [${transaction.transactionId.value()}] denied with pgs response status: [${refundResponse.status}]! No more attempts will be performed")
-      updateTransactionToRefundError(
-        transaction, transactionsEventStoreRepository, transactionsViewRepository)
-    }
-    else ->
-      Mono.error(
-        RuntimeException(
-          "Refund error for transaction ${transaction.transactionId} unhandled PGS response status [${refundResponse.status}]"))
-  }
-}
-
-fun handleXpayRefundResponse(
-  transaction: BaseTransaction,
-  refundResponse: XPayRefundResponse200Dto,
-  transactionsEventStoreRepository: TransactionsEventStoreRepository<BaseTransactionRefundedData>,
-  transactionsViewRepository: TransactionsViewRepository
-): Mono<BaseTransaction> {
-  logger.info(
-    "Transaction requestRefund for transaction ${transaction.transactionId} PGS response status [${refundResponse.status}]")
-
-  return when (refundResponse.status) {
-    XPayRefundResponse200Dto.StatusEnum.CANCELLED -> {
-      logger.info(
-        "Refund for transaction with id: [${transaction.transactionId.value()}] processed successfully")
-      updateTransactionToRefunded(
-        transaction, transactionsEventStoreRepository, transactionsViewRepository)
-    }
-    XPayRefundResponse200Dto.StatusEnum.DENIED -> {
-      logger.info(
-        "Refund for transaction with id: [${transaction.transactionId.value()}] denied with pgs response status: [${refundResponse.status}]!! No more attempts will be performed")
-      updateTransactionToRefundError(
-        transaction, transactionsEventStoreRepository, transactionsViewRepository)
-    }
-    else ->
-      Mono.error(
-        RuntimeException(
-          "Refund error for transaction ${transaction.transactionId} unhandled PGS response status [${refundResponse.status}]"))
-  }
-}
-
 fun handleNpgRefundResponse(
   transaction: BaseTransaction,
   refundResponse: RefundResponseDto,
@@ -828,7 +737,6 @@ fun getGatewayAuthorizationOutcome(
       } else {
         AuthorizationResultDto.KO
       }
-    is PgsTransactionGatewayAuthorizationData -> gatewayAuthorizationData.authorizationResultDto
     is RedirectTransactionGatewayAuthorizationData ->
       if (gatewayAuthorizationData.outcome ==
         RedirectTransactionGatewayAuthorizationData.Outcome.OK) {
@@ -836,6 +744,9 @@ fun getGatewayAuthorizationOutcome(
       } else {
         AuthorizationResultDto.KO
       }
+    is PgsTransactionGatewayAuthorizationData ->
+      throw IllegalArgumentException(
+        "Unhandled or invalid auth data type 'PgsTransactionGatewayAuthorizationData'")
   }
 }
 

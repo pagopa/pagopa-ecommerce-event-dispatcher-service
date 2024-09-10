@@ -172,6 +172,12 @@ class NodeService(
           .stream()
           .mapToInt { el -> el.transactionAmount.value }
           .sum())
+    logger.info(
+      "Building close payment for cancellation transactionId: [{}], effective clientId: [{}], activation client: [{}]",
+      transactionId.value(),
+      transactionWithCancellation.clientId.effectiveClient.name,
+      transactionWithCancellation.clientId.name,
+    )
     // In case of cancellation we only populate the fields shared by both
     // `CardClosePaymentRequestV2Dto` and `RedirectClosePaymentRequestV2Dto`,
     // so either implementation is fine.
@@ -193,7 +199,7 @@ class NodeService(
           info =
             InfoDto().apply {
               type = getPaymentTypeCode(transactionWithCancellation)
-              clientId = transactionWithCancellation.clientId.name
+              clientId = transactionWithCancellation.clientId.effectiveClient.name
             }
           user = userDto
         }
@@ -233,6 +239,12 @@ class NodeService(
         is PaypalWalletDetails -> Triple(null, null, walletDetails.maskedEmail)
         else -> Triple(null, null, null)
       }
+
+    logger.info(
+      "Building close payment for completed transactionId: [{}], effective clientId: [{}], activation client: [{}]",
+      transactionId.value(),
+      authCompleted.transactionActivatedData.clientId.effectiveClient.name,
+      authCompleted.transactionActivatedData.clientId.name)
     val closePaymentTransactionDetails =
       TransactionDetailsDto().apply {
         transaction =
@@ -283,14 +295,12 @@ class NodeService(
                   } else {
                     authCompleted.transactionAuthorizationRequestData.paymentTypeCode
                   }
-                is PgsTransactionGatewayAuthorizationRequestedData ->
-                  authRequestedData.brand?.toString()
                 is RedirectTransactionGatewayAuthorizationRequestedData ->
                   authCompleted.transactionAuthorizationRequestData.paymentTypeCode
                 else -> null
               }
             paymentMethodName = authCompleted.transactionAuthorizationRequestData.paymentMethodName
-            clientId = authCompleted.transactionActivatedData.clientId.name
+            clientId = authCompleted.transactionActivatedData.clientId.effectiveClient.name
             bin = walletBin
             lastFourDigits = walletLastFourDigits
             maskedEmail = walletMaskedEmail
@@ -299,15 +309,6 @@ class NodeService(
       }
 
     return when (authRequestedData.type!!) {
-      TransactionGatewayAuthorizationRequestedData.AuthorizationDataType.PGS ->
-        buildAuthorizationCompletedCardClosePaymentRequest(
-            authCompleted,
-            transactionOutcome,
-            transactionId,
-            totalAmountEuro,
-            feeEuro,
-            closePaymentTransactionDetails)
-          .cast(ClosePaymentRequestV2Dto::class.java)
       TransactionGatewayAuthorizationRequestedData.AuthorizationDataType.NPG ->
         when (authCompleted.transactionAuthorizationRequestData.paymentTypeCode) {
           PaymentCode.CP.name ->
@@ -378,6 +379,9 @@ class NodeService(
             totalAmountEuro,
             feeEuro,
             closePaymentTransactionDetails))
+      else ->
+        throw IllegalArgumentException(
+          "Unhandled or invalid authorization request type: '%s'".format(authRequestedData.type))
     }
   }
 
@@ -872,12 +876,6 @@ class NodeService(
     transactionGatewayAuthData: TransactionGatewayAuthorizationData
   ): CardAdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum =
     when (transactionGatewayAuthData) {
-      is PgsTransactionGatewayAuthorizationData ->
-        if (transactionGatewayAuthData.authorizationResultDto == AuthorizationResultDto.OK) {
-          CardAdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.OK
-        } else {
-          CardAdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.KO
-        }
       is NpgTransactionGatewayAuthorizationData ->
         if (transactionGatewayAuthData.operationResult == OperationResultDto.EXECUTED) {
           CardAdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.OK
@@ -891,22 +889,27 @@ class NodeService(
         } else {
           CardAdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.KO
         }
+      is PgsTransactionGatewayAuthorizationData ->
+        throw IllegalArgumentException(
+          "Unhandled or invalid auth data type 'PgsTransactionGatewayAuthorizationData'")
     }
 
   private fun getAuthorizationErrorCode(
     transactionGatewayAuthData: TransactionGatewayAuthorizationData
   ): String? =
     when (transactionGatewayAuthData) {
-      is PgsTransactionGatewayAuthorizationData -> transactionGatewayAuthData.errorCode
       is NpgTransactionGatewayAuthorizationData -> transactionGatewayAuthData.errorCode
       is RedirectTransactionGatewayAuthorizationData -> transactionGatewayAuthData.errorCode
+      is PgsTransactionGatewayAuthorizationData ->
+        throw IllegalArgumentException(
+          "Unhandled or invalid auth data type 'PgsTransactionGatewayAuthorizationData'")
     }
 
   private fun buildUserInfo(
     baseTransaction: BaseTransactionWithPaymentToken,
     outcome: ClosePaymentOutcome
   ): Mono<UserDto> =
-    when (baseTransaction.clientId) {
+    when (baseTransaction.clientId.effectiveClient) {
       it.pagopa.ecommerce.commons.documents.v2.Transaction.ClientId.CHECKOUT,
       it.pagopa.ecommerce.commons.documents.v2.Transaction.ClientId.CHECKOUT_CART ->
         mono { UserDto().apply { type = UserDto.TypeEnum.GUEST } }

@@ -15,19 +15,14 @@ import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
-import it.pagopa.ecommerce.eventdispatcher.exceptions.RefundNotAllowedException
 import it.pagopa.ecommerce.eventdispatcher.queues.v1.QueueCommonsLogger.logger
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v1.RefundRetryService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
-import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto
-import it.pagopa.generated.ecommerce.gateway.v1.dto.VposDeleteResponseDto.StatusEnum
-import it.pagopa.generated.ecommerce.gateway.v1.dto.XPayRefundResponse200Dto
 import java.nio.charset.StandardCharsets
 import java.time.Duration
 import java.time.ZonedDateTime
-import java.util.*
 import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -159,129 +154,7 @@ fun refundTransaction(
   tracingInfo: TracingInfo?,
   retryCount: Int = 0
 ): Mono<BaseTransaction> {
-  return Mono.just(tx)
-    .cast(BaseTransactionWithRequestedAuthorization::class.java)
-    .flatMap { transaction ->
-      val authorizationRequestId =
-        transaction.transactionAuthorizationRequestData.authorizationRequestId
-
-      when (transaction.transactionAuthorizationRequestData.paymentGateway) {
-        TransactionAuthorizationRequestData.PaymentGateway.XPAY ->
-          paymentGatewayClient.requestXPayRefund(UUID.fromString(authorizationRequestId)).map {
-            refundResponse ->
-            Pair(refundResponse, transaction)
-          }
-        TransactionAuthorizationRequestData.PaymentGateway.VPOS ->
-          paymentGatewayClient.requestVPosRefund(UUID.fromString(authorizationRequestId)).map {
-            refundResponse ->
-            Pair(refundResponse, transaction)
-          }
-        else ->
-          Mono.error(
-            RuntimeException(
-              "Refund error for transaction ${transaction.transactionId} - unhandled payment-gateway"))
-      }
-    }
-    .flatMap {
-      val (refundResponse, transaction) = it
-
-      when (refundResponse) {
-        is VposDeleteResponseDto ->
-          handleVposRefundResponse(
-            transaction,
-            refundResponse,
-            transactionsEventStoreRepository,
-            transactionsViewRepository)
-        is XPayRefundResponse200Dto ->
-          handleXpayRefundResponse(
-            transaction,
-            refundResponse,
-            transactionsEventStoreRepository,
-            transactionsViewRepository)
-        else ->
-          Mono.error(
-            RuntimeException(
-              "Refund error for transaction ${transaction.transactionId}, unhandled refund response: ${refundResponse.javaClass}"))
-      }
-    }
-    .onErrorResume { exception ->
-      logger.error(
-        "Transaction requestRefund error for transaction ${tx.transactionId.value()}", exception)
-      if (retryCount == 0) {
-          // refund error event written only the first time
-          updateTransactionToRefundError(
-            tx, transactionsEventStoreRepository, transactionsViewRepository)
-        } else {
-          Mono.just(tx)
-        }
-        .flatMap {
-          when (exception) {
-            // Enqueue retry event only if refund is allowed
-            !is RefundNotAllowedException ->
-              refundRetryService.enqueueRetryEvent(it, retryCount, tracingInfo)
-            else -> Mono.empty()
-          }
-        }
-        .thenReturn(tx)
-    }
-}
-
-fun handleVposRefundResponse(
-  transaction: BaseTransactionWithRequestedAuthorization,
-  refundResponse: VposDeleteResponseDto,
-  transactionsEventStoreRepository: TransactionsEventStoreRepository<TransactionRefundedData>,
-  transactionsViewRepository: TransactionsViewRepository
-): Mono<BaseTransaction> {
-  logger.info(
-    "Transaction requestRefund for transaction ${transaction.transactionId} PGS refund status [${refundResponse.status}]")
-
-  return when (refundResponse.status) {
-    StatusEnum.CANCELLED -> {
-      logger.info(
-        "Refund for transaction with id: [${transaction.transactionId.value()}] processed successfully")
-      updateTransactionToRefunded(
-        transaction, transactionsEventStoreRepository, transactionsViewRepository)
-    }
-    StatusEnum.DENIED -> {
-      logger.info(
-        "Refund for transaction with id: [${transaction.transactionId.value()}] denied with pgs response status: [${refundResponse.status}]! No more attempts will be performed")
-      updateTransactionToRefundError(
-        transaction, transactionsEventStoreRepository, transactionsViewRepository)
-    }
-    else ->
-      Mono.error(
-        RuntimeException(
-          "Refund error for transaction ${transaction.transactionId} unhandled PGS response status [${refundResponse.status}]"))
-  }
-}
-
-fun handleXpayRefundResponse(
-  transaction: BaseTransactionWithRequestedAuthorization,
-  refundResponse: XPayRefundResponse200Dto,
-  transactionsEventStoreRepository: TransactionsEventStoreRepository<TransactionRefundedData>,
-  transactionsViewRepository: TransactionsViewRepository
-): Mono<BaseTransaction> {
-  logger.info(
-    "Transaction requestRefund for transaction ${transaction.transactionId} PGS response status [${refundResponse.status}]")
-
-  return when (refundResponse.status) {
-    XPayRefundResponse200Dto.StatusEnum.CANCELLED -> {
-      logger.info(
-        "Refund for transaction with id: [${transaction.transactionId.value()}] processed successfully")
-      updateTransactionToRefunded(
-        transaction, transactionsEventStoreRepository, transactionsViewRepository)
-    }
-    XPayRefundResponse200Dto.StatusEnum.DENIED -> {
-      logger.info(
-        "Refund for transaction with id: [${transaction.transactionId.value()}] denied with pgs response status: [${refundResponse.status}]!! No more attempts will be performed")
-      updateTransactionToRefundError(
-        transaction, transactionsEventStoreRepository, transactionsViewRepository)
-    }
-    else ->
-      Mono.error(
-        RuntimeException(
-          "Refund error for transaction ${transaction.transactionId} unhandled PGS response status [${refundResponse.status}]"))
-  }
+  return Mono.error(RuntimeException("PGS refund not handled"))
 }
 
 fun isTransactionRefundable(tx: BaseTransaction): Boolean {

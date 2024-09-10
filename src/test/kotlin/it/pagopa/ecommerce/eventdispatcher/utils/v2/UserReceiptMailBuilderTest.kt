@@ -4,13 +4,13 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import it.pagopa.ecommerce.commons.client.NpgClient
 import it.pagopa.ecommerce.commons.documents.PaymentNotice
 import it.pagopa.ecommerce.commons.documents.v2.*
+import it.pagopa.ecommerce.commons.documents.v2.activation.EmptyTransactionGatewayActivationData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationRequestedData
-import it.pagopa.ecommerce.commons.documents.v2.authorization.PgsTransactionGatewayAuthorizationData
+import it.pagopa.ecommerce.commons.documents.v2.authorization.RedirectTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.domain.Email
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithRequestedUserReceipt
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
-import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.v2.TransactionTestUtils
 import it.pagopa.ecommerce.commons.v2.TransactionTestUtils.*
 import it.pagopa.ecommerce.eventdispatcher.client.NotificationsServiceClient
@@ -50,29 +50,26 @@ class UserReceiptMailBuilderTest {
       /*
        * Prerequisites
        */
-      given(confidentialDataUtils.toEmail(any()))
-        .willReturn(Email(TransactionTestUtils.EMAIL_STRING))
+      given(confidentialDataUtils.toEmail(any())).willReturn(Email(EMAIL_STRING))
       val events =
         listOf<TransactionEvent<*>>(
-          TransactionTestUtils.transactionActivateEvent() as TransactionEvent<*>,
-          TransactionTestUtils.transactionAuthorizationRequestedEvent(
+          transactionActivateEvent() as TransactionEvent<*>,
+          transactionAuthorizationRequestedEvent(
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
-            TransactionTestUtils.npgTransactionGatewayAuthorizationRequestedData())
+            npgTransactionGatewayAuthorizationRequestedData())
             as TransactionEvent<*>,
-          TransactionTestUtils.transactionAuthorizationCompletedEvent(
+          transactionAuthorizationCompletedEvent(
             NpgTransactionGatewayAuthorizationData(
               OperationResultDto.EXECUTED, "operationId", "paymentEndToEndId", null, null))
             as TransactionEvent<*>,
-          TransactionTestUtils.transactionClosureRequestedEvent() as TransactionEvent<*>,
-          TransactionTestUtils.transactionClosedEvent(TransactionClosureData.Outcome.OK)
-            as TransactionEvent<*>,
-          TransactionTestUtils.transactionClosureRequestedEvent() as TransactionEvent<*>,
-          TransactionTestUtils.transactionUserReceiptRequestedEvent(
-            TransactionTestUtils.transactionUserReceiptData(TransactionUserReceiptData.Outcome.OK)),
+          transactionClosureRequestedEvent() as TransactionEvent<*>,
+          transactionClosedEvent(TransactionClosureData.Outcome.OK) as TransactionEvent<*>,
+          transactionClosureRequestedEvent() as TransactionEvent<*>,
+          transactionUserReceiptRequestedEvent(
+            transactionUserReceiptData(TransactionUserReceiptData.Outcome.OK)),
         )
       val baseTransaction =
-        TransactionTestUtils.reduceEvents(*events.toTypedArray())
-          as BaseTransactionWithRequestedUserReceipt
+        reduceEvents(*events.toTypedArray()) as BaseTransactionWithRequestedUserReceipt
       val totalAmountWithFeeString =
         userReceiptMailBuilder.amountToHumanReadableString(
           baseTransaction.paymentNotices
@@ -90,26 +87,22 @@ class UserReceiptMailBuilderTest {
       val dateString =
         userReceiptMailBuilder.dateTimeToHumanReadableString(
           ZonedDateTime.parse(baseTransaction.transactionUserReceiptData.paymentDate),
-          Locale.forLanguageTag(TransactionTestUtils.LANGUAGE))
+          Locale.forLanguageTag(LANGUAGE))
       val successTemplateRequest =
         NotificationsServiceClient.SuccessTemplateRequest(
-          TransactionTestUtils.EMAIL_STRING,
+          EMAIL_STRING,
           "Il riepilogo del tuo pagamento",
-          TransactionTestUtils.LANGUAGE,
+          LANGUAGE,
           SuccessTemplate(
             TransactionTemplate(
               baseTransaction.transactionId.value(),
               dateString,
               totalAmountWithFeeString,
-              PspTemplate(TransactionTestUtils.PSP_BUSINESS_NAME, FeeTemplate(feeString)),
+              PspTemplate(PSP_BUSINESS_NAME, FeeTemplate(feeString)),
               baseTransaction.transactionAuthorizationCompletedData.rrn,
               baseTransaction.transactionAuthorizationCompletedData.authorizationCode,
-              PaymentMethodTemplate(
-                TransactionTestUtils.PAYMENT_METHOD_DESCRIPTION,
-                TransactionTestUtils.LOGO_URI.toString(),
-                null,
-                false)),
-            UserTemplate(null, TransactionTestUtils.EMAIL_STRING),
+              PaymentMethodTemplate(PAYMENT_METHOD_DESCRIPTION, LOGO_URI.toString(), null, false)),
+            UserTemplate(null, EMAIL_STRING),
             CartTemplate(
               baseTransaction.paymentNotices.map {
                 ItemTemplate(
@@ -150,24 +143,22 @@ class UserReceiptMailBuilderTest {
       /*
        * Prerequisites
        */
-      given(confidentialDataUtils.toEmail(any()))
-        .willReturn(Email(TransactionTestUtils.EMAIL_STRING))
+      given(confidentialDataUtils.toEmail(any())).willReturn(Email(EMAIL_STRING))
       val events =
         listOf<TransactionEvent<*>>(
           TransactionTestUtils.transactionActivateEvent() as TransactionEvent<*>,
           TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<*>,
           TransactionTestUtils.transactionAuthorizationCompletedEvent(
-            PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
+            NpgTransactionGatewayAuthorizationData(
+              OperationResultDto.EXECUTED, "operationId", "paymentEnd2EndId", null, null))
             as TransactionEvent<*>,
-          TransactionTestUtils.transactionClosureRequestedEvent() as TransactionEvent<*>,
-          TransactionTestUtils.transactionClosedEvent(TransactionClosureData.Outcome.OK)
-            as TransactionEvent<*>,
-          TransactionTestUtils.transactionUserReceiptRequestedEvent(
-            TransactionTestUtils.transactionUserReceiptData(TransactionUserReceiptData.Outcome.OK)),
+          transactionClosureRequestedEvent() as TransactionEvent<*>,
+          transactionClosedEvent(TransactionClosureData.Outcome.OK) as TransactionEvent<*>,
+          transactionUserReceiptRequestedEvent(
+            transactionUserReceiptData(TransactionUserReceiptData.Outcome.OK)),
         )
       val baseTransaction =
-        TransactionTestUtils.reduceEvents(*events.toTypedArray())
-          as BaseTransactionWithRequestedUserReceipt
+        reduceEvents(*events.toTypedArray()) as BaseTransactionWithRequestedUserReceipt
       val totalAmountWithFeeString =
         userReceiptMailBuilder.amountToHumanReadableString(
           baseTransaction.paymentNotices
@@ -185,26 +176,22 @@ class UserReceiptMailBuilderTest {
       val dateString =
         userReceiptMailBuilder.dateTimeToHumanReadableString(
           ZonedDateTime.parse(baseTransaction.transactionUserReceiptData.paymentDate),
-          Locale.forLanguageTag(TransactionTestUtils.LANGUAGE))
+          Locale.forLanguageTag(LANGUAGE))
       val successTemplateRequest =
         NotificationsServiceClient.SuccessTemplateRequest(
-          TransactionTestUtils.EMAIL_STRING,
+          EMAIL_STRING,
           "Il riepilogo del tuo pagamento",
-          TransactionTestUtils.LANGUAGE,
+          LANGUAGE,
           SuccessTemplate(
             TransactionTemplate(
               baseTransaction.transactionId.value(),
               dateString,
               totalAmountWithFeeString,
-              PspTemplate(TransactionTestUtils.PSP_BUSINESS_NAME, FeeTemplate(feeString)),
+              PspTemplate(PSP_BUSINESS_NAME, FeeTemplate(feeString)),
               baseTransaction.transactionAuthorizationCompletedData.rrn,
               baseTransaction.transactionAuthorizationCompletedData.authorizationCode,
-              PaymentMethodTemplate(
-                TransactionTestUtils.PAYMENT_METHOD_DESCRIPTION,
-                TransactionTestUtils.LOGO_URI.toString(),
-                null,
-                false)),
-            UserTemplate(null, TransactionTestUtils.EMAIL_STRING),
+              PaymentMethodTemplate(PAYMENT_METHOD_DESCRIPTION, LOGO_URI.toString(), null, false)),
+            UserTemplate(null, EMAIL_STRING),
             CartTemplate(
               baseTransaction.paymentNotices.map {
                 ItemTemplate(
@@ -245,24 +232,22 @@ class UserReceiptMailBuilderTest {
       /*
        * Prerequisites
        */
-      given(confidentialDataUtils.toEmail(any()))
-        .willReturn(Email(TransactionTestUtils.EMAIL_STRING))
+      given(confidentialDataUtils.toEmail(any())).willReturn(Email(EMAIL_STRING))
       val events =
         listOf<TransactionEvent<*>>(
           TransactionTestUtils.transactionActivateEvent() as TransactionEvent<*>,
           TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<*>,
           TransactionTestUtils.transactionAuthorizationCompletedEvent(
-            PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
+            NpgTransactionGatewayAuthorizationData(
+              OperationResultDto.EXECUTED, "operationId", "paymentEnd2EndId", null, null))
             as TransactionEvent<*>,
-          TransactionTestUtils.transactionClosureRequestedEvent() as TransactionEvent<*>,
-          TransactionTestUtils.transactionClosedEvent(TransactionClosureData.Outcome.OK)
-            as TransactionEvent<*>,
-          TransactionTestUtils.transactionUserReceiptRequestedEvent(
-            TransactionTestUtils.transactionUserReceiptData(TransactionUserReceiptData.Outcome.OK)),
+          transactionClosureRequestedEvent() as TransactionEvent<*>,
+          transactionClosedEvent(TransactionClosureData.Outcome.OK) as TransactionEvent<*>,
+          transactionUserReceiptRequestedEvent(
+            transactionUserReceiptData(TransactionUserReceiptData.Outcome.OK)),
         )
       val baseTransaction =
-        TransactionTestUtils.reduceEvents(*events.toTypedArray())
-          as BaseTransactionWithRequestedUserReceipt
+        reduceEvents(*events.toTypedArray()) as BaseTransactionWithRequestedUserReceipt
       val totalAmountWithFeeString =
         userReceiptMailBuilder.amountToHumanReadableString(
           baseTransaction.paymentNotices
@@ -280,26 +265,22 @@ class UserReceiptMailBuilderTest {
       val dateString =
         userReceiptMailBuilder.dateTimeToHumanReadableString(
           ZonedDateTime.parse(baseTransaction.transactionUserReceiptData.paymentDate),
-          Locale.forLanguageTag(TransactionTestUtils.LANGUAGE))
+          Locale.forLanguageTag(LANGUAGE))
       val successTemplateRequest =
         NotificationsServiceClient.SuccessTemplateRequest(
-          TransactionTestUtils.EMAIL_STRING,
+          EMAIL_STRING,
           "Il riepilogo del tuo pagamento",
-          TransactionTestUtils.LANGUAGE,
+          LANGUAGE,
           SuccessTemplate(
             TransactionTemplate(
               baseTransaction.transactionId.value(),
               dateString,
               totalAmountWithFeeString,
-              PspTemplate(TransactionTestUtils.PSP_BUSINESS_NAME, FeeTemplate(feeString)),
+              PspTemplate(PSP_BUSINESS_NAME, FeeTemplate(feeString)),
               baseTransaction.transactionAuthorizationCompletedData.rrn,
               baseTransaction.transactionAuthorizationCompletedData.authorizationCode,
-              PaymentMethodTemplate(
-                TransactionTestUtils.PAYMENT_METHOD_DESCRIPTION,
-                TransactionTestUtils.LOGO_URI.toString(),
-                null,
-                false)),
-            UserTemplate(null, TransactionTestUtils.EMAIL_STRING),
+              PaymentMethodTemplate(PAYMENT_METHOD_DESCRIPTION, LOGO_URI.toString(), null, false)),
+            UserTemplate(null, EMAIL_STRING),
             CartTemplate(
               baseTransaction.paymentNotices.map {
                 ItemTemplate(
@@ -338,24 +319,22 @@ class UserReceiptMailBuilderTest {
       /*
        * Prerequisites
        */
-      given(confidentialDataUtils.toEmail(any()))
-        .willReturn(Email(TransactionTestUtils.EMAIL_STRING))
+      given(confidentialDataUtils.toEmail(any())).willReturn(Email(EMAIL_STRING))
       val events =
         listOf<TransactionEvent<*>>(
           TransactionTestUtils.transactionActivateEvent() as TransactionEvent<*>,
           TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<*>,
           TransactionTestUtils.transactionAuthorizationCompletedEvent(
-            PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
+            NpgTransactionGatewayAuthorizationData(
+              OperationResultDto.EXECUTED, "operationId", "paymentEnd2EndId", null, null))
             as TransactionEvent<*>,
-          TransactionTestUtils.transactionClosureRequestedEvent() as TransactionEvent<*>,
-          TransactionTestUtils.transactionClosedEvent(TransactionClosureData.Outcome.OK)
-            as TransactionEvent<*>,
-          TransactionTestUtils.transactionUserReceiptRequestedEvent(
-            TransactionTestUtils.transactionUserReceiptData(TransactionUserReceiptData.Outcome.KO)),
+          transactionClosureRequestedEvent() as TransactionEvent<*>,
+          transactionClosedEvent(TransactionClosureData.Outcome.OK) as TransactionEvent<*>,
+          transactionUserReceiptRequestedEvent(
+            transactionUserReceiptData(TransactionUserReceiptData.Outcome.KO)),
         )
       val baseTransaction =
-        TransactionTestUtils.reduceEvents(*events.toTypedArray())
-          as BaseTransactionWithRequestedUserReceipt
+        reduceEvents(*events.toTypedArray()) as BaseTransactionWithRequestedUserReceipt
       val amountString =
         userReceiptMailBuilder.amountToHumanReadableString(
           baseTransaction.paymentNotices
@@ -363,12 +342,12 @@ class UserReceiptMailBuilderTest {
             .reduce { a, b -> a + b })
       val dateString =
         userReceiptMailBuilder.dateTimeToHumanReadableString(
-          baseTransaction.creationDate, Locale.forLanguageTag(TransactionTestUtils.LANGUAGE))
+          baseTransaction.creationDate, Locale.forLanguageTag(LANGUAGE))
       val koTemplateRequest =
         NotificationsServiceClient.KoTemplateRequest(
-          TransactionTestUtils.EMAIL_STRING,
+          EMAIL_STRING,
           "Il pagamento non è riuscito",
-          TransactionTestUtils.LANGUAGE,
+          LANGUAGE,
           KoTemplate(
             it.pagopa.generated.notifications.templates.ko.TransactionTemplate(
               baseTransaction.transactionId.value(), dateString, amountString)))
@@ -399,25 +378,22 @@ class UserReceiptMailBuilderTest {
       /*
        * Prerequisites
        */
-      given(confidentialDataUtils.toEmail(any()))
-        .willReturn(Email(TransactionTestUtils.EMAIL_STRING))
+      given(confidentialDataUtils.toEmail(any())).willReturn(Email(EMAIL_STRING))
       val events =
         listOf<TransactionEvent<*>>(
           TransactionTestUtils.transactionActivateEvent() as TransactionEvent<*>,
           TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<*>,
           TransactionTestUtils.transactionAuthorizationCompletedEvent(
-            PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
+            NpgTransactionGatewayAuthorizationData(
+              OperationResultDto.EXECUTED, "operationId", "paymentEnd2EndId", null, null))
             as TransactionEvent<*>,
-          TransactionTestUtils.transactionClosureRequestedEvent() as TransactionEvent<*>,
-          TransactionTestUtils.transactionClosedEvent(TransactionClosureData.Outcome.OK)
-            as TransactionEvent<*>,
-          TransactionTestUtils.transactionUserReceiptRequestedEvent(
-            TransactionTestUtils.transactionUserReceiptData(
-              TransactionUserReceiptData.Outcome.NOT_RECEIVED)),
+          transactionClosureRequestedEvent() as TransactionEvent<*>,
+          transactionClosedEvent(TransactionClosureData.Outcome.OK) as TransactionEvent<*>,
+          transactionUserReceiptRequestedEvent(
+            transactionUserReceiptData(TransactionUserReceiptData.Outcome.NOT_RECEIVED)),
         )
       val baseTransaction =
-        TransactionTestUtils.reduceEvents(*events.toTypedArray())
-          as BaseTransactionWithRequestedUserReceipt
+        reduceEvents(*events.toTypedArray()) as BaseTransactionWithRequestedUserReceipt
       /*
        * Test
        */
@@ -449,14 +425,14 @@ class UserReceiptMailBuilderTest {
     /*
      * Prerequisites
      */
-    given(confidentialDataUtils.toEmail(any())).willReturn(Email(TransactionTestUtils.EMAIL_STRING))
-    val transactionActivatedEvent = TransactionTestUtils.transactionActivateEvent()
+    given(confidentialDataUtils.toEmail(any())).willReturn(Email(EMAIL_STRING))
+    val transactionActivatedEvent = transactionActivateEvent()
     val paymentNotices = mutableListOf<PaymentNotice>()
     repeat(5) {
       paymentNotices.add(
         PaymentNotice().apply {
           paymentToken = UUID.randomUUID().toString().replace("-", "")
-          rptId = TransactionTestUtils.RPT_ID
+          rptId = RPT_ID
           description = "description_$it"
           amount = it * 100
           paymentContextCode = null
@@ -471,17 +447,16 @@ class UserReceiptMailBuilderTest {
         transactionActivatedEvent as TransactionEvent<*>,
         TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<*>,
         TransactionTestUtils.transactionAuthorizationCompletedEvent(
-          PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK))
+          NpgTransactionGatewayAuthorizationData(
+            OperationResultDto.EXECUTED, "operationId", "paymentEnd2EndId", null, null))
           as TransactionEvent<*>,
-        TransactionTestUtils.transactionClosureRequestedEvent() as TransactionEvent<*>,
-        TransactionTestUtils.transactionClosedEvent(TransactionClosureData.Outcome.OK)
-          as TransactionEvent<*>,
-        TransactionTestUtils.transactionUserReceiptRequestedEvent(
-          TransactionTestUtils.transactionUserReceiptData(TransactionUserReceiptData.Outcome.OK)),
+        transactionClosureRequestedEvent() as TransactionEvent<*>,
+        transactionClosedEvent(TransactionClosureData.Outcome.OK) as TransactionEvent<*>,
+        transactionUserReceiptRequestedEvent(
+          transactionUserReceiptData(TransactionUserReceiptData.Outcome.OK)),
       )
     val baseTransaction =
-      TransactionTestUtils.reduceEvents(*events.toTypedArray())
-        as BaseTransactionWithRequestedUserReceipt
+      reduceEvents(*events.toTypedArray()) as BaseTransactionWithRequestedUserReceipt
     val totalAmountWithFeeString =
       userReceiptMailBuilder.amountToHumanReadableString(
         baseTransaction.paymentNotices.map { it.transactionAmount.value }.reduce { a, b -> a + b } +
@@ -496,26 +471,22 @@ class UserReceiptMailBuilderTest {
     val dateString =
       userReceiptMailBuilder.dateTimeToHumanReadableString(
         ZonedDateTime.parse(baseTransaction.transactionUserReceiptData.paymentDate),
-        Locale.forLanguageTag(TransactionTestUtils.LANGUAGE))
+        Locale.forLanguageTag(LANGUAGE))
     val successTemplateRequest =
       NotificationsServiceClient.SuccessTemplateRequest(
-        TransactionTestUtils.EMAIL_STRING,
+        EMAIL_STRING,
         "Il riepilogo del tuo pagamento",
-        TransactionTestUtils.LANGUAGE,
+        LANGUAGE,
         SuccessTemplate(
           TransactionTemplate(
             baseTransaction.transactionId.value(),
             dateString,
             totalAmountWithFeeString,
-            PspTemplate(TransactionTestUtils.PSP_BUSINESS_NAME, FeeTemplate(feeString)),
+            PspTemplate(PSP_BUSINESS_NAME, FeeTemplate(feeString)),
             baseTransaction.transactionAuthorizationCompletedData.rrn,
             baseTransaction.transactionAuthorizationCompletedData.authorizationCode,
-            PaymentMethodTemplate(
-              TransactionTestUtils.PAYMENT_METHOD_DESCRIPTION,
-              TransactionTestUtils.LOGO_URI.toString(),
-              null,
-              false)),
-          UserTemplate(null, TransactionTestUtils.EMAIL_STRING),
+            PaymentMethodTemplate(PAYMENT_METHOD_DESCRIPTION, LOGO_URI.toString(), null, false)),
+          UserTemplate(null, EMAIL_STRING),
           CartTemplate(
             baseTransaction.paymentNotices.map {
               ItemTemplate(
@@ -621,6 +592,7 @@ class UserReceiptMailBuilderTest {
         createRedirectTemplateFieldsMethodSource(PaymentCode.RBPR.name),
         createRedirectTemplateFieldsMethodSource(PaymentCode.RBPS.name),
         createRedirectTemplateFieldsMethodSource(PaymentCode.RPIC.name),
+        createRedirectTemplateFieldsMethodSource(PaymentCode.RICO.name),
         Arguments.of(
           PaymentCode.SATY.name,
           "-",
@@ -657,7 +629,7 @@ class UserReceiptMailBuilderTest {
               npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)))),
       )
 
-    fun createRedirectTemplateFieldsMethodSource(code: String): Arguments {
+    private fun createRedirectTemplateFieldsMethodSource(code: String): Arguments {
       return Arguments.of(
         code,
         "-",
@@ -678,14 +650,14 @@ class UserReceiptMailBuilderTest {
     /*
      * Prerequisites
      */
-    given(confidentialDataUtils.toEmail(any())).willReturn(Email(TransactionTestUtils.EMAIL_STRING))
-    val transactionActivatedEvent = TransactionTestUtils.transactionActivateEvent()
+    given(confidentialDataUtils.toEmail(any())).willReturn(Email(EMAIL_STRING))
+    val transactionActivatedEvent = transactionActivateEvent()
     val paymentNotices = mutableListOf<PaymentNotice>()
     repeat(5) {
       paymentNotices.add(
         PaymentNotice().apply {
           paymentToken = UUID.randomUUID().toString().replace("-", "")
-          rptId = TransactionTestUtils.RPT_ID
+          rptId = RPT_ID
           description = "description_$it"
           amount = it * 100
           paymentContextCode = null
@@ -826,7 +798,8 @@ class UserReceiptMailBuilderTest {
         transactionActivatedEvent as TransactionEvent<*>,
         authEvent,
         transactionAuthorizationCompletedEvent(
-          PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+          RedirectTransactionGatewayAuthorizationData(
+            RedirectTransactionGatewayAuthorizationData.Outcome.OK, null)),
         transactionClosureRequestedEvent() as TransactionEvent<*>,
         transactionClosedEvent(TransactionClosureData.Outcome.OK) as TransactionEvent<*>,
         transactionUserReceiptRequestedEvent(
@@ -843,6 +816,7 @@ class UserReceiptMailBuilderTest {
       "Unexpected TransactionGatewayAuthorization for paymentTypeCode BPAY. Expected NPG gateway.",
       exec.message)
   }
+
   @Test
   fun `Should throw error for invalid payment type code during the build of success template`() =
     runTest {
@@ -898,7 +872,8 @@ class UserReceiptMailBuilderTest {
           transactionActivatedEvent as TransactionEvent<*>,
           authEvent,
           transactionAuthorizationCompletedEvent(
-            PgsTransactionGatewayAuthorizationData(null, AuthorizationResultDto.OK)),
+            NpgTransactionGatewayAuthorizationData(
+              OperationResultDto.EXECUTED, "operationId", "paymentEnd2EndId", null, null)),
           transactionClosureRequestedEvent() as TransactionEvent<*>,
           transactionClosedEvent(TransactionClosureData.Outcome.OK) as TransactionEvent<*>,
           transactionUserReceiptRequestedEvent(
@@ -912,5 +887,102 @@ class UserReceiptMailBuilderTest {
           userReceiptMailBuilder.buildNotificationEmailRequestDto(baseTransaction)
         }
       assertEquals("Unhandled or invalid payment type code: ${paymentTypeCode}", exec.message)
+    }
+
+  @Test
+  fun `when transaction client is WISP_REDIRECT should build success email with payment notice id equals to reference creditor Id`() =
+    runTest {
+      /*
+       * Prerequisites
+       */
+      given(confidentialDataUtils.toEmail(any())).willReturn(Email(EMAIL_STRING))
+      val events =
+        listOf<TransactionEvent<*>>(
+          transactionActivateEvent(
+            ZonedDateTime.now().toString(),
+            EmptyTransactionGatewayActivationData(),
+            USER_ID,
+            Transaction.ClientId.WISP_REDIRECT)
+            as TransactionEvent<*>,
+          transactionAuthorizationRequestedEvent(
+            TransactionAuthorizationRequestData.PaymentGateway.NPG,
+            npgTransactionGatewayAuthorizationRequestedData())
+            as TransactionEvent<*>,
+          transactionAuthorizationCompletedEvent(
+            NpgTransactionGatewayAuthorizationData(
+              OperationResultDto.EXECUTED, "operationId", "paymentEndToEndId", null, null))
+            as TransactionEvent<*>,
+          transactionClosureRequestedEvent() as TransactionEvent<*>,
+          transactionClosedEvent(TransactionClosureData.Outcome.OK) as TransactionEvent<*>,
+          transactionClosureRequestedEvent() as TransactionEvent<*>,
+          transactionUserReceiptRequestedEvent(
+            transactionUserReceiptData(TransactionUserReceiptData.Outcome.OK)),
+        )
+      val baseTransaction =
+        reduceEvents(*events.toTypedArray()) as BaseTransactionWithRequestedUserReceipt
+      val totalAmountWithFeeString =
+        userReceiptMailBuilder.amountToHumanReadableString(
+          baseTransaction.paymentNotices
+            .map { it.transactionAmount.value }
+            .reduce { a, b -> a + b } + baseTransaction.transactionAuthorizationRequestData.fee)
+
+      val totalAmount =
+        userReceiptMailBuilder.amountToHumanReadableString(
+          baseTransaction.paymentNotices
+            .map { it.transactionAmount.value }
+            .reduce { a, b -> a + b })
+      val feeString =
+        userReceiptMailBuilder.amountToHumanReadableString(
+          baseTransaction.transactionAuthorizationRequestData.fee)
+      val dateString =
+        userReceiptMailBuilder.dateTimeToHumanReadableString(
+          ZonedDateTime.parse(baseTransaction.transactionUserReceiptData.paymentDate),
+          Locale.forLanguageTag(LANGUAGE))
+      val successTemplateRequest =
+        NotificationsServiceClient.SuccessTemplateRequest(
+          EMAIL_STRING,
+          "Il riepilogo del tuo pagamento",
+          LANGUAGE,
+          SuccessTemplate(
+            TransactionTemplate(
+              baseTransaction.transactionId.value(),
+              dateString,
+              totalAmountWithFeeString,
+              PspTemplate(PSP_BUSINESS_NAME, FeeTemplate(feeString)),
+              baseTransaction.transactionAuthorizationCompletedData.rrn,
+              baseTransaction.transactionAuthorizationCompletedData.authorizationCode,
+              PaymentMethodTemplate(PAYMENT_METHOD_DESCRIPTION, LOGO_URI.toString(), null, false)),
+            UserTemplate(null, EMAIL_STRING),
+            CartTemplate(
+              baseTransaction.paymentNotices.map {
+                ItemTemplate(
+                  RefNumberTemplate(RefNumberTemplate.Type.CODICE_AVVISO, it.creditorReferenceId),
+                  null,
+                  PayeeTemplate(it.companyName.value, it.rptId.fiscalCode),
+                  it.transactionDescription.value,
+                  userReceiptMailBuilder.amountToHumanReadableString(it.transactionAmount.value))
+              },
+              totalAmount),
+          ))
+      val expected =
+        NotificationEmailRequestDto()
+          .language(successTemplateRequest.language)
+          .subject(successTemplateRequest.subject)
+          .to(successTemplateRequest.to)
+          .templateId(NotificationsServiceClient.SuccessTemplateRequest.TEMPLATE_ID)
+          .parameters(successTemplateRequest.templateParameters)
+      /*
+       * Test
+       */
+      val notificationEmailRequest =
+        userReceiptMailBuilder.buildNotificationEmailRequestDto(baseTransaction)
+      /*
+       * Assertions
+       */
+
+      val objectMapper = ObjectMapper()
+      assertEquals(
+        objectMapper.writeValueAsString(expected),
+        objectMapper.writeValueAsString(notificationEmailRequest))
     }
 }
