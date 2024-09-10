@@ -477,7 +477,7 @@ stages:
     condition: |
       and(
         eq(${{parameters.UAT_PROD_DEPLOY}}, true),
-        eq(dependencies.PROD_Green_WaitForApproval.result, 'Succeeded'),
+        eq(dependencies.Prod_WaitForApproval.result, 'Succeeded'),
         in(dependencies.Release.result, 'Succeeded', 'Skipped')
       )
     jobs:
