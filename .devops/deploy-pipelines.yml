@@ -681,7 +681,7 @@ stages:
                 - checkout: self
                   displayName: "Checkout repository"
                 - script: |
-                    checkoutVersion=$newReleaseVersion
+                    checkoutVersion=$(newReleaseVersion)
                     echo "Checkout new release version repo tag: [$checkoutVersion]" 
                     git checkout $checkoutVersion
                   displayName: 'Checkout new release version tag [$(newReleaseVersion)]'
