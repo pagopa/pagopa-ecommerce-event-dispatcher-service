@@ -681,7 +681,7 @@ stages:
                 - checkout: self
                   displayName: "Checkout repository"
                 - script: |
-                    checkoutVersion=$newReleaseVersion
+                    checkoutVersion=$(newReleaseVersion)
                     echo "Checkout new release version repo tag: [$checkoutVersion]" 
                     git checkout $checkoutVersion
                   displayName: 'Checkout new release version tag [$(newReleaseVersion)]'
@@ -790,7 +790,7 @@ stages:
     condition: |
       and(
         eq(${{parameters.UAT_PROD_DEPLOY}}, true),
-        eq(dependencies.Deploy_PROD_Green.result, 'Succeeded'),
+        eq(dependencies.Scale_Down_Staging_Deployment.result, 'Succeeded'),
         in(dependencies.Release.result, 'Succeeded', 'Skipped')
       )
     variables:
