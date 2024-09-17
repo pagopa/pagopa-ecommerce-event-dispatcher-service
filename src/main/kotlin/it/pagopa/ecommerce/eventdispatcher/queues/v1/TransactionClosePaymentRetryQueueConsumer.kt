@@ -15,7 +15,6 @@ import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.commons.queues.TracingUtils
-import it.pagopa.ecommerce.eventdispatcher.client.NodeClient
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.ClosePaymentErrorResponseException
@@ -34,7 +33,6 @@ import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
 
@@ -168,21 +166,16 @@ class TransactionClosePaymentRetryQueueConsumer(
                 "Got exception while retrying closePaymentV2 for transaction with id ${tx.transactionId}!",
                 exception)
 
+              val refundTransaction: Boolean
               val (statusCode, errorDescription) =
                 if (exception is ClosePaymentErrorResponseException) {
+                  refundTransaction = exception.isRefundableError()
                   Pair(exception.statusCode, exception.errorResponse?.description)
                 } else {
+                  refundTransaction = false
                   Pair(null, null)
                 }
-              // transaction can be refund only for HTTP status code 422 and error response
-              // description equals to "Node did not receive RPT yet" OR HTTP status code 400
-              // and error response description equal to "Unacceptable outcome when token has
-              // expired"
-              val refundTransaction =
-                (statusCode == HttpStatus.UNPROCESSABLE_ENTITY &&
-                  errorDescription == NodeClient.NODE_DID_NOT_RECEIVE_RPT_YET_ERROR) ||
-                  (statusCode == HttpStatus.BAD_REQUEST &&
-                    errorDescription == NodeClient.UNACCEPTABLE_OUTCOME_TOKEN_EXPIRED)
+
               // retry event enqueued only for 5xx error responses or for other exceptions that
               // might happen during communication such as read timeout
               val enqueueRetryEvent =
