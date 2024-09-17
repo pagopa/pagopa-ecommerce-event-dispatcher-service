@@ -60,12 +60,10 @@ class AuthorizationRequestedHelper(
     val transactionId = getTransactionId(parsedEvent)
     val retryCount = getRetryCount(parsedEvent)
     val baseTransaction =
-      Mono.defer {
-        transactionsEventStoreRepository
-          .findByTransactionIdOrderByCreationDateAsc(transactionId)
-          .reduce(EmptyTransaction(), Transaction::applyEvent)
-          .cast(BaseTransaction::class.java)
-      }
+      transactionsEventStoreRepository
+        .findByTransactionIdOrderByCreationDateAsc(transactionId)
+        .reduce(EmptyTransaction(), Transaction::applyEvent)
+        .cast(BaseTransaction::class.java)
 
     val authorizationRequestedPipeline =
       baseTransaction
