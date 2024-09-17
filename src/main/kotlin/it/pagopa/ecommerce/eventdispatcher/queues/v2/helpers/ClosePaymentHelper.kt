@@ -254,14 +254,14 @@ class ClosePaymentHelper(
         updateTransactionToClosureError(tx)
       }
       .flatMap { tx ->
-        val refundTransaction: Boolean
-        val (statusCode, errorDescription) =
+        val (statusCode, errorDescription, refundTransaction) =
           if (exception is ClosePaymentErrorResponseException) {
-            refundTransaction = exception.isRefundableError()
-            Pair(exception.statusCode, exception.errorResponse?.description)
+            Triple(
+              exception.statusCode,
+              exception.errorResponse?.description,
+              exception.isRefundableError())
           } else {
-            refundTransaction = false
-            Pair(null, null)
+            Triple(null, null, false)
           }
         traceClosePaymentUpdateStatus(
           baseTransaction = tx,

@@ -19,7 +19,6 @@ import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.ClosePaymentErrorResponseException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
-import it.pagopa.ecommerce.eventdispatcher.queues.*
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.ClosePaymentOutcome
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
@@ -166,14 +165,14 @@ class TransactionClosePaymentRetryQueueConsumer(
                 "Got exception while retrying closePaymentV2 for transaction with id ${tx.transactionId}!",
                 exception)
 
-              val refundTransaction: Boolean
-              val (statusCode, errorDescription) =
+              val (statusCode, errorDescription, refundTransaction) =
                 if (exception is ClosePaymentErrorResponseException) {
-                  refundTransaction = exception.isRefundableError()
-                  Pair(exception.statusCode, exception.errorResponse?.description)
+                  Triple(
+                    exception.statusCode,
+                    exception.errorResponse?.description,
+                    exception.isRefundableError())
                 } else {
-                  refundTransaction = false
-                  Pair(null, null)
+                  Triple(null, null, false)
                 }
 
               // retry event enqueued only for 5xx error responses or for other exceptions that
