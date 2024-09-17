@@ -79,8 +79,12 @@ class TransactionNotificationsRetryQueueConsumer(
     val queueEvent = parsedEvent.fold({ it }, { it })
     val transactionId = getTransactionIdFromPayload(event)
     val retryCount = getRetryCountFromPayload(event)
-    val baseTransaction =
-      reduceEvents(mono { transactionId }, transactionsEventStoreRepository, EmptyTransaction())
+    val events =
+      transactionsEventStoreRepository
+        .findByTransactionIdOrderByCreationDateAsc(transactionId)
+        .map { it as TransactionEvent<Any> }
+
+    val baseTransaction = reduceEvents(events, EmptyTransaction())
     val notificationResendPipeline =
       baseTransaction
         .flatMap {
@@ -105,13 +109,16 @@ class TransactionNotificationsRetryQueueConsumer(
                   tx, transactionsViewRepository, transactionUserReceiptRepository)
                 .flatMap {
                   notificationRefundTransactionPipeline(
-                    it,
-                    transactionsRefundedEventStoreRepository,
-                    transactionsViewRepository,
-                    npgService,
-                    tracingInfo,
-                    refundRequestedAsyncClient,
-                    Duration.ofSeconds(transientQueueTTLSeconds.toLong()))
+                    transaction = it,
+                    transactionsRefundedEventStoreRepository =
+                      transactionsRefundedEventStoreRepository,
+                    transactionsViewRepository = transactionsViewRepository,
+                    npgService = npgService,
+                    tracingInfo = tracingInfo,
+                    refundRequestedAsyncClient = refundRequestedAsyncClient,
+                    transientQueueTTLSeconds =
+                      Duration.ofSeconds(transientQueueTTLSeconds.toLong()),
+                    events = events)
                 }
             }
             .then()
@@ -140,13 +147,16 @@ class TransactionNotificationsRetryQueueConsumer(
                     }
                     .then(
                       notificationRefundTransactionPipeline(
-                        tx,
-                        transactionsRefundedEventStoreRepository,
-                        transactionsViewRepository,
-                        npgService,
-                        tracingInfo,
-                        refundRequestedAsyncClient,
-                        Duration.ofSeconds(transientQueueTTLSeconds.toLong())))
+                        transaction = tx,
+                        transactionsRefundedEventStoreRepository =
+                          transactionsRefundedEventStoreRepository,
+                        transactionsViewRepository = transactionsViewRepository,
+                        npgService = npgService,
+                        tracingInfo = tracingInfo,
+                        refundRequestedAsyncClient = refundRequestedAsyncClient,
+                        transientQueueTTLSeconds =
+                          Duration.ofSeconds(transientQueueTTLSeconds.toLong()),
+                        events = events))
                     .then()
                 }
                 .then()

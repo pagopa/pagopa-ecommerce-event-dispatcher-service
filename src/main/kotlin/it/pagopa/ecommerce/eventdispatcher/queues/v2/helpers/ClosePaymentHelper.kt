@@ -44,6 +44,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
+import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Schedulers
 
@@ -149,10 +150,11 @@ class ClosePaymentHelper(
     val tracingInfo = getTracingInfo(queueEvent)
     val transactionId = getTransactionId(queueEvent)
     val retryCount = getRetryCount(queueEvent)
-    val baseTransaction =
-      Mono.defer {
-        reduceEvents(mono { transactionId }, transactionsEventStoreRepository, emptyTransaction)
-      }
+    val events =
+      transactionsEventStoreRepository
+        .findByTransactionIdOrderByCreationDateAsc(transactionId)
+        .map { it as TransactionEvent<Any> }
+    val baseTransaction = Mono.defer { reduceEvents(events, emptyTransaction) }
     val closurePipeline =
       baseTransaction
         .flatMap {
@@ -210,10 +212,12 @@ class ClosePaymentHelper(
                 { Mono.empty() },
                 { transactionClosedEvent ->
                   requestRefundTransactionPipeline(
-                    (tx as it.pagopa.ecommerce.commons.domain.v2.Transaction).applyEvent(
-                      transactionClosedEvent) as BaseTransaction,
-                    transactionClosedEvent.data.responseOutcome,
-                    tracingInfo)
+                    events = events,
+                    transaction =
+                      (tx as it.pagopa.ecommerce.commons.domain.v2.Transaction).applyEvent(
+                        transactionClosedEvent) as BaseTransaction,
+                    closureOutcome = transactionClosedEvent.data.responseOutcome,
+                    tracingInfo = tracingInfo)
                 })
             }
             .then()
@@ -223,7 +227,8 @@ class ClosePaymentHelper(
                 baseTransaction = baseTransaction,
                 retryCount = retryCount,
                 tracingInfo = tracingInfo,
-                closePaymentTransactionData = closePaymentTransactionData)
+                closePaymentTransactionData = closePaymentTransactionData,
+                events = events)
             }
         }
         .then()
@@ -240,6 +245,7 @@ class ClosePaymentHelper(
   }
 
   private fun closePaymentErrorHandling(
+    events: Flux<TransactionEvent<Any>>,
     exception: Throwable,
     baseTransaction: Mono<BaseTransaction>,
     retryCount: Int,
@@ -289,7 +295,11 @@ class ClosePaymentHelper(
           refundTransaction,
           enqueueRetryEvent)
         if (refundTransaction) {
-          requestRefundTransactionPipeline(tx, TransactionClosureData.Outcome.KO, tracingInfo)
+          requestRefundTransactionPipeline(
+              events = events,
+              transaction = tx,
+              closureOutcome = TransactionClosureData.Outcome.KO,
+              tracingInfo = tracingInfo)
             .then()
         } else {
           if (enqueueRetryEvent) {
@@ -545,19 +555,29 @@ class ClosePaymentHelper(
   }
 
   private fun requestRefundTransactionPipeline(
+    events: Flux<TransactionEvent<Any>>,
     transaction: BaseTransaction,
     closureOutcome: TransactionClosureData.Outcome,
     tracingInfo: TracingInfo
   ): Mono<BaseTransaction> =
     when (transaction) {
       is TransactionClosed ->
-        requestRefundTransactionPipeline(Either.right(transaction), closureOutcome, tracingInfo)
+        requestRefundTransactionPipeline(
+          events = events,
+          transaction = Either.right(transaction),
+          closureOutcome = closureOutcome,
+          tracingInfo = tracingInfo)
       is TransactionWithClosureError ->
-        requestRefundTransactionPipeline(Either.left(transaction), closureOutcome, tracingInfo)
+        requestRefundTransactionPipeline(
+          events = events,
+          transaction = Either.left(transaction),
+          closureOutcome = closureOutcome,
+          tracingInfo = tracingInfo)
       else -> Mono.empty()
     }
 
   private fun requestRefundTransactionPipeline(
+    events: Flux<TransactionEvent<Any>>,
     transaction: Either<TransactionWithClosureError, TransactionClosed>,
     closureOutcome: TransactionClosureData.Outcome,
     tracingInfo: TracingInfo
@@ -582,13 +602,14 @@ class ClosePaymentHelper(
       .filter { toBeRefunded }
       .flatMap {
         requestRefundTransaction(
-          it,
-          transactionsRefundedEventStoreRepository,
-          transactionsViewRepository,
-          npgService,
-          tracingInfo,
-          refundQueueAsyncClient,
-          Duration.ofSeconds(transientQueueTTLSeconds.toLong()))
+          events = events,
+          transaction = it,
+          transactionsEventStoreRepository = transactionsRefundedEventStoreRepository,
+          transactionsViewRepository = transactionsViewRepository,
+          npgService = npgService,
+          tracingInfo = tracingInfo,
+          refundRequestedAsyncClient = refundQueueAsyncClient,
+          transientQueuesTimeToLive = Duration.ofSeconds(transientQueueTTLSeconds.toLong()))
       }
   }
 

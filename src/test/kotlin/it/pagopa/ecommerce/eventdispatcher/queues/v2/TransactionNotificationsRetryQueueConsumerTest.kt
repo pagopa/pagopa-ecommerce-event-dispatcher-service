@@ -93,6 +93,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
   private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient = mock()
   private val strictJsonSerializerProviderV2 = QueuesConsumerConfig().strictSerializerProviderV2()
   private val jsonSerializerV2 = strictJsonSerializerProviderV2.createInstance()
+  private val npgDelayRefundFromAuthRequestMinutes = 10
 
   private val transactionNotificationsRetryQueueConsumer =
     TransactionNotificationsRetryQueueConsumer(
@@ -107,7 +108,11 @@ class TransactionNotificationsRetryQueueConsumerTest {
       deadLetterTracedQueueAsyncClient = deadLetterTracedQueueAsyncClient,
       tracingUtils = tracingUtils,
       strictSerializerProviderV2 = strictJsonSerializerProviderV2,
-      npgService = NpgService(authorizationStateRetrieverService),
+      npgService =
+        NpgService(
+          authorizationStateRetrieverService = authorizationStateRetrieverService,
+          refundDelayFromAuthRequestMinutes = npgDelayRefundFromAuthRequestMinutes,
+        ),
       transientQueueTTLSeconds = TRANSIENT_QUEUE_TTL_SECONDS)
 
   @Test

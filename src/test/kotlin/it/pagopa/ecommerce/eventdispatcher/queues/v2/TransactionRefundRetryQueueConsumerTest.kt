@@ -74,6 +74,7 @@ class TransactionRefundRetryQueueConsumerTest {
   private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient = mock()
   private val strictJsonSerializerProviderV2 = QueuesConsumerConfig().strictSerializerProviderV2()
   private val jsonSerializerV2 = strictJsonSerializerProviderV2.createInstance()
+  private val npgDelayRefundFromAuthRequestMinutes = 10
 
   private val transactionRefundRetryQueueConsumer =
     TransactionRefundRetryQueueConsumer(
@@ -86,7 +87,11 @@ class TransactionRefundRetryQueueConsumerTest {
       deadLetterTracedQueueAsyncClient = deadLetterTracedQueueAsyncClient,
       tracingUtils = tracingUtils,
       strictSerializerProviderV2 = strictJsonSerializerProviderV2,
-      ngpService = NpgService(authorizationStateRetrieverService),
+      ngpService =
+        NpgService(
+          authorizationStateRetrieverService = authorizationStateRetrieverService,
+          refundDelayFromAuthRequestMinutes = npgDelayRefundFromAuthRequestMinutes,
+        ),
     )
 
   @Test

@@ -3,6 +3,7 @@ package it.pagopa.ecommerce.eventdispatcher.queues.v2
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import it.pagopa.ecommerce.commons.client.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v2.BaseTransactionRefundedData
+import it.pagopa.ecommerce.commons.documents.v2.TransactionEvent
 import it.pagopa.ecommerce.commons.documents.v2.TransactionUserReceiptData
 import it.pagopa.ecommerce.commons.documents.v2.TransactionUserReceiptRequestedEvent
 import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
@@ -64,8 +65,12 @@ class TransactionNotificationsQueueConsumer(
     val event = parsedEvent.event
     val tracingInfo = parsedEvent.tracingInfo
     val transactionId = event.transactionId
-    val baseTransaction =
-      reduceEvents(mono { transactionId }, transactionsEventStoreRepository, emptyTransaction)
+    val events =
+      transactionsEventStoreRepository
+        .findByTransactionIdOrderByCreationDateAsc(transactionId)
+        .map { it as TransactionEvent<Any> }
+
+    val baseTransaction = reduceEvents(events, emptyTransaction)
     val notificationResendPipeline =
       baseTransaction
         .flatMap {
@@ -91,13 +96,14 @@ class TransactionNotificationsQueueConsumer(
             }
             .flatMap {
               notificationRefundTransactionPipeline(
-                it,
-                transactionsRefundedEventStoreRepository,
-                transactionsViewRepository,
-                npgService,
-                tracingInfo,
-                refundRequestedAsyncClient,
-                Duration.ofSeconds(transientQueueTTLSeconds.toLong()))
+                transaction = it,
+                transactionsRefundedEventStoreRepository = transactionsRefundedEventStoreRepository,
+                transactionsViewRepository = transactionsViewRepository,
+                npgService = npgService,
+                tracingInfo = tracingInfo,
+                refundRequestedAsyncClient = refundRequestedAsyncClient,
+                transientQueueTTLSeconds = Duration.ofSeconds(transientQueueTTLSeconds.toLong()),
+                events = events)
             }
             .then()
             .onErrorResume { exception ->

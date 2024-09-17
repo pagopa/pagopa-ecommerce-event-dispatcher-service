@@ -388,16 +388,16 @@ fun appendRefundRequestedEventIfNeeded(
 }
 
 fun requestRefundTransaction(
+  events: Flux<TransactionEvent<Any>>,
   transaction: BaseTransaction,
   transactionsEventStoreRepository: TransactionsEventStoreRepository<BaseTransactionRefundedData>,
   transactionsViewRepository: TransactionsViewRepository,
   npgService: NpgService,
   tracingInfo: TracingInfo?,
   refundRequestedAsyncClient: QueueAsyncClient,
-  transientQueueTTLSeconds: Duration
+  transientQueuesTimeToLive: Duration
 ): Mono<BaseTransactionWithRefundRequested> {
   val transactionAuthorizationRequestData = getTransactionAuthorizationRequestData(transaction)
-
   if (transactionAuthorizationRequestData == null) {
     logger.warn(
       "Tried to call `requestRefundTransaction` on transaction with null authorization request data in status {}!",
@@ -406,30 +406,73 @@ fun requestRefundTransaction(
       IllegalArgumentException(
         "Tried to call `refundRequested` on transaction with null authorization request data in status ${transaction.status.value}!"))
   }
-
+  val authorizationRequestedTimestamp =
+    events
+      .filter {
+        TransactionEventCode.valueOf(it.eventCode) ==
+          TransactionEventCode.TRANSACTION_AUTHORIZATION_REQUESTED_EVENT
+      }
+      .next()
+      .map { ZonedDateTime.parse(it.creationDate) }
+      // safe here, transaction will always have a TRANSACTION_AUTHORIZATION_REQUESTED_EVENT event
+      // here, covered by the above check against transactionAuthorizationRequestData presence
+      // this switchIfEmpty set here just for check completeness
+      .switchIfEmpty(
+        Mono.error(
+          IllegalArgumentException(
+            "Tried to call `refundRequested` on transaction with null authorization requested event! Transaction id: ${transaction.transactionId.value()}!")))
   return when (transactionAuthorizationRequestData.paymentGateway) {
-    TransactionAuthorizationRequestData.PaymentGateway.REDIRECT ->
-      appendRefundRequestedEventIfNeeded(
-        transaction, transactionsEventStoreRepository, transactionsViewRepository)
-    TransactionAuthorizationRequestData.PaymentGateway.NPG ->
-      appendNpgRefundRequestedEventIfNeeded(
-        transaction, transactionsEventStoreRepository, transactionsViewRepository, npgService)
-    else ->
-      Mono.error(
-        RuntimeException(
-          "Refund request error for transaction ${transaction.transactionId.value()} - unhandled payment-gateway"))
-  }.flatMap { (tx, refundRequestedEvent) ->
-    if (refundRequestedEvent == null) {
-      logger.warn(
-        "Called `requestRefundTransaction` on transaction with id ${tx.transactionId.value()} which seems with a refund already requested. Current transaction status: ${tx.status}")
-      Mono.empty()
-    } else {
-      refundRequestedAsyncClient
-        .sendMessageWithResponse(
-          QueueEvent(refundRequestedEvent, tracingInfo), Duration.ZERO, transientQueueTTLSeconds)
-        .thenReturn(tx)
+      TransactionAuthorizationRequestData.PaymentGateway.REDIRECT ->
+        appendRefundRequestedEventIfNeeded(
+          transaction, transactionsEventStoreRepository, transactionsViewRepository)
+      TransactionAuthorizationRequestData.PaymentGateway.NPG ->
+        appendNpgRefundRequestedEventIfNeeded(
+          transaction, transactionsEventStoreRepository, transactionsViewRepository, npgService)
+      else ->
+        Mono.error(
+          RuntimeException(
+            "Refund request error for transaction ${transaction.transactionId.value()} - unhandled payment-gateway"))
     }
-  }
+    .flatMap { (tx, refundRequestedEvent) ->
+      authorizationRequestedTimestamp.map { Triple(tx, refundRequestedEvent, it) }
+    }
+    .flatMap { (tx, refundRequestedEvent, authorizationRequestedTimestamp) ->
+      if (refundRequestedEvent == null) {
+        logger.warn(
+          "Called `requestRefundTransaction` on transaction with id ${tx.transactionId.value()} which seems with a refund already requested. Current transaction status: ${tx.status}")
+        Mono.empty()
+      } else {
+        val refundEventVisibilityTimeout =
+          if (transactionAuthorizationRequestData.paymentGateway ==
+            TransactionAuthorizationRequestData.PaymentGateway.NPG) {
+            val now = ZonedDateTime.now()
+            val timeToWaitFromAuthRequest =
+              Duration.ofMinutes(npgService.refundDelayFromAuthRequestMinutes.toLong())
+            val processRefundNotBefore =
+              authorizationRequestedTimestamp.plus(timeToWaitFromAuthRequest)
+            val timeToWaitForRefund = Duration.between(now, processRefundNotBefore)
+            if (timeToWaitForRefund.isNegative) {
+              Duration.ZERO
+            } else {
+              timeToWaitForRefund
+            }
+          } else {
+            Duration.ZERO
+          }
+        logger.info(
+          "Transaction with id: [{}], gateway: [{}], authorization requested at: [{}], refund to be performed with delay from now: [{}]",
+          transaction.transactionId.value(),
+          transactionAuthorizationRequestData.paymentGateway,
+          authorizationRequestedTimestamp,
+          refundEventVisibilityTimeout)
+        refundRequestedAsyncClient
+          .sendMessageWithResponse(
+            QueueEvent(refundRequestedEvent, tracingInfo),
+            refundEventVisibilityTimeout,
+            transientQueuesTimeToLive)
+          .thenReturn(tx)
+      }
+    }
 }
 
 /*
@@ -900,7 +943,8 @@ fun notificationRefundTransactionPipeline(
   npgService: NpgService,
   tracingInfo: TracingInfo?,
   refundRequestedAsyncClient: QueueAsyncClient,
-  transientQueueTTLSeconds: Duration
+  transientQueueTTLSeconds: Duration,
+  events: Flux<TransactionEvent<Any>>
 ): Mono<BaseTransaction> {
   val userReceiptOutcome = transaction.transactionUserReceiptData.responseOutcome
   val toBeRefunded = userReceiptOutcome == TransactionUserReceiptData.Outcome.KO
@@ -910,13 +954,14 @@ fun notificationRefundTransactionPipeline(
     .filter { toBeRefunded }
     .flatMap {
       requestRefundTransaction(
-        transaction,
-        transactionsRefundedEventStoreRepository,
-        transactionsViewRepository,
-        npgService,
-        tracingInfo,
-        refundRequestedAsyncClient,
-        transientQueueTTLSeconds)
+        events = events,
+        transaction = it,
+        transactionsEventStoreRepository = transactionsRefundedEventStoreRepository,
+        transactionsViewRepository = transactionsViewRepository,
+        npgService = npgService,
+        tracingInfo = tracingInfo,
+        refundRequestedAsyncClient = refundRequestedAsyncClient,
+        transientQueuesTimeToLive = transientQueueTTLSeconds)
     }
 }
 

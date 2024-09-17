@@ -108,6 +108,8 @@ class TransactionExpirationQueueConsumerTests {
 
   private val jsonSerializerV2 = strictJsonSerializerProviderV2.createInstance()
 
+  private val npgDelayRefundFromAuthRequestMinutes = 10
+
   private val transactionExpirationQueueConsumer =
     TransactionExpirationQueueConsumer(
       transactionsEventStoreRepository = transactionsEventStoreRepository,
@@ -123,7 +125,11 @@ class TransactionExpirationQueueConsumerTests {
       transientQueueTTLSeconds = TRANSIENT_QUEUE_TTL_SECONDS,
       tracingUtils = tracingUtils,
       strictSerializerProviderV2 = strictJsonSerializerProviderV2,
-      npgService = NpgService(authorizationStateRetrieverService),
+      npgService =
+        NpgService(
+          authorizationStateRetrieverService = authorizationStateRetrieverService,
+          refundDelayFromAuthRequestMinutes = npgDelayRefundFromAuthRequestMinutes,
+        ),
     )
 
   @Test

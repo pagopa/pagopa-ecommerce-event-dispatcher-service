@@ -156,13 +156,14 @@ class TransactionExpirationQueueConsumer(
         .flatMap { tx ->
           val tracingInfo = queueEvent.fold({ it.tracingInfo }, { it.tracingInfo })
           requestRefundTransaction(
-            tx, // transaction
-            transactionsRefundedEventStoreRepository,
-            transactionsViewRepository,
-            npgService,
-            tracingInfo,
-            refundRequestedAsyncClient,
-            Duration.ofSeconds(transientQueueTTLSeconds.toLong()))
+            events = events,
+            transaction = tx,
+            transactionsEventStoreRepository = transactionsRefundedEventStoreRepository,
+            transactionsViewRepository = transactionsViewRepository,
+            npgService = npgService,
+            tracingInfo = tracingInfo,
+            refundRequestedAsyncClient = refundRequestedAsyncClient,
+            transientQueuesTimeToLive = Duration.ofSeconds(transientQueueTTLSeconds.toLong()))
         }
 
     return runTracedPipelineWithDeadLetterQueue(
