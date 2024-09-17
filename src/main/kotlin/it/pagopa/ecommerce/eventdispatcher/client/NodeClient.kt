@@ -23,6 +23,7 @@ class NodeClient(
 
   companion object {
     const val NODE_DID_NOT_RECEIVE_RPT_YET_ERROR = "Node did not receive RPT yet"
+    const val UNACCEPTABLE_OUTCOME_TOKEN_EXPIRED = "Unacceptable outcome when token has expired"
   }
 
   private val logger = LoggerFactory.getLogger(javaClass)

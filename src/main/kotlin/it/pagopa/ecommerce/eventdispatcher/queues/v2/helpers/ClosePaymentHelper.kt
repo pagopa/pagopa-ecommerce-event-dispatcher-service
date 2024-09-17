@@ -273,10 +273,14 @@ class ClosePaymentHelper(
             ),
           updateTransactionStatusOutcome = UpdateTransactionStatusOutcome.PROCESSING_ERROR)
         // transaction can be refund only for HTTP status code 422 and error response description
-        // equals to "Node did not receive RPT yet"
+        // equals to "Node did not receive RPT yet" OR HTTP status code 400 and error response
+        // description equal to
+        // "Unacceptable outcome when token has expired"
         val refundTransaction =
-          statusCode == HttpStatus.UNPROCESSABLE_ENTITY &&
-            errorDescription == NodeClient.NODE_DID_NOT_RECEIVE_RPT_YET_ERROR
+          (statusCode == HttpStatus.UNPROCESSABLE_ENTITY &&
+            errorDescription == NodeClient.NODE_DID_NOT_RECEIVE_RPT_YET_ERROR) ||
+            (statusCode == HttpStatus.BAD_REQUEST &&
+              errorDescription == NodeClient.UNACCEPTABLE_OUTCOME_TOKEN_EXPIRED)
         // retry event enqueued only for 5xx error responses or for other exceptions that might
         // happen
         // during communication such as read timeout
