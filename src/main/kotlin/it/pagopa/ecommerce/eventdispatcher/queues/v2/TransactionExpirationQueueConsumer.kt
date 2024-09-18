@@ -68,7 +68,7 @@ class TransactionExpirationQueueConsumer(
       transactionsEventStoreRepository
         .findByTransactionIdOrderByCreationDateAsc(transactionId)
         .map { it as TransactionEvent<Any> }
-    val baseTransaction = reduceEvents(events)
+    val baseTransaction = Mono.defer { reduceEvents(events) }
     val refundPipeline =
       baseTransaction
         .filter {
