@@ -64,7 +64,7 @@ class TransactionsRefundEventsConsumerTests {
 
   private val authorizationStateRetrieverService: AuthorizationStateRetrieverService = mock()
 
-  private val npgDelayRefundFromAuthRequestMinutes = 10
+  private val npgDelayRefundFromAuthRequestMinutes = 10L
 
   private val npgService: NpgService =
     NpgService(

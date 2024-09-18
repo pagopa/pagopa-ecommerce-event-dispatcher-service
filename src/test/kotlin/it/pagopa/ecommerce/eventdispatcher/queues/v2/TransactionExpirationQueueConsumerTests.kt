@@ -33,6 +33,7 @@ import kotlinx.coroutines.reactor.mono
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
@@ -108,8 +109,6 @@ class TransactionExpirationQueueConsumerTests {
   private val strictJsonSerializerProviderV2 = QueuesConsumerConfig().strictSerializerProviderV2()
 
   private val jsonSerializerV2 = strictJsonSerializerProviderV2.createInstance()
-
-  private val npgDelayRefundFromAuthRequestMinutes = 10
 
   private val transactionExpirationQueueConsumer =
     TransactionExpirationQueueConsumer(
@@ -3377,7 +3376,210 @@ class TransactionExpirationQueueConsumerTests {
     }
   }
 
+  @ParameterizedTest
+  @MethodSource("npgRefundDelayTestMethodSource")
+  fun `messageReceiver requests refund on a NPG transaction with authorization request with expected delay`(
+    elapsedTimeFromAuthorization: Duration,
+    expectedRefundEventDelay: Duration
+  ) = runTest {
+    val activatedEvent = transactionActivateEvent()
+    val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
+    authorizationRequestedEvent.creationDate =
+      ZonedDateTime.parse(authorizationRequestedEvent.creationDate)
+        .minus(elapsedTimeFromAuthorization)
+        .toString()
+    val expiredEvent = transactionExpiredEvent(transactionActivated(ZonedDateTime.now().toString()))
+    val refundedEvent =
+      transactionRefundedEvent(transactionActivated(ZonedDateTime.now().toString()))
+        as TransactionEvent<BaseTransactionRefundedData>
+
+    val transaction =
+      transactionDocument(
+        TransactionStatusDto.EXPIRED, ZonedDateTime.parse(activatedEvent.creationDate))
+
+    /* preconditions */
+    given(checkpointer.success()).willReturn(Mono.empty())
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+          any(),
+        ))
+      .willReturn(
+        Flux.just(
+          activatedEvent as TransactionEvent<Any>,
+          authorizationRequestedEvent as TransactionEvent<Any>))
+
+    given(transactionsExpiredEventStoreRepository.save(any())).willReturn(Mono.just(expiredEvent))
+    given(transactionsRefundedEventStoreRepository.save(any())).willReturn(Mono.just(refundedEvent))
+    given(transactionsViewRepository.save(any())).willReturn(Mono.just(transaction))
+    given(
+        refundRequestedAsyncClient.sendMessageWithResponse(
+          any<QueueEvent<*>>(), visibilityTimeoutCaptor.capture(), any()))
+      .willReturn(queueSuccessfulResponse())
+    given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+      .willReturn(
+        Mono.just(
+          transactionDocument(TransactionStatusDto.NOTIFICATION_ERROR, ZonedDateTime.now())))
+    given(authorizationStateRetrieverService.performGetOrder(any()))
+      .willReturn(npgAuthorizedOrderResponse("operationId", "paymentEnd2EndId"))
+    /* test */
+    StepVerifier.create(
+        transactionExpirationQueueConsumer.messageReceiver(
+          Either.left(QueueEvent(activatedEvent, MOCK_TRACING_INFO)),
+          checkpointer,
+          MessageHeaders(mapOf())))
+      .expectNext(Unit)
+      .expectComplete()
+      .verify()
+
+    /* Asserts */
+    verify(checkpointer, times(1)).success()
+    verify(refundRequestedAsyncClient, times(1))
+      .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
+    // there is time diff due to the fact that code calculate time diffs using now(), check event
+    // delay with a 1 sec toleration
+    println(
+      "expected refund event delay: [$expectedRefundEventDelay], actual delay: [${visibilityTimeoutCaptor.value}]")
+    assertTrue(expectedRefundEventDelay.minus(visibilityTimeoutCaptor.value).toMillis() < 1000)
+  }
+
+  @ParameterizedTest
+  @MethodSource("npgRefundDelayTestMethodSource")
+  fun `messageReceiver requests refund on a REDIRECT transaction without delay`(
+    elapsedTimeFromAuthorization: Duration
+  ) = runTest {
+    val activatedEvent = transactionActivateEvent()
+    val authorizationRequestedEvent =
+      transactionAuthorizationRequestedEvent(
+        TransactionAuthorizationRequestData.PaymentGateway.REDIRECT,
+        redirectTransactionGatewayAuthorizationRequestedData())
+    authorizationRequestedEvent.creationDate =
+      ZonedDateTime.parse(authorizationRequestedEvent.creationDate)
+        .minus(elapsedTimeFromAuthorization)
+        .toString()
+    val expiredEvent = transactionExpiredEvent(transactionActivated(ZonedDateTime.now().toString()))
+    val refundedEvent =
+      transactionRefundedEvent(transactionActivated(ZonedDateTime.now().toString()))
+        as TransactionEvent<BaseTransactionRefundedData>
+
+    val transaction =
+      transactionDocument(
+        TransactionStatusDto.EXPIRED, ZonedDateTime.parse(activatedEvent.creationDate))
+
+    /* preconditions */
+    given(checkpointer.success()).willReturn(Mono.empty())
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+          any(),
+        ))
+      .willReturn(
+        Flux.just(
+          activatedEvent as TransactionEvent<Any>,
+          authorizationRequestedEvent as TransactionEvent<Any>))
+
+    given(transactionsExpiredEventStoreRepository.save(any())).willReturn(Mono.just(expiredEvent))
+    given(transactionsRefundedEventStoreRepository.save(any())).willReturn(Mono.just(refundedEvent))
+    given(transactionsViewRepository.save(any())).willReturn(Mono.just(transaction))
+    given(
+        refundRequestedAsyncClient.sendMessageWithResponse(
+          any<QueueEvent<*>>(), visibilityTimeoutCaptor.capture(), any()))
+      .willReturn(queueSuccessfulResponse())
+    given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+      .willReturn(
+        Mono.just(
+          transactionDocument(TransactionStatusDto.NOTIFICATION_ERROR, ZonedDateTime.now())))
+    given(authorizationStateRetrieverService.performGetOrder(any()))
+      .willReturn(npgAuthorizedOrderResponse("operationId", "paymentEnd2EndId"))
+    /* test */
+    StepVerifier.create(
+        transactionExpirationQueueConsumer.messageReceiver(
+          Either.left(QueueEvent(activatedEvent, MOCK_TRACING_INFO)),
+          checkpointer,
+          MessageHeaders(mapOf())))
+      .expectNext(Unit)
+      .expectComplete()
+      .verify()
+
+    /* Asserts */
+    verify(checkpointer, times(1)).success()
+    verify(refundRequestedAsyncClient, times(1))
+      .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
+    assertEquals(Duration.ZERO, visibilityTimeoutCaptor.value)
+  }
+
+  @ParameterizedTest
+  @MethodSource("npgRefundDelayTestMethodSource")
+  fun `messageReceiver requests refund on a NPG transaction with no delay for transactions in authorization completed status`(
+    elapsedTimeFromAuthorization: Duration
+  ) = runTest {
+    val activatedEvent = transactionActivateEvent()
+    val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
+    val authorizationCompletedEvent =
+      transactionAuthorizationCompletedEvent(
+        npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED))
+    val closureRequestedEvent = transactionClosureRequestedEvent()
+    val closureFailedEvent = transactionClosedEvent(TransactionClosureData.Outcome.KO)
+    authorizationRequestedEvent.creationDate =
+      ZonedDateTime.parse(authorizationRequestedEvent.creationDate)
+        .minus(elapsedTimeFromAuthorization)
+        .toString()
+    val expiredEvent = transactionExpiredEvent(transactionActivated(ZonedDateTime.now().toString()))
+    val refundedEvent =
+      transactionRefundedEvent(transactionActivated(ZonedDateTime.now().toString()))
+        as TransactionEvent<BaseTransactionRefundedData>
+
+    val transaction =
+      transactionDocument(
+        TransactionStatusDto.EXPIRED, ZonedDateTime.parse(activatedEvent.creationDate))
+
+    /* preconditions */
+    given(checkpointer.success()).willReturn(Mono.empty())
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+          any(),
+        ))
+      .willReturn(
+        Flux.just(
+          activatedEvent as TransactionEvent<Any>,
+          authorizationRequestedEvent as TransactionEvent<Any>,
+          authorizationCompletedEvent as TransactionEvent<Any>,
+          closureRequestedEvent as TransactionEvent<Any>,
+          closureFailedEvent as TransactionEvent<Any>))
+
+    given(transactionsExpiredEventStoreRepository.save(any())).willReturn(Mono.just(expiredEvent))
+    given(transactionsRefundedEventStoreRepository.save(any())).willReturn(Mono.just(refundedEvent))
+    given(transactionsViewRepository.save(any())).willReturn(Mono.just(transaction))
+    given(
+        refundRequestedAsyncClient.sendMessageWithResponse(
+          any<QueueEvent<*>>(), visibilityTimeoutCaptor.capture(), any()))
+      .willReturn(queueSuccessfulResponse())
+    given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+      .willReturn(
+        Mono.just(
+          transactionDocument(TransactionStatusDto.NOTIFICATION_ERROR, ZonedDateTime.now())))
+    given(authorizationStateRetrieverService.performGetOrder(any()))
+      .willReturn(npgAuthorizedOrderResponse("operationId", "paymentEnd2EndId"))
+    /* test */
+    Hooks.onOperatorDebug()
+    StepVerifier.create(
+        transactionExpirationQueueConsumer.messageReceiver(
+          Either.left(QueueEvent(activatedEvent, MOCK_TRACING_INFO)),
+          checkpointer,
+          MessageHeaders(mapOf())))
+      .expectNext(Unit)
+      .expectComplete()
+      .verify()
+
+    /* Asserts */
+    verify(checkpointer, times(1)).success()
+    verify(refundRequestedAsyncClient, times(1))
+      .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
+
+    assertEquals(Duration.ZERO, visibilityTimeoutCaptor.value)
+  }
+
   companion object {
+    const val npgDelayRefundFromAuthRequestMinutes = 10L
+
     @JvmStatic
     fun manualCheckRequiredNPGResponses(): Stream<Arguments> =
       Stream.of<Either<Exception, OrderResponseDto>>(
@@ -3447,5 +3649,16 @@ class TransactionExpirationQueueConsumerTests {
           Either.left(InvalidNPGResponseException()), // a generic invalid response
         )
         .map { Arguments.of(it) }
+
+    @JvmStatic
+    fun npgRefundDelayTestMethodSource(): Stream<Arguments> =
+      Stream.of(
+        Arguments.of(Duration.ZERO, Duration.ofMinutes(npgDelayRefundFromAuthRequestMinutes)),
+        Arguments.of(
+          Duration.ofMinutes(npgDelayRefundFromAuthRequestMinutes / 2),
+          Duration.ofMinutes(npgDelayRefundFromAuthRequestMinutes / 2)),
+        Arguments.of(
+          Duration.ofMinutes(npgDelayRefundFromAuthRequestMinutes).plus(Duration.ofSeconds(1)),
+          Duration.ZERO))
   }
 }
