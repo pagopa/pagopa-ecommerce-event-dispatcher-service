@@ -36,7 +36,7 @@ data class NgpOrderNotAuthorized(
 @Service
 class NpgService(
   private val authorizationStateRetrieverService: AuthorizationStateRetrieverService,
-  @Value("\${npg.refund.delayFromAuthRequestMinutes}") val refundDelayFromAuthRequestMinutes: Int
+  @Value("\${npg.refund.delayFromAuthRequestMinutes}") val refundDelayFromAuthRequestMinutes: Long
 ) {
 
   private val logger: Logger = LoggerFactory.getLogger(javaClass)

@@ -434,37 +434,21 @@ fun requestRefundTransaction(
             "Refund request error for transaction ${transaction.transactionId.value()} - unhandled payment-gateway"))
     }
     .flatMap { (tx, refundRequestedEvent) ->
-      authorizationRequestedTimestamp.map { Triple(tx, refundRequestedEvent, it) }
+      events.collectList().map { Triple(tx, refundRequestedEvent, it) }
     }
-    .flatMap { (tx, refundRequestedEvent, authorizationRequestedTimestamp) ->
+    .flatMap { (tx, refundRequestedEvent, eventsList) ->
       if (refundRequestedEvent == null) {
         logger.warn(
           "Called `requestRefundTransaction` on transaction with id ${tx.transactionId.value()} which seems with a refund already requested. Current transaction status: ${tx.status}")
         Mono.empty()
       } else {
         val refundEventVisibilityTimeout =
-          if (transactionAuthorizationRequestData.paymentGateway ==
-            TransactionAuthorizationRequestData.PaymentGateway.NPG) {
-            val now = ZonedDateTime.now()
-            val timeToWaitFromAuthRequest =
-              Duration.ofMinutes(npgService.refundDelayFromAuthRequestMinutes.toLong())
-            val processRefundNotBefore =
-              authorizationRequestedTimestamp.plus(timeToWaitFromAuthRequest)
-            val timeToWaitForRefund = Duration.between(now, processRefundNotBefore)
-            if (timeToWaitForRefund.isNegative) {
-              Duration.ZERO
-            } else {
-              timeToWaitForRefund
-            }
-          } else {
-            Duration.ZERO
-          }
-        logger.info(
-          "Transaction with id: [{}], gateway: [{}], authorization requested at: [{}], refund to be performed with delay from now: [{}]",
-          transaction.transactionId.value(),
-          transactionAuthorizationRequestData.paymentGateway,
-          authorizationRequestedTimestamp,
-          refundEventVisibilityTimeout)
+          calculateRefundEventVisibilityTimeout(
+            transaction = transaction,
+            transactionAuthorizationRequestData = transactionAuthorizationRequestData,
+            npgDelayFromAuthRequest =
+              Duration.ofMinutes(npgService.refundDelayFromAuthRequestMinutes),
+            events = eventsList)
         refundRequestedAsyncClient
           .sendMessageWithResponse(
             QueueEvent(refundRequestedEvent, tracingInfo),
@@ -473,6 +457,59 @@ fun requestRefundTransaction(
           .thenReturn(tx)
       }
     }
+}
+
+fun calculateRefundEventVisibilityTimeout(
+  transaction: BaseTransaction,
+  transactionAuthorizationRequestData: TransactionAuthorizationRequestData,
+  npgDelayFromAuthRequest: Duration,
+  events: List<TransactionEvent<Any>>
+): Duration {
+  val paymentGateway = transactionAuthorizationRequestData.paymentGateway
+  val authorizationRequestedTimestamp =
+    events
+      // safe here, check against auth request event performed in the calling method
+      // (TransactionAuthorizationRequestedData presence assure that transaction have an
+      // authorization requested event
+      .first {
+        TransactionEventCode.valueOf(it.eventCode) ==
+          TransactionEventCode.TRANSACTION_AUTHORIZATION_REQUESTED_EVENT
+      }
+      .let { ZonedDateTime.parse(it.creationDate) }
+  // if transaction outcome have been received there is no need to wait to perform refund, refund
+  // have to be postponed for transaction without authorization completed outcome. Check against
+  // transaction eligibility check for refund are performed from caller, so here we check only
+  // if a transaction outcome have been received or not ignoring the value
+  val authorizationOutcome = getAuthorizationOutcome(transaction)
+  if (authorizationOutcome != null) {
+    logger.info(
+      "Transaction with id: [{}], gateway: [{}], authorization requested at: [{}], already receive an authorization outcome: [{}], processing refund without delay",
+      transaction.transactionId.value(),
+      paymentGateway,
+      authorizationRequestedTimestamp,
+      authorizationOutcome)
+    return Duration.ZERO
+  }
+  val refundEventVisibilityTimeout =
+    if (paymentGateway == TransactionAuthorizationRequestData.PaymentGateway.NPG) {
+      val now = ZonedDateTime.now()
+      val processRefundNotBefore = authorizationRequestedTimestamp.plus(npgDelayFromAuthRequest)
+      val timeToWaitForRefund = Duration.between(now, processRefundNotBefore)
+      if (timeToWaitForRefund.isNegative) {
+        Duration.ZERO
+      } else {
+        timeToWaitForRefund
+      }
+    } else {
+      Duration.ZERO
+    }
+  logger.info(
+    "Transaction with id: [{}], gateway: [{}], authorization requested at: [{}], refund to be performed with delay from now: [{}]",
+    transaction.transactionId.value(),
+    paymentGateway,
+    authorizationRequestedTimestamp,
+    refundEventVisibilityTimeout)
+  return refundEventVisibilityTimeout
 }
 
 /*
@@ -508,7 +545,6 @@ fun refundTransaction(
 
   return Mono.just(tx)
     .flatMap { transaction ->
-      val authorizationRequestId = transactionAuthorizationRequestData.authorizationRequestId
       when (transactionAuthorizationRequestData.paymentGateway) {
         TransactionAuthorizationRequestData.PaymentGateway.NPG ->
           appendNpgRefundRequestedEventIfNeeded(

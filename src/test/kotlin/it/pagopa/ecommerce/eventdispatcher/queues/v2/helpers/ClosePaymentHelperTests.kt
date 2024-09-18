@@ -124,7 +124,7 @@ class ClosePaymentHelperTests {
   private val strictJsonSerializerProviderV2 = QueuesConsumerConfig().strictSerializerProviderV2()
   private val jsonSerializerV2 = strictJsonSerializerProviderV2.createInstance()
   private val updateTransactionStatusTracerUtils: UpdateTransactionStatusTracerUtils = mock {}
-  private val npgDelayRefundFromAuthRequestMinutes = 10
+  private val npgDelayRefundFromAuthRequestMinutes = 10L
 
   private val closePaymentHelper =
     ClosePaymentHelper(
