@@ -155,65 +155,71 @@ class TransactionClosePaymentRetryQueueConsumerTests {
   }
 
   @Test
-  fun `consumer processes refund on close payment 400 and Unacceptable outcome when token has expired error description`() = runTest {
-    val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
-    val authRequestedEvent = transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
-    val authCompletedEvent = transactionAuthorizationCompletedEvent() as TransactionEvent<Any>
-    val closureRetriedEvent = transactionClosureRetriedEvent(1) as TransactionEvent<Any>
-    val closureErrorEvent = transactionClosureErrorEvent() as TransactionEvent<Any>
-    val eitherEvent: Either<TransactionClosureErrorEvent, TransactionClosureRetriedEvent> =
-      Either.right(closureRetriedEvent as TransactionClosureRetriedEvent)
+  fun `consumer processes refund on close payment 400 and Unacceptable outcome when token has expired error description`() =
+    runTest {
+      val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
+      val authRequestedEvent = transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
+      val authCompletedEvent = transactionAuthorizationCompletedEvent() as TransactionEvent<Any>
+      val closureRetriedEvent = transactionClosureRetriedEvent(1) as TransactionEvent<Any>
+      val closureErrorEvent = transactionClosureErrorEvent() as TransactionEvent<Any>
+      val eitherEvent: Either<TransactionClosureErrorEvent, TransactionClosureRetriedEvent> =
+        Either.right(closureRetriedEvent as TransactionClosureRetriedEvent)
 
-    val events = listOf(activationEvent, authRequestedEvent, authCompletedEvent, closureErrorEvent)
+      val events =
+        listOf(activationEvent, authRequestedEvent, authCompletedEvent, closureErrorEvent)
 
-    val transactionDocument =
-      transactionDocument(
-        TransactionStatusDto.CANCELLATION_REQUESTED,
-        ZonedDateTime.parse(activationEvent.creationDate))
+      val transactionDocument =
+        transactionDocument(
+          TransactionStatusDto.CANCELLATION_REQUESTED,
+          ZonedDateTime.parse(activationEvent.creationDate))
 
-    val expectedUpdatedTransactionCanceled =
-      transactionDocument(
-        TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.parse(activationEvent.creationDate))
+      val expectedUpdatedTransactionCanceled =
+        transactionDocument(
+          TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.parse(activationEvent.creationDate))
 
-    val transactionId = TransactionId(TRANSACTION_ID)
+      val transactionId = TransactionId(TRANSACTION_ID)
 
-    /* preconditions */
-    given(checkpointer.success()).willReturn(Mono.empty())
-    given(
-      transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
-      .willReturn(events.toFlux())
-    given(transactionsRefundedEventStoreRepository.save(refundEventStoreRepositoryCaptor.capture())).willAnswer {
-      Mono.just(it.arguments[0])
+      /* preconditions */
+      given(checkpointer.success()).willReturn(Mono.empty())
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
+        .willReturn(events.toFlux())
+      given(
+          transactionsRefundedEventStoreRepository.save(refundEventStoreRepositoryCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
+      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturn(Mono.just(transactionDocument))
+      given(transactionsViewRepository.save(viewArgumentCaptor.capture())).willAnswer {
+        Mono.just(it.arguments[0])
+      }
+      given(transactionClosedEventRepository.save(closedEventStoreRepositoryCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
+      given(nodeService.closePayment(transactionId, ClosePaymentOutcome.OK))
+        .willThrow(
+          ClosePaymentErrorResponseException(
+            HttpStatus.BAD_REQUEST,
+            ErrorDto("KO", ClosePaymentErrorResponseException.UNACCEPTABLE_OUTCOME_TOKEN_EXPIRED)))
+      given(deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(any(), any()))
+        .willReturn(Mono.empty())
+      /* test */
+
+      StepVerifier.create(
+          transactionClosureEventsConsumer.messageReceiver(
+            eitherEvent to MOCK_TRACING_INFO, checkpointer))
+        .expectNext(Unit)
+        .verifyComplete()
+
+      /* Asserts */
+      verify(checkpointer, Mockito.times(1)).success()
+      verify(nodeService, Mockito.times(1)).closePayment(transactionId, ClosePaymentOutcome.OK)
+      verify(transactionClosedEventRepository, Mockito.times(0))
+        .save(
+          any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
+      verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
+      // mocking
+      verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransactionCanceled)
+      verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
+      assertEquals(TransactionStatusDto.REFUND_REQUESTED, viewArgumentCaptor.value.status)
     }
-    given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
-      .willReturn(Mono.just(transactionDocument))
-    given(transactionsViewRepository.save(viewArgumentCaptor.capture())).willAnswer {
-      Mono.just(it.arguments[0])
-    }
-    given(transactionClosedEventRepository.save(closedEventStoreRepositoryCaptor.capture()))
-      .willAnswer { Mono.just(it.arguments[0]) }
-    given(nodeService.closePayment(transactionId, ClosePaymentOutcome.OK))
-      .willThrow( ClosePaymentErrorResponseException(HttpStatus.BAD_REQUEST, ErrorDto( "KO", ClosePaymentErrorResponseException.UNACCEPTABLE_OUTCOME_TOKEN_EXPIRED)))
-    given(deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(any(), any()))
-      .willReturn(Mono.empty())
-    /* test */
-
-    StepVerifier.create(
-      transactionClosureEventsConsumer.messageReceiver(
-        eitherEvent to MOCK_TRACING_INFO, checkpointer))
-      .expectNext(Unit)
-      .verifyComplete()
-
-    /* Asserts */
-    verify(checkpointer, Mockito.times(1)).success()
-    verify(nodeService, Mockito.times(1)).closePayment(transactionId, ClosePaymentOutcome.OK)
-    verify(transactionClosedEventRepository, Mockito.times(0))
-      .save(any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
-    verify(transactionsRefundedEventStoreRepository, Mockito.times(1))
-      .save(any())
-    // mocking
-    verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransactionCanceled)
-    verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
-    assertEquals(TransactionStatusDto.REFUND_REQUESTED, viewArgumentCaptor.value.status)
-  }
 }
