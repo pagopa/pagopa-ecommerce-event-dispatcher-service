@@ -11,6 +11,7 @@ import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.commons.queues.TracingUtilsTests
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils.*
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
+import it.pagopa.ecommerce.eventdispatcher.exceptions.ClosePaymentErrorResponseException
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.ClosePaymentOutcome
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
@@ -19,6 +20,7 @@ import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v1.RefundRetrySer
 import it.pagopa.ecommerce.eventdispatcher.services.v1.NodeService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
+import it.pagopa.generated.ecommerce.nodo.v2.dto.ErrorDto
 import java.time.ZonedDateTime
 import java.util.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -31,6 +33,7 @@ import org.mockito.Captor
 import org.mockito.Mockito
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.*
+import org.springframework.http.HttpStatus
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toFlux
 import reactor.test.StepVerifier
@@ -71,8 +74,8 @@ class TransactionClosePaymentRetryQueueConsumerTests {
     ArgumentCaptor<TransactionEvent<TransactionClosureData>>
 
   @Captor
-  private lateinit var closureErrorEventStoreRepositoryCaptor:
-    ArgumentCaptor<TransactionClosureErrorEvent>
+  private lateinit var refundEventStoreRepositoryCaptor:
+    ArgumentCaptor<TransactionEvent<TransactionRefundedData>>
 
   private val transactionClosureEventsConsumer =
     TransactionClosePaymentRetryQueueConsumer(
@@ -149,5 +152,68 @@ class TransactionClosePaymentRetryQueueConsumerTests {
     assertEquals(
       TransactionClosureData.Outcome.OK,
       closedEventStoreRepositoryCaptor.value.data.responseOutcome)
+  }
+
+  @Test
+  fun `consumer processes refund on close payment 400 and Unacceptable outcome when token has expired error description`() = runTest {
+    val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
+    val authRequestedEvent = transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
+    val authCompletedEvent = transactionAuthorizationCompletedEvent() as TransactionEvent<Any>
+    val closureRetriedEvent = transactionClosureRetriedEvent(1) as TransactionEvent<Any>
+    val closureErrorEvent = transactionClosureErrorEvent() as TransactionEvent<Any>
+    val eitherEvent: Either<TransactionClosureErrorEvent, TransactionClosureRetriedEvent> =
+      Either.right(closureRetriedEvent as TransactionClosureRetriedEvent)
+
+    val events = listOf(activationEvent, authRequestedEvent, authCompletedEvent, closureErrorEvent)
+
+    val transactionDocument =
+      transactionDocument(
+        TransactionStatusDto.CANCELLATION_REQUESTED,
+        ZonedDateTime.parse(activationEvent.creationDate))
+
+    val expectedUpdatedTransactionCanceled =
+      transactionDocument(
+        TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.parse(activationEvent.creationDate))
+
+    val transactionId = TransactionId(TRANSACTION_ID)
+
+    /* preconditions */
+    given(checkpointer.success()).willReturn(Mono.empty())
+    given(
+      transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
+      .willReturn(events.toFlux())
+    given(transactionsRefundedEventStoreRepository.save(refundEventStoreRepositoryCaptor.capture())).willAnswer {
+      Mono.just(it.arguments[0])
+    }
+    given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+      .willReturn(Mono.just(transactionDocument))
+    given(transactionsViewRepository.save(viewArgumentCaptor.capture())).willAnswer {
+      Mono.just(it.arguments[0])
+    }
+    given(transactionClosedEventRepository.save(closedEventStoreRepositoryCaptor.capture()))
+      .willAnswer { Mono.just(it.arguments[0]) }
+    given(nodeService.closePayment(transactionId, ClosePaymentOutcome.OK))
+      .willThrow( ClosePaymentErrorResponseException(HttpStatus.BAD_REQUEST, ErrorDto( "KO", ClosePaymentErrorResponseException.UNACCEPTABLE_OUTCOME_TOKEN_EXPIRED)))
+    given(deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(any(), any()))
+      .willReturn(Mono.empty())
+    /* test */
+
+    StepVerifier.create(
+      transactionClosureEventsConsumer.messageReceiver(
+        eitherEvent to MOCK_TRACING_INFO, checkpointer))
+      .expectNext(Unit)
+      .verifyComplete()
+
+    /* Asserts */
+    verify(checkpointer, Mockito.times(1)).success()
+    verify(nodeService, Mockito.times(1)).closePayment(transactionId, ClosePaymentOutcome.OK)
+    verify(transactionClosedEventRepository, Mockito.times(0))
+      .save(any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
+    verify(transactionsRefundedEventStoreRepository, Mockito.times(1))
+      .save(any())
+    // mocking
+    verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransactionCanceled)
+    verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any())
+    assertEquals(TransactionStatusDto.REFUND_REQUESTED, viewArgumentCaptor.value.status)
   }
 }
