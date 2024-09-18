@@ -31,6 +31,7 @@ import java.util.stream.Stream
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.reactor.mono
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -131,6 +132,12 @@ class TransactionExpirationQueueConsumerTests {
           refundDelayFromAuthRequestMinutes = npgDelayRefundFromAuthRequestMinutes,
         ),
     )
+
+  @AfterEach
+  fun shouldReadEventFromEventStoreJustOnce() {
+    verify(transactionsEventStoreRepository, times(1))
+      .findByTransactionIdOrderByCreationDateAsc(any())
+  }
 
   @Test
   fun `messageReceiver receives activated messages successfully`() {
