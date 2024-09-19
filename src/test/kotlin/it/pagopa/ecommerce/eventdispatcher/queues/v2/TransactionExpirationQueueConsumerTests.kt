@@ -3522,6 +3522,16 @@ class TransactionExpirationQueueConsumerTests {
                   .operationResult(OperationResultDto.DECLINED)
                   .paymentEndToEndId(UUID.randomUUID().toString())
                   .operationTime(ZonedDateTime.now().toString()))),
+          Either.right( // pending status
+            OrderResponseDto()
+              .orderStatus(OrderStatusDto().lastOperationType(OperationTypeDto.AUTHORIZATION))
+              .addOperationsItem(
+                OperationDto()
+                  .orderId(UUID.randomUUID().toString())
+                  .operationType(OperationTypeDto.AUTHORIZATION)
+                  .operationResult(OperationResultDto.PENDING)
+                  .paymentEndToEndId(UUID.randomUUID().toString())
+                  .operationTime(ZonedDateTime.now().toString()))),
           Either.right(
             OrderResponseDto()
               .orderStatus(OrderStatusDto().lastOperationType(OperationTypeDto.AUTHORIZATION))),
