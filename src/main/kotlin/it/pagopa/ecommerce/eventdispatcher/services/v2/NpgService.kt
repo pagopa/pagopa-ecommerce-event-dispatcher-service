@@ -32,6 +32,10 @@ data class NgpOrderNotAuthorized(
   val operation: OperationDto,
 ) : NpgOrderStatus
 
+data class NgpOrderPendingStatus(
+  val operation: OperationDto,
+) : NpgOrderStatus
+
 @Service
 class NpgService(
   private val authorizationStateRetrieverService: AuthorizationStateRetrieverService
@@ -51,13 +55,19 @@ class NpgService(
           Mono.empty()
         }
         is NgpOrderAuthorized -> orderStatus.authorization.toAuthorizationData()?.toMono()
-            ?: Mono.error(InvalidNPGResponseException("Missing mandatory transactionId"))
+            ?: Mono.error(InvalidNPGResponseException("Missing mandatory operationId"))
         is NpgOrderRefunded -> {
-          logger.info(
+          logger.error(
             "Unexpected order refunded for transaction: [{}]", transaction.transactionId.value())
           Mono.error(
             InvalidNpgOrderStateException.OrderAlreadyRefunded(
               orderStatus.refundOperation, orderStatus.authorization?.toAuthorizationData()))
+        }
+        is NgpOrderPendingStatus -> {
+          logger.warn(
+            "Received authorization PENDING status from NPG get order for transaction: [{}]",
+            transaction.transactionId.value())
+          Mono.error(InvalidNpgOrderStateException.OrderPendingStatus(orderStatus.operation))
         }
         is UnknownNpgOrderStatus -> {
           logger.error(
@@ -106,7 +116,13 @@ class NpgService(
       operation.operationType == OperationTypeDto.AUTHORIZATION &&
         operation.operationResult != OperationResultDto.EXECUTED &&
         orderState !is NpgOrderRefunded &&
-        orderState !is NgpOrderAuthorized -> NgpOrderNotAuthorized(operation)
+        orderState !is NgpOrderAuthorized -> {
+        if (operation.operationResult == OperationResultDto.PENDING) {
+          NgpOrderPendingStatus(operation)
+        } else {
+          NgpOrderNotAuthorized(operation)
+        }
+      }
       IS_AUTHORIZED(operation) && orderState !is NpgOrderRefunded -> NgpOrderAuthorized(operation)
       IS_REFUNDED(operation) -> NpgOrderRefunded(operation)
       else -> orderState
