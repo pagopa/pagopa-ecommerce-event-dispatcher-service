@@ -11,6 +11,7 @@ import it.pagopa.ecommerce.eventdispatcher.exceptions.InvalidNPGResponseExceptio
 import it.pagopa.ecommerce.eventdispatcher.exceptions.InvalidNpgOrderStateException
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toMono
@@ -38,7 +39,8 @@ data class NgpOrderPendingStatus(
 
 @Service
 class NpgService(
-  private val authorizationStateRetrieverService: AuthorizationStateRetrieverService
+  private val authorizationStateRetrieverService: AuthorizationStateRetrieverService,
+  @Value("\${npg.refund.delayFromAuthRequestMinutes}") val refundDelayFromAuthRequestMinutes: Long
 ) {
 
   private val logger: Logger = LoggerFactory.getLogger(javaClass)

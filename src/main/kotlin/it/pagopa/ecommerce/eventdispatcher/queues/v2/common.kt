@@ -639,7 +639,9 @@ private fun refundTransactionNPG(
           // operationId) write event to dead letter
           is NpgBadRequestException,
           is InvalidNPGResponseException -> {
-            Mono.error(error)
+            Mono.error(
+              RefundNotAllowedException(
+                transaction.transactionId, "Unrecoverable error performing GET orders", error))
           }
           // in this case operation result already refunded by NPG but no attempt have already being
           // done by eCommerce -> write event to dead letter
@@ -647,7 +649,9 @@ private fun refundTransactionNPG(
             logger.error(
               "Unexpected error, transaction : [{}] already refunded by NPG!",
               transaction.transactionId.value())
-            Mono.error(error)
+            Mono.error(
+              RefundNotAllowedException(
+                transaction.transactionId, "Order already refunded!", error))
           }
           // error retrieving auth data from NPG using GET orders, another attempt will be performed
           // during refund retry
@@ -1062,3 +1066,48 @@ fun isRefundableCheckRequired(tx: BaseTransaction): Boolean =
       setOf(TransactionStatusDto.AUTHORIZATION_COMPLETED, TransactionStatusDto.CLOSURE_REQUESTED)
         .contains(tx.status) && !wasAuthorizationDenied(tx)
   }
+
+fun <T> postponeRefundProcessingRequest(
+  tx: BaseTransaction,
+  timeToWaitFromAuthRequestMinutes: Long,
+  events: Flux<TransactionEvent<T>>
+): Mono<Duration> {
+  val authOutcome = getAuthorizationOutcome(tx)
+  // safe here, transaction here must be in auth requested state due the check in the caller
+  val authData = getTransactionAuthorizationRequestData(tx)!!
+  val authorizationRequestedDate =
+    events
+      .filter {
+        TransactionEventCode.valueOf(it.eventCode) ==
+          TransactionEventCode.TRANSACTION_AUTHORIZATION_REQUESTED_EVENT
+      }
+      .next()
+      .map { ZonedDateTime.parse(it.creationDate) }
+      .switchIfEmpty(
+        Mono.error(
+          RuntimeException("No auth requested event found for a transaction to be refunded")))
+
+  if (authOutcome != null) {
+    return Mono.just(Duration.ZERO)
+  }
+  // actually refund to be postponed only for NPG gateway
+  if (authData.paymentGateway != TransactionAuthorizationRequestData.PaymentGateway.NPG) {
+    return Mono.just(Duration.ZERO)
+  }
+  return authorizationRequestedDate.map { authRequestedDate ->
+    val now = ZonedDateTime.now()
+    val refundNotBefore = authRequestedDate + Duration.ofMinutes(timeToWaitFromAuthRequestMinutes)
+    val refundTimeout =
+      if (now.isAfter(refundNotBefore)) {
+        Duration.ZERO
+      } else {
+        Duration.between(now, refundNotBefore)
+      }
+    logger.info(
+      "Transaction with id: [{}], authorization requested at: [{}], refund to be processed at: [{}]",
+      tx.transactionId,
+      authRequestedDate,
+      refundNotBefore)
+    refundTimeout
+  }
+}

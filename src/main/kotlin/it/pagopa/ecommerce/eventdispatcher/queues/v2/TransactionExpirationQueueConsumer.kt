@@ -155,14 +155,35 @@ class TransactionExpirationQueueConsumer(
         }
         .flatMap { tx ->
           val tracingInfo = queueEvent.fold({ it.tracingInfo }, { it.tracingInfo })
-          requestRefundTransaction(
-            tx, // transaction
-            transactionsRefundedEventStoreRepository,
-            transactionsViewRepository,
-            npgService,
-            tracingInfo,
-            refundRequestedAsyncClient,
-            Duration.ofSeconds(transientQueueTTLSeconds.toLong()))
+          val timeoutForRefund =
+            postponeRefundProcessingRequest(
+              tx = tx,
+              events = events,
+              timeToWaitFromAuthRequestMinutes = npgService.refundDelayFromAuthRequestMinutes)
+          timeoutForRefund.flatMap { timeout ->
+            val binaryData =
+              BinaryData.fromObject(event, strictSerializerProviderV2.createInstance())
+            if (timeout.isZero) {
+              requestRefundTransaction(
+                tx, // transaction
+                transactionsRefundedEventStoreRepository,
+                transactionsViewRepository,
+                npgService,
+                tracingInfo,
+                refundRequestedAsyncClient,
+                Duration.ofSeconds(transientQueueTTLSeconds.toLong()))
+            } else {
+              logger.info(
+                "Transaction ${tx.transactionId.value()} not received authorization outcome yet, postpone refund processing for: $timeout")
+              expirationQueueAsyncClient
+                .sendMessageWithResponse(
+                  binaryData,
+                  timeout,
+                  Duration.ofSeconds(transientQueueTTLSeconds.toLong()),
+                )
+                .thenReturn(false)
+            }
+          }
         }
 
     return runTracedPipelineWithDeadLetterQueue(

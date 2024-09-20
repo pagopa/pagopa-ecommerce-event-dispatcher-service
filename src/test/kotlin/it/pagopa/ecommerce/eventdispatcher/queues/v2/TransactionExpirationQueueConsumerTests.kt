@@ -108,6 +108,8 @@ class TransactionExpirationQueueConsumerTests {
 
   private val jsonSerializerV2 = strictJsonSerializerProviderV2.createInstance()
 
+  private val refundDelayFromAuthRequestMinutes = 0L
+
   private val transactionExpirationQueueConsumer =
     TransactionExpirationQueueConsumer(
       transactionsEventStoreRepository = transactionsEventStoreRepository,
@@ -123,7 +125,8 @@ class TransactionExpirationQueueConsumerTests {
       transientQueueTTLSeconds = TRANSIENT_QUEUE_TTL_SECONDS,
       tracingUtils = tracingUtils,
       strictSerializerProviderV2 = strictJsonSerializerProviderV2,
-      npgService = NpgService(authorizationStateRetrieverService),
+      npgService =
+        NpgService(authorizationStateRetrieverService, refundDelayFromAuthRequestMinutes),
     )
 
   @Test
@@ -3088,6 +3091,81 @@ class TransactionExpirationQueueConsumerTests {
     assetTransactionStatusEquals(
       listOf(TransactionStatusDto.EXPIRED_NOT_AUTHORIZED),
       transactionViewRepositoryCaptor.allValues)
+  }
+
+  @Test
+  fun `messageReceiver should postpone refund request evaluation for an NPG transaction in AUTHORIZATION_REQUESTED status after defined ttl`() {
+    val operationId = UUID.randomUUID().toString()
+    val paymentEndToEndId = UUID.randomUUID().toString()
+    val npgTimeToWaitForRefundFromAuthRequest = 10L
+    val transactionExpirationQueueConsumerLocalInstance =
+      TransactionExpirationQueueConsumer(
+        transactionsEventStoreRepository = transactionsEventStoreRepository,
+        transactionsExpiredEventStoreRepository = transactionsExpiredEventStoreRepository,
+        transactionsRefundedEventStoreRepository = transactionsRefundedEventStoreRepository,
+        transactionsViewRepository = transactionsViewRepository,
+        transactionUtils = transactionUtils,
+        refundRequestedAsyncClient = refundRequestedAsyncClient,
+        deadLetterTracedQueueAsyncClient = deadLetterTracedQueueAsyncClient,
+        expirationQueueAsyncClient = expirationQueueAsyncClient,
+        sendPaymentResultTimeoutSeconds = sendPaymentResultTimeout,
+        sendPaymentResultTimeoutOffsetSeconds = sendPaymentResultOffset,
+        transientQueueTTLSeconds = TRANSIENT_QUEUE_TTL_SECONDS,
+        tracingUtils = tracingUtils,
+        strictSerializerProviderV2 = strictJsonSerializerProviderV2,
+        npgService =
+          NpgService(authorizationStateRetrieverService, npgTimeToWaitForRefundFromAuthRequest),
+      )
+    val events =
+      listOf(
+        transactionActivateEvent(npgTransactionGatewayActivationData()),
+        transactionAuthorizationRequestedEvent(
+          TransactionAuthorizationRequestData.PaymentGateway.NPG,
+          npgTransactionGatewayAuthorizationRequestedData()))
+    given(checkpointer.success()).willReturn(Mono.empty())
+    setupTransactionStorageMock(events)
+    given { authorizationStateRetrieverService.performGetOrder(any()) }
+      .willAnswer { npgAuthorizedOrderResponse(operationId, paymentEndToEndId).toMono() }
+
+    given(refundRequestedAsyncClient.sendMessageWithResponse(any<QueueEvent<*>>(), any(), any()))
+      .willReturn(queueSuccessfulResponse())
+    given(
+        deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(
+          capture(binaryDataCaptor), any()))
+      .willReturn(mono {})
+    given(
+        expirationQueueAsyncClient.sendMessageWithResponse(
+          queueEventCaptor.capture(), visibilityTimeoutCaptor.capture(), anyOrNull()))
+      .willReturn(queueSuccessfulResponse())
+    transactionExpirationQueueConsumerLocalInstance
+      .messageReceiver(
+        Either.left(
+          QueueEvent(
+            events.filterIsInstance<TransactionActivatedEvent>().first(), MOCK_TRACING_INFO)),
+        checkpointer,
+        MessageHeaders(mapOf()),
+      )
+      .block()
+
+    verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
+
+    verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
+    assertEventCodesEquals(
+      listOf(TransactionEventCode.TRANSACTION_EXPIRED_EVENT),
+      transactionExpiredEventStoreCaptor.allValues)
+
+    verify(transactionsViewRepository, times(1)).save(any())
+    assetTransactionStatusEquals(
+      listOf(
+        TransactionStatusDto.EXPIRED,
+      ),
+      transactionViewRepositoryCaptor.allValues)
+    verify(deadLetterTracedQueueAsyncClient, times(0))
+      .sendAndTraceDeadLetterQueueEvent(any(), any())
+    verify(refundRequestedAsyncClient, times(0))
+      .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
+    verify(expirationQueueAsyncClient, times(1))
+      .sendMessageWithResponse(any<BinaryData>(), any(), any())
   }
 
   @Nested
