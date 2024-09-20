@@ -32,6 +32,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.reactor.mono
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
@@ -3166,6 +3167,13 @@ class TransactionExpirationQueueConsumerTests {
       .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
     verify(expirationQueueAsyncClient, times(1))
       .sendMessageWithResponse(any<BinaryData>(), any(), any())
+    // since timeout are calculated using NOW and authorization event are created contextually to
+    // test check here that time difference is below 2 sec
+    println(
+      "configured NPG timeout: [$npgTimeToWaitForRefundFromAuthRequest], event used timeout: [${visibilityTimeoutCaptor.value}]")
+    assertTrue(
+      Duration.ofMinutes(npgTimeToWaitForRefundFromAuthRequest).seconds -
+        visibilityTimeoutCaptor.value.seconds <= 2)
   }
 
   @Nested
