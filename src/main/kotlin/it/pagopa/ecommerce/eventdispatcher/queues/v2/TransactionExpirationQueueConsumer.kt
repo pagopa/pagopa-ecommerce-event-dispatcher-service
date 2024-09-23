@@ -156,11 +156,11 @@ class TransactionExpirationQueueConsumer(
         .flatMap { tx ->
           val tracingInfo = queueEvent.fold({ it.tracingInfo }, { it.tracingInfo })
           val delayForRefund =
-            postponeRefundProcessingRequest(
+            computeRefundProcessingRequestDelay(
               tx = tx,
               events = events,
               timeToWaitFromAuthRequestMinutes = npgService.refundDelayFromAuthRequestMinutes)
-          timeoutForRefund.flatMap { timeout ->
+          delayForRefund.flatMap { timeout ->
             val binaryData =
               BinaryData.fromObject(event, strictSerializerProviderV2.createInstance())
             if (timeout.isZero) {
