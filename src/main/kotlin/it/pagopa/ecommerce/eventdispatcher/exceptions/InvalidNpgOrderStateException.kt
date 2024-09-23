@@ -15,4 +15,9 @@ sealed class InvalidNpgOrderStateException : Exception() {
     val order: OrderResponseDto,
     override val message: String? = "Unknown NPG order status"
   ) : InvalidNpgOrderStateException()
+
+  data class OrderPendingStatus(
+    val order: OperationDto,
+    override val message: String? = "Order with pending status received"
+  ) : InvalidNpgOrderStateException()
 }

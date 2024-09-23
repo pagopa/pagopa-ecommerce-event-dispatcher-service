@@ -32,6 +32,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.reactor.mono
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
@@ -108,6 +109,8 @@ class TransactionExpirationQueueConsumerTests {
 
   private val jsonSerializerV2 = strictJsonSerializerProviderV2.createInstance()
 
+  private val refundDelayFromAuthRequestMinutes = 0L
+
   private val transactionExpirationQueueConsumer =
     TransactionExpirationQueueConsumer(
       transactionsEventStoreRepository = transactionsEventStoreRepository,
@@ -123,7 +126,8 @@ class TransactionExpirationQueueConsumerTests {
       transientQueueTTLSeconds = TRANSIENT_QUEUE_TTL_SECONDS,
       tracingUtils = tracingUtils,
       strictSerializerProviderV2 = strictJsonSerializerProviderV2,
-      npgService = NpgService(authorizationStateRetrieverService),
+      npgService =
+        NpgService(authorizationStateRetrieverService, refundDelayFromAuthRequestMinutes),
     )
 
   @Test
@@ -3090,6 +3094,88 @@ class TransactionExpirationQueueConsumerTests {
       transactionViewRepositoryCaptor.allValues)
   }
 
+  @Test
+  fun `messageReceiver should postpone refund request evaluation for an NPG transaction in AUTHORIZATION_REQUESTED status after defined ttl`() {
+    val operationId = UUID.randomUUID().toString()
+    val paymentEndToEndId = UUID.randomUUID().toString()
+    val npgTimeToWaitForRefundFromAuthRequest = 10L
+    val transactionExpirationQueueConsumerLocalInstance =
+      TransactionExpirationQueueConsumer(
+        transactionsEventStoreRepository = transactionsEventStoreRepository,
+        transactionsExpiredEventStoreRepository = transactionsExpiredEventStoreRepository,
+        transactionsRefundedEventStoreRepository = transactionsRefundedEventStoreRepository,
+        transactionsViewRepository = transactionsViewRepository,
+        transactionUtils = transactionUtils,
+        refundRequestedAsyncClient = refundRequestedAsyncClient,
+        deadLetterTracedQueueAsyncClient = deadLetterTracedQueueAsyncClient,
+        expirationQueueAsyncClient = expirationQueueAsyncClient,
+        sendPaymentResultTimeoutSeconds = sendPaymentResultTimeout,
+        sendPaymentResultTimeoutOffsetSeconds = sendPaymentResultOffset,
+        transientQueueTTLSeconds = TRANSIENT_QUEUE_TTL_SECONDS,
+        tracingUtils = tracingUtils,
+        strictSerializerProviderV2 = strictJsonSerializerProviderV2,
+        npgService =
+          NpgService(authorizationStateRetrieverService, npgTimeToWaitForRefundFromAuthRequest),
+      )
+    val events =
+      listOf(
+        transactionActivateEvent(npgTransactionGatewayActivationData()),
+        transactionAuthorizationRequestedEvent(
+          TransactionAuthorizationRequestData.PaymentGateway.NPG,
+          npgTransactionGatewayAuthorizationRequestedData()))
+    given(checkpointer.success()).willReturn(Mono.empty())
+    setupTransactionStorageMock(events)
+    given { authorizationStateRetrieverService.performGetOrder(any()) }
+      .willAnswer { npgAuthorizedOrderResponse(operationId, paymentEndToEndId).toMono() }
+
+    given(refundRequestedAsyncClient.sendMessageWithResponse(any<QueueEvent<*>>(), any(), any()))
+      .willReturn(queueSuccessfulResponse())
+    given(
+        deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(
+          capture(binaryDataCaptor), any()))
+      .willReturn(mono {})
+    given(
+        expirationQueueAsyncClient.sendMessageWithResponse(
+          queueEventCaptor.capture(), visibilityTimeoutCaptor.capture(), anyOrNull()))
+      .willReturn(queueSuccessfulResponse())
+    transactionExpirationQueueConsumerLocalInstance
+      .messageReceiver(
+        Either.left(
+          QueueEvent(
+            events.filterIsInstance<TransactionActivatedEvent>().first(), MOCK_TRACING_INFO)),
+        checkpointer,
+        MessageHeaders(mapOf()),
+      )
+      .block()
+
+    verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
+
+    verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
+    assertEventCodesEquals(
+      listOf(TransactionEventCode.TRANSACTION_EXPIRED_EVENT),
+      transactionExpiredEventStoreCaptor.allValues)
+
+    verify(transactionsViewRepository, times(1)).save(any())
+    assetTransactionStatusEquals(
+      listOf(
+        TransactionStatusDto.EXPIRED,
+      ),
+      transactionViewRepositoryCaptor.allValues)
+    verify(deadLetterTracedQueueAsyncClient, times(0))
+      .sendAndTraceDeadLetterQueueEvent(any(), any())
+    verify(refundRequestedAsyncClient, times(0))
+      .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
+    verify(expirationQueueAsyncClient, times(1))
+      .sendMessageWithResponse(any<BinaryData>(), any(), any())
+    // since timeout are calculated using NOW and authorization event are created contextually to
+    // test check here that time difference is below 2 sec
+    println(
+      "configured NPG timeout: [$npgTimeToWaitForRefundFromAuthRequest], event used timeout: [${visibilityTimeoutCaptor.value}]")
+    assertTrue(
+      Duration.ofMinutes(npgTimeToWaitForRefundFromAuthRequest).seconds -
+        visibilityTimeoutCaptor.value.seconds <= 2)
+  }
+
   @Nested
   inner class StuckAuthorizationRequestedTransactionTest {
     @Test
@@ -3315,12 +3401,8 @@ class TransactionExpirationQueueConsumerTests {
         .block()
 
       verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
-      verify(transactionsRefundedEventStoreRepository, times(1)).save(any())
-      verify(transactionsViewRepository, times(2)).save(any())
-
-      assertEventCodesEquals(
-        listOf(TransactionEventCode.TRANSACTION_REFUND_REQUESTED_EVENT),
-        transactionRefundEventStoreCaptor.allValues)
+      verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
+      verify(transactionsViewRepository, times(1)).save(any())
 
       assertEventCodesEquals(
         listOf(TransactionEventCode.TRANSACTION_EXPIRED_EVENT),
@@ -3329,7 +3411,6 @@ class TransactionExpirationQueueConsumerTests {
       assetTransactionStatusEquals(
         listOf(
           TransactionStatusDto.EXPIRED,
-          TransactionStatusDto.REFUND_REQUESTED,
         ),
         transactionViewRepositoryCaptor.allValues)
 
@@ -3341,6 +3422,136 @@ class TransactionExpirationQueueConsumerTests {
         DeadLetterTracedQueueAsyncClient.ErrorCategory.REFUND_MANUAL_CHECK_REQUIRED,
         errorContextCaptor.firstValue.errorCategory)
     }
+  }
+
+  @ParameterizedTest
+  @MethodSource(
+    "it.pagopa.ecommerce.eventdispatcher.queues.v2.TransactionExpirationQueueConsumerTests#enqueueRetryEventResponses")
+  fun `messageReceiver should enqueue refund retry event for recoverable error recovering authorization state using get order`(
+    npgResponse: Either<Exception, OrderResponseDto>
+  ) {
+    val events =
+      listOf(
+        transactionActivateEvent(npgTransactionGatewayActivationData()),
+        transactionAuthorizationRequestedEvent(
+          TransactionAuthorizationRequestData.PaymentGateway.NPG,
+          npgTransactionGatewayAuthorizationRequestedData()))
+    setupTransactionStorageMock(events)
+    given(checkpointer.success()).willReturn(Mono.empty())
+    given { authorizationStateRetrieverService.performGetOrder(any()) }
+      .willAnswer { npgResponse.fold({ Mono.error(it) }, { Mono.just(it) }) }
+
+    val errorContextCaptor = argumentCaptor<DeadLetterTracedQueueAsyncClient.ErrorContext>()
+    given(
+        deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(
+          capture(binaryDataCaptor), errorContextCaptor.capture()))
+      .willReturn(mono {})
+
+    given(refundRequestedAsyncClient.sendMessageWithResponse(any<QueueEvent<*>>(), any(), any()))
+      .willReturn(queueSuccessfulResponse())
+
+    transactionExpirationQueueConsumer
+      .messageReceiver(
+        Either.right(
+          QueueEvent(
+            transactionExpiredEvent(TransactionStatusDto.AUTHORIZATION_REQUESTED),
+            MOCK_TRACING_INFO)),
+        checkpointer,
+        MessageHeaders(mapOf()),
+      )
+      .block()
+
+    verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
+    verify(transactionsRefundedEventStoreRepository, times(1)).save(any())
+    verify(transactionsViewRepository, times(2)).save(any())
+
+    assertEventCodesEquals(
+      listOf(TransactionEventCode.TRANSACTION_REFUND_REQUESTED_EVENT),
+      transactionRefundEventStoreCaptor.allValues)
+
+    assertEventCodesEquals(
+      listOf(TransactionEventCode.TRANSACTION_EXPIRED_EVENT),
+      transactionExpiredEventStoreCaptor.allValues)
+
+    assetTransactionStatusEquals(
+      listOf(
+        TransactionStatusDto.EXPIRED,
+        TransactionStatusDto.REFUND_REQUESTED,
+      ),
+      transactionViewRepositoryCaptor.allValues)
+
+    verify(refundRequestedAsyncClient, times(1))
+      .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
+    verify(deadLetterTracedQueueAsyncClient, times(0))
+      .sendAndTraceDeadLetterQueueEvent(any(), any())
+  }
+
+  @ParameterizedTest
+  @MethodSource(
+    "it.pagopa.ecommerce.eventdispatcher.queues.v2.TransactionExpirationQueueConsumerTests#unexpectedAlreadyRefundedResponses")
+  fun `messageReceiver should update transaction to REFUND_ERROR and write to dead letter for unexpected transaction already refunded by NPG`(
+    npgResponse: Either<Exception, OrderResponseDto>
+  ) {
+    val events =
+      listOf(
+        transactionActivateEvent(npgTransactionGatewayActivationData()),
+        transactionAuthorizationRequestedEvent(
+          TransactionAuthorizationRequestData.PaymentGateway.NPG,
+          npgTransactionGatewayAuthorizationRequestedData()))
+    setupTransactionStorageMock(events)
+    given(checkpointer.success()).willReturn(Mono.empty())
+    given { authorizationStateRetrieverService.performGetOrder(any()) }
+      .willAnswer { npgResponse.fold({ Mono.error(it) }, { Mono.just(it) }) }
+
+    val errorContextCaptor = argumentCaptor<DeadLetterTracedQueueAsyncClient.ErrorContext>()
+    given(
+        deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(
+          capture(binaryDataCaptor), errorContextCaptor.capture()))
+      .willReturn(mono {})
+
+    given(refundRequestedAsyncClient.sendMessageWithResponse(any<QueueEvent<*>>(), any(), any()))
+      .willReturn(queueSuccessfulResponse())
+
+    transactionExpirationQueueConsumer
+      .messageReceiver(
+        Either.right(
+          QueueEvent(
+            transactionExpiredEvent(TransactionStatusDto.AUTHORIZATION_REQUESTED),
+            MOCK_TRACING_INFO)),
+        checkpointer,
+        MessageHeaders(mapOf()),
+      )
+      .block()
+
+    verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
+    verify(transactionsRefundedEventStoreRepository, times(2)).save(any())
+    verify(transactionsViewRepository, times(3)).save(any())
+
+    assertEventCodesEquals(
+      listOf(
+        TransactionEventCode.TRANSACTION_REFUND_REQUESTED_EVENT,
+        TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT),
+      transactionRefundEventStoreCaptor.allValues)
+
+    assertEventCodesEquals(
+      listOf(TransactionEventCode.TRANSACTION_EXPIRED_EVENT),
+      transactionExpiredEventStoreCaptor.allValues)
+
+    assetTransactionStatusEquals(
+      listOf(
+        TransactionStatusDto.EXPIRED,
+        TransactionStatusDto.REFUND_REQUESTED,
+        TransactionStatusDto.REFUND_ERROR,
+      ),
+      transactionViewRepositoryCaptor.allValues)
+
+    verify(refundRequestedAsyncClient, times(0))
+      .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
+    verify(deadLetterTracedQueueAsyncClient, times(1))
+      .sendAndTraceDeadLetterQueueEvent(any(), any())
+    assertEquals(
+      DeadLetterTracedQueueAsyncClient.ErrorCategory.REFUND_MANUAL_CHECK_REQUIRED,
+      errorContextCaptor.firstValue.errorCategory)
   }
 
   private fun setupTransactionStorageMock(events: List<TransactionEvent<*>>) {
@@ -3378,6 +3589,15 @@ class TransactionExpirationQueueConsumerTests {
                   .operationResult(OperationResultDto.EXECUTED)
                   .paymentEndToEndId(UUID.randomUUID().toString())
                   .operationTime(ZonedDateTime.now().toString()))),
+          Either.left(
+            NpgBadRequestException(TransactionId(TRANSACTION_ID), "N/A")), // 4xx error code
+          Either.left(InvalidNPGResponseException()), // a generic invalid response
+        )
+        .map { Arguments.of(it) }
+
+    @JvmStatic
+    fun enqueueRetryEventResponses(): Stream<Arguments> =
+      Stream.of<Either<Exception, OrderResponseDto>>(
           Either.right(
             OrderResponseDto()
               .orderStatus(OrderStatusDto().lastOperationType(OperationTypeDto.AUTHORIZATION))
@@ -3388,13 +3608,28 @@ class TransactionExpirationQueueConsumerTests {
                   .operationResult(OperationResultDto.DECLINED)
                   .paymentEndToEndId(UUID.randomUUID().toString())
                   .operationTime(ZonedDateTime.now().toString()))),
+          Either.right( // pending status
+            OrderResponseDto()
+              .orderStatus(OrderStatusDto().lastOperationType(OperationTypeDto.AUTHORIZATION))
+              .addOperationsItem(
+                OperationDto()
+                  .orderId(UUID.randomUUID().toString())
+                  .operationType(OperationTypeDto.AUTHORIZATION)
+                  .operationResult(OperationResultDto.PENDING)
+                  .paymentEndToEndId(UUID.randomUUID().toString())
+                  .operationTime(ZonedDateTime.now().toString()))),
           Either.right(
             OrderResponseDto()
               .orderStatus(OrderStatusDto().lastOperationType(OperationTypeDto.AUTHORIZATION))),
           Either.right(
             OrderResponseDto()
               .orderStatus(OrderStatusDto().lastOperationType(OperationTypeDto.AUTHORIZATION))
-              .operations(emptyList())),
+              .operations(emptyList())))
+        .map { Arguments.of(it) }
+
+    @JvmStatic
+    fun unexpectedAlreadyRefundedResponses(): Stream<Arguments> =
+      Stream.of<Either<Exception, OrderResponseDto>>(
           Either.right( // Unexpected NPG already refunded
             OrderResponseDto()
               .orderStatus(OrderStatusDto().lastOperationType(OperationTypeDto.REFUND))
@@ -3428,11 +3663,7 @@ class TransactionExpirationQueueConsumerTests {
                   .operationType(OperationTypeDto.AUTHORIZATION)
                   .operationResult(OperationResultDto.AUTHORIZED)
                   .paymentEndToEndId(UUID.randomUUID().toString())
-                  .operationTime(ZonedDateTime.now().toString()))),
-          Either.left(
-            NpgBadRequestException(TransactionId(TRANSACTION_ID), "N/A")), // 4xx error code
-          Either.left(InvalidNPGResponseException()), // a generic invalid response
-        )
+                  .operationTime(ZonedDateTime.now().toString()))))
         .map { Arguments.of(it) }
   }
 }

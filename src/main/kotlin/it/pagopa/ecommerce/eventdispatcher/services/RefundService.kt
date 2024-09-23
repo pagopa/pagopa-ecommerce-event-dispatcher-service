@@ -75,7 +75,8 @@ class RefundService(
                 if (it.is5xxServerError) {
                   BadGatewayException(errorCodeReason)
                 } else {
-                  RefundNotAllowedException(idempotenceKey, errorCodeReason)
+                  RefundNotAllowedException(
+                    TransactionId(idempotenceKey), errorCodeReason, exception)
                 }
               }
               .orElse(exception)
@@ -133,7 +134,7 @@ class RefundService(
                   if (it.is5xxServerError) {
                     BadGatewayException(errorCodeReason)
                   } else {
-                    RefundNotAllowedException(transactionId.uuid, errorCodeReason)
+                    RefundNotAllowedException(transactionId, errorCodeReason, exception)
                   }
                 }
                 .orElse(

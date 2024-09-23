@@ -63,8 +63,10 @@ class TransactionsRefundEventsConsumerTests {
   private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any> = mock()
 
   private val authorizationStateRetrieverService: AuthorizationStateRetrieverService = mock()
+  private val refundDelayFromAuthRequestMinutes = 10L
 
-  private val npgService: NpgService = NpgService(authorizationStateRetrieverService)
+  private val npgService: NpgService =
+    NpgService(authorizationStateRetrieverService, refundDelayFromAuthRequestMinutes)
 
   private val paymentGatewayClient: PaymentGatewayClient = mock()
 
@@ -401,7 +403,7 @@ class TransactionsRefundEventsConsumerTests {
       given(transactionsRefundedEventStoreRepository.save(refundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(refundService.requestNpgRefund(any(), any(), any(), any(), any(), any()))
-        .willThrow(RefundNotAllowedException(transaction.transactionId.uuid))
+        .willThrow(RefundNotAllowedException(transaction.transactionId))
       given(refundRetryService.enqueueRetryEvent(any(), any(), any(), anyOrNull()))
         .willReturn(Mono.empty())
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
