@@ -1090,7 +1090,7 @@ fun <T> computeRefundProcessingRequestDelay(
   if (authOutcome != null) {
     return Mono.just(Duration.ZERO)
   }
-  // actually refund to be postponed only for NPG gateway
+  // refund can be postponed only for NPG gateway
   if (authData.paymentGateway != TransactionAuthorizationRequestData.PaymentGateway.NPG) {
     return Mono.just(Duration.ZERO)
   }
