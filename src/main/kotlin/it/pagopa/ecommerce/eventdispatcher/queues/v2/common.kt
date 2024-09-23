@@ -1067,7 +1067,7 @@ fun isRefundableCheckRequired(tx: BaseTransaction): Boolean =
         .contains(tx.status) && !wasAuthorizationDenied(tx)
   }
 
-fun <T> postponeRefundProcessingRequest(
+fun <T> computeRefundProcessingRequestDelay(
   tx: BaseTransaction,
   timeToWaitFromAuthRequestMinutes: Long,
   events: Flux<TransactionEvent<T>>
