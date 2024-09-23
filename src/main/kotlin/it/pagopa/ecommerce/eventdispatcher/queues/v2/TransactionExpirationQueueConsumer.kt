@@ -155,7 +155,7 @@ class TransactionExpirationQueueConsumer(
         }
         .flatMap { tx ->
           val tracingInfo = queueEvent.fold({ it.tracingInfo }, { it.tracingInfo })
-          val timeoutForRefund =
+          val delayForRefund =
             postponeRefundProcessingRequest(
               tx = tx,
               events = events,
