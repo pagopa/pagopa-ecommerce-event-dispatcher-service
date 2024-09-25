@@ -39,7 +39,7 @@ microservice-chart:
     httpGet:
       path: /actuator/health/liveness
       port: 9000
-    initialDelaySeconds: 60
+    initialDelaySeconds: 20
     failureThreshold: 6
     periodSeconds: 10
   readinessProbe:
@@ -47,7 +47,7 @@ microservice-chart:
     httpGet:
       path: /actuator/health/readiness
       port: 9000
-    initialDelaySeconds: 60
+    initialDelaySeconds: 20
     failureThreshold: 6
     periodSeconds: 10
   service:
