@@ -35,6 +35,7 @@ microservice-chart:
     tag: "1.24.1"
     pullPolicy: Always
   livenessProbe:
+    handlerType: httpGet
     httpGet:
       path: /actuator/health/liveness
       port: 9000
@@ -42,6 +43,7 @@ microservice-chart:
     failureThreshold: 6
     periodSeconds: 10
   readinessProbe:
+    handlerType: httpGet
     httpGet:
       path: /actuator/health/readiness
       port: 9000
@@ -74,7 +76,7 @@ microservice-chart:
       cpu: "300m"
     limits:
       memory: "768Mi"
-      cpu: "500m"
+      cpu: "900m"
   deployment:
     create: true
     replicas: 5
@@ -88,13 +90,18 @@ microservice-chart:
     minReplica: 5
     maxReplica: 10
     pollingInterval: 30 # seconds
-    cooldownPeriod: 300 # seconds
+    cooldownPeriod: 30 # seconds
     triggers:
       - type: cpu
         metadata:
           # Required
           type: Utilization # Allowed types are 'Utilization' or 'AverageValue'
           value: "70"
+    advanced:
+      horizontalPodAutoscalerConfig:
+        behavior:
+          scaleUp:
+            stabilizationWindowSeconds: 60
   envConfig:
     TRANSACTIONS_CLOSE_PAYMENT_QUEUE_NAME: pagopa-p-weu-ecommerce-transactions-close-payment-queue
     TRANSACTIONS_CLOSE_PAYMENT_RETRY_QUEUE_NAME: pagopa-p-weu-ecommerce-transactions-close-payment-retry-queue
