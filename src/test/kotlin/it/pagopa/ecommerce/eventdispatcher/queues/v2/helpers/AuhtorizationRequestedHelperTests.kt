@@ -9,6 +9,8 @@ import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationComplete
 import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationRequestData
 import it.pagopa.ecommerce.commons.documents.v2.TransactionEvent
 import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationData
+import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationRequestedData
+import it.pagopa.ecommerce.commons.documents.v2.authorization.WalletInfo
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationDto
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
@@ -19,6 +21,7 @@ import it.pagopa.ecommerce.commons.queues.TracingInfoTest
 import it.pagopa.ecommerce.commons.queues.TracingUtilsTests
 import it.pagopa.ecommerce.commons.v2.TransactionTestUtils.*
 import it.pagopa.ecommerce.eventdispatcher.client.TransactionsServiceClient
+import it.pagopa.ecommerce.eventdispatcher.client.UserStatsServiceClient
 import it.pagopa.ecommerce.eventdispatcher.config.QueuesConsumerConfig
 import it.pagopa.ecommerce.eventdispatcher.exceptions.*
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
@@ -31,8 +34,10 @@ import it.pagopa.generated.transactionauthrequests.v1.dto.OutcomeNpgGatewayDto
 import it.pagopa.generated.transactionauthrequests.v1.dto.TransactionInfoDto
 import it.pagopa.generated.transactionauthrequests.v1.dto.TransactionStatusDto
 import it.pagopa.generated.transactionauthrequests.v1.dto.UpdateAuthorizationRequestDto
+import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZonedDateTime
+import java.util.*
 import java.util.stream.Stream
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.reactor.mono
@@ -57,6 +62,8 @@ import reactor.test.StepVerifier
 class AuhtorizationRequestedHelperTests {
 
   private val transactionsServiceClient: TransactionsServiceClient = mock()
+
+  private val userStatsServiceClient: UserStatsServiceClient = mock()
 
   private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any> = mock()
 
@@ -88,6 +95,7 @@ class AuhtorizationRequestedHelperTests {
   private val authorizationRequestedHelper =
     AuthorizationRequestedHelper(
       transactionsServiceClient = transactionsServiceClient,
+      userStatsServiceClient = userStatsServiceClient,
       transactionsEventStoreRepository = transactionsEventStoreRepository,
       authorizationStateRetrieverRetryService = authorizationStateRetrieverRetryService,
       authorizationStateRetrieverService = authorizationStateRetrieverService,
@@ -225,6 +233,7 @@ class AuhtorizationRequestedHelperTests {
         PSP_ID,
         NPG_CORRELATION_ID,
         NpgClient.PaymentMethod.CARDS)
+    verify(userStatsServiceClient, times(0)).saveLastUsage(any(), any(), any(), any())
     verify(transactionsServiceClient, times(1))
       .patchAuthRequest(transactionId, expectedPatchAuthRequest)
   }
@@ -327,6 +336,7 @@ class AuhtorizationRequestedHelperTests {
         PSP_ID,
         NPG_CORRELATION_ID,
         NpgClient.PaymentMethod.CARDS)
+    verify(userStatsServiceClient, times(0)).saveLastUsage(any(), any(), any(), any())
     verify(transactionsServiceClient, times(1))
       .patchAuthRequest(transactionId, expectedPatchAuthRequest)
   }
@@ -429,6 +439,7 @@ class AuhtorizationRequestedHelperTests {
         PSP_ID,
         NPG_CORRELATION_ID,
         NpgClient.PaymentMethod.CARDS)
+    verify(userStatsServiceClient, times(0)).saveLastUsage(any(), any(), any(), any())
     verify(transactionsServiceClient, times(1))
       .patchAuthRequest(transactionId, expectedPatchAuthRequest)
   }
@@ -517,6 +528,7 @@ class AuhtorizationRequestedHelperTests {
           PSP_ID,
           NPG_CORRELATION_ID,
           NpgClient.PaymentMethod.CARDS)
+      verify(userStatsServiceClient, times(0)).saveLastUsage(any(), any(), any(), any())
       verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
     }
 
@@ -604,6 +616,7 @@ class AuhtorizationRequestedHelperTests {
           PSP_ID,
           NPG_CORRELATION_ID,
           NpgClient.PaymentMethod.CARDS)
+      verify(userStatsServiceClient, times(0)).saveLastUsage(any(), any(), any(), any())
       verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
       verify(deadLetterTracedQueueAsyncClient, times(0))
         .sendAndTraceDeadLetterQueueEvent(any(), any())
@@ -621,8 +634,6 @@ class AuhtorizationRequestedHelperTests {
       val authorizationOutcomeWaitingEvent = transactionAuthorizationOutcomeWaitingEvent(0)
       val authorizationCompleted =
         transactionAuthorizationCompletedEvent(NpgTransactionGatewayAuthorizationData())
-      val transactionId = TransactionId(TRANSACTION_ID)
-      val expectedGetStateSessionId = NPG_CONFIRM_PAYMENT_SESSION_ID
 
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
@@ -673,6 +684,7 @@ class AuhtorizationRequestedHelperTests {
         .enqueueRetryEvent(any(), any(), any(), anyOrNull())
       verify(authorizationStateRetrieverService, times(0))
         .getStateNpg(any(), any(), any(), any(), any())
+      verify(userStatsServiceClient, times(0)).saveLastUsage(any(), any(), any(), any())
       verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
       verify(deadLetterTracedQueueAsyncClient, times(0))
         .sendAndTraceDeadLetterQueueEvent(any<BinaryData>(), any())
@@ -726,6 +738,7 @@ class AuhtorizationRequestedHelperTests {
         NPG_CORRELATION_ID,
         NpgClient.PaymentMethod.CARDS)
     verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
+    verify(userStatsServiceClient, times(0)).saveLastUsage(any(), any(), any(), any())
     verify(authorizationStateRetrieverRetryService, times(1))
       .enqueueRetryEvent(any(), any(), any(), anyOrNull())
     verify(deadLetterTracedQueueAsyncClient, times(0))
@@ -740,6 +753,8 @@ class AuhtorizationRequestedHelperTests {
       transactionAuthorizationRequestedEvent(
         TransactionAuthorizationRequestData.PaymentGateway.NPG,
         npgTransactionGatewayAuthorizationRequestedData())
+    transactionAuthorizationRequestedEvent.data.paymentInstrumentId = UUID.randomUUID().toString()
+    transactionAuthorizationRequestedEvent.creationDate = Instant.now().toString()
     val transactionAuthorizationOutcomeWaitingEvent = transactionAuthorizationOutcomeWaitingEvent(0)
     val transactionId = TransactionId(TRANSACTION_ID)
     val events: List<TransactionEvent<Any>> =
@@ -779,6 +794,7 @@ class AuhtorizationRequestedHelperTests {
         NPG_CORRELATION_ID,
         NpgClient.PaymentMethod.CARDS)
     verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
+    verify(userStatsServiceClient, times(0)).saveLastUsage(any(), any(), any(), any())
     verify(authorizationStateRetrieverRetryService, times(0))
       .enqueueRetryEvent(any(), any(), any(), anyOrNull())
     verify(deadLetterTracedQueueAsyncClient, times(0))
@@ -867,6 +883,7 @@ class AuhtorizationRequestedHelperTests {
         PSP_ID,
         NPG_CORRELATION_ID,
         NpgClient.PaymentMethod.CARDS)
+    verify(userStatsServiceClient, times(0)).saveLastUsage(any(), any(), any(), any())
     verify(transactionsServiceClient, times(1))
       .patchAuthRequest(transactionId, expectedPatchAuthRequest)
     verify(deadLetterTracedQueueAsyncClient, times(0))
@@ -957,6 +974,7 @@ class AuhtorizationRequestedHelperTests {
         PSP_ID,
         NPG_CORRELATION_ID,
         NpgClient.PaymentMethod.CARDS)
+    verify(userStatsServiceClient, times(0)).saveLastUsage(any(), any(), any(), any())
     verify(transactionsServiceClient, times(1))
       .patchAuthRequest(transactionId, expectedPatchAuthRequest)
     verify(deadLetterTracedQueueAsyncClient, times(0))
@@ -1044,6 +1062,7 @@ class AuhtorizationRequestedHelperTests {
         NpgClient.PaymentMethod.CARDS)
     verify(transactionsServiceClient, times(1))
       .patchAuthRequest(transactionId, expectedPatchAuthRequest)
+    verify(userStatsServiceClient, times(0)).saveLastUsage(any(), any(), any(), any())
     verify(deadLetterTracedQueueAsyncClient, times(0))
       .sendAndTraceDeadLetterQueueEvent(any(), any())
     verify(authorizationStateRetrieverRetryService, times(0))
@@ -1081,20 +1100,7 @@ class AuhtorizationRequestedHelperTests {
             // .operationTime("2024-01-01T00:00:00")
             .additionalData(mapOf("authorizationCode" to authorizationCode, "rrn" to rrn)))
     val expectedGetStateSessionId = NPG_CONFIRM_PAYMENT_SESSION_ID
-    val expectedPatchAuthRequest =
-      UpdateAuthorizationRequestDto().apply {
-        outcomeGateway =
-          OutcomeNpgGatewayDto().apply {
-            this.paymentGatewayType = "NPG"
-            this.operationResult = OutcomeNpgGatewayDto.OperationResultEnum.EXECUTED
-            this.orderId = orderId
-            this.operationId = operationId
-            this.authorizationCode = authorizationCode
-            this.paymentEndToEndId = paymentEndToEndId
-            this.rrn = rrn
-          }
-        timestampOperation = OffsetDateTime.parse("2024-01-01T00:00:00+01:00")
-      }
+
     given(
         transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
           transactionId.value()))
@@ -1129,6 +1135,7 @@ class AuhtorizationRequestedHelperTests {
         PSP_ID,
         NPG_CORRELATION_ID,
         NpgClient.PaymentMethod.CARDS)
+    verify(userStatsServiceClient, times(0)).saveLastUsage(any(), any(), any(), any())
     verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
     verify(deadLetterTracedQueueAsyncClient, times(0))
       .sendAndTraceDeadLetterQueueEvent(any(), any())
@@ -1148,6 +1155,8 @@ class AuhtorizationRequestedHelperTests {
       transactionAuthorizationRequestedEvent(
         TransactionAuthorizationRequestData.PaymentGateway.NPG,
         npgTransactionGatewayAuthorizationRequestedData())
+    transactionAuthorizationRequestedEvent.data.paymentInstrumentId = UUID.randomUUID().toString()
+    transactionAuthorizationRequestedEvent.creationDate = Instant.now().toString()
     val transactionId = TransactionId(TRANSACTION_ID)
     val events: List<TransactionEvent<Any>> =
       listOf(
@@ -1211,6 +1220,7 @@ class AuhtorizationRequestedHelperTests {
         PSP_ID,
         NPG_CORRELATION_ID,
         NpgClient.PaymentMethod.CARDS)
+    verify(userStatsServiceClient, times(1)).saveLastUsage(any(), any(), any(), any())
     verify(transactionsServiceClient, times(1))
       .patchAuthRequest(transactionId, expectedPatchAuthRequest)
     verify(deadLetterTracedQueueAsyncClient, times(0))
@@ -1225,6 +1235,8 @@ class AuhtorizationRequestedHelperTests {
       transactionAuthorizationRequestedEvent(
         TransactionAuthorizationRequestData.PaymentGateway.NPG,
         npgTransactionGatewayAuthorizationRequestedData())
+    transactionAuthorizationRequestedEvent.data.paymentInstrumentId = UUID.randomUUID().toString()
+    transactionAuthorizationRequestedEvent.creationDate = Instant.now().toString()
     val transactionId = TransactionId(TRANSACTION_ID)
     val events: List<TransactionEvent<Any>> =
       listOf(
@@ -1285,6 +1297,7 @@ class AuhtorizationRequestedHelperTests {
         PSP_ID,
         NPG_CORRELATION_ID,
         NpgClient.PaymentMethod.CARDS)
+    verify(userStatsServiceClient, times(1)).saveLastUsage(any(), any(), any(), any())
     verify(transactionsServiceClient, times(1))
       .patchAuthRequest(transactionId, expectedPatchAuthRequest)
     verify(deadLetterTracedQueueAsyncClient, times(0))
@@ -1318,6 +1331,7 @@ class AuhtorizationRequestedHelperTests {
     // assertions
     verify(authorizationStateRetrieverService, times(0))
       .getStateNpg(any(), any(), any(), any(), any())
+    verify(userStatsServiceClient, times(0)).saveLastUsage(any(), any(), any(), any())
     verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
     verify(deadLetterTracedQueueAsyncClient, times(0))
       .sendAndTraceDeadLetterQueueEvent(any(), any())
@@ -1331,6 +1345,8 @@ class AuhtorizationRequestedHelperTests {
       transactionAuthorizationRequestedEvent(
         TransactionAuthorizationRequestData.PaymentGateway.REDIRECT,
         redirectTransactionGatewayAuthorizationRequestedData())
+    transactionAuthorizationRequestedEvent.data.paymentInstrumentId = UUID.randomUUID().toString()
+    transactionAuthorizationRequestedEvent.creationDate = Instant.now().toString()
     val transactionId = TransactionId(TRANSACTION_ID)
     val events: List<TransactionEvent<Any>> =
       listOf(
@@ -1358,6 +1374,7 @@ class AuhtorizationRequestedHelperTests {
     // assertions
     verify(authorizationStateRetrieverService, times(0))
       .getStateNpg(any(), any(), any(), any(), any())
+    verify(userStatsServiceClient, times(1)).saveLastUsage(any(), any(), any(), any())
     verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
     verify(deadLetterTracedQueueAsyncClient, times(0))
       .sendAndTraceDeadLetterQueueEvent(any(), any())
@@ -1371,6 +1388,8 @@ class AuhtorizationRequestedHelperTests {
       transactionAuthorizationRequestedEvent(
         TransactionAuthorizationRequestData.PaymentGateway.NPG,
         npgTransactionGatewayAuthorizationRequestedData())
+    transactionAuthorizationRequestedEvent.data.paymentInstrumentId = UUID.randomUUID().toString()
+    transactionAuthorizationRequestedEvent.creationDate = Instant.now().toString()
     val transactionId = TransactionId(TRANSACTION_ID)
     val events: List<TransactionEvent<Any>> =
       listOf(
@@ -1409,6 +1428,7 @@ class AuhtorizationRequestedHelperTests {
         PSP_ID,
         NPG_CORRELATION_ID,
         NpgClient.PaymentMethod.CARDS)
+    verify(userStatsServiceClient, times(1)).saveLastUsage(any(), any(), any(), any())
     verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
     verify(authorizationStateRetrieverRetryService, times(0))
       .enqueueRetryEvent(any(), any(), any(), anyOrNull())
@@ -1424,6 +1444,8 @@ class AuhtorizationRequestedHelperTests {
       transactionAuthorizationRequestedEvent(
         TransactionAuthorizationRequestData.PaymentGateway.NPG,
         npgTransactionGatewayAuthorizationRequestedData())
+    transactionAuthorizationRequestedEvent.data.paymentInstrumentId = UUID.randomUUID().toString()
+    transactionAuthorizationRequestedEvent.creationDate = Instant.now().toString()
     val transactionId = TransactionId(TRANSACTION_ID)
     val events: List<TransactionEvent<Any>> =
       listOf(
@@ -1460,6 +1482,7 @@ class AuhtorizationRequestedHelperTests {
         NPG_CORRELATION_ID,
         NpgClient.PaymentMethod.CARDS)
     verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
+    verify(userStatsServiceClient, times(1)).saveLastUsage(any(), any(), any(), any())
     verify(authorizationStateRetrieverRetryService, times(1))
       .enqueueRetryEvent(any(), eq(0), any(), anyOrNull())
     verify(deadLetterTracedQueueAsyncClient, times(0))
@@ -1478,6 +1501,8 @@ class AuhtorizationRequestedHelperTests {
       transactionAuthorizationRequestedEvent(
         TransactionAuthorizationRequestData.PaymentGateway.NPG,
         npgTransactionGatewayAuthorizationRequestedData())
+    transactionAuthorizationRequestedEvent.data.paymentInstrumentId = UUID.randomUUID().toString()
+    transactionAuthorizationRequestedEvent.creationDate = Instant.now().toString()
     val transactionId = TransactionId(TRANSACTION_ID)
     val events: List<TransactionEvent<Any>> =
       listOf(
@@ -1547,6 +1572,7 @@ class AuhtorizationRequestedHelperTests {
         NpgClient.PaymentMethod.CARDS)
     verify(transactionsServiceClient, times(1))
       .patchAuthRequest(transactionId, expectedPatchAuthRequest)
+    verify(userStatsServiceClient, times(1)).saveLastUsage(any(), any(), any(), any())
     verify(deadLetterTracedQueueAsyncClient, times(0))
       .sendAndTraceDeadLetterQueueEvent(any(), any())
     verify(authorizationStateRetrieverRetryService, times(0))
@@ -1565,6 +1591,8 @@ class AuhtorizationRequestedHelperTests {
       transactionAuthorizationRequestedEvent(
         TransactionAuthorizationRequestData.PaymentGateway.NPG,
         npgTransactionGatewayAuthorizationRequestedData())
+    transactionAuthorizationRequestedEvent.data.paymentInstrumentId = UUID.randomUUID().toString()
+    transactionAuthorizationRequestedEvent.creationDate = Instant.now().toString()
     val transactionId = TransactionId(TRANSACTION_ID)
     val events: List<TransactionEvent<Any>> =
       listOf(
@@ -1632,6 +1660,7 @@ class AuhtorizationRequestedHelperTests {
         PSP_ID,
         NPG_CORRELATION_ID,
         NpgClient.PaymentMethod.CARDS)
+    verify(userStatsServiceClient, times(1)).saveLastUsage(any(), any(), any(), any())
     verify(transactionsServiceClient, times(1))
       .patchAuthRequest(transactionId, expectedPatchAuthRequest)
     verify(deadLetterTracedQueueAsyncClient, times(0))
@@ -1648,6 +1677,8 @@ class AuhtorizationRequestedHelperTests {
       transactionAuthorizationRequestedEvent(
         TransactionAuthorizationRequestData.PaymentGateway.NPG,
         npgTransactionGatewayAuthorizationRequestedData())
+    transactionAuthorizationRequestedEvent.data.paymentInstrumentId = UUID.randomUUID().toString()
+    transactionAuthorizationRequestedEvent.creationDate = Instant.now().toString()
     val transactionId = TransactionId(TRANSACTION_ID)
     val events: List<TransactionEvent<Any>> =
       listOf(
@@ -1715,6 +1746,7 @@ class AuhtorizationRequestedHelperTests {
         PSP_ID,
         NPG_CORRELATION_ID,
         NpgClient.PaymentMethod.CARDS)
+    verify(userStatsServiceClient, times(1)).saveLastUsage(any(), any(), any(), any())
     verify(transactionsServiceClient, times(1))
       .patchAuthRequest(transactionId, expectedPatchAuthRequest)
     verify(deadLetterTracedQueueAsyncClient, times(0))
@@ -1731,6 +1763,8 @@ class AuhtorizationRequestedHelperTests {
       transactionAuthorizationRequestedEvent(
         TransactionAuthorizationRequestData.PaymentGateway.NPG,
         npgTransactionGatewayAuthorizationRequestedData())
+    transactionAuthorizationRequestedEvent.data.paymentInstrumentId = UUID.randomUUID().toString()
+    transactionAuthorizationRequestedEvent.creationDate = Instant.now().toString()
     val transactionId = TransactionId(TRANSACTION_ID)
     val events: List<TransactionEvent<Any>> =
       listOf(
@@ -1800,6 +1834,7 @@ class AuhtorizationRequestedHelperTests {
         PSP_ID,
         NPG_CORRELATION_ID,
         NpgClient.PaymentMethod.CARDS)
+    verify(userStatsServiceClient, times(1)).saveLastUsage(any(), any(), any(), any())
     verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
     verify(deadLetterTracedQueueAsyncClient, times(0))
       .sendAndTraceDeadLetterQueueEvent(any(), any())
@@ -1907,7 +1942,271 @@ class AuhtorizationRequestedHelperTests {
         PSP_ID,
         NPG_CORRELATION_ID,
         NpgClient.PaymentMethod.CARDS)
+    verify(userStatsServiceClient, times(0)).saveLastUsage(any(), any(), any(), any())
     verify(transactionsServiceClient, times(1))
       .patchAuthRequest(transactionId, expectedPatchAuthRequest)
   }
+
+  @Test
+  fun `messageReceiver consume event correctly and call userStatsService to save last usage with right data for guest payment`() =
+    runTest {
+      val transactionActivatedEvent =
+        transactionActivateEvent(npgTransactionGatewayActivationData())
+      val transactionAuthorizationRequestedEvent =
+        transactionAuthorizationRequestedEvent(
+          TransactionAuthorizationRequestData.PaymentGateway.NPG,
+          npgTransactionGatewayAuthorizationRequestedData())
+      val paymentInstrumentId = UUID.randomUUID().toString()
+      val authDate = Instant.now().toString()
+      transactionAuthorizationRequestedEvent.data.paymentInstrumentId = paymentInstrumentId
+      transactionAuthorizationRequestedEvent.creationDate = authDate
+      val transactionId = TransactionId(TRANSACTION_ID)
+      val events: List<TransactionEvent<Any>> =
+        listOf(
+          transactionActivatedEvent as TransactionEvent<Any>,
+          transactionAuthorizationRequestedEvent as TransactionEvent<Any>)
+
+      val operationId = "operationId"
+      val orderId = "orderId"
+      val authorizationCode = "123456"
+      val rrn = "rrn"
+      val paymentEndToEndId = "paymentEndToEndId"
+      val npgStateResponse =
+        StateResponseDto()
+          .state(WorkflowStateDto.PAYMENT_COMPLETE)
+          .operation(
+            OperationDto()
+              .operationId(operationId)
+              .orderId(orderId)
+              .operationResult(OperationResultDto.EXECUTED)
+              .paymentEndToEndId(paymentEndToEndId)
+              .operationTime("2024-01-01T00:00:00")
+              .additionalData(mapOf("authorizationCode" to authorizationCode, "rrn" to rrn)))
+      val expectedGetStateSessionId = NPG_CONFIRM_PAYMENT_SESSION_ID
+      val expectedPatchAuthRequest =
+        UpdateAuthorizationRequestDto().apply {
+          outcomeGateway =
+            OutcomeNpgGatewayDto().apply {
+              this.paymentGatewayType = "NPG"
+              this.operationResult = OutcomeNpgGatewayDto.OperationResultEnum.EXECUTED
+              this.orderId = orderId
+              this.operationId = operationId
+              this.authorizationCode = authorizationCode
+              this.paymentEndToEndId = paymentEndToEndId
+              this.rrn = rrn
+            }
+          timestampOperation = OffsetDateTime.parse("2024-01-01T00:00:00+01:00")
+        }
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            transactionId.value()))
+        .willReturn(Flux.fromIterable(events))
+      given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any(), any()))
+        .willReturn(mono { npgStateResponse })
+      given(transactionsServiceClient.patchAuthRequest(any(), any()))
+        .willReturn(
+          mono { TransactionInfoDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED) })
+      given(checkpointer.success()).willReturn(Mono.empty())
+
+      // Test
+      StepVerifier.create(
+          authorizationRequestedHelper.authorizationStateRetrieve(
+            Either.left(
+              QueueEvent(
+                transactionAuthorizationRequestedEvent, TracingInfoTest.MOCK_TRACING_INFO)),
+            checkpointer))
+        .expectNext(Unit)
+        .verifyComplete()
+      // assertions
+      verify(authorizationStateRetrieverService, times(1))
+        .getStateNpg(
+          transactionId,
+          expectedGetStateSessionId,
+          PSP_ID,
+          NPG_CORRELATION_ID,
+          NpgClient.PaymentMethod.CARDS)
+      verify(userStatsServiceClient, times(1))
+        .saveLastUsage(
+          USER_ID, UUID.fromString(paymentInstrumentId), Instant.parse(authDate), false)
+      verify(transactionsServiceClient, times(1))
+        .patchAuthRequest(transactionId, expectedPatchAuthRequest)
+      verify(deadLetterTracedQueueAsyncClient, times(0))
+        .sendAndTraceDeadLetterQueueEvent(any(), any())
+    }
+
+  @Test
+  fun `messageReceiver consume event correctly and doesn't call userStatsService to save last usage`() =
+    runTest {
+      val transactionActivatedEvent =
+        transactionActivateEvent(npgTransactionGatewayActivationData())
+      transactionActivatedEvent.data.userId = null
+      val transactionAuthorizationRequestedEvent =
+        transactionAuthorizationRequestedEvent(
+          TransactionAuthorizationRequestData.PaymentGateway.NPG,
+          npgTransactionGatewayAuthorizationRequestedData())
+      val paymentInstrumentId = UUID.randomUUID().toString()
+      val authDate = Instant.now().toString()
+      transactionAuthorizationRequestedEvent.data.paymentInstrumentId = paymentInstrumentId
+      transactionAuthorizationRequestedEvent.creationDate = authDate
+      val transactionId = TransactionId(TRANSACTION_ID)
+      val events: List<TransactionEvent<Any>> =
+        listOf(
+          transactionActivatedEvent as TransactionEvent<Any>,
+          transactionAuthorizationRequestedEvent as TransactionEvent<Any>)
+
+      val operationId = "operationId"
+      val orderId = "orderId"
+      val authorizationCode = "123456"
+      val rrn = "rrn"
+      val paymentEndToEndId = "paymentEndToEndId"
+      val npgStateResponse =
+        StateResponseDto()
+          .state(WorkflowStateDto.PAYMENT_COMPLETE)
+          .operation(
+            OperationDto()
+              .operationId(operationId)
+              .orderId(orderId)
+              .operationResult(OperationResultDto.EXECUTED)
+              .paymentEndToEndId(paymentEndToEndId)
+              .operationTime("2024-01-01T00:00:00")
+              .additionalData(mapOf("authorizationCode" to authorizationCode, "rrn" to rrn)))
+      val expectedGetStateSessionId = NPG_CONFIRM_PAYMENT_SESSION_ID
+      val expectedPatchAuthRequest =
+        UpdateAuthorizationRequestDto().apply {
+          outcomeGateway =
+            OutcomeNpgGatewayDto().apply {
+              this.paymentGatewayType = "NPG"
+              this.operationResult = OutcomeNpgGatewayDto.OperationResultEnum.EXECUTED
+              this.orderId = orderId
+              this.operationId = operationId
+              this.authorizationCode = authorizationCode
+              this.paymentEndToEndId = paymentEndToEndId
+              this.rrn = rrn
+            }
+          timestampOperation = OffsetDateTime.parse("2024-01-01T00:00:00+01:00")
+        }
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            transactionId.value()))
+        .willReturn(Flux.fromIterable(events))
+      given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any(), any()))
+        .willReturn(mono { npgStateResponse })
+      given(transactionsServiceClient.patchAuthRequest(any(), any()))
+        .willReturn(
+          mono { TransactionInfoDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED) })
+      given(checkpointer.success()).willReturn(Mono.empty())
+
+      // Test
+      StepVerifier.create(
+          authorizationRequestedHelper.authorizationStateRetrieve(
+            Either.left(
+              QueueEvent(
+                transactionAuthorizationRequestedEvent, TracingInfoTest.MOCK_TRACING_INFO)),
+            checkpointer))
+        .expectNext(Unit)
+        .verifyComplete()
+      // assertions
+      verify(authorizationStateRetrieverService, times(1))
+        .getStateNpg(
+          transactionId,
+          expectedGetStateSessionId,
+          PSP_ID,
+          NPG_CORRELATION_ID,
+          NpgClient.PaymentMethod.CARDS)
+      verify(userStatsServiceClient, times(0)).saveLastUsage(any(), any(), any(), any())
+      verify(transactionsServiceClient, times(1))
+        .patchAuthRequest(transactionId, expectedPatchAuthRequest)
+      verify(deadLetterTracedQueueAsyncClient, times(0))
+        .sendAndTraceDeadLetterQueueEvent(any(), any())
+    }
+
+  @Test
+  fun `messageReceiver consume event correctly and call userStatsService to save last usage with right data for saved wallet`() =
+    runTest {
+      val transactionActivatedEvent =
+        transactionActivateEvent(npgTransactionGatewayActivationData())
+      val transactionAuthorizationRequestedEvent =
+        transactionAuthorizationRequestedEvent(
+          TransactionAuthorizationRequestData.PaymentGateway.NPG,
+          npgTransactionGatewayAuthorizationRequestedData())
+      val paymentInstrumentId = UUID.randomUUID().toString()
+      val authDate = Instant.now().toString()
+      val walletId = UUID.randomUUID().toString()
+      transactionAuthorizationRequestedEvent.data.paymentInstrumentId = paymentInstrumentId
+      (transactionAuthorizationRequestedEvent.data.transactionGatewayAuthorizationRequestedData
+          as NpgTransactionGatewayAuthorizationRequestedData)
+        .walletInfo = WalletInfo(walletId, null)
+      transactionAuthorizationRequestedEvent.creationDate = authDate
+      val transactionId = TransactionId(TRANSACTION_ID)
+      val events: List<TransactionEvent<Any>> =
+        listOf(
+          transactionActivatedEvent as TransactionEvent<Any>,
+          transactionAuthorizationRequestedEvent as TransactionEvent<Any>)
+
+      val operationId = "operationId"
+      val orderId = "orderId"
+      val authorizationCode = "123456"
+      val rrn = "rrn"
+      val paymentEndToEndId = "paymentEndToEndId"
+      val npgStateResponse =
+        StateResponseDto()
+          .state(WorkflowStateDto.PAYMENT_COMPLETE)
+          .operation(
+            OperationDto()
+              .operationId(operationId)
+              .orderId(orderId)
+              .operationResult(OperationResultDto.EXECUTED)
+              .paymentEndToEndId(paymentEndToEndId)
+              .operationTime("2024-01-01T00:00:00")
+              .additionalData(mapOf("authorizationCode" to authorizationCode, "rrn" to rrn)))
+      val expectedGetStateSessionId = NPG_CONFIRM_PAYMENT_SESSION_ID
+      val expectedPatchAuthRequest =
+        UpdateAuthorizationRequestDto().apply {
+          outcomeGateway =
+            OutcomeNpgGatewayDto().apply {
+              this.paymentGatewayType = "NPG"
+              this.operationResult = OutcomeNpgGatewayDto.OperationResultEnum.EXECUTED
+              this.orderId = orderId
+              this.operationId = operationId
+              this.authorizationCode = authorizationCode
+              this.paymentEndToEndId = paymentEndToEndId
+              this.rrn = rrn
+            }
+          timestampOperation = OffsetDateTime.parse("2024-01-01T00:00:00+01:00")
+        }
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            transactionId.value()))
+        .willReturn(Flux.fromIterable(events))
+      given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any(), any()))
+        .willReturn(mono { npgStateResponse })
+      given(transactionsServiceClient.patchAuthRequest(any(), any()))
+        .willReturn(
+          mono { TransactionInfoDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED) })
+      given(checkpointer.success()).willReturn(Mono.empty())
+
+      // Test
+      StepVerifier.create(
+          authorizationRequestedHelper.authorizationStateRetrieve(
+            Either.left(
+              QueueEvent(
+                transactionAuthorizationRequestedEvent, TracingInfoTest.MOCK_TRACING_INFO)),
+            checkpointer))
+        .expectNext(Unit)
+        .verifyComplete()
+      // assertions
+      verify(authorizationStateRetrieverService, times(1))
+        .getStateNpg(
+          transactionId,
+          expectedGetStateSessionId,
+          PSP_ID,
+          NPG_CORRELATION_ID,
+          NpgClient.PaymentMethod.CARDS)
+      verify(userStatsServiceClient, times(1))
+        .saveLastUsage(USER_ID, UUID.fromString(walletId), Instant.parse(authDate), true)
+      verify(transactionsServiceClient, times(1))
+        .patchAuthRequest(transactionId, expectedPatchAuthRequest)
+      verify(deadLetterTracedQueueAsyncClient, times(0))
+        .sendAndTraceDeadLetterQueueEvent(any(), any())
+    }
 }
