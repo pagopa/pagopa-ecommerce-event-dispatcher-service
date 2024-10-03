@@ -62,9 +62,9 @@ microservice-chart:
     servicePort: 9000
   serviceAccount:
     create: false
-    annotations: {}
+    annotations: { }
     name: ""
-  podAnnotations: {}
+  podAnnotations: { }
   podSecurityContext:
     seccompProfile:
       type: RuntimeDefault
@@ -179,6 +179,9 @@ microservice-chart:
     REDIRECT_PAYMENT_TYPE_CODES: "PPAYITR1XXX-RBPB,CHECKOUT-PPAYITR1XXX-RBPP,PPAYITR1XXX-RBPR"
     DEPLOYMENT_VERSION: "PROD"
     NPG_REFUND_DELAY_FROM_AUTH_REQUEST_MINUTES: "10"
+    USER_STATS_URL: "https://api.platform.pagopa.it/userstats/api/v1"
+    USER_STATS_READ_TIMEOUT: "10000"
+    USER_STATS_CONNECTION_TIMEOUT: "10000"
   envSecret:
     ECOMMERCE_STORAGE_TRANSIENT_QUEUE_KEY: ecommerce-storage-transient-account-key
     MONGO_PASSWORD: mongo-ecommerce-password
@@ -195,6 +198,7 @@ microservice-chart:
     NPG_API_KEY: npg-api-key
     NPG_CARDS_PSP_KEYS: npg-cards-psp-keys
     NODE_FORWARDER_API_KEY: node-forwarder-api-key
+    USER_STATS_API_KEY: user-stats-api-key
     REDIRECT_URL_MAPPING: redirect-url-mapping
     NPG_PAYPAL_PSP_KEYS: npg-paypal-psp-keys
     NPG_BANCOMATPAY_PSP_KEYS: npg-bancomatpay-psp-keys
@@ -204,8 +208,8 @@ microservice-chart:
   keyvault:
     name: "pagopa-p-ecommerce-kv"
     tenantId: "7788edaf-0346-4068-9d79-c868aed15b3d"
-  nodeSelector: {}
-  tolerations: []
+  nodeSelector: { }
+  tolerations: [ ]
   affinity:
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
@@ -222,5 +226,5 @@ microservice-chart:
             labelSelector:
               matchLabels:
                 app.kubernetes.io/instance: pagopaecommerceeventdispatcherservice
-            namespaces: ["ecommerce"]
+            namespaces: [ "ecommerce" ]
             topologyKey: topology.kubernetes.io/zone

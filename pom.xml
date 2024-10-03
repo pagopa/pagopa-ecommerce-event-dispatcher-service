@@ -464,6 +464,36 @@
 							<modelNameSuffix>dto</modelNameSuffix>
 						</configuration>
 					</execution>
+					<execution>
+						<id>user-stats-api</id>
+						<goals>
+							<goal>generate</goal>
+						</goals>
+						<configuration>
+							<inputSpec>https://raw.githubusercontent.com/pagopa/pagopa-infra/cf133e61a44d12f25d205d9d7b54b94ce05ebc5f/src/domains/ecommerce-app/api/ecommerce-user-stats-service/v1/_openapi.json.tpl</inputSpec>
+							<generatorName>java</generatorName>
+							<library>webclient</library>
+							<generateApiDocumentation>false</generateApiDocumentation>
+							<generateApiTests>false</generateApiTests>
+							<generateModelTests>false</generateModelTests>
+							<generateSupportingFiles>true</generateSupportingFiles>
+							<configOptions>
+								<swaggerAnnotations>false</swaggerAnnotations>
+								<openApiNullable>false</openApiNullable>
+								<useOneOfInterfaces>true</useOneOfInterfaces>
+								<legacyDiscriminatorBehavior>true</legacyDiscriminatorBehavior>
+							</configOptions>
+							<modelPackage>it.pagopa.generated.ecommerce.userstats.dto</modelPackage>
+							<apiPackage>it.pagopa.generated.ecommerce.userstats.api</apiPackage>
+							<!--  Commented out model name suffix because of this issue ->
+							  https://github.com/OpenAPITools/openapi-generator/issues/17343
+							 that cause discriminator field to not be set properly on deserialized class.
+							 With model name suffix on the generated code will use the class name as discriminator fields
+							 for the deserialized responses
+
+							 <modelNameSuffix>dto</modelNameSuffix> -->
+						</configuration>
+					</execution>
 				</executions>
 			</plugin>
 			<plugin>

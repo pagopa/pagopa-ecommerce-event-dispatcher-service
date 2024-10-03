@@ -28,7 +28,9 @@ class TransactionAuthorizationRequestedQueueConsumerTest {
   fun `Should handle authorization state retriever for authorization requested event`() {
     // assertions
     val event = QueueEvent(transactionAuthorizationRequestedEvent(), MOCK_TRACING_INFO)
-    given(authorizationRequestedHelper.authorizationStateRetrieve(eq(Either.left(event)), any()))
+    given(
+        authorizationRequestedHelper.authorizationRequestedTimeoutHandler(
+          eq(Either.left(event)), any()))
       .willReturn(mono { (Unit) })
     // test
     StepVerifier.create(
@@ -36,6 +38,6 @@ class TransactionAuthorizationRequestedQueueConsumerTest {
       .expectNext(Unit)
       .verifyComplete()
     verify(authorizationRequestedHelper, times(1))
-      .authorizationStateRetrieve(eq(Either.left(event)), eq(checkpointer))
+      .authorizationRequestedTimeoutHandler(eq(Either.left(event)), eq(checkpointer))
   }
 }

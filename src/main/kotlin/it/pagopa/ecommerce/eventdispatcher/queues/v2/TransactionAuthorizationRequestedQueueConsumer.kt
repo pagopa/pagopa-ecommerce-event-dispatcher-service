@@ -22,7 +22,7 @@ class TransactionAuthorizationRequestedQueueConsumer(
     parsedEvent: QueueEvent<TransactionAuthorizationRequestedEvent>,
     checkPointer: Checkpointer
   ): Mono<Unit> {
-    return authorizationRequestedHelper.authorizationStateRetrieve(
+    return authorizationRequestedHelper.authorizationRequestedTimeoutHandler(
       Either.left(parsedEvent), checkPointer)
   }
 }

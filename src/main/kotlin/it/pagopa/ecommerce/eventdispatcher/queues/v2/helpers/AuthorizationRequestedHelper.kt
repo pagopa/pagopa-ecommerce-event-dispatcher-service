@@ -20,8 +20,11 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRe
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.AuthorizationStateRetrieverRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.AuthorizationStateRetrieverService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
-import java.time.Instant
+import it.pagopa.generated.ecommerce.userstats.dto.GuestMethodLastUsageData
+import it.pagopa.generated.ecommerce.userstats.dto.WalletLastUsageData
+import java.time.OffsetDateTime
 import java.util.*
+import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -87,7 +90,7 @@ class AuthorizationRequestedHelper(
       false -> getPaymentMethodId(baseTransactionWithRequestedAuthorization)
     }
 
-  fun authorizationStateRetrieve(
+  fun authorizationRequestedTimeoutHandler(
     parsedEvent:
       Either<
         QueueEvent<TransactionAuthorizationRequestedEvent>,
@@ -99,44 +102,58 @@ class AuthorizationRequestedHelper(
     val retryCount = getRetryCount(parsedEvent)
     val creationDate = getCreationDate(parsedEvent)
     val saveLastUsage = isAuthRequestEvent(parsedEvent)
-    val baseTransaction =
-      Mono.defer {
-        transactionsEventStoreRepository
-          .findByTransactionIdOrderByCreationDateAsc(transactionId)
-          .reduce(EmptyTransaction(), Transaction::applyEvent)
-          .cast(BaseTransaction::class.java)
-      }
 
-    val authorizationRequestedPipeline =
-      baseTransaction
+    val transaction =
+      transactionsEventStoreRepository
+        .findByTransactionIdOrderByCreationDateAsc(transactionId)
+        .reduce(EmptyTransaction(), Transaction::applyEvent)
+        .cast(BaseTransaction::class.java)
         .filter { it.status == TransactionStatusDto.AUTHORIZATION_REQUESTED }
         .switchIfEmpty {
-          baseTransaction.flatMap {
-            logger.info("Transaction [$transactionId] status [${it.status}]. No action needed")
-            Mono.empty()
-          }
+          logger.info(
+            "Transaction [$transactionId] not in authorization requested status. No action needed")
+          Mono.empty()
         }
         .cast(BaseTransactionWithRequestedAuthorization::class.java)
-        .doOnNext { t ->
-          if (saveLastUsage && isAuthenticatedTransaction(t)) {
-            // TODO here call userStatsService
-            userStatsServiceClient.saveLastUsage(
-              t.transactionActivatedData.userId!!,
-              UUID.fromString(getLastUsageMethodId(t)),
-              Instant.parse(creationDate),
-              isWalletPayment(t))
+
+    val authorizationRequestedPipeline =
+      transaction
+        .map { baseTransactionWithRequestedAuthorization ->
+          if (saveLastUsage &&
+            isAuthenticatedTransaction(baseTransactionWithRequestedAuthorization)) {
+            userStatsServiceClient
+              .saveLastUsage(
+                UUID.fromString(
+                  baseTransactionWithRequestedAuthorization.transactionActivatedData.userId!!),
+                when (isWalletPayment(baseTransactionWithRequestedAuthorization)) {
+                  true ->
+                    WalletLastUsageData()
+                      .walletId(
+                        UUID.fromString(
+                          getWalletIdPayment(baseTransactionWithRequestedAuthorization)))
+                      .date(OffsetDateTime.parse(creationDate))
+                  false ->
+                    GuestMethodLastUsageData()
+                      .paymentMethodId(
+                        UUID.fromString(
+                          getPaymentMethodId(baseTransactionWithRequestedAuthorization)))
+                      .date(OffsetDateTime.parse(creationDate))
+                })
+              .onErrorResume {
+                logger.error("Exception ", it)
+                mono {}
+              }
           }
+          baseTransactionWithRequestedAuthorization
         }
         .filter {
           it.transactionAuthorizationRequestData.paymentGateway ==
             TransactionAuthorizationRequestData.PaymentGateway.NPG
         }
         .switchIfEmpty {
-          baseTransaction.flatMap {
-            logger.info(
-              "Transaction [$transactionId] has not been authorized via NPG gateway. No action needed")
-            Mono.empty()
-          }
+          logger.info(
+            "Transaction [$transactionId] has not been authorized via NPG gateway. No action needed")
+          Mono.empty()
         }
         .doOnNext {
           logger.info(
@@ -209,4 +226,22 @@ class AuthorizationRequestedHelper(
   ): Int {
     return event.fold({ 0 }, { it.event.data.retryCount })
   }
+
+  /*
+                     if (saveLastUsage && isAuthenticatedTransaction(baseTransactionWithRequestedAuthorization)) {
+                       userStatsServiceClient.saveLastUsage(
+                           UUID.fromString(baseTransactionWithRequestedAuthorization.transactionActivatedData.userId!!),
+                           when (isWalletPayment(baseTransactionWithRequestedAuthorization)) {
+                               true -> WalletLastUsageDataDto()
+                                   .walletId(UUID.fromString(getWalletIdPayment(baseTransactionWithRequestedAuthorization)))
+                                   .date(OffsetDateTime.parse(creationDate))
+
+                               false -> GuestMethodLastUsageDataDto()
+                                   .paymentMethodId(UUID.fromString(getPaymentMethodId(baseTransactionWithRequestedAuthorization)))
+                                   .date(OffsetDateTime.parse(creationDate))
+                           }
+                       )
+                   }
+  */
+
 }
