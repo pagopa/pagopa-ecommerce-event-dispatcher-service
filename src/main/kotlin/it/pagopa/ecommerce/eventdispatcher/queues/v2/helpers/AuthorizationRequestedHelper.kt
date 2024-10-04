@@ -23,7 +23,9 @@ import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClien
 import it.pagopa.generated.ecommerce.userstats.dto.GuestMethodLastUsageData
 import it.pagopa.generated.ecommerce.userstats.dto.WalletLastUsageData
 import java.time.OffsetDateTime
+import java.time.format.DateTimeFormatter
 import java.util.*
+import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -109,16 +111,23 @@ class AuthorizationRequestedHelper(
 
     val authorizationRequestedPipeline =
       transaction
-        .map { baseTransactionWithRequestedAuthorization ->
+        .flatMap { baseTransactionWithRequestedAuthorization ->
           if (saveLastUsage &&
             isAuthenticatedTransaction(baseTransactionWithRequestedAuthorization)) {
-            userStatsServiceClient.saveLastUsage(
-              UUID.fromString(
-                baseTransactionWithRequestedAuthorization.transactionActivatedData.userId!!),
-              buildUserLastPaymentMethodData(
-                baseTransactionWithRequestedAuthorization, creationDate))
+            userStatsServiceClient
+              .saveLastUsage(
+                UUID.fromString(
+                  baseTransactionWithRequestedAuthorization.transactionActivatedData.userId!!),
+                buildUserLastPaymentMethodData(
+                  baseTransactionWithRequestedAuthorization, creationDate))
+              .onErrorResume {
+                logger.error("Exception while saving last payment method used", it)
+                mono {}
+              }
+              .thenReturn(baseTransactionWithRequestedAuthorization)
+          } else {
+            mono { baseTransactionWithRequestedAuthorization }
           }
-          baseTransactionWithRequestedAuthorization
         }
         .filter {
           it.transactionAuthorizationRequestData.paymentGateway ==
@@ -160,12 +169,12 @@ class AuthorizationRequestedHelper(
       true ->
         WalletLastUsageData()
           .walletId(UUID.fromString(getWalletIdPayment(baseTransactionWithRequestedAuthorization)))
-          .date(OffsetDateTime.parse(creationDate))
+          .date(OffsetDateTime.parse(creationDate, DateTimeFormatter.ISO_DATE_TIME))
       false ->
         GuestMethodLastUsageData()
           .paymentMethodId(
             UUID.fromString(getPaymentMethodId(baseTransactionWithRequestedAuthorization)))
-          .date(OffsetDateTime.parse(creationDate))
+          .date(OffsetDateTime.parse(creationDate, DateTimeFormatter.ISO_DATE_TIME))
     }
 
   private fun getTracingInfo(

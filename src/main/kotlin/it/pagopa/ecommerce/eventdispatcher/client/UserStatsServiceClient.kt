@@ -44,7 +44,6 @@ class UserStatsServiceClient(
           else -> exception
         }
       }
-      .doOnError { logger.error("Exception $it") }
       .then(mono {})
   }
 }

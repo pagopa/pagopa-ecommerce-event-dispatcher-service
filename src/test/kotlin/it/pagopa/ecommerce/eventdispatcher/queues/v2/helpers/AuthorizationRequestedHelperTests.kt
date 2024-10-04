@@ -2297,7 +2297,7 @@ class AuthorizationRequestedHelperTests {
         .willReturn(
           mono { TransactionInfoDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED) })
       given(userStatsServiceClient.saveLastUsage(any(), any()))
-        .willReturn(Mono.error(RuntimeException()))
+        .willReturn(Mono.error(BadRequestException("Bad Request")))
       given(checkpointer.success()).willReturn(Mono.empty())
 
       // Test
