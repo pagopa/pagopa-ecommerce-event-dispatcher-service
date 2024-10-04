@@ -62,7 +62,7 @@ import reactor.test.StepVerifier
 
 @ExtendWith(MockitoExtension::class)
 @OptIn(ExperimentalCoroutinesApi::class)
-class AuhtorizationRequestedHelperTests {
+class AuthorizationRequestedHelperTests {
 
   private val transactionsServiceClient: TransactionsServiceClient = mock()
 
@@ -2297,7 +2297,7 @@ class AuhtorizationRequestedHelperTests {
         .willReturn(
           mono { TransactionInfoDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED) })
       given(userStatsServiceClient.saveLastUsage(any(), any()))
-        .willReturn(Mono.error(BadGatewayException("")))
+        .willReturn(Mono.error(RuntimeException()))
       given(checkpointer.success()).willReturn(Mono.empty())
 
       // Test

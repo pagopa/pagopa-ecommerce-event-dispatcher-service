@@ -24,7 +24,6 @@ import it.pagopa.generated.ecommerce.userstats.dto.GuestMethodLastUsageData
 import it.pagopa.generated.ecommerce.userstats.dto.WalletLastUsageData
 import java.time.OffsetDateTime
 import java.util.*
-import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -121,28 +120,23 @@ class AuthorizationRequestedHelper(
         .map { baseTransactionWithRequestedAuthorization ->
           if (saveLastUsage &&
             isAuthenticatedTransaction(baseTransactionWithRequestedAuthorization)) {
-            userStatsServiceClient
-              .saveLastUsage(
-                UUID.fromString(
-                  baseTransactionWithRequestedAuthorization.transactionActivatedData.userId!!),
-                when (isWalletPayment(baseTransactionWithRequestedAuthorization)) {
-                  true ->
-                    WalletLastUsageData()
-                      .walletId(
-                        UUID.fromString(
-                          getWalletIdPayment(baseTransactionWithRequestedAuthorization)))
-                      .date(OffsetDateTime.parse(creationDate))
-                  false ->
-                    GuestMethodLastUsageData()
-                      .paymentMethodId(
-                        UUID.fromString(
-                          getPaymentMethodId(baseTransactionWithRequestedAuthorization)))
-                      .date(OffsetDateTime.parse(creationDate))
-                })
-              .onErrorResume {
-                logger.error("Exception ", it)
-                mono {}
-              }
+            userStatsServiceClient.saveLastUsage(
+              UUID.fromString(
+                baseTransactionWithRequestedAuthorization.transactionActivatedData.userId!!),
+              when (isWalletPayment(baseTransactionWithRequestedAuthorization)) {
+                true ->
+                  WalletLastUsageData()
+                    .walletId(
+                      UUID.fromString(
+                        getWalletIdPayment(baseTransactionWithRequestedAuthorization)))
+                    .date(OffsetDateTime.parse(creationDate))
+                false ->
+                  GuestMethodLastUsageData()
+                    .paymentMethodId(
+                      UUID.fromString(
+                        getPaymentMethodId(baseTransactionWithRequestedAuthorization)))
+                    .date(OffsetDateTime.parse(creationDate))
+              })
           }
           baseTransactionWithRequestedAuthorization
         }

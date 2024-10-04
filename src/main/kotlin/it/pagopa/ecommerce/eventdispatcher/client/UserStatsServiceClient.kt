@@ -29,18 +29,22 @@ class UserStatsServiceClient(
   ): Mono<Unit> {
     return userStatsServiceApi
       .saveLastPaymentMethodUsed(userId, userLastPaymentMethodDataDto)
-      .then(mono {})
       .onErrorMap(WebClientResponseException::class.java) { exception: WebClientResponseException ->
+        logger.error("Error [${exception.statusCode}] for saveLastPaymentMethodUsed")
         when (exception.statusCode) {
           HttpStatus.BAD_REQUEST ->
-            BadRequestException("Bad reqeust for user stats service saveLastPaymentMethodUsed")
+            BadRequestException(
+              "Bad request exception for user stats service saveLastPaymentMethodUsed")
           HttpStatus.UNAUTHORIZED ->
             UnauthorizedException(
               "Unauthorized exception for user stats service saveLastPaymentMethodUsed")
           HttpStatus.INTERNAL_SERVER_ERROR ->
-            BadGatewayException("Bad Gateway for user stats service saveLastPaymentMethodUsed")
+            BadGatewayException(
+              "Bad Gateway exception for user stats service saveLastPaymentMethodUsed")
           else -> exception
         }
       }
+      .doOnError { logger.error("Exception $it") }
+      .then(mono {})
   }
 }

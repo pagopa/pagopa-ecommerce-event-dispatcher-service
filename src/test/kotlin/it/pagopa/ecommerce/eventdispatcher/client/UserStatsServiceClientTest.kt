@@ -11,6 +11,7 @@ import java.nio.charset.StandardCharsets
 import java.time.OffsetDateTime
 import java.util.*
 import java.util.stream.Stream
+import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
@@ -63,16 +64,23 @@ class UserStatsServiceClientTest {
     @JvmStatic
     fun `Service error method source`(): Stream<Arguments> =
       Stream.of(
-        Arguments.of(HttpStatus.BAD_REQUEST, BadRequestException("")),
-        Arguments.of(HttpStatus.UNAUTHORIZED, UnauthorizedException("")),
-        Arguments.of(HttpStatus.BAD_GATEWAY, BadGatewayException("")),
-        Arguments.of(HttpStatus.CONFLICT, RuntimeException("")),
-      )
+        Arguments.of(
+          HttpStatus.BAD_REQUEST,
+          BadRequestException(
+            "Bad request exception for user stats service saveLastPaymentMethodUsed")),
+        Arguments.of(
+          HttpStatus.UNAUTHORIZED,
+          UnauthorizedException(
+            "Unauthorized exception for user stats service saveLastPaymentMethodUsed")),
+        Arguments.of(
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          BadGatewayException(
+            "Bad Gateway exception for user stats service saveLastPaymentMethodUsed")))
   }
 
   @ParameterizedTest
   @MethodSource("Service error method source")
-  fun `Should throw error for guest payment`(status: HttpStatus, exception: Throwable) {
+  fun `Should throw error for guest payment`(status: HttpStatus, expectedException: Throwable) {
     // pre-requisites
     val userId = UUID.fromString(USER_ID)
     val guestMethodLastUsageDataDto =
@@ -83,13 +91,18 @@ class UserStatsServiceClientTest {
         Mono.error {
           WebClientResponseException.create(
             status.value(),
-            exception.message!!,
+            expectedException.message!!,
             HttpHeaders.EMPTY,
             "ErrorMessage".encodeToByteArray(),
             StandardCharsets.UTF_8)
         })
     // test
     StepVerifier.create(userStatsServiceClient.saveLastUsage(userId, guestMethodLastUsageDataDto))
-      .expectErrorMatches { t -> t.equals(exception) }
+      .expectErrorMatches {
+        Assertions.assertEquals(expectedException::class.java, it::class.java)
+        Assertions.assertEquals(expectedException.message, it.message)
+        true
+      }
+      .verify()
   }
 }
