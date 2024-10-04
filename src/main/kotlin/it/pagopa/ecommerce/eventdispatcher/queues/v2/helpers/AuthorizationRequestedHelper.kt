@@ -81,14 +81,6 @@ class AuthorizationRequestedHelper(
     (baseTransactionWithRequestedAuthorization.transactionAuthorizationRequestData)
       .paymentInstrumentId
 
-  private fun getLastUsageMethodId(
-    baseTransactionWithRequestedAuthorization: BaseTransactionWithRequestedAuthorization
-  ) =
-    when (isWalletPayment(baseTransactionWithRequestedAuthorization)) {
-      true -> getWalletIdPayment(baseTransactionWithRequestedAuthorization)
-      false -> getPaymentMethodId(baseTransactionWithRequestedAuthorization)
-    }
-
   fun authorizationRequestedTimeoutHandler(
     parsedEvent:
       Either<
