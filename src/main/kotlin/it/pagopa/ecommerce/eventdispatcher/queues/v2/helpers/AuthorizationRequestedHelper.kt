@@ -22,14 +22,14 @@ import it.pagopa.ecommerce.eventdispatcher.services.v2.AuthorizationStateRetriev
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.generated.ecommerce.userstats.dto.GuestMethodLastUsageData
 import it.pagopa.generated.ecommerce.userstats.dto.WalletLastUsageData
-import java.time.OffsetDateTime
-import java.util.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.switchIfEmpty
+import java.time.OffsetDateTime
+import java.util.*
 
 /**
  * This helper implements the business logic related to handling calling `getState` from NPG. In
@@ -42,192 +42,188 @@ import reactor.kotlin.core.publisher.switchIfEmpty
  */
 @Component
 class AuthorizationRequestedHelper(
-  @Autowired private val transactionsServiceClient: TransactionsServiceClient,
-  @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,
-  @Autowired
-  private val authorizationStateRetrieverRetryService: AuthorizationStateRetrieverRetryService,
-  @Autowired private val authorizationStateRetrieverService: AuthorizationStateRetrieverService,
-  @Autowired private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient,
-  @Autowired private val tracingUtils: TracingUtils,
-  @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider,
-  @Autowired private val userStatsServiceClient: UserStatsServiceClient
+    @Autowired private val transactionsServiceClient: TransactionsServiceClient,
+    @Autowired private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any>,
+    @Autowired
+    private val authorizationStateRetrieverRetryService: AuthorizationStateRetrieverRetryService,
+    @Autowired private val authorizationStateRetrieverService: AuthorizationStateRetrieverService,
+    @Autowired private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient,
+    @Autowired private val tracingUtils: TracingUtils,
+    @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider,
+    @Autowired private val userStatsServiceClient: UserStatsServiceClient
 ) {
 
-  var logger: Logger = LoggerFactory.getLogger(AuthorizationRequestedHelper::class.java)
+    var logger: Logger = LoggerFactory.getLogger(AuthorizationRequestedHelper::class.java)
 
-  private fun isWalletPayment(
-    baseTransactionWithRequestedAuthorization: BaseTransactionWithRequestedAuthorization
-  ) =
-    (baseTransactionWithRequestedAuthorization.transactionAuthorizationRequestData
-      .transactionGatewayAuthorizationRequestedData) is
-      NpgTransactionGatewayAuthorizationRequestedData &&
-      (baseTransactionWithRequestedAuthorization.transactionAuthorizationRequestData
-          .transactionGatewayAuthorizationRequestedData
-          as NpgTransactionGatewayAuthorizationRequestedData)
-        .walletInfo != null
+    private fun isWalletPayment(
+        baseTransactionWithRequestedAuthorization: BaseTransactionWithRequestedAuthorization
+    ) =
+        (baseTransactionWithRequestedAuthorization.transactionAuthorizationRequestData
+            .transactionGatewayAuthorizationRequestedData) is
+                NpgTransactionGatewayAuthorizationRequestedData &&
+                (baseTransactionWithRequestedAuthorization.transactionAuthorizationRequestData
+                    .transactionGatewayAuthorizationRequestedData
+                        as NpgTransactionGatewayAuthorizationRequestedData)
+                    .walletInfo != null
 
-  private fun getWalletIdPayment(
-    baseTransactionWithRequestedAuthorization: BaseTransactionWithRequestedAuthorization
-  ) =
-    (baseTransactionWithRequestedAuthorization.transactionAuthorizationRequestData
-        .transactionGatewayAuthorizationRequestedData
-        as NpgTransactionGatewayAuthorizationRequestedData)
-      .walletInfo
-      ?.walletId
+    private fun getWalletIdPayment(
+        baseTransactionWithRequestedAuthorization: BaseTransactionWithRequestedAuthorization
+    ) =
+        (baseTransactionWithRequestedAuthorization.transactionAuthorizationRequestData
+            .transactionGatewayAuthorizationRequestedData
+                as NpgTransactionGatewayAuthorizationRequestedData)
+            .walletInfo
+            ?.walletId
 
-  private fun getPaymentMethodId(
-    baseTransactionWithRequestedAuthorization: BaseTransactionWithRequestedAuthorization
-  ) =
-    (baseTransactionWithRequestedAuthorization.transactionAuthorizationRequestData)
-      .paymentInstrumentId
+    private fun getPaymentMethodId(
+        baseTransactionWithRequestedAuthorization: BaseTransactionWithRequestedAuthorization
+    ) =
+        (baseTransactionWithRequestedAuthorization.transactionAuthorizationRequestData)
+            .paymentInstrumentId
 
-  fun authorizationRequestedTimeoutHandler(
-    parsedEvent:
-      Either<
-        QueueEvent<TransactionAuthorizationRequestedEvent>,
-        QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>>,
-    checkPointer: Checkpointer
-  ): Mono<Unit> {
-    val tracingInfo = getTracingInfo(parsedEvent)
-    val transactionId = getTransactionId(parsedEvent)
-    val retryCount = getRetryCount(parsedEvent)
-    val creationDate = getCreationDate(parsedEvent)
-    val saveLastUsage = isAuthRequestEvent(parsedEvent)
+    fun authorizationRequestedTimeoutHandler(
+        parsedEvent:
+        Either<
+                QueueEvent<TransactionAuthorizationRequestedEvent>,
+                QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>>,
+        checkPointer: Checkpointer
+    ): Mono<Unit> {
+        val tracingInfo = getTracingInfo(parsedEvent)
+        val transactionId = getTransactionId(parsedEvent)
+        val retryCount = getRetryCount(parsedEvent)
+        val creationDate = getCreationDate(parsedEvent)
+        val saveLastUsage = isAuthRequestEvent(parsedEvent)
 
-    val transaction =
-      transactionsEventStoreRepository
-        .findByTransactionIdOrderByCreationDateAsc(transactionId)
-        .reduce(EmptyTransaction(), Transaction::applyEvent)
-        .cast(BaseTransaction::class.java)
-        .filter { it.status == TransactionStatusDto.AUTHORIZATION_REQUESTED }
-        .switchIfEmpty {
-          logger.info(
-            "Transaction [$transactionId] not in authorization requested status. No action needed")
-          Mono.empty()
-        }
-        .cast(BaseTransactionWithRequestedAuthorization::class.java)
+        val transaction =
+            transactionsEventStoreRepository
+                .findByTransactionIdOrderByCreationDateAsc(transactionId)
+                .reduce(EmptyTransaction(), Transaction::applyEvent)
+                .cast(BaseTransaction::class.java)
+                .filter { it.status == TransactionStatusDto.AUTHORIZATION_REQUESTED }
+                .switchIfEmpty {
+                    logger.info(
+                        "Transaction [$transactionId] not in authorization requested status. No action needed"
+                    )
+                    Mono.empty()
+                }
+                .cast(BaseTransactionWithRequestedAuthorization::class.java)
 
-    val authorizationRequestedPipeline =
-      transaction
-        .map { baseTransactionWithRequestedAuthorization ->
-          if (saveLastUsage &&
-            isAuthenticatedTransaction(baseTransactionWithRequestedAuthorization)) {
-            userStatsServiceClient.saveLastUsage(
-              UUID.fromString(
-                baseTransactionWithRequestedAuthorization.transactionActivatedData.userId!!),
-              when (isWalletPayment(baseTransactionWithRequestedAuthorization)) {
-                true ->
-                  WalletLastUsageData()
-                    .walletId(
-                      UUID.fromString(
-                        getWalletIdPayment(baseTransactionWithRequestedAuthorization)))
-                    .date(OffsetDateTime.parse(creationDate))
-                false ->
-                  GuestMethodLastUsageData()
-                    .paymentMethodId(
-                      UUID.fromString(
-                        getPaymentMethodId(baseTransactionWithRequestedAuthorization)))
-                    .date(OffsetDateTime.parse(creationDate))
-              })
-          }
-          baseTransactionWithRequestedAuthorization
-        }
-        .filter {
-          it.transactionAuthorizationRequestData.paymentGateway ==
-            TransactionAuthorizationRequestData.PaymentGateway.NPG
-        }
-        .switchIfEmpty {
-          logger.info(
-            "Transaction [$transactionId] has not been authorized via NPG gateway. No action needed")
-          Mono.empty()
-        }
-        .doOnNext {
-          logger.info(
-            "Handling get state request for transaction with id ${it.transactionId.value()}")
-        }
-        .flatMap { tx ->
-          handleGetStateByPatchTransactionService(
-            tx = tx,
-            authorizationStateRetrieverRetryService = authorizationStateRetrieverRetryService,
-            authorizationStateRetrieverService = authorizationStateRetrieverService,
-            transactionsServiceClient = transactionsServiceClient,
-            tracingInfo = tracingInfo,
-            retryCount = retryCount)
-        }
-    return runTracedPipelineWithDeadLetterQueue(
-      checkPointer,
-      authorizationRequestedPipeline,
-      QueueEvent(parsedEvent.fold({ it }, { it }).event, tracingInfo),
-      deadLetterTracedQueueAsyncClient,
-      tracingUtils,
-      this::class.simpleName!!,
-      strictSerializerProviderV2)
-  }
+        val authorizationRequestedPipeline =
+            transaction
+                .map { baseTransactionWithRequestedAuthorization ->
+                    if (saveLastUsage &&
+                        isAuthenticatedTransaction(baseTransactionWithRequestedAuthorization)
+                    ) {
+                        userStatsServiceClient.saveLastUsage(
+                            UUID.fromString(
+                                baseTransactionWithRequestedAuthorization.transactionActivatedData.userId!!
+                            ),
+                            when (isWalletPayment(baseTransactionWithRequestedAuthorization)) {
+                                true ->
+                                    WalletLastUsageData()
+                                        .walletId(
+                                            UUID.fromString(
+                                                getWalletIdPayment(baseTransactionWithRequestedAuthorization)
+                                            )
+                                        )
+                                        .date(OffsetDateTime.parse(creationDate))
 
-  private fun getTracingInfo(
-    event:
-      Either<
-        QueueEvent<TransactionAuthorizationRequestedEvent>,
-        QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>>
-  ): TracingInfo {
-    return event.fold({ it.tracingInfo }, { it.tracingInfo })
-  }
+                                false ->
+                                    GuestMethodLastUsageData()
+                                        .paymentMethodId(
+                                            UUID.fromString(
+                                                getPaymentMethodId(baseTransactionWithRequestedAuthorization)
+                                            )
+                                        )
+                                        .date(OffsetDateTime.parse(creationDate))
+                            }
+                        )
+                    }
+                    baseTransactionWithRequestedAuthorization
+                }
+                .filter {
+                    it.transactionAuthorizationRequestData.paymentGateway ==
+                            TransactionAuthorizationRequestData.PaymentGateway.NPG
+                }
+                .switchIfEmpty {
+                    logger.info(
+                        "Transaction [$transactionId] has not been authorized via NPG gateway. No action needed"
+                    )
+                    Mono.empty()
+                }
+                .doOnNext {
+                    logger.info(
+                        "Handling get state request for transaction with id ${it.transactionId.value()}"
+                    )
+                }
+                .flatMap { tx ->
+                    handleGetStateByPatchTransactionService(
+                        tx = tx,
+                        authorizationStateRetrieverRetryService = authorizationStateRetrieverRetryService,
+                        authorizationStateRetrieverService = authorizationStateRetrieverService,
+                        transactionsServiceClient = transactionsServiceClient,
+                        tracingInfo = tracingInfo,
+                        retryCount = retryCount
+                    )
+                }
+        return runTracedPipelineWithDeadLetterQueue(
+            checkPointer,
+            authorizationRequestedPipeline,
+            QueueEvent(parsedEvent.fold({ it }, { it }).event, tracingInfo),
+            deadLetterTracedQueueAsyncClient,
+            tracingUtils,
+            this::class.simpleName!!,
+            strictSerializerProviderV2
+        )
+    }
 
-  private fun isAuthRequestEvent(
-    event:
-      Either<
-        QueueEvent<TransactionAuthorizationRequestedEvent>,
-        QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>>
-  ): Boolean {
-    return event.fold({ true }, { false })
-  }
+    private fun getTracingInfo(
+        event:
+        Either<
+                QueueEvent<TransactionAuthorizationRequestedEvent>,
+                QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>>
+    ): TracingInfo {
+        return event.fold({ it.tracingInfo }, { it.tracingInfo })
+    }
 
-  private fun isAuthenticatedTransaction(
-    baseTransactionWithRequestedAuthorization: BaseTransactionWithRequestedAuthorization
-  ) = baseTransactionWithRequestedAuthorization.transactionActivatedData.userId != null
+    private fun isAuthRequestEvent(
+        event:
+        Either<
+                QueueEvent<TransactionAuthorizationRequestedEvent>,
+                QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>>
+    ): Boolean {
+        return event.fold({ true }, { false })
+    }
 
-  private fun getCreationDate(
-    event:
-      Either<
-        QueueEvent<TransactionAuthorizationRequestedEvent>,
-        QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>>
-  ): String {
-    return event.fold({ it.event.creationDate }, { it.event.creationDate })
-  }
+    private fun isAuthenticatedTransaction(
+        baseTransactionWithRequestedAuthorization: BaseTransactionWithRequestedAuthorization
+    ) = baseTransactionWithRequestedAuthorization.transactionActivatedData.userId != null
 
-  private fun getTransactionId(
-    event:
-      Either<
-        QueueEvent<TransactionAuthorizationRequestedEvent>,
-        QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>>
-  ): String {
-    return event.fold({ it.event.transactionId }, { it.event.transactionId })
-  }
+    private fun getCreationDate(
+        event:
+        Either<
+                QueueEvent<TransactionAuthorizationRequestedEvent>,
+                QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>>
+    ): String {
+        return event.fold({ it.event.creationDate }, { it.event.creationDate })
+    }
 
-  private fun getRetryCount(
-    event:
-      Either<
-        QueueEvent<TransactionAuthorizationRequestedEvent>,
-        QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>>
-  ): Int {
-    return event.fold({ 0 }, { it.event.data.retryCount })
-  }
+    private fun getTransactionId(
+        event:
+        Either<
+                QueueEvent<TransactionAuthorizationRequestedEvent>,
+                QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>>
+    ): String {
+        return event.fold({ it.event.transactionId }, { it.event.transactionId })
+    }
 
-  /*
-                     if (saveLastUsage && isAuthenticatedTransaction(baseTransactionWithRequestedAuthorization)) {
-                       userStatsServiceClient.saveLastUsage(
-                           UUID.fromString(baseTransactionWithRequestedAuthorization.transactionActivatedData.userId!!),
-                           when (isWalletPayment(baseTransactionWithRequestedAuthorization)) {
-                               true -> WalletLastUsageDataDto()
-                                   .walletId(UUID.fromString(getWalletIdPayment(baseTransactionWithRequestedAuthorization)))
-                                   .date(OffsetDateTime.parse(creationDate))
-
-                               false -> GuestMethodLastUsageDataDto()
-                                   .paymentMethodId(UUID.fromString(getPaymentMethodId(baseTransactionWithRequestedAuthorization)))
-                                   .date(OffsetDateTime.parse(creationDate))
-                           }
-                       )
-                   }
-  */
+    private fun getRetryCount(
+        event:
+        Either<
+                QueueEvent<TransactionAuthorizationRequestedEvent>,
+                QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>>
+    ): Int {
+        return event.fold({ 0 }, { it.event.data.retryCount })
+    }
 
 }
