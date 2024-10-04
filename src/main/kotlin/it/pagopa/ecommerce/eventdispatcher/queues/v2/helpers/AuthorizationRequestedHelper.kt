@@ -111,24 +111,21 @@ class AuthorizationRequestedHelper(
 
     val authorizationRequestedPipeline =
       transaction
-        .flatMap { baseTransactionWithRequestedAuthorization ->
-          if (saveLastUsage &&
-            isAuthenticatedTransaction(baseTransactionWithRequestedAuthorization)) {
-            userStatsServiceClient
-              .saveLastUsage(
-                UUID.fromString(
-                  baseTransactionWithRequestedAuthorization.transactionActivatedData.userId!!),
-                buildUserLastPaymentMethodData(
-                  baseTransactionWithRequestedAuthorization, creationDate))
-              .onErrorResume {
-                logger.error("Exception while saving last payment method used", it)
-                mono {}
-              }
-              .thenReturn(baseTransactionWithRequestedAuthorization)
-          } else {
-            mono { baseTransactionWithRequestedAuthorization }
-          }
+        .filter { baseTransactionWithRequestedAuthorization ->
+          saveLastUsage && isAuthenticatedTransaction(baseTransactionWithRequestedAuthorization)
         }
+        .flatMap {
+          userStatsServiceClient
+            .saveLastUsage(
+              UUID.fromString(it.transactionActivatedData.userId!!),
+              buildUserLastPaymentMethodData(it, creationDate))
+            .onErrorResume {
+              logger.error("Exception while saving last payment method used", it)
+              mono {}
+            }
+            .thenReturn(it)
+        }
+        .switchIfEmpty { transaction }
         .filter {
           it.transactionAuthorizationRequestData.paymentGateway ==
             TransactionAuthorizationRequestData.PaymentGateway.NPG
