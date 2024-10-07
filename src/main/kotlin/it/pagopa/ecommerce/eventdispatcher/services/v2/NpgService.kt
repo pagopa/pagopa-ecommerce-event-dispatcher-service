@@ -40,9 +40,9 @@ data class NgpOrderPendingStatus(
 @Service
 class NpgService(
   private val authorizationStateRetrieverService: AuthorizationStateRetrieverService,
+  @Value("\${npg.refund.delayFromAuthRequestMinutes}") val refundDelayFromAuthRequestMinutes: Long,
   @Value("\${npg.refund.refundDelayForRefundOperationsSeconds}")
-  val refundDelayForRefundOperationsSeconds: Long,
-  @Value("\${npg.refund.delayFromAuthRequestMinutes}") val refundDelayFromAuthRequestMinutes: Long
+  val refundDelayForRefundOperationsSeconds: Long
 ) {
 
   private val logger: Logger = LoggerFactory.getLogger(javaClass)
