@@ -103,7 +103,7 @@ These are all environment variables needed by the application:
 | DEPLOYMENT_VERSION                                                             | Env property used to identify deployment version (STAGING/PROD)                                                                                                                                                                                                    | string  | PROD          |
 | NPG_REFUND_DELAY_FROM_AUTH_REQUEST_MINUTES                                     | Time to be waited, in minutes, before initializing refund process for NPG transaction starting from the authorization request date                                                                                                                                 | integer |               |
 | NPG_REFUND_DELAY_FOR_REFUND_OPERATIONS_SECONDS                                 | Time to be waited, in seconds, before trying to process a refund operation from the queue                                                                                                                                                                          | integer |               |
-    
+
 An example configuration of these environment variables is in the `.env.example` file.
 
 (*): for Mongo connection string options
