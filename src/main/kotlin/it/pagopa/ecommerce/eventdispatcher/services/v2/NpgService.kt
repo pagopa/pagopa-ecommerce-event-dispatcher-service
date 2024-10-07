@@ -40,7 +40,7 @@ data class NgpOrderPendingStatus(
 @Service
 class NpgService(
   private val authorizationStateRetrieverService: AuthorizationStateRetrieverService,
-  @Value("\${npg.refund.refundDelayForRefundOperations}") val refundDelayForRefundOperations: Long,
+  @Value("\${npg.refund.refundDelayForRefundOperationsSeconds}") val refundDelayForRefundOperationsSeconds: Long,
   @Value("\${npg.refund.delayFromAuthRequestMinutes}") val refundDelayFromAuthRequestMinutes: Long
 ) {
 
