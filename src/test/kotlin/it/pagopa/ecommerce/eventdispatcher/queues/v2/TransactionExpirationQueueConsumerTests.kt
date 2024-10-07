@@ -3179,9 +3179,11 @@ class TransactionExpirationQueueConsumerTests {
     // test check here that time difference is below 2 sec
     println(
       "configured NPG timeout: [$npgTimeToWaitForRefundFromAuthRequest], event used timeout: [${visibilityTimeoutCaptor.value}]")
+    val durationDifference =
+      Duration.ofMinutes(npgTimeToWaitForRefundFromAuthRequest) - visibilityTimeoutCaptor.value
     assertTrue(
-      Duration.ofMinutes(npgTimeToWaitForRefundFromAuthRequest).seconds -
-        visibilityTimeoutCaptor.value.seconds <= 2)
+      durationDifference.abs() <=
+        Duration.ofSeconds(refundDelayForRefundOperationsSeconds) + Duration.ofSeconds(2))
   }
 
   @Nested
