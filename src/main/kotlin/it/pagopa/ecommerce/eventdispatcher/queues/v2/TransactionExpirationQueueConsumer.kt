@@ -178,7 +178,7 @@ class TransactionExpirationQueueConsumer(
               expirationQueueAsyncClient
                 .sendMessageWithResponse(
                   binaryData,
-                  timeout + Duration.ofSeconds(10),
+                  timeout + Duration.ofSeconds(npgService.refundDelayForRefundOperations),
                   Duration.ofSeconds(transientQueueTTLSeconds.toLong()),
                 )
                 .thenReturn(false)
