@@ -29,6 +29,7 @@ import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.switchIfEmpty
@@ -52,7 +53,8 @@ class AuthorizationRequestedHelper(
   @Autowired private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient,
   @Autowired private val tracingUtils: TracingUtils,
   @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider,
-  @Autowired private val userStatsServiceClient: UserStatsServiceClient
+  @Autowired private val userStatsServiceClient: UserStatsServiceClient,
+  @Value("\${userStatsService.enableSaveLastUsage}") private val enableSaveLastMethodUsage: Boolean
 ) {
 
   var logger: Logger = LoggerFactory.getLogger(AuthorizationRequestedHelper::class.java)
@@ -94,7 +96,7 @@ class AuthorizationRequestedHelper(
     val transactionId = getTransactionId(parsedEvent)
     val retryCount = getRetryCount(parsedEvent)
     val creationDate = getCreationDate(parsedEvent)
-    val saveLastUsage = isAuthRequestEvent(parsedEvent)
+    val saveLastUsage = isAuthRequestEvent(parsedEvent) && enableSaveLastMethodUsage
 
     val transaction =
       transactionsEventStoreRepository
