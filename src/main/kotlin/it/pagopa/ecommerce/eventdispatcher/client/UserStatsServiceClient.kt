@@ -3,6 +3,7 @@ package it.pagopa.ecommerce.eventdispatcher.client
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadGatewayException
 import it.pagopa.generated.ecommerce.userstats.api.UserStatsApi
 import it.pagopa.generated.ecommerce.userstats.dto.UserLastPaymentMethodData
+import it.pagopa.generated.ecommerce.userstats.dto.UserLastPaymentMethodRequest
 import java.util.*
 import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
@@ -26,7 +27,8 @@ class UserStatsServiceClient(
     userLastPaymentMethodDataDto: UserLastPaymentMethodData
   ): Mono<Unit> {
     return userStatsServiceApi
-      .saveLastPaymentMethodUsed(userId, userLastPaymentMethodDataDto)
+      .saveLastPaymentMethodUsed(
+        UserLastPaymentMethodRequest().userId(userId).details(userLastPaymentMethodDataDto))
       .onErrorMap(WebClientResponseException::class.java) { exception: WebClientResponseException ->
         logger.error("Error [${exception.statusCode}] for saveLastPaymentMethodUsed")
         when (exception.statusCode) {

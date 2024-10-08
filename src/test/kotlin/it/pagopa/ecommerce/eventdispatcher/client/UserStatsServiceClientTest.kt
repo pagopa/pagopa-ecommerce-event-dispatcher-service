@@ -4,6 +4,7 @@ import it.pagopa.ecommerce.commons.v2.TransactionTestUtils.USER_ID
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadGatewayException
 import it.pagopa.generated.ecommerce.userstats.api.UserStatsApi
 import it.pagopa.generated.ecommerce.userstats.dto.GuestMethodLastUsageData
+import it.pagopa.generated.ecommerce.userstats.dto.UserLastPaymentMethodRequest
 import it.pagopa.generated.ecommerce.userstats.dto.WalletLastUsageData
 import java.nio.charset.StandardCharsets
 import java.time.OffsetDateTime
@@ -34,8 +35,12 @@ class UserStatsServiceClientTest {
     val userId = UUID.fromString(USER_ID)
     val walletLastUsageData =
       WalletLastUsageData().walletId(UUID.randomUUID()).date(OffsetDateTime.now())
-
-    given(userStatsApi.saveLastPaymentMethodUsed(userId, walletLastUsageData))
+    val userLastPaymentMethodRequest =
+      UserLastPaymentMethodRequest().apply {
+        this.userId = userId
+        this.details = walletLastUsageData
+      }
+    given(userStatsApi.saveLastPaymentMethodUsed(userLastPaymentMethodRequest))
       .willReturn(Mono.empty())
     // test
     StepVerifier.create(userStatsServiceClient.saveLastUsage(userId, walletLastUsageData))
@@ -49,8 +54,12 @@ class UserStatsServiceClientTest {
     val userId = UUID.fromString(USER_ID)
     val guestMethodLastUsageData =
       GuestMethodLastUsageData().paymentMethodId(UUID.randomUUID()).date(OffsetDateTime.now())
-
-    given(userStatsApi.saveLastPaymentMethodUsed(userId, guestMethodLastUsageData))
+    val userLastPaymentMethodRequest =
+      UserLastPaymentMethodRequest().apply {
+        this.userId = userId
+        this.details = guestMethodLastUsageData
+      }
+    given(userStatsApi.saveLastPaymentMethodUsed(userLastPaymentMethodRequest))
       .willReturn(Mono.empty())
     // test
     StepVerifier.create(userStatsServiceClient.saveLastUsage(userId, guestMethodLastUsageData))
@@ -83,8 +92,12 @@ class UserStatsServiceClientTest {
     val userId = UUID.fromString(USER_ID)
     val guestMethodLastUsageDataDto =
       GuestMethodLastUsageData().paymentMethodId(UUID.randomUUID()).date(OffsetDateTime.now())
-
-    given(userStatsApi.saveLastPaymentMethodUsed(userId, guestMethodLastUsageDataDto))
+    val userLastPaymentMethodRequest =
+      UserLastPaymentMethodRequest().apply {
+        this.userId = userId
+        this.details = guestMethodLastUsageDataDto
+      }
+    given(userStatsApi.saveLastPaymentMethodUsed(userLastPaymentMethodRequest))
       .willReturn(
         Mono.error {
           WebClientResponseException.create(
