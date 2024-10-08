@@ -110,7 +110,7 @@ class TransactionExpirationQueueConsumerTests {
   private val jsonSerializerV2 = strictJsonSerializerProviderV2.createInstance()
 
   private val refundDelayFromAuthRequestMinutes = 0L
-  private val refundDelayForRefundOperationsSeconds = 10L
+  private val eventProcessingDelaySeconds = 10L
 
   private val transactionExpirationQueueConsumer =
     TransactionExpirationQueueConsumer(
@@ -131,7 +131,7 @@ class TransactionExpirationQueueConsumerTests {
         NpgService(
           authorizationStateRetrieverService,
           refundDelayFromAuthRequestMinutes,
-          refundDelayForRefundOperationsSeconds),
+          eventProcessingDelaySeconds),
     )
 
   @Test
@@ -3103,7 +3103,7 @@ class TransactionExpirationQueueConsumerTests {
     val operationId = UUID.randomUUID().toString()
     val paymentEndToEndId = UUID.randomUUID().toString()
     val npgTimeToWaitForRefundFromAuthRequest = 10L
-    val refundDelayForRefundOperationsSeconds = 10L
+    val eventProcessingDelaySeconds = 10L
     val transactionExpirationQueueConsumerLocalInstance =
       TransactionExpirationQueueConsumer(
         transactionsEventStoreRepository = transactionsEventStoreRepository,
@@ -3123,7 +3123,7 @@ class TransactionExpirationQueueConsumerTests {
           NpgService(
             authorizationStateRetrieverService,
             npgTimeToWaitForRefundFromAuthRequest,
-            refundDelayForRefundOperationsSeconds),
+            eventProcessingDelaySeconds),
       )
     val events =
       listOf(

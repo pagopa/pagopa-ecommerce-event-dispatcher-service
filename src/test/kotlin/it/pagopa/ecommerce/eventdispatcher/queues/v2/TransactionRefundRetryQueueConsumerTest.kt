@@ -75,7 +75,7 @@ class TransactionRefundRetryQueueConsumerTest {
   private val strictJsonSerializerProviderV2 = QueuesConsumerConfig().strictSerializerProviderV2()
   private val jsonSerializerV2 = strictJsonSerializerProviderV2.createInstance()
   private val refundDelayFromAuthRequestMinutes = 10L
-  private val refundDelayForRefundOperationsSeconds = 10L
+  private val eventProcessingDelaySeconds = 10L
   private val transactionRefundRetryQueueConsumer =
     TransactionRefundRetryQueueConsumer(
       paymentGatewayClient = paymentGatewayClient,
@@ -91,7 +91,7 @@ class TransactionRefundRetryQueueConsumerTest {
         NpgService(
           authorizationStateRetrieverService,
           refundDelayFromAuthRequestMinutes,
-          refundDelayForRefundOperationsSeconds),
+          eventProcessingDelaySeconds),
     )
 
   @Test
