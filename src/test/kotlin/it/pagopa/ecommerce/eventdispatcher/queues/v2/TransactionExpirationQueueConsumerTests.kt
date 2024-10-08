@@ -3183,7 +3183,7 @@ class TransactionExpirationQueueConsumerTests {
       Duration.ofMinutes(npgTimeToWaitForRefundFromAuthRequest) - visibilityTimeoutCaptor.value
     assertTrue(
       durationDifference.abs() <=
-        Duration.ofSeconds(refundDelayForRefundOperationsSeconds) + Duration.ofSeconds(2))
+        Duration.ofSeconds(eventProcessingDelaySeconds) + Duration.ofSeconds(2))
   }
 
   @Nested
