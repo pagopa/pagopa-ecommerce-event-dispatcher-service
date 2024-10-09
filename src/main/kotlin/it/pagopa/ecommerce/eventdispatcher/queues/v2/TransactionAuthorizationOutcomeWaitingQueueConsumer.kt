@@ -18,7 +18,7 @@ class TransactionAuthorizationOutcomeWaitingQueueConsumer(
     parsedEvent: QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>,
     checkPointer: Checkpointer
   ): Mono<Unit> {
-    return authorizationRequestedHelper.authorizationStateRetrieve(
+    return authorizationRequestedHelper.authorizationRequestedTimeoutHandler(
       Either.right(parsedEvent), checkPointer)
   }
 }

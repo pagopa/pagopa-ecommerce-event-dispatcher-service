@@ -65,9 +65,9 @@ microservice-chart:
     servicePort: 9000
   serviceAccount:
     create: false
-    annotations: {}
+    annotations: { }
     name: ""
-  podAnnotations: {}
+  podAnnotations: { }
   podSecurityContext:
     seccompProfile:
       type: RuntimeDefault
@@ -172,6 +172,9 @@ microservice-chart:
     NODE_FORWARDER_CONNECTION_TIMEOUT: "10000"
     REDIRECT_PAYMENT_TYPE_CODES: "BPPIITRRXXX-RBPR,BPPIITRRXXX-RBPP,BPPIITRRXXX-RBPB,PPAYITR1XXX-RBPB,CHECKOUT-PPAYITR1XXX-RBPP,IO-PPAYITR1XXX-RBPP,PPAYITR1XXX-RBPR,RBPS,RPIC,RICO"
     NPG_REFUND_DELAY_FROM_AUTH_REQUEST_MINUTES: "10"
+    USER_STATS_URL: "https://api.dev.platform.pagopa.it/ecommerce/user-stats-service/v1/"
+    USER_STATS_READ_TIMEOUT: "10000"
+    USER_STATS_CONNECTION_TIMEOUT: "10000"
     NPG_REFUND_EVENT_PROCESSING_DELAY_SECONDS: "10"
   envSecret:
     ECOMMERCE_STORAGE_TRANSIENT_QUEUE_KEY: ecommerce-storage-transient-account-key
@@ -189,6 +192,7 @@ microservice-chart:
     NPG_API_KEY: npg-api-key
     NPG_CARDS_PSP_KEYS: npg-cards-psp-keys
     NODE_FORWARDER_API_KEY: node-forwarder-api-key
+    USER_STATS_API_KEY: user-stats-for-event-dispatcher-api-key
     REDIRECT_URL_MAPPING: redirect-url-mapping
     NPG_PAYPAL_PSP_KEYS: npg-paypal-psp-keys
     NPG_BANCOMATPAY_PSP_KEYS: npg-bancomatpay-psp-keys
@@ -198,8 +202,8 @@ microservice-chart:
   keyvault:
     name: "pagopa-d-ecommerce-kv"
     tenantId: "7788edaf-0346-4068-9d79-c868aed15b3d"
-  nodeSelector: {}
-  tolerations: []
+  nodeSelector: { }
+  tolerations: [ ]
   affinity:
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:

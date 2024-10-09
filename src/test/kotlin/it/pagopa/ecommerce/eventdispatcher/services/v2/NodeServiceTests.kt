@@ -5951,4 +5951,311 @@ class NodeServiceTests {
         .clientId,
       Transaction.ClientId.CHECKOUT_CART.effectiveClient.name)
   }
+
+  @Test
+  fun `ClosePaymentRequestV2Dto for close payment OK has not wallet info for card wallet`() =
+    runTest {
+      val transactionOutcome = ClosePaymentOutcome.OK
+      val authRequestedData =
+        NpgTransactionGatewayAuthorizationRequestedData(
+          LOGO_URI,
+          NpgClient.PaymentMethod.CARDS.toString(),
+          "npgSessionId",
+          "npgConfirmPaymentSessionId",
+          WalletInfo("walletId", null))
+      val authData = npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)
+
+      val activatedEvent = transactionActivateEvent()
+      activatedEvent.data.clientId = Transaction.ClientId.IO
+      val authEvent =
+        TransactionAuthorizationRequestedEvent(
+          TRANSACTION_ID,
+          TransactionAuthorizationRequestData(
+            100,
+            10,
+            "paymentInstrumentId",
+            "pspId",
+            PaymentCode.CP.name,
+            "brokerName",
+            "pspChannelCode",
+            "paymentMethodName",
+            "pspBusinessName",
+            false,
+            AUTHORIZATION_REQUEST_ID,
+            TransactionAuthorizationRequestData.PaymentGateway.NPG,
+            "paymentMethodDescription",
+            authRequestedData))
+      val authCompletedEvent = transactionAuthorizationCompletedEvent(authData)
+      val closureRequestedEvent = transactionClosureRequestedEvent()
+      val closureError = transactionClosureErrorEvent()
+      val transactionId = activatedEvent.transactionId
+      val nodoTimestampOperation = OffsetDateTime.parse("2023-05-01T23:59:59.000Z")
+      authCompletedEvent.data.timestampOperation = nodoTimestampOperation.toString()
+      val events =
+        listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent, closureError)
+          as List<TransactionEvent<Any>>
+
+      val closePaymentResponse =
+        ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
+      val userFiscalCode = "userFiscalCode"
+
+      /* preconditions */
+      given(confidentialDataUtils.decryptWalletSessionToken(any()))
+        .willReturn(mono { userFiscalCode })
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
+        .willReturn(events.toFlux())
+      given(confidentialDataUtils.eCommerceDecrypt(eq(activatedEvent.data.email), any()))
+        .willReturn(Mono.just(Email(EMAIL_STRING)))
+
+      given(nodeClient.closePayment(capture(closePaymentRequestCaptor)))
+        .willReturn(Mono.just(closePaymentResponse))
+
+      val fee = authEvent.data.fee
+      val amount = authEvent.data.amount
+      val totalAmount = amount + fee
+
+      val feeEuro = EuroUtils.euroCentsToEuro(fee)
+      val totalAmountEuro = EuroUtils.euroCentsToEuro(totalAmount)
+
+      val feeEuroCents = BigDecimal(fee)
+      val amountEuroCents = BigDecimal(amount)
+      val totalAmountEuroCents = BigDecimal(totalAmount)
+
+      /* test */
+      assertEquals(
+        closePaymentResponse,
+        nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
+      val expectedTimestamp = "2023-05-02T01:59:59"
+
+      val expected =
+        CardClosePaymentRequestV2Dto().apply {
+          outcome = CardClosePaymentRequestV2Dto.OutcomeEnum.OK
+          this.transactionId = transactionId
+          paymentTokens =
+            activatedEvent.data.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken }
+          this.timestampOperation = OffsetDateTime.parse(authCompletedEvent.data.timestampOperation)
+          this.fee = feeEuro
+          idPSP = authEvent.data.pspId
+          idChannel = authEvent.data.pspChannelCode
+          idBrokerPSP = authEvent.data.brokerName
+          paymentMethod = authEvent.data.paymentTypeCode
+          this.totalAmount = totalAmountEuro
+          transactionDetails =
+            TransactionDetailsDto().apply {
+              transaction =
+                TransactionDto().apply {
+                  transactionStatus =
+                    TransactionDetailsStatusEnum.TRANSACTION_DETAILS_STATUS_CONFIRMED.status
+                  this.transactionId = transactionId
+                  this.fee = feeEuroCents
+                  this.amount = amountEuroCents
+                  grandTotal = totalAmountEuroCents
+                  this.errorCode = errorCode
+                  rrn = authCompletedEvent.data.rrn
+                  creationDate = ZonedDateTime.parse(activatedEvent.creationDate).toOffsetDateTime()
+                  psp =
+                    PspDto().apply {
+                      idPsp = authEvent.data.pspId
+                      brokerName = authEvent.data.brokerName
+                      idChannel = authEvent.data.pspChannelCode
+                      businessName = authEvent.data.pspBusinessName
+                      pspOnUs = authEvent.data.isPspOnUs
+                    }
+                  authorizationCode = authCompletedEvent.data.authorizationCode
+                  this.timestampOperation = authCompletedEvent.data.timestampOperation
+                  paymentGateway = authEvent.data.paymentGateway.name
+                }
+              user =
+                UserDto().apply {
+                  type = UserDto.TypeEnum.REGISTERED
+                  fiscalCode = userFiscalCode
+                }
+              info =
+                InfoDto().apply {
+                  type = authEvent.data.paymentTypeCode
+                  clientId = Transaction.ClientId.IO.name
+                  brand = authEvent.data.paymentTypeCode
+                  brandLogo =
+                    (authEvent.data.transactionGatewayAuthorizationRequestedData
+                        as NpgTransactionGatewayAuthorizationRequestedData)
+                      .logo
+                      .toString()
+                  paymentMethodName = authEvent.data.paymentMethodName
+                  bin = null
+                  lastFourDigits = null
+                }
+            }
+          additionalPaymentInformations =
+            CardAdditionalPaymentInformationsDto().apply {
+              this.authorizationCode = authCompletedEvent.data.authorizationCode
+              this.fee = feeEuro.toString()
+              this.outcomePaymentGateway = OutcomePaymentGatewayEnum.OK
+              this.rrn = authCompletedEvent.data.rrn
+              this.timestampOperation = expectedTimestamp
+              this.fee = feeEuro.toString()
+              this.totalAmount = totalAmountEuro.toString()
+              this.email = EMAIL_STRING
+            }
+        }
+
+      assertEquals(expected, closePaymentRequestCaptor.value)
+    }
+
+  @Test
+  fun `ClosePaymentRequestV2Dto for close payment OK has not wallet info for paypal wallet`() =
+    runTest {
+      val transactionOutcome = ClosePaymentOutcome.OK
+      val paypalTransactionGatewayAuthorizationRequestedData =
+        NpgTransactionGatewayAuthorizationRequestedData(
+          LOGO_URI,
+          NpgClient.PaymentMethod.PAYPAL.toString(),
+          "npgSessionId",
+          "npgConfirmPaymentSessionId",
+          WalletInfo("walletId", null))
+      val paypalTransactionGatewayAuthorizationData =
+        npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)
+
+      val activatedEvent = transactionActivateEvent()
+      activatedEvent.data.clientId = Transaction.ClientId.IO
+      val authEvent =
+        TransactionAuthorizationRequestedEvent(
+          TRANSACTION_ID,
+          TransactionAuthorizationRequestData(
+            100,
+            10,
+            "paymentInstrumentId",
+            "pspId",
+            PaymentCode.PPAL.name,
+            "brokerName",
+            "pspChannelCode",
+            "paymentMethodName",
+            "pspBusinessName",
+            false,
+            AUTHORIZATION_REQUEST_ID,
+            TransactionAuthorizationRequestData.PaymentGateway.NPG,
+            "paymentMethodDescription",
+            paypalTransactionGatewayAuthorizationRequestedData))
+      val authCompletedEvent =
+        transactionAuthorizationCompletedEvent(paypalTransactionGatewayAuthorizationData)
+      val closureRequestedEvent = transactionClosureRequestedEvent()
+      val closureError = transactionClosureErrorEvent()
+      val transactionId = activatedEvent.transactionId
+      val nodoTimestampOperation = OffsetDateTime.parse("2023-05-01T23:59:59.000Z")
+      authCompletedEvent.data.timestampOperation = nodoTimestampOperation.toString()
+      val events =
+        listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent, closureError)
+          as List<TransactionEvent<Any>>
+
+      val closePaymentResponse =
+        ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
+      val userFiscalCode = "userFiscalCode"
+
+      /* preconditions */
+      given(confidentialDataUtils.decryptWalletSessionToken(any()))
+        .willReturn(mono { userFiscalCode })
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
+        .willReturn(events.toFlux())
+      given(confidentialDataUtils.eCommerceDecrypt(eq(activatedEvent.data.email), any()))
+        .willReturn(Mono.just(Email(EMAIL_STRING)))
+
+      given(nodeClient.closePayment(capture(paypalClosePaymentRequestCaptor)))
+        .willReturn(Mono.just(closePaymentResponse))
+
+      val fee = authEvent.data.fee
+      val amount = authEvent.data.amount
+      val totalAmount = amount + fee
+
+      val feeEuro = EuroUtils.euroCentsToEuro(fee)
+      val totalAmountEuro = EuroUtils.euroCentsToEuro(totalAmount)
+
+      val feeEuroCents = BigDecimal(fee)
+      val amountEuroCents = BigDecimal(amount)
+      val totalAmountEuroCents = BigDecimal(totalAmount)
+
+      /* test */
+      assertEquals(
+        closePaymentResponse,
+        nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
+      val expectedTimestamp = "2023-05-02T01:59:59"
+
+      val expected =
+        PayPalClosePaymentRequestV2Dto().apply {
+          outcome = PayPalClosePaymentRequestV2Dto.OutcomeEnum.OK
+          this.transactionId = transactionId
+          paymentTokens =
+            activatedEvent.data.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken }
+          this.timestampOperation = OffsetDateTime.parse(authCompletedEvent.data.timestampOperation)
+          this.fee = feeEuro
+          idPSP = authEvent.data.pspId
+          idChannel = authEvent.data.pspChannelCode
+          idBrokerPSP = authEvent.data.brokerName
+          paymentMethod = authEvent.data.paymentTypeCode
+          this.totalAmount = totalAmountEuro
+          transactionDetails =
+            TransactionDetailsDto().apply {
+              transaction =
+                TransactionDto().apply {
+                  transactionStatus =
+                    TransactionDetailsStatusEnum.TRANSACTION_DETAILS_STATUS_CONFIRMED.status
+                  this.transactionId = transactionId
+                  this.fee = feeEuroCents
+                  this.amount = amountEuroCents
+                  grandTotal = totalAmountEuroCents
+                  this.errorCode = errorCode
+                  rrn = authCompletedEvent.data.rrn
+                  creationDate = ZonedDateTime.parse(activatedEvent.creationDate).toOffsetDateTime()
+                  psp =
+                    PspDto().apply {
+                      idPsp = authEvent.data.pspId
+                      brokerName = authEvent.data.brokerName
+                      idChannel = authEvent.data.pspChannelCode
+                      businessName = authEvent.data.pspBusinessName
+                      pspOnUs = authEvent.data.isPspOnUs
+                    }
+                  authorizationCode = authCompletedEvent.data.authorizationCode
+                  this.timestampOperation = authCompletedEvent.data.timestampOperation
+                  paymentGateway = authEvent.data.paymentGateway.name
+                }
+              user =
+                UserDto().apply {
+                  type = UserDto.TypeEnum.REGISTERED
+                  fiscalCode = userFiscalCode
+                }
+              info =
+                InfoDto().apply {
+                  type = authEvent.data.paymentTypeCode
+                  clientId = Transaction.ClientId.IO.name
+                  brand = authEvent.data.paymentTypeCode
+                  brandLogo =
+                    (authEvent.data.transactionGatewayAuthorizationRequestedData
+                        as NpgTransactionGatewayAuthorizationRequestedData)
+                      .logo
+                      .toString()
+                  paymentMethodName = authEvent.data.paymentMethodName
+                  maskedEmail = null
+                }
+            }
+          additionalPaymentInformations =
+            PayPalAdditionalPaymentInformationsDto().apply {
+              this.transactionId =
+                (authCompletedEvent.data.transactionGatewayAuthorizationData
+                    as NpgTransactionGatewayAuthorizationData)
+                  .operationId
+              this.pspTransactionId =
+                (authCompletedEvent.data.transactionGatewayAuthorizationData
+                    as NpgTransactionGatewayAuthorizationData)
+                  .paymentEndToEndId
+              this.timestampOperation = expectedTimestamp
+              this.fee = feeEuro.toString()
+              this.totalAmount = totalAmountEuro.toString()
+              this.email = EMAIL_STRING
+            }
+        }
+
+      assertEquals(expected, paypalClosePaymentRequestCaptor.value)
+    }
 }
