@@ -93,6 +93,7 @@ class TransactionNotificationsQueueConsumerTest {
   private val jsonSerializerV2 = strictJsonSerializerProviderV2.createInstance()
 
   private val refundDelayFromAuthRequestMinutes = 10L
+  private val eventProcessingDelaySeconds = 10L
 
   private val transactionNotificationsRetryQueueConsumer =
     TransactionNotificationsQueueConsumer(
@@ -108,7 +109,10 @@ class TransactionNotificationsQueueConsumerTest {
       tracingUtils = tracingUtils,
       strictSerializerProviderV2 = strictJsonSerializerProviderV2,
       npgService =
-        NpgService(authorizationStateRetrieverService, refundDelayFromAuthRequestMinutes),
+        NpgService(
+          authorizationStateRetrieverService,
+          refundDelayFromAuthRequestMinutes,
+          eventProcessingDelaySeconds),
       transientQueueTTLSeconds = TRANSIENT_QUEUE_TTL_SECONDS,
     )
 

@@ -32,7 +32,7 @@ microservice-chart:
         ECS_SERVICE_NAME: pagopa-ecommerce-event-dispatcher-service-blue
   image:
     repository: pagopaucommonacr.azurecr.io/pagopaecommerceeventdispatcherservice
-    tag: "1.24.2"
+    tag: "1.25.0"
     pullPolicy: Always
   livenessProbe:
     handlerType: httpGet
@@ -172,6 +172,7 @@ microservice-chart:
     USER_STATS_URL: "https://api.uat.platform.pagopa.it/ecommerce/user-stats-service/v1/"
     USER_STATS_READ_TIMEOUT: "10000"
     USER_STATS_CONNECTION_TIMEOUT: "10000"
+    NPG_REFUND_EVENT_PROCESSING_DELAY_SECONDS: "10"
   envSecret:
     ECOMMERCE_STORAGE_TRANSIENT_QUEUE_KEY: ecommerce-storage-transient-account-key
     MONGO_PASSWORD: mongo-ecommerce-password
