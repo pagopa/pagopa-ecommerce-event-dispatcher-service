@@ -182,6 +182,7 @@ microservice-chart:
     USER_STATS_URL: "https://api.platform.pagopa.it/userstats/api/v1"
     USER_STATS_READ_TIMEOUT: "10000"
     USER_STATS_CONNECTION_TIMEOUT: "10000"
+    USER_STATS_SERVICE_ENABLE_SAVE_LAST_USAGE: "false"
   envSecret:
     ECOMMERCE_STORAGE_TRANSIENT_QUEUE_KEY: ecommerce-storage-transient-account-key
     MONGO_PASSWORD: mongo-ecommerce-password
