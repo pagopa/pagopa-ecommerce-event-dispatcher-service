@@ -2425,4 +2425,64 @@ class AuthorizationRequestedHelperTests {
       verify(deadLetterTracedQueueAsyncClient, times(0))
         .sendAndTraceDeadLetterQueueEvent(any(), any())
     }
+
+  @Test
+  fun `messageReceiver call userStatsService to save last usage with right data for saved wallet without performing GET state api call for AUTHORIZATION_COMPLETED transactions`() =
+    runTest {
+      val transactionActivatedEvent =
+        transactionActivateEvent(npgTransactionGatewayActivationData())
+      val transactionAuthorizationRequestedEvent =
+        transactionAuthorizationRequestedEvent(
+          TransactionAuthorizationRequestData.PaymentGateway.NPG,
+          npgTransactionGatewayAuthorizationRequestedData())
+      val paymentInstrumentId = UUID.randomUUID().toString()
+      val authDate = Instant.now().toString()
+      val walletId = UUID.randomUUID().toString()
+      transactionAuthorizationRequestedEvent.data.paymentInstrumentId = paymentInstrumentId
+      (transactionAuthorizationRequestedEvent.data.transactionGatewayAuthorizationRequestedData
+          as NpgTransactionGatewayAuthorizationRequestedData)
+        .walletInfo = WalletInfo(walletId, null)
+      transactionAuthorizationRequestedEvent.creationDate = authDate
+      val transactionId = TransactionId(TRANSACTION_ID)
+      val transactionAuthorizationCompletedEvent =
+        transactionAuthorizationCompletedEvent(
+          npgTransactionGatewayAuthorizationData(OperationResultDto.DECLINED))
+      val events: List<TransactionEvent<Any>> =
+        listOf(
+          transactionActivatedEvent as TransactionEvent<Any>,
+          transactionAuthorizationRequestedEvent as TransactionEvent<Any>,
+          transactionAuthorizationCompletedEvent as TransactionEvent<Any>)
+
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            transactionId.value()))
+        .willReturn(Flux.fromIterable(events))
+      given(transactionsServiceClient.patchAuthRequest(any(), any()))
+        .willReturn(
+          mono { TransactionInfoDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED) })
+      given(userStatsServiceClient.saveLastUsage(any(), any())).willReturn(Mono.empty())
+      given(checkpointer.success()).willReturn(Mono.empty())
+
+      // Test
+      StepVerifier.create(
+          authorizationRequestedHelper.authorizationRequestedTimeoutHandler(
+            Either.left(
+              QueueEvent(
+                transactionAuthorizationRequestedEvent, TracingInfoTest.MOCK_TRACING_INFO)),
+            checkpointer))
+        .expectNext(Unit)
+        .verifyComplete()
+      // assertions
+      verify(authorizationStateRetrieverService, times(0))
+        .getStateNpg(any(), any(), any(), any(), any())
+      val expectedUserLastPaymentMethodDataDto =
+        WalletLastUsageData()
+          .walletId(UUID.fromString(walletId))
+          .date(OffsetDateTime.parse(authDate)) as UserLastPaymentMethodData
+      verify(userStatsServiceClient, times(1))
+        .saveLastUsage(UUID.fromString(USER_ID), expectedUserLastPaymentMethodDataDto)
+      verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
+      verify(deadLetterTracedQueueAsyncClient, times(0))
+        .sendAndTraceDeadLetterQueueEvent(any(), any())
+    }
 }

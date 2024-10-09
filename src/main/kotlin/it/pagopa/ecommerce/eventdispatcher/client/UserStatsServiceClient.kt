@@ -26,6 +26,10 @@ class UserStatsServiceClient(
     userId: UUID,
     userLastPaymentMethodDataDto: UserLastPaymentMethodData
   ): Mono<Unit> {
+    logger.info(
+      "Saving last method used for user with id: [{}], last used method: [{}]",
+      userId,
+      userLastPaymentMethodDataDto)
     return userStatsServiceApi
       .saveLastPaymentMethodUsed(
         UserLastPaymentMethodRequest().userId(userId).details(userLastPaymentMethodDataDto))

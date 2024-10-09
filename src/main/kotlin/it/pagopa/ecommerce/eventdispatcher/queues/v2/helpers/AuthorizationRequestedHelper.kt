@@ -32,7 +32,6 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import reactor.core.publisher.Mono
-import reactor.kotlin.core.publisher.switchIfEmpty
 
 /**
  * This helper implements the business logic related to handling calling `getState` from NPG. In
@@ -102,13 +101,7 @@ class AuthorizationRequestedHelper(
       transactionsEventStoreRepository
         .findByTransactionIdOrderByCreationDateAsc(transactionId)
         .reduce(EmptyTransaction(), Transaction::applyEvent)
-        .cast(BaseTransaction::class.java)
-        .filter { it.status == TransactionStatusDto.AUTHORIZATION_REQUESTED }
-        .switchIfEmpty {
-          logger.info(
-            "Transaction [$transactionId] not in authorization requested status. No action needed")
-          Mono.empty()
-        }
+        .filter { it is BaseTransactionWithRequestedAuthorization }
         .cast(BaseTransactionWithRequestedAuthorization::class.java)
 
     val authorizationRequestedPipeline =
@@ -132,13 +125,20 @@ class AuthorizationRequestedHelper(
           }
         }
         .filter {
-          it.transactionAuthorizationRequestData.paymentGateway ==
-            TransactionAuthorizationRequestData.PaymentGateway.NPG
-        }
-        .switchIfEmpty {
+          val transactionStatus = it.status
+          val gateway = it.transactionAuthorizationRequestData.paymentGateway
+          // perform get state operation iff transaction is in AUTHORIZATION_REQUESTED state and the
+          // gateway is NPG
+          val performGetState =
+            transactionStatus == TransactionStatusDto.AUTHORIZATION_REQUESTED &&
+              gateway == TransactionAuthorizationRequestData.PaymentGateway.NPG
           logger.info(
-            "Transaction [$transactionId] has not been authorized via NPG gateway. No action needed")
-          Mono.empty()
+            "Transaction [{}}] status: [{}], gateway: [{}]. Perform GET state -> [{}]",
+            transactionId,
+            transactionStatus,
+            gateway,
+            performGetState)
+          performGetState
         }
         .doOnNext {
           logger.info(
