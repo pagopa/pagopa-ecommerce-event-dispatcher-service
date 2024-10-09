@@ -470,7 +470,7 @@
 							<goal>generate</goal>
 						</goals>
 						<configuration>
-							<inputSpec>https://raw.githubusercontent.com/pagopa/pagopa-infra/ec79d63445cd3bdb4bcc731161c4c1a11de00db2/src/domains/ecommerce-app/api/ecommerce-user-stats-service/v1/_openapi.json.tpl</inputSpec>
+							<inputSpec>https://raw.githubusercontent.com/pagopa/pagopa-infra/v1.210.0/src/domains/ecommerce-app/api/ecommerce-user-stats-service/v1/_openapi.json.tpl</inputSpec>
 							<generatorName>java</generatorName>
 							<library>webclient</library>
 							<generateApiDocumentation>false</generateApiDocumentation>

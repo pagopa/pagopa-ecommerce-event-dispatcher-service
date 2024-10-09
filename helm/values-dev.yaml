@@ -191,7 +191,7 @@ microservice-chart:
     NPG_API_KEY: npg-api-key
     NPG_CARDS_PSP_KEYS: npg-cards-psp-keys
     NODE_FORWARDER_API_KEY: node-forwarder-api-key
-    USER_STATS_API_KEY: user-stats-api-key
+    USER_STATS_API_KEY: user-stats-for-event-dispatcher-api-key
     REDIRECT_URL_MAPPING: redirect-url-mapping
     NPG_PAYPAL_PSP_KEYS: npg-paypal-psp-keys
     NPG_BANCOMATPAY_PSP_KEYS: npg-bancomatpay-psp-keys
