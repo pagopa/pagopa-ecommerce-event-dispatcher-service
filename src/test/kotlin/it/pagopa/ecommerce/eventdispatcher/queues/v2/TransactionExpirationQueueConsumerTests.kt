@@ -110,6 +110,7 @@ class TransactionExpirationQueueConsumerTests {
   private val jsonSerializerV2 = strictJsonSerializerProviderV2.createInstance()
 
   private val refundDelayFromAuthRequestMinutes = 0L
+  private val eventProcessingDelaySeconds = 10L
 
   private val transactionExpirationQueueConsumer =
     TransactionExpirationQueueConsumer(
@@ -127,7 +128,10 @@ class TransactionExpirationQueueConsumerTests {
       tracingUtils = tracingUtils,
       strictSerializerProviderV2 = strictJsonSerializerProviderV2,
       npgService =
-        NpgService(authorizationStateRetrieverService, refundDelayFromAuthRequestMinutes),
+        NpgService(
+          authorizationStateRetrieverService,
+          refundDelayFromAuthRequestMinutes,
+          eventProcessingDelaySeconds),
     )
 
   @Test
@@ -3099,6 +3103,7 @@ class TransactionExpirationQueueConsumerTests {
     val operationId = UUID.randomUUID().toString()
     val paymentEndToEndId = UUID.randomUUID().toString()
     val npgTimeToWaitForRefundFromAuthRequest = 10L
+    val eventProcessingDelaySeconds = 10L
     val transactionExpirationQueueConsumerLocalInstance =
       TransactionExpirationQueueConsumer(
         transactionsEventStoreRepository = transactionsEventStoreRepository,
@@ -3115,7 +3120,10 @@ class TransactionExpirationQueueConsumerTests {
         tracingUtils = tracingUtils,
         strictSerializerProviderV2 = strictJsonSerializerProviderV2,
         npgService =
-          NpgService(authorizationStateRetrieverService, npgTimeToWaitForRefundFromAuthRequest),
+          NpgService(
+            authorizationStateRetrieverService,
+            npgTimeToWaitForRefundFromAuthRequest,
+            eventProcessingDelaySeconds),
       )
     val events =
       listOf(
@@ -3171,9 +3179,11 @@ class TransactionExpirationQueueConsumerTests {
     // test check here that time difference is below 2 sec
     println(
       "configured NPG timeout: [$npgTimeToWaitForRefundFromAuthRequest], event used timeout: [${visibilityTimeoutCaptor.value}]")
+    val durationDifference =
+      Duration.ofMinutes(npgTimeToWaitForRefundFromAuthRequest) - visibilityTimeoutCaptor.value
     assertTrue(
-      Duration.ofMinutes(npgTimeToWaitForRefundFromAuthRequest).seconds -
-        visibilityTimeoutCaptor.value.seconds <= 2)
+      durationDifference.abs() <=
+        Duration.ofSeconds(eventProcessingDelaySeconds) + Duration.ofSeconds(2))
   }
 
   @Nested

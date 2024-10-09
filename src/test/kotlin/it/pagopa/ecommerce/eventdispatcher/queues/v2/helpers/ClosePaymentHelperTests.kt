@@ -125,6 +125,7 @@ class ClosePaymentHelperTests {
   private val jsonSerializerV2 = strictJsonSerializerProviderV2.createInstance()
   private val updateTransactionStatusTracerUtils: UpdateTransactionStatusTracerUtils = mock {}
   private val refundDelayFromAuthRequestMinutes = 10L
+  private val eventProcessingDelaySeconds = 10L
 
   private val closePaymentHelper =
     ClosePaymentHelper(
@@ -140,7 +141,10 @@ class ClosePaymentHelperTests {
       paymentRequestInfoRedisTemplateWrapper = paymentRequestInfoRedisTemplateWrapper,
       strictSerializerProviderV2 = strictJsonSerializerProviderV2,
       npgService =
-        NpgService(authorizationStateRetrieverService, refundDelayFromAuthRequestMinutes),
+        NpgService(
+          authorizationStateRetrieverService,
+          refundDelayFromAuthRequestMinutes,
+          eventProcessingDelaySeconds),
       refundQueueAsyncClient = refundQueueAsyncClient,
       transientQueueTTLSeconds = TRANSIENT_QUEUE_TTL_SECONDS,
       updateTransactionStatusTracerUtils = updateTransactionStatusTracerUtils)
