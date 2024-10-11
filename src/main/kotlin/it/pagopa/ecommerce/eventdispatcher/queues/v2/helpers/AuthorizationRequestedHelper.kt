@@ -22,10 +22,6 @@ import it.pagopa.ecommerce.eventdispatcher.services.v2.AuthorizationStateRetriev
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.generated.ecommerce.userstats.dto.GuestMethodLastUsageData
 import it.pagopa.generated.ecommerce.userstats.dto.WalletLastUsageData
-import java.time.Duration
-import java.time.OffsetDateTime
-import java.time.format.DateTimeFormatter
-import java.util.*
 import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -33,6 +29,10 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import reactor.core.publisher.Mono
+import java.time.Duration
+import java.time.OffsetDateTime
+import java.time.format.DateTimeFormatter
+import java.util.*
 
 /**
  * This helper implements the business logic related to handling calling `getState` from NPG. In
@@ -69,18 +69,18 @@ class AuthorizationRequestedHelper(
   ) =
     (baseTransactionWithRequestedAuthorization.transactionAuthorizationRequestData
       .transactionGatewayAuthorizationRequestedData) is
-      NpgTransactionGatewayAuthorizationRequestedData &&
-      (baseTransactionWithRequestedAuthorization.transactionAuthorizationRequestData
-          .transactionGatewayAuthorizationRequestedData
-          as NpgTransactionGatewayAuthorizationRequestedData)
-        .walletInfo != null
+            NpgTransactionGatewayAuthorizationRequestedData &&
+            (baseTransactionWithRequestedAuthorization.transactionAuthorizationRequestData
+              .transactionGatewayAuthorizationRequestedData
+                    as NpgTransactionGatewayAuthorizationRequestedData)
+              .walletInfo != null
 
   private fun getWalletIdPayment(
     baseTransactionWithRequestedAuthorization: BaseTransactionWithRequestedAuthorization
   ) =
     (baseTransactionWithRequestedAuthorization.transactionAuthorizationRequestData
-        .transactionGatewayAuthorizationRequestedData
-        as NpgTransactionGatewayAuthorizationRequestedData)
+      .transactionGatewayAuthorizationRequestedData
+            as NpgTransactionGatewayAuthorizationRequestedData)
       .walletInfo
       ?.walletId
 
@@ -109,13 +109,17 @@ class AuthorizationRequestedHelper(
       transaction
         .flatMap { baseTransactionWithRequestedAuthorization ->
           if (enableSaveLastMethodUsage &&
-            isAuthenticatedTransaction(baseTransactionWithRequestedAuthorization)) {
+            isAuthenticatedTransaction(baseTransactionWithRequestedAuthorization)
+          ) {
             userStatsServiceClient
               .saveLastUsage(
                 UUID.fromString(
-                  baseTransactionWithRequestedAuthorization.transactionActivatedData.userId!!),
+                  baseTransactionWithRequestedAuthorization.transactionActivatedData.userId!!
+                ),
                 buildUserLastPaymentMethodData(
-                  baseTransactionWithRequestedAuthorization, creationDate))
+                  baseTransactionWithRequestedAuthorization, creationDate
+                )
+              )
               .onErrorResume {
                 logger.error("Exception while saving last payment method used", it)
                 mono {}
@@ -133,22 +137,24 @@ class AuthorizationRequestedHelper(
           // perform save last usage if needed)
           val performGetState =
             transactionStatus == TransactionStatusDto.AUTHORIZATION_REQUESTED &&
-              gateway == TransactionAuthorizationRequestData.PaymentGateway.NPG
+                    gateway == TransactionAuthorizationRequestData.PaymentGateway.NPG
 
           logger.info(
             "Transaction [{}}] status: [{}], gateway: [{}]- Enqueue to handle GET state -> [{}]",
             transactionId,
             transactionStatus,
             gateway,
-            performGetState)
+            performGetState
+          )
           performGetState
         }
         .flatMap { tx ->
           val retryEvent =
             TransactionAuthorizationOutcomeWaitingEvent(
-              tx.transactionId.value(), TransactionRetriedData(0))
+              tx.transactionId.value(), TransactionRetriedData(0)
+            )
           val binaryData =
-            BinaryData.fromObject(retryEvent, strictSerializerProviderV2.createInstance())
+            BinaryData.fromObject(QueueEvent(retryEvent, tracingInfo), strictSerializerProviderV2.createInstance())
           authRequestedOutcomeWaitingQueueAsyncClient.sendMessageWithResponse(
             binaryData,
             Duration.ofSeconds(firstAttemptOffsetSeconds.toLong()),
@@ -162,7 +168,8 @@ class AuthorizationRequestedHelper(
       deadLetterTracedQueueAsyncClient,
       tracingUtils,
       this::class.simpleName!!,
-      strictSerializerProviderV2)
+      strictSerializerProviderV2
+    )
   }
 
   fun authorizationOutcomeWaitingHandler(
@@ -190,19 +197,21 @@ class AuthorizationRequestedHelper(
           // perform save last usage if needed)
           val performGetState =
             transactionStatus == TransactionStatusDto.AUTHORIZATION_REQUESTED &&
-              gateway == TransactionAuthorizationRequestData.PaymentGateway.NPG
+                    gateway == TransactionAuthorizationRequestData.PaymentGateway.NPG
 
           logger.info(
             "Transaction [{}}] status: [{}], gateway: [{}]- Perform GET state -> [{}]",
             transactionId,
             transactionStatus,
             gateway,
-            performGetState)
+            performGetState
+          )
           performGetState
         }
         .doOnNext {
           logger.info(
-            "Handling get state request for transaction with id ${it.transactionId.value()}")
+            "Handling get state request for transaction with id ${it.transactionId.value()}"
+          )
         }
         .flatMap { tx ->
           handleGetStateByPatchTransactionService(
@@ -211,7 +220,8 @@ class AuthorizationRequestedHelper(
             authorizationStateRetrieverService = authorizationStateRetrieverService,
             transactionsServiceClient = transactionsServiceClient,
             tracingInfo = tracingInfo,
-            retryCount = retryCount)
+            retryCount = retryCount
+          )
         }
     return runTracedPipelineWithDeadLetterQueue(
       checkPointer,
@@ -220,7 +230,8 @@ class AuthorizationRequestedHelper(
       deadLetterTracedQueueAsyncClient,
       tracingUtils,
       this::class.simpleName!!,
-      strictSerializerProviderV2)
+      strictSerializerProviderV2
+    )
   }
 
   private fun buildUserLastPaymentMethodData(
@@ -232,10 +243,12 @@ class AuthorizationRequestedHelper(
         WalletLastUsageData()
           .walletId(UUID.fromString(getWalletIdPayment(baseTransactionWithRequestedAuthorization)))
           .date(OffsetDateTime.parse(creationDate, DateTimeFormatter.ISO_DATE_TIME))
+
       false ->
         GuestMethodLastUsageData()
           .paymentMethodId(
-            UUID.fromString(getPaymentMethodId(baseTransactionWithRequestedAuthorization)))
+            UUID.fromString(getPaymentMethodId(baseTransactionWithRequestedAuthorization))
+          )
           .date(OffsetDateTime.parse(creationDate, DateTimeFormatter.ISO_DATE_TIME))
     }
 
