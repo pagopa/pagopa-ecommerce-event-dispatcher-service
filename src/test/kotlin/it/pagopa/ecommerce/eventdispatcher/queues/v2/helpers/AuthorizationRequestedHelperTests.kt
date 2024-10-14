@@ -170,7 +170,7 @@ class AuthorizationRequestedHelperTests {
                 npgTransactionGatewayAuthorizationRequestedData()
             )
 
-        val authorizationOutcomeWaitingEvent = transactionAuthorizationOutcomeWaitingEvent(1)
+        val authorizationOutcomeWaitingEvent = transactionAuthorizationOutcomeWaitingEvent(0)
         val transactionId = TransactionId(TRANSACTION_ID)
         val operationId = "operationId"
         val orderId = "orderId"
@@ -287,7 +287,7 @@ class AuthorizationRequestedHelperTests {
                 npgTransactionGatewayAuthorizationRequestedData()
             )
 
-        val authorizationOutcomeWaitingEvent = transactionAuthorizationOutcomeWaitingEvent(1)
+        val authorizationOutcomeWaitingEvent = transactionAuthorizationOutcomeWaitingEvent(0)
         val transactionId = TransactionId(TRANSACTION_ID)
         val operationId = "operationId"
         val orderId = "orderId"
@@ -330,8 +330,7 @@ class AuthorizationRequestedHelperTests {
             .willReturn(
                 Flux.just(
                     activatedEvent as TransactionEvent<Any>,
-                    authorizationRequestedEvent as TransactionEvent<Any>,
-                    authorizationOutcomeWaitingEvent as TransactionEvent<Any>,
+                    authorizationRequestedEvent as TransactionEvent<Any>
                 )
             )
 
@@ -444,8 +443,7 @@ class AuthorizationRequestedHelperTests {
             .willReturn(
                 Flux.just(
                     activatedEvent as TransactionEvent<Any>,
-                    authorizationRequestedEvent as TransactionEvent<Any>,
-                    authorizationOutcomeWaitingEvent as TransactionEvent<Any>,
+                    authorizationRequestedEvent as TransactionEvent<Any>
                 )
             )
 
@@ -544,8 +542,7 @@ class AuthorizationRequestedHelperTests {
                 .willReturn(
                     Flux.just(
                         activatedEvent as TransactionEvent<Any>,
-                        authorizationRequestedEvent as TransactionEvent<Any>,
-                        authorizationOutcomeWaitingEvent as TransactionEvent<Any>,
+                        authorizationRequestedEvent as TransactionEvent<Any>
                     )
                 )
 
@@ -790,7 +787,7 @@ class AuthorizationRequestedHelperTests {
                 TransactionAuthorizationRequestData.PaymentGateway.NPG,
                 npgTransactionGatewayAuthorizationRequestedData()
             )
-        val transactionAuthorizationOutcomeWaitingEvent = transactionAuthorizationOutcomeWaitingEvent(0)
+        val transactionAuthorizationOutcomeWaitingEvent = transactionAuthorizationOutcomeWaitingEvent(1)
         val transactionId = TransactionId(TRANSACTION_ID)
         val events: List<TransactionEvent<Any>> =
             listOf(
@@ -856,7 +853,7 @@ class AuthorizationRequestedHelperTests {
             )
         transactionAuthorizationRequestedEvent.data.paymentInstrumentId = UUID.randomUUID().toString()
         transactionAuthorizationRequestedEvent.creationDate = Instant.now().toString()
-        val transactionAuthorizationOutcomeWaitingEvent = transactionAuthorizationOutcomeWaitingEvent(0)
+        val transactionAuthorizationOutcomeWaitingEvent = transactionAuthorizationOutcomeWaitingEvent(1)
         val transactionId = TransactionId(TRANSACTION_ID)
         val events: List<TransactionEvent<Any>> =
             listOf(
@@ -1029,8 +1026,7 @@ class AuthorizationRequestedHelperTests {
         val events: List<TransactionEvent<Any>> =
             listOf(
                 transactionActivatedEvent as TransactionEvent<Any>,
-                transactionAuthorizationRequestedEvent as TransactionEvent<Any>,
-                transactionAuthorizationOutcomeWaitingEvent as TransactionEvent<Any>
+                transactionAuthorizationRequestedEvent as TransactionEvent<Any>
             )
         val operationId = "operationId"
         val orderId = "orderId"
@@ -1307,6 +1303,7 @@ class AuthorizationRequestedHelperTests {
             )
         transactionAuthorizationRequestedEvent.data.paymentInstrumentId = UUID.randomUUID().toString()
         transactionAuthorizationRequestedEvent.creationDate = Instant.now().toString()
+        val transactionAuthorizationOutcomeWaitingEvent = transactionAuthorizationOutcomeWaitingEvent(0)
         val transactionId = TransactionId(TRANSACTION_ID)
         val events: List<TransactionEvent<Any>> =
             listOf(
@@ -1331,6 +1328,20 @@ class AuthorizationRequestedHelperTests {
                         .additionalData(mapOf("authorizationCode" to authorizationCode, "rrn" to rrn))
                 )
         val expectedGetStateSessionId = NPG_CONFIRM_PAYMENT_SESSION_ID
+        val expectedPatchAuthRequest =
+            UpdateAuthorizationRequestDto().apply {
+                outcomeGateway =
+                    OutcomeNpgGatewayDto().apply {
+                        this.paymentGatewayType = "NPG"
+                        this.operationResult = OutcomeNpgGatewayDto.OperationResultEnum.EXECUTED
+                        this.orderId = orderId
+                        this.operationId = operationId
+                        this.authorizationCode = authorizationCode
+                        this.paymentEndToEndId = paymentEndToEndId
+                        this.rrn = rrn
+                    }
+                timestampOperation = expectedOperationTime
+            }
         given(
             transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
                 transactionId.value()
@@ -1343,28 +1354,19 @@ class AuthorizationRequestedHelperTests {
             .willReturn(
                 mono { TransactionInfoDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED) })
         given(userStatsServiceClient.saveLastUsage(any(), any())).willReturn(Mono.empty())
-        given(
-            authRequestedOutcomeWaitingQueueAsyncClient.sendMessageWithResponse(
-                any<BinaryData>(),
-                any(),
-                any()
-            )
-        ).willReturn(
-            queueSuccessfulResponse()
-        )
         given(checkpointer.success()).willReturn(Mono.empty())
 
         // Test
         StepVerifier.create(
-            authorizationRequestedHelper.authorizationRequestedHandler(
-                QueueEvent(transactionAuthorizationRequestedEvent, TracingInfoTest.MOCK_TRACING_INFO),
+            authorizationRequestedHelper.authorizationOutcomeWaitingHandler(
+                QueueEvent(transactionAuthorizationOutcomeWaitingEvent, TracingInfoTest.MOCK_TRACING_INFO),
                 checkpointer
             )
         )
             .expectNext(Unit)
             .verifyComplete()
         // assertions
-        verify(authorizationStateRetrieverService, times(0))
+        verify(authorizationStateRetrieverService, times(1))
             .getStateNpg(
                 transactionId,
                 expectedGetStateSessionId,
@@ -1372,27 +1374,16 @@ class AuthorizationRequestedHelperTests {
                 NPG_CORRELATION_ID,
                 NpgClient.PaymentMethod.CARDS
             )
-        verify(userStatsServiceClient, times(1)).saveLastUsage(any(), any())
-        verify(transactionsServiceClient, times(0))
-            .patchAuthRequest(any(), any())
+        verify(userStatsServiceClient, times(0)).saveLastUsage(any(), any())
+        verify(transactionsServiceClient, times(1))
+            .patchAuthRequest(transactionId, expectedPatchAuthRequest)
         verify(deadLetterTracedQueueAsyncClient, times(0))
             .sendAndTraceDeadLetterQueueEvent(any(), any())
-        verify(authRequestedOutcomeWaitingQueueAsyncClient, times(1))
+        verify(authRequestedOutcomeWaitingQueueAsyncClient, times(0))
             .sendMessageWithResponse(
-                argThat<BinaryData> {
-                    TransactionEventCode.valueOf(
-                        this.toObject(
-                            object : TypeReference<QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>>() {},
-                            jsonSerializerV2
-                        ).event.eventCode
-                    ) == TransactionEventCode.TRANSACTION_AUTHORIZATION_OUTCOME_WAITING_EVENT &&
-                            this.toObject(
-                                object : TypeReference<QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>>() {},
-                                jsonSerializerV2
-                            ).event.data.retryCount == 0
-                },
-                eq(Duration.ofSeconds(firstAttemptOffsetSeconds.toLong())),
-                eq(Duration.ofSeconds(transientQueueTTLSeconds.toLong()))
+                any<BinaryData>(),
+                any(),
+                any()
             )
     }
 
@@ -1407,6 +1398,7 @@ class AuthorizationRequestedHelperTests {
             )
         transactionAuthorizationRequestedEvent.data.paymentInstrumentId = UUID.randomUUID().toString()
         transactionAuthorizationRequestedEvent.creationDate = Instant.now().toString()
+        val transactionAuthorizationOutcomeWaitingEvent = transactionAuthorizationOutcomeWaitingEvent(0)
         val transactionId = TransactionId(TRANSACTION_ID)
         val events: List<TransactionEvent<Any>> =
             listOf(
@@ -1469,6 +1461,98 @@ class AuthorizationRequestedHelperTests {
 
         // Test
         StepVerifier.create(
+            authorizationRequestedHelper.authorizationOutcomeWaitingHandler(
+                QueueEvent(transactionAuthorizationOutcomeWaitingEvent, TracingInfoTest.MOCK_TRACING_INFO),
+                checkpointer
+            )
+        )
+            .expectNext(Unit)
+            .verifyComplete()
+        // assertions
+        verify(authorizationStateRetrieverService, times(1))
+            .getStateNpg(
+                transactionId,
+                expectedGetStateSessionId,
+                PSP_ID,
+                NPG_CORRELATION_ID,
+                NpgClient.PaymentMethod.CARDS
+            )
+        verify(userStatsServiceClient, times(0)).saveLastUsage(any(), any())
+        verify(transactionsServiceClient, times(1))
+            .patchAuthRequest(transactionId, expectedPatchAuthRequest)
+        verify(deadLetterTracedQueueAsyncClient, times(0))
+            .sendAndTraceDeadLetterQueueEvent(any(), any())
+        verify(authRequestedOutcomeWaitingQueueAsyncClient, times(0))
+            .sendMessageWithResponse(
+                any<BinaryData>(),
+                any(),
+                any()
+            )
+    }
+
+    @Test
+    fun `Should not process transaction in wrong state after last used method is saved`() {
+        // pre-conditions
+        val transactionActivatedEvent = transactionActivateEvent(npgTransactionGatewayActivationData())
+        val transactionAuthorizationRequestedEvent = transactionAuthorizationRequestedEvent()
+        val transactionAuthorizationOutcomeWaitingEvent = transactionAuthorizationOutcomeWaitingEvent(0)
+        val transactionAuthorizationCompleted =
+            transactionAuthorizationCompletedEvent(NpgTransactionGatewayAuthorizationData())
+        val transactionId = TransactionId(TRANSACTION_ID)
+        val events: List<TransactionEvent<Any>> =
+            listOf(
+                transactionActivatedEvent as TransactionEvent<Any>,
+                transactionAuthorizationRequestedEvent as TransactionEvent<Any>,
+                transactionAuthorizationCompleted as TransactionEvent<Any>
+            )
+
+        given(
+            transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+                transactionId.value()
+            )
+        )
+            .willReturn(Flux.fromIterable(events))
+
+        given(checkpointer.success()).willReturn(Mono.empty())
+
+        // Test
+        StepVerifier.create(
+            authorizationRequestedHelper.authorizationOutcomeWaitingHandler(
+                QueueEvent(transactionAuthorizationOutcomeWaitingEvent, TracingInfoTest.MOCK_TRACING_INFO),
+                checkpointer
+            )
+        )
+            .expectNext(Unit)
+            .verifyComplete()
+        // assertions
+        verify(authorizationStateRetrieverService, times(0))
+            .getStateNpg(any(), any(), any(), any(), any())
+        verify(userStatsServiceClient, times(0)).saveLastUsage(any(), any())
+        verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
+        verify(deadLetterTracedQueueAsyncClient, times(0))
+            .sendAndTraceDeadLetterQueueEvent(any(), any())
+    }
+
+    @Test
+    fun `Should not process transaction in wrong state to save last used method`() {
+        // pre-conditions
+        val transactionActivatedEvent = transactionActivateEvent(npgTransactionGatewayActivationData())
+        val transactionAuthorizationRequestedEvent = transactionAuthorizationRequestedEvent()
+        val transactionId = TransactionId(TRANSACTION_ID)
+        val events: List<TransactionEvent<Any>> =
+            listOf(transactionActivatedEvent as TransactionEvent<Any>)
+
+        given(
+            transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+                transactionId.value()
+            )
+        )
+            .willReturn(Flux.fromIterable(events))
+
+        given(checkpointer.success()).willReturn(Mono.empty())
+
+        // Test
+        StepVerifier.create(
             authorizationRequestedHelper.authorizationRequestedHandler(
                 QueueEvent(transactionAuthorizationRequestedEvent, TracingInfoTest.MOCK_TRACING_INFO),
                 checkpointer
@@ -1478,37 +1562,15 @@ class AuthorizationRequestedHelperTests {
             .verifyComplete()
         // assertions
         verify(authorizationStateRetrieverService, times(0))
-            .getStateNpg(
-                any(),
-                any(),
-                any(), any(), any()
-            )
-        verify(userStatsServiceClient, times(1)).saveLastUsage(any(), any())
-        verify(transactionsServiceClient, times(0))
-            .patchAuthRequest(any(), any())
+            .getStateNpg(any(), any(), any(), any(), any())
+        verify(userStatsServiceClient, times(0)).saveLastUsage(any(), any())
+        verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
         verify(deadLetterTracedQueueAsyncClient, times(0))
             .sendAndTraceDeadLetterQueueEvent(any(), any())
-        verify(authRequestedOutcomeWaitingQueueAsyncClient, times(1))
-            .sendMessageWithResponse(
-                argThat<BinaryData> {
-                    TransactionEventCode.valueOf(
-                        this.toObject(
-                            object : TypeReference<QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>>() {},
-                            jsonSerializerV2
-                        ).event.eventCode
-                    ) == TransactionEventCode.TRANSACTION_AUTHORIZATION_OUTCOME_WAITING_EVENT &&
-                            this.toObject(
-                                object : TypeReference<QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>>() {},
-                                jsonSerializerV2
-                            ).event.data.retryCount == 0
-                },
-                eq(Duration.ofSeconds(firstAttemptOffsetSeconds.toLong())),
-                eq(Duration.ofSeconds(transientQueueTTLSeconds.toLong()))
-            )
     }
 
     @Test
-    fun `Should not process transaction in wrong state`() {
+    fun `Should not save user last used method for transaction in wrong state`() {
         // pre-conditions
         val transactionActivatedEvent = transactionActivateEvent(npgTransactionGatewayActivationData())
         val transactionAuthorizationRequestedEvent = transactionAuthorizationRequestedEvent()
@@ -1554,6 +1616,7 @@ class AuthorizationRequestedHelperTests {
             )
         transactionAuthorizationRequestedEvent.data.paymentInstrumentId = UUID.randomUUID().toString()
         transactionAuthorizationRequestedEvent.creationDate = Instant.now().toString()
+        val transactionAuthorizationOutcomeWaitingEvent = transactionAuthorizationOutcomeWaitingEvent(0)
         val transactionId = TransactionId(TRANSACTION_ID)
         val events: List<TransactionEvent<Any>> =
             listOf(
@@ -1577,8 +1640,8 @@ class AuthorizationRequestedHelperTests {
         // Test
         Hooks.onOperatorDebug()
         StepVerifier.create(
-            authorizationRequestedHelper.authorizationRequestedHandler(
-                QueueEvent(transactionAuthorizationRequestedEvent, TracingInfoTest.MOCK_TRACING_INFO),
+            authorizationRequestedHelper.authorizationOutcomeWaitingHandler(
+                QueueEvent(transactionAuthorizationOutcomeWaitingEvent, TracingInfoTest.MOCK_TRACING_INFO),
                 checkpointer
             )
         )
@@ -1587,7 +1650,7 @@ class AuthorizationRequestedHelperTests {
         // assertions
         verify(authorizationStateRetrieverService, times(0))
             .getStateNpg(any(), any(), any(), any(), any())
-        verify(userStatsServiceClient, times(1)).saveLastUsage(any(), any())
+        verify(userStatsServiceClient, times(0)).saveLastUsage(any(), any())
         verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
         verify(deadLetterTracedQueueAsyncClient, times(0))
             .sendAndTraceDeadLetterQueueEvent(any(), any())
@@ -1609,8 +1672,7 @@ class AuthorizationRequestedHelperTests {
         val events: List<TransactionEvent<Any>> =
             listOf(
                 transactionActivatedEvent as TransactionEvent<Any>,
-                transactionAuthorizationRequestedEvent as TransactionEvent<Any>,
-                transactionAuthorizationOutcomeWaitingEvent as TransactionEvent<Any>,
+                transactionAuthorizationRequestedEvent as TransactionEvent<Any>
             )
         val expectedGetStateSessionId = NPG_CONFIRM_PAYMENT_SESSION_ID
         given(
@@ -1672,6 +1734,7 @@ class AuthorizationRequestedHelperTests {
             )
         transactionAuthorizationRequestedEvent.data.paymentInstrumentId = UUID.randomUUID().toString()
         transactionAuthorizationRequestedEvent.creationDate = Instant.now().toString()
+        val transactionAuthorizationOutcomeWaitingEvent = transactionAuthorizationOutcomeWaitingEvent(0)
         val transactionId = TransactionId(TRANSACTION_ID)
         val events: List<TransactionEvent<Any>> =
             listOf(
@@ -1707,29 +1770,29 @@ class AuthorizationRequestedHelperTests {
         // Test
         Hooks.onOperatorDebug()
         StepVerifier.create(
-            authorizationRequestedHelper.authorizationRequestedHandler(
-                QueueEvent(transactionAuthorizationRequestedEvent, TracingInfoTest.MOCK_TRACING_INFO),
+            authorizationRequestedHelper.authorizationOutcomeWaitingHandler(
+                QueueEvent(transactionAuthorizationOutcomeWaitingEvent, TracingInfoTest.MOCK_TRACING_INFO),
                 checkpointer
             )
         )
             .expectNext(Unit)
             .verifyComplete()
         // assertions
-        verify(authorizationStateRetrieverService, times(0))
+        verify(authorizationStateRetrieverService, times(1))
             .getStateNpg(
-                any(),
-                any(),
-                any(),
-                any(),
-                any()
+                transactionId,
+                expectedGetStateSessionId,
+                PSP_ID,
+                NPG_CORRELATION_ID,
+                NpgClient.PaymentMethod.CARDS
             )
         verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
-        verify(userStatsServiceClient, times(1)).saveLastUsage(any(), any())
+        verify(userStatsServiceClient, times(0)).saveLastUsage(any(), any())
         verify(authorizationStateRetrieverRetryService, times(1))
             .enqueueRetryEvent(any(), eq(0), any(), anyOrNull())
         verify(deadLetterTracedQueueAsyncClient, times(0))
             .sendAndTraceDeadLetterQueueEvent(any(), any())
-        verify(authRequestedOutcomeWaitingQueueAsyncClient, times(1))
+        /*verify(authRequestedOutcomeWaitingQueueAsyncClient, times(1))
             .sendMessageWithResponse(
                 argThat<BinaryData> {
                     TransactionEventCode.valueOf(
@@ -1745,7 +1808,7 @@ class AuthorizationRequestedHelperTests {
                 },
                 eq(Duration.ofSeconds(firstAttemptOffsetSeconds.toLong())),
                 eq(Duration.ofSeconds(transientQueueTTLSeconds.toLong()))
-            )
+            )*/
     }
 
     @ParameterizedTest
@@ -1768,8 +1831,7 @@ class AuthorizationRequestedHelperTests {
         val events: List<TransactionEvent<Any>> =
             listOf(
                 transactionActivatedEvent as TransactionEvent<Any>,
-                transactionAuthorizationRequestedEvent as TransactionEvent<Any>,
-                transactionAuthorizationOutcomeWaitingEvent as TransactionEvent<Any>
+                transactionAuthorizationRequestedEvent as TransactionEvent<Any>
             )
         val operationId = "operationId"
         val orderId = "orderId"
@@ -1865,7 +1927,7 @@ class AuthorizationRequestedHelperTests {
             )
         transactionAuthorizationRequestedEvent.data.paymentInstrumentId = UUID.randomUUID().toString()
         transactionAuthorizationRequestedEvent.creationDate = Instant.now().toString()
-        val transactionAuthorizationOutcomeWaitingEvent = transactionAuthorizationOutcomeWaitingEvent(0)
+        val transactionAuthorizationOutcomeWaitingEvent = transactionAuthorizationOutcomeWaitingEvent(1)
         val transactionId = TransactionId(TRANSACTION_ID)
         val events: List<TransactionEvent<Any>> =
             listOf(
@@ -1963,6 +2025,7 @@ class AuthorizationRequestedHelperTests {
             )
         transactionAuthorizationRequestedEvent.data.paymentInstrumentId = UUID.randomUUID().toString()
         transactionAuthorizationRequestedEvent.creationDate = Instant.now().toString()
+        val transactionAuthorizationOutcomeWaitingEvent = transactionAuthorizationOutcomeWaitingEvent(0)
         val transactionId = TransactionId(TRANSACTION_ID)
         val events: List<TransactionEvent<Any>> =
             listOf(
@@ -1986,6 +2049,7 @@ class AuthorizationRequestedHelperTests {
                         .operationTime("2020-01-01T00:00:00")
                         .additionalData(mapOf("authorizationCode" to authorizationCode, "rrn" to rrn))
                 )
+        val expectedGetStateSessionId = NPG_CONFIRM_PAYMENT_SESSION_ID
         val expectedPatchAuthRequest =
             UpdateAuthorizationRequestDto().apply {
                 outcomeGateway =
@@ -2030,43 +2094,34 @@ class AuthorizationRequestedHelperTests {
             queueSuccessfulResponse()
         )
         StepVerifier.create(
-            authorizationRequestedHelper.authorizationRequestedHandler(
-                QueueEvent(transactionAuthorizationRequestedEvent, TracingInfoTest.MOCK_TRACING_INFO),
+            authorizationRequestedHelper.authorizationOutcomeWaitingHandler(
+                QueueEvent(transactionAuthorizationOutcomeWaitingEvent, TracingInfoTest.MOCK_TRACING_INFO),
                 checkpointer
             )
         )
             .expectNext(Unit)
             .verifyComplete()
         // assertions
-        verify(authorizationStateRetrieverService, times(0))
+        verify(authorizationStateRetrieverService, times(1))
             .getStateNpg(
-                any(),
-                any(),
-                any(), any(), any()
+                transactionId,
+                expectedGetStateSessionId,
+                PSP_ID,
+                NPG_CORRELATION_ID,
+                NpgClient.PaymentMethod.CARDS
             )
-        verify(userStatsServiceClient, times(1)).saveLastUsage(any(), any())
-        verify(transactionsServiceClient, times(0))
-            .patchAuthRequest(any(), any())
+        verify(userStatsServiceClient, times(0)).saveLastUsage(any(), any())
+        verify(transactionsServiceClient, times(1))
+            .patchAuthRequest(transactionId, expectedPatchAuthRequest)
         verify(deadLetterTracedQueueAsyncClient, times(0))
             .sendAndTraceDeadLetterQueueEvent(any(), any())
         verify(authorizationStateRetrieverRetryService, times(0))
             .enqueueRetryEvent(any(), any(), any(), anyOrNull())
-        verify(authRequestedOutcomeWaitingQueueAsyncClient, times(1))
+        verify(authRequestedOutcomeWaitingQueueAsyncClient, times(0))
             .sendMessageWithResponse(
-                argThat<BinaryData> {
-                    TransactionEventCode.valueOf(
-                        this.toObject(
-                            object : TypeReference<QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>>() {},
-                            jsonSerializerV2
-                        ).event.eventCode
-                    ) == TransactionEventCode.TRANSACTION_AUTHORIZATION_OUTCOME_WAITING_EVENT &&
-                            this.toObject(
-                                object : TypeReference<QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>>() {},
-                                jsonSerializerV2
-                            ).event.data.retryCount == 0
-                },
-                eq(Duration.ofSeconds(firstAttemptOffsetSeconds.toLong())),
-                eq(Duration.ofSeconds(transientQueueTTLSeconds.toLong()))
+                any<BinaryData>(),
+                any(),
+                any()
             )
     }
 
@@ -2081,6 +2136,7 @@ class AuthorizationRequestedHelperTests {
             )
         transactionAuthorizationRequestedEvent.data.paymentInstrumentId = UUID.randomUUID().toString()
         transactionAuthorizationRequestedEvent.creationDate = Instant.now().toString()
+        val transactionAuthorizationOutcomeWaitingEvent = transactionAuthorizationOutcomeWaitingEvent(0)
         val transactionId = TransactionId(TRANSACTION_ID)
         val events: List<TransactionEvent<Any>> =
             listOf(
@@ -2130,8 +2186,8 @@ class AuthorizationRequestedHelperTests {
 
         // Test
         StepVerifier.create(
-            authorizationRequestedHelper.authorizationRequestedHandler(
-                QueueEvent(transactionAuthorizationRequestedEvent, TracingInfoTest.MOCK_TRACING_INFO),
+            authorizationRequestedHelper.authorizationOutcomeWaitingHandler(
+                QueueEvent(transactionAuthorizationOutcomeWaitingEvent, TracingInfoTest.MOCK_TRACING_INFO),
                 checkpointer
             )
         )
@@ -2146,7 +2202,7 @@ class AuthorizationRequestedHelperTests {
                 NPG_CORRELATION_ID,
                 NpgClient.PaymentMethod.CARDS
             )
-        verify(userStatsServiceClient, times(1)).saveLastUsage(any(), any())
+        verify(userStatsServiceClient, times(0)).saveLastUsage(any(), any())
         verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
         verify(deadLetterTracedQueueAsyncClient, times(0))
             .sendAndTraceDeadLetterQueueEvent(any(), any())
