@@ -55,9 +55,9 @@ class AuthorizationRequestedHelper(
   @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider,
   @Autowired private val userStatsServiceClient: UserStatsServiceClient,
   @Value("\${userStatsService.enableSaveLastUsage}") private val enableSaveLastMethodUsage: Boolean,
-  @Autowired private val authRequestedOutcomeWaitingQueueAsyncClient: QueueAsyncClient,
-  @Value("\${transactionAuthorizationOutcomeWaiting.firstAttemptOffsetSeconds}")
-  private val firstAttemptOffsetSeconds: Int,
+  @Autowired private val authRequestedQueueAsyncClient: QueueAsyncClient,
+  @Value("\${transactionAuthorizationOutcomeWaiting.firstAttemptDelaySeconds}")
+  private val firstAttemptDelaySeconds: Int,
   @Value("\${azurestorage.queues.transientQueues.ttlSeconds}")
   private val transientQueueTTLSeconds: Int,
 ) {
@@ -96,26 +96,31 @@ class AuthorizationRequestedHelper(
   ): Mono<Unit> {
     val tracingInfo = parsedEvent.tracingInfo
     val transactionId = parsedEvent.event.transactionId
-    val creationDate = parsedEvent.event.creationDate
-
+    val authorizationRequestedDate =
+      OffsetDateTime.parse(parsedEvent.event.creationDate, DateTimeFormatter.ISO_DATE_TIME)
     val transaction =
       transactionsEventStoreRepository
         .findByTransactionIdOrderByCreationDateAsc(transactionId)
         .reduce(EmptyTransaction(), Transaction::applyEvent)
         .filter { it is BaseTransactionWithRequestedAuthorization }
         .cast(BaseTransactionWithRequestedAuthorization::class.java)
-
+    val getStateThresholdDate =
+      authorizationRequestedDate + Duration.ofSeconds(firstAttemptDelaySeconds.toLong())
+    val now = OffsetDateTime.now()
+    val timeToWaitForGetState = Duration.between(now, getStateThresholdDate)
+    val isFirstAttempt = timeToWaitForGetState >= Duration.ZERO
+    val saveLastUsage = enableSaveLastMethodUsage && isFirstAttempt
     val authorizationRequestedPipeline =
       transaction
         .flatMap { baseTransactionWithRequestedAuthorization ->
-          if (enableSaveLastMethodUsage &&
+          if (saveLastUsage &&
             isAuthenticatedTransaction(baseTransactionWithRequestedAuthorization)) {
             userStatsServiceClient
               .saveLastUsage(
                 UUID.fromString(
                   baseTransactionWithRequestedAuthorization.transactionActivatedData.userId!!),
                 buildUserLastPaymentMethodData(
-                  baseTransactionWithRequestedAuthorization, creationDate))
+                  baseTransactionWithRequestedAuthorization, authorizationRequestedDate))
               .onErrorResume {
                 logger.error("Exception while saving last payment method used", it)
                 mono {}
@@ -129,14 +134,13 @@ class AuthorizationRequestedHelper(
           val transactionStatus = it.status
           val gateway = it.transactionAuthorizationRequestData.paymentGateway
           // perform get state operation iff transaction is in AUTHORIZATION_REQUESTED state and the
-          // gateway is NPG, and it's a retry event (the first event has visibility timeout and
-          // perform save last usage if needed)
+          // gateway is NPG
           val performGetState =
             transactionStatus == TransactionStatusDto.AUTHORIZATION_REQUESTED &&
               gateway == TransactionAuthorizationRequestData.PaymentGateway.NPG
 
           logger.info(
-            "Transaction [{}}] status: [{}], gateway: [{}]- Enqueue to handle GET state -> [{}]",
+            "Transaction [{}] status: [{}], gateway: [{}]. Perform get state: [{}]",
             transactionId,
             transactionStatus,
             gateway,
@@ -144,17 +148,30 @@ class AuthorizationRequestedHelper(
           performGetState
         }
         .flatMap { tx ->
-          val retryEvent =
-            TransactionAuthorizationOutcomeWaitingEvent(
-              tx.transactionId.value(), TransactionRetriedData(0))
-          val binaryData =
-            BinaryData.fromObject(
-              QueueEvent(retryEvent, tracingInfo), strictSerializerProviderV2.createInstance())
-          authRequestedOutcomeWaitingQueueAsyncClient.sendMessageWithResponse(
-            binaryData,
-            Duration.ofSeconds(firstAttemptOffsetSeconds.toLong()),
-            Duration.ofSeconds(transientQueueTTLSeconds.toLong()),
-          )
+          logger.info(
+            "Transaction [{}] auth requested at: [{}], get state threshold: [{}]",
+            tx.transactionId.value(),
+            authorizationRequestedDate,
+            getStateThresholdDate)
+          if (timeToWaitForGetState > Duration.ZERO) {
+            val binaryData =
+              BinaryData.fromObject(parsedEvent, strictSerializerProviderV2.createInstance())
+            authRequestedQueueAsyncClient.sendMessageWithResponse(
+              binaryData,
+              // add here a fixed 10 sec delay to avoid condition when event is visible in queue
+              // some millis before the effective ttl set here
+              timeToWaitForGetState + Duration.ofSeconds(10), // visibility timeout
+              Duration.ofSeconds(transientQueueTTLSeconds.toLong()), // ttl
+            )
+          } else {
+            handleGetStateByPatchTransactionService(
+              tx = tx,
+              authorizationStateRetrieverRetryService = authorizationStateRetrieverRetryService,
+              authorizationStateRetrieverService = authorizationStateRetrieverService,
+              transactionsServiceClient = transactionsServiceClient,
+              tracingInfo = tracingInfo,
+              retryCount = 0)
+          }
         }
     return runTracedPipelineWithDeadLetterQueue(
       checkPointer,
@@ -226,18 +243,18 @@ class AuthorizationRequestedHelper(
 
   private fun buildUserLastPaymentMethodData(
     baseTransactionWithRequestedAuthorization: BaseTransactionWithRequestedAuthorization,
-    creationDate: String
+    creationDate: OffsetDateTime
   ) =
     when (isWalletPayment(baseTransactionWithRequestedAuthorization)) {
       true ->
         WalletLastUsageData()
           .walletId(UUID.fromString(getWalletIdPayment(baseTransactionWithRequestedAuthorization)))
-          .date(OffsetDateTime.parse(creationDate, DateTimeFormatter.ISO_DATE_TIME))
+          .date(creationDate)
       false ->
         GuestMethodLastUsageData()
           .paymentMethodId(
             UUID.fromString(getPaymentMethodId(baseTransactionWithRequestedAuthorization)))
-          .date(OffsetDateTime.parse(creationDate, DateTimeFormatter.ISO_DATE_TIME))
+          .date(creationDate)
     }
 
   private fun isAuthenticatedTransaction(

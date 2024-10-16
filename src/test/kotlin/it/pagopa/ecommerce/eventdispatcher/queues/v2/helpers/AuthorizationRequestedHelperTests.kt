@@ -10,7 +10,6 @@ import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGate
 import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationRequestedData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.WalletInfo
 import it.pagopa.ecommerce.commons.domain.TransactionId
-import it.pagopa.ecommerce.commons.domain.v2.TransactionEventCode
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationDto
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.StateResponseDto
@@ -46,6 +45,7 @@ import java.util.stream.Stream
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.reactor.mono
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.params.ParameterizedTest
@@ -78,7 +78,7 @@ class AuthorizationRequestedHelperTests {
 
   private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient = mock()
 
-  private val authRequestedOutcomeWaitingQueueAsyncClient: QueueAsyncClient = mock()
+  private val authRequestedQueueAsyncClient: QueueAsyncClient = mock()
 
   private val tracingUtils = TracingUtilsTests.getMock()
 
@@ -113,8 +113,8 @@ class AuthorizationRequestedHelperTests {
       tracingUtils = tracingUtils,
       strictSerializerProviderV2 = strictJsonSerializerProviderV2,
       enableSaveLastMethodUsage = true,
-      authRequestedOutcomeWaitingQueueAsyncClient = authRequestedOutcomeWaitingQueueAsyncClient,
-      firstAttemptOffsetSeconds = firstAttemptOffsetSeconds,
+      authRequestedQueueAsyncClient = authRequestedQueueAsyncClient,
+      firstAttemptDelaySeconds = firstAttemptOffsetSeconds,
       transientQueueTTLSeconds = transientQueueTTLSeconds)
 
   companion object {
@@ -1223,7 +1223,7 @@ class AuthorizationRequestedHelperTests {
       .patchAuthRequest(transactionId, expectedPatchAuthRequest)
     verify(deadLetterTracedQueueAsyncClient, times(0))
       .sendAndTraceDeadLetterQueueEvent(any(), any())
-    verify(authRequestedOutcomeWaitingQueueAsyncClient, times(0))
+    verify(authRequestedQueueAsyncClient, times(0))
       .sendMessageWithResponse(any<BinaryData>(), any(), any())
   }
 
@@ -1284,9 +1284,7 @@ class AuthorizationRequestedHelperTests {
         mono { TransactionInfoDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED) })
     given(checkpointer.success()).willReturn(Mono.empty())
     given(userStatsServiceClient.saveLastUsage(any(), any())).willReturn(Mono.empty())
-    given(
-        authRequestedOutcomeWaitingQueueAsyncClient.sendMessageWithResponse(
-          any<BinaryData>(), any(), any()))
+    given(authRequestedQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), any()))
       .willReturn(queueSuccessfulResponse())
 
     // Test
@@ -1310,7 +1308,7 @@ class AuthorizationRequestedHelperTests {
       .patchAuthRequest(transactionId, expectedPatchAuthRequest)
     verify(deadLetterTracedQueueAsyncClient, times(0))
       .sendAndTraceDeadLetterQueueEvent(any(), any())
-    verify(authRequestedOutcomeWaitingQueueAsyncClient, times(0))
+    verify(authRequestedQueueAsyncClient, times(0))
       .sendMessageWithResponse(any<BinaryData>(), any(), any())
   }
 
@@ -1466,7 +1464,7 @@ class AuthorizationRequestedHelperTests {
     verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
     verify(deadLetterTracedQueueAsyncClient, times(0))
       .sendAndTraceDeadLetterQueueEvent(any(), any())
-    verify(authRequestedOutcomeWaitingQueueAsyncClient, times(0))
+    verify(authRequestedQueueAsyncClient, times(0))
       .sendMessageWithResponse(any<BinaryData>(), any(), any())
   }
 
@@ -1598,9 +1596,7 @@ class AuthorizationRequestedHelperTests {
     given(
         authorizationStateRetrieverRetryService.enqueueRetryEvent(any(), any(), any(), anyOrNull()))
       .willReturn(Mono.empty())
-    given(
-        authRequestedOutcomeWaitingQueueAsyncClient.sendMessageWithResponse(
-          any<BinaryData>(), any(), any()))
+    given(authRequestedQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), any()))
       .willReturn(queueSuccessfulResponse())
     given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any(), any()))
       .willReturn(Mono.error(NpgServerErrorException("Error retrieving transaction status")))
@@ -1897,9 +1893,7 @@ class AuthorizationRequestedHelperTests {
     given(
         authorizationStateRetrieverRetryService.enqueueRetryEvent(any(), any(), any(), anyOrNull()))
       .willReturn(Mono.empty())
-    given(
-        authRequestedOutcomeWaitingQueueAsyncClient.sendMessageWithResponse(
-          any<BinaryData>(), any(), any()))
+    given(authRequestedQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), any()))
       .willReturn(queueSuccessfulResponse())
     StepVerifier.create(
         authorizationRequestedHelper.authorizationOutcomeWaitingHandler(
@@ -1923,7 +1917,7 @@ class AuthorizationRequestedHelperTests {
       .sendAndTraceDeadLetterQueueEvent(any(), any())
     verify(authorizationStateRetrieverRetryService, times(0))
       .enqueueRetryEvent(any(), any(), any(), anyOrNull())
-    verify(authRequestedOutcomeWaitingQueueAsyncClient, times(0))
+    verify(authRequestedQueueAsyncClient, times(0))
       .sendMessageWithResponse(any<BinaryData>(), any(), any())
   }
 
@@ -2153,9 +2147,7 @@ class AuthorizationRequestedHelperTests {
         .willReturn(
           mono { TransactionInfoDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED) })
       given(userStatsServiceClient.saveLastUsage(any(), any())).willReturn(Mono.empty())
-      given(
-          authRequestedOutcomeWaitingQueueAsyncClient.sendMessageWithResponse(
-            any<BinaryData>(), any(), any()))
+      given(authRequestedQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), any()))
         .willReturn(queueSuccessfulResponse())
       given(checkpointer.success()).willReturn(Mono.empty())
 
@@ -2177,26 +2169,20 @@ class AuthorizationRequestedHelperTests {
         .saveLastUsage(UUID.fromString(USER_ID), expectedUserLastPaymentMethodDataDto)
       verify(deadLetterTracedQueueAsyncClient, times(0))
         .sendAndTraceDeadLetterQueueEvent(any(), any())
-      verify(authRequestedOutcomeWaitingQueueAsyncClient, times(1))
+      verify(authRequestedQueueAsyncClient, times(1))
         .sendMessageWithResponse(
           argThat<BinaryData> {
-            TransactionEventCode.valueOf(
+            val queueWrittenEvent =
               this.toObject(
-                  object :
-                    TypeReference<QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>>() {},
-                  jsonSerializerV2)
-                .event
-                .eventCode) ==
-              TransactionEventCode.TRANSACTION_AUTHORIZATION_OUTCOME_WAITING_EVENT &&
-              this.toObject(
-                  object :
-                    TypeReference<QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>>() {},
-                  jsonSerializerV2)
-                .event
-                .data
-                .retryCount == 0
+                object : TypeReference<QueueEvent<TransactionAuthorizationRequestedEvent>>() {},
+                jsonSerializerV2)
+            assertEquals(transactionAuthorizationRequestedEvent, queueWrittenEvent.event)
+            true
           },
-          eq(Duration.ofSeconds(firstAttemptOffsetSeconds.toLong())),
+          argThat {
+            Duration.ofSeconds(firstAttemptOffsetSeconds.toLong()).minus(this).abs().toMillis() <=
+              10000
+          },
           eq(Duration.ofSeconds(transientQueueTTLSeconds.toLong())))
     }
 
@@ -2245,9 +2231,7 @@ class AuthorizationRequestedHelperTests {
       given(transactionsServiceClient.patchAuthRequest(any(), any()))
         .willReturn(
           mono { TransactionInfoDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED) })
-      given(
-          authRequestedOutcomeWaitingQueueAsyncClient.sendMessageWithResponse(
-            any<BinaryData>(), any(), any()))
+      given(authRequestedQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), any()))
         .willReturn(queueSuccessfulResponse())
       given(checkpointer.success()).willReturn(Mono.empty())
 
@@ -2262,26 +2246,20 @@ class AuthorizationRequestedHelperTests {
       verify(authorizationStateRetrieverService, times(0))
         .getStateNpg(any(), any(), any(), any(), any())
       verify(userStatsServiceClient, times(0)).saveLastUsage(any(), any())
-      verify(authRequestedOutcomeWaitingQueueAsyncClient, times(1))
+      verify(authRequestedQueueAsyncClient, times(1))
         .sendMessageWithResponse(
           argThat<BinaryData> {
-            TransactionEventCode.valueOf(
+            val queueWrittenEvent =
               this.toObject(
-                  object :
-                    TypeReference<QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>>() {},
-                  jsonSerializerV2)
-                .event
-                .eventCode) ==
-              TransactionEventCode.TRANSACTION_AUTHORIZATION_OUTCOME_WAITING_EVENT &&
-              this.toObject(
-                  object :
-                    TypeReference<QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>>() {},
-                  jsonSerializerV2)
-                .event
-                .data
-                .retryCount == 0
+                object : TypeReference<QueueEvent<TransactionAuthorizationRequestedEvent>>() {},
+                jsonSerializerV2)
+            assertEquals(transactionAuthorizationRequestedEvent, queueWrittenEvent.event)
+            true
           },
-          eq(Duration.ofSeconds(firstAttemptOffsetSeconds.toLong())),
+          argThat {
+            Duration.ofSeconds(firstAttemptOffsetSeconds.toLong()).minus(this).abs().toMillis() <=
+              10000
+          },
           eq(Duration.ofSeconds(transientQueueTTLSeconds.toLong())))
       verify(deadLetterTracedQueueAsyncClient, times(0))
         .sendAndTraceDeadLetterQueueEvent(any(), any())
@@ -2333,9 +2311,7 @@ class AuthorizationRequestedHelperTests {
       given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any(), any()))
         .willReturn(mono { npgStateResponse })
       given(userStatsServiceClient.saveLastUsage(any(), any())).willReturn(Mono.empty())
-      given(
-          authRequestedOutcomeWaitingQueueAsyncClient.sendMessageWithResponse(
-            any<BinaryData>(), any(), any()))
+      given(authRequestedQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), any()))
         .willReturn(queueSuccessfulResponse())
       given(checkpointer.success()).willReturn(Mono.empty())
 
@@ -2357,26 +2333,20 @@ class AuthorizationRequestedHelperTests {
         .saveLastUsage(UUID.fromString(USER_ID), expectedUserLastPaymentMethodDataDto)
       verify(deadLetterTracedQueueAsyncClient, times(0))
         .sendAndTraceDeadLetterQueueEvent(any(), any())
-      verify(authRequestedOutcomeWaitingQueueAsyncClient, times(1))
+      verify(authRequestedQueueAsyncClient, times(1))
         .sendMessageWithResponse(
           argThat<BinaryData> {
-            TransactionEventCode.valueOf(
+            val queueWrittenEvent =
               this.toObject(
-                  object :
-                    TypeReference<QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>>() {},
-                  jsonSerializerV2)
-                .event
-                .eventCode) ==
-              TransactionEventCode.TRANSACTION_AUTHORIZATION_OUTCOME_WAITING_EVENT &&
-              this.toObject(
-                  object :
-                    TypeReference<QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>>() {},
-                  jsonSerializerV2)
-                .event
-                .data
-                .retryCount == 0
+                object : TypeReference<QueueEvent<TransactionAuthorizationRequestedEvent>>() {},
+                jsonSerializerV2)
+            assertEquals(transactionAuthorizationRequestedEvent, queueWrittenEvent.event)
+            true
           },
-          eq(Duration.ofSeconds(firstAttemptOffsetSeconds.toLong())),
+          argThat {
+            Duration.ofSeconds(firstAttemptOffsetSeconds.toLong()).minus(this).abs().toMillis() <=
+              10000
+          },
           eq(Duration.ofSeconds(transientQueueTTLSeconds.toLong())))
     }
 
@@ -2431,9 +2401,7 @@ class AuthorizationRequestedHelperTests {
           mono { TransactionInfoDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED) })
       given(userStatsServiceClient.saveLastUsage(any(), any()))
         .willReturn(Mono.error(RuntimeException("Bad Request")))
-      given(
-          authRequestedOutcomeWaitingQueueAsyncClient.sendMessageWithResponse(
-            any<BinaryData>(), any(), any()))
+      given(authRequestedQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), any()))
         .willReturn(queueSuccessfulResponse())
       given(checkpointer.success()).willReturn(Mono.empty())
 
@@ -2455,26 +2423,20 @@ class AuthorizationRequestedHelperTests {
         .saveLastUsage(UUID.fromString(USER_ID), expectedUserLastPaymentMethodDataDto)
       verify(deadLetterTracedQueueAsyncClient, times(0))
         .sendAndTraceDeadLetterQueueEvent(any(), any())
-      verify(authRequestedOutcomeWaitingQueueAsyncClient, times(1))
+      verify(authRequestedQueueAsyncClient, times(1))
         .sendMessageWithResponse(
           argThat<BinaryData> {
-            TransactionEventCode.valueOf(
+            val queueWrittenEvent =
               this.toObject(
-                  object :
-                    TypeReference<QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>>() {},
-                  jsonSerializerV2)
-                .event
-                .eventCode) ==
-              TransactionEventCode.TRANSACTION_AUTHORIZATION_OUTCOME_WAITING_EVENT &&
-              this.toObject(
-                  object :
-                    TypeReference<QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>>() {},
-                  jsonSerializerV2)
-                .event
-                .data
-                .retryCount == 0
+                object : TypeReference<QueueEvent<TransactionAuthorizationRequestedEvent>>() {},
+                jsonSerializerV2)
+            assertEquals(transactionAuthorizationRequestedEvent, queueWrittenEvent.event)
+            true
           },
-          eq(Duration.ofSeconds(firstAttemptOffsetSeconds.toLong())),
+          argThat {
+            Duration.ofSeconds(firstAttemptOffsetSeconds.toLong()).minus(this).abs().toMillis() <=
+              10000
+          },
           eq(Duration.ofSeconds(transientQueueTTLSeconds.toLong())))
     }
 
@@ -2523,9 +2485,7 @@ class AuthorizationRequestedHelperTests {
       given(transactionsServiceClient.patchAuthRequest(any(), any()))
         .willReturn(
           mono { TransactionInfoDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED) })
-      given(
-          authRequestedOutcomeWaitingQueueAsyncClient.sendMessageWithResponse(
-            any<BinaryData>(), any(), any()))
+      given(authRequestedQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), any()))
         .willReturn(queueSuccessfulResponse())
       given(checkpointer.success()).willReturn(Mono.empty())
       val authorizationRequestedHelper =
@@ -2539,8 +2499,8 @@ class AuthorizationRequestedHelperTests {
           tracingUtils = tracingUtils,
           strictSerializerProviderV2 = strictJsonSerializerProviderV2,
           enableSaveLastMethodUsage = false,
-          authRequestedOutcomeWaitingQueueAsyncClient = authRequestedOutcomeWaitingQueueAsyncClient,
-          firstAttemptOffsetSeconds = firstAttemptOffsetSeconds,
+          authRequestedQueueAsyncClient = authRequestedQueueAsyncClient,
+          firstAttemptDelaySeconds = firstAttemptOffsetSeconds,
           transientQueueTTLSeconds = transientQueueTTLSeconds)
       // Test
       StepVerifier.create(
@@ -2554,26 +2514,20 @@ class AuthorizationRequestedHelperTests {
         .getStateNpg(any(), any(), any(), any(), any())
       verify(userStatsServiceClient, times(0)).saveLastUsage(any(), any())
       verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
-      verify(authRequestedOutcomeWaitingQueueAsyncClient, times(1))
+      verify(authRequestedQueueAsyncClient, times(1))
         .sendMessageWithResponse(
           argThat<BinaryData> {
-            TransactionEventCode.valueOf(
+            val queueWrittenEvent =
               this.toObject(
-                  object :
-                    TypeReference<QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>>() {},
-                  jsonSerializerV2)
-                .event
-                .eventCode) ==
-              TransactionEventCode.TRANSACTION_AUTHORIZATION_OUTCOME_WAITING_EVENT &&
-              this.toObject(
-                  object :
-                    TypeReference<QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>>() {},
-                  jsonSerializerV2)
-                .event
-                .data
-                .retryCount == 0
+                object : TypeReference<QueueEvent<TransactionAuthorizationRequestedEvent>>() {},
+                jsonSerializerV2)
+            assertEquals(transactionAuthorizationRequestedEvent, queueWrittenEvent.event)
+            true
           },
-          eq(Duration.ofSeconds(firstAttemptOffsetSeconds.toLong())),
+          argThat {
+            Duration.ofSeconds(firstAttemptOffsetSeconds.toLong()).minus(this).abs().toMillis() <=
+              10000
+          },
           eq(Duration.ofSeconds(transientQueueTTLSeconds.toLong())))
       verify(deadLetterTracedQueueAsyncClient, times(0))
         .sendAndTraceDeadLetterQueueEvent(any(), any())
@@ -2635,5 +2589,76 @@ class AuthorizationRequestedHelperTests {
       verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
       verify(deadLetterTracedQueueAsyncClient, times(0))
         .sendAndTraceDeadLetterQueueEvent(any(), any())
+    }
+
+  @Test
+  fun `messageReceiver consume postponed authorization requested event correctly performing NPG get state`() =
+    runTest {
+      val transactionActivatedEvent =
+        transactionActivateEvent(npgTransactionGatewayActivationData())
+      val transactionAuthorizationRequestedEvent =
+        transactionAuthorizationRequestedEvent(
+          TransactionAuthorizationRequestData.PaymentGateway.NPG,
+          npgTransactionGatewayAuthorizationRequestedData())
+
+      val paymentInstrumentId = UUID.randomUUID().toString()
+      val authDate =
+        OffsetDateTime.now()
+          .minus(Duration.ofSeconds(firstAttemptOffsetSeconds.toLong()))
+          .toString()
+      transactionAuthorizationRequestedEvent.data.paymentInstrumentId = paymentInstrumentId
+      transactionAuthorizationRequestedEvent.creationDate = authDate
+      val transactionId = TransactionId(TRANSACTION_ID)
+      val events: List<TransactionEvent<Any>> =
+        listOf(
+          transactionActivatedEvent as TransactionEvent<Any>,
+          transactionAuthorizationRequestedEvent as TransactionEvent<Any>)
+
+      val operationId = "operationId"
+      val orderId = "orderId"
+      val authorizationCode = "123456"
+      val rrn = "rrn"
+      val paymentEndToEndId = "paymentEndToEndId"
+      val npgStateResponse =
+        StateResponseDto()
+          .state(WorkflowStateDto.PAYMENT_COMPLETE)
+          .operation(
+            OperationDto()
+              .operationId(operationId)
+              .orderId(orderId)
+              .operationResult(OperationResultDto.EXECUTED)
+              .paymentEndToEndId(paymentEndToEndId)
+              .operationTime("2024-01-01T00:00:00")
+              .additionalData(mapOf("authorizationCode" to authorizationCode, "rrn" to rrn)))
+
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            transactionId.value()))
+        .willReturn(Flux.fromIterable(events))
+      given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any(), any()))
+        .willReturn(mono { npgStateResponse })
+      given(transactionsServiceClient.patchAuthRequest(any(), any()))
+        .willReturn(
+          mono { TransactionInfoDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED) })
+      given(authRequestedQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), any()))
+        .willReturn(queueSuccessfulResponse())
+      given(checkpointer.success()).willReturn(Mono.empty())
+
+      // Test
+      StepVerifier.create(
+          authorizationRequestedHelper.authorizationRequestedHandler(
+            QueueEvent(transactionAuthorizationRequestedEvent, TracingInfoTest.MOCK_TRACING_INFO),
+            checkpointer))
+        .expectNext(Unit)
+        .verifyComplete()
+      // assertions
+      verify(authorizationStateRetrieverService, times(1))
+        .getStateNpg(any(), any(), any(), any(), any())
+
+      verify(userStatsServiceClient, times(0)).saveLastUsage(any(), any())
+      verify(deadLetterTracedQueueAsyncClient, times(0))
+        .sendAndTraceDeadLetterQueueEvent(any(), any())
+      verify(authRequestedQueueAsyncClient, times(0))
+        .sendMessageWithResponse(any<BinaryData>(), any(), any())
     }
 }
