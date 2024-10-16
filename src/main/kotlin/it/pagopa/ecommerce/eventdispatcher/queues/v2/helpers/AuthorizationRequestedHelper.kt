@@ -154,13 +154,18 @@ class AuthorizationRequestedHelper(
             authorizationRequestedDate,
             getStateThresholdDate)
           if (timeToWaitForGetState > Duration.ZERO) {
+            // add here a fixed 10 sec delay to avoid condition when event is visible in queue
+            // some millis before the effective ttl set here
+            val visibilityTimeout = timeToWaitForGetState + Duration.ofSeconds(10)
+            logger.debug(
+              "Transaction: [{}] postpone authorization requested event  with visibility timeout: [{}]",
+              tx.transactionId.value(),
+              visibilityTimeout)
             val binaryData =
               BinaryData.fromObject(parsedEvent, strictSerializerProviderV2.createInstance())
             authRequestedQueueAsyncClient.sendMessageWithResponse(
               binaryData,
-              // add here a fixed 10 sec delay to avoid condition when event is visible in queue
-              // some millis before the effective ttl set here
-              timeToWaitForGetState + Duration.ofSeconds(10), // visibility timeout
+              visibilityTimeout, // visibility timeout
               Duration.ofSeconds(transientQueueTTLSeconds.toLong()), // ttl
             )
           } else {
