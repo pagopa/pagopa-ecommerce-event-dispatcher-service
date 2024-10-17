@@ -1,6 +1,6 @@
 package it.pagopa.ecommerce.eventdispatcher
 
-import it.pagopa.ecommerce.eventdispatcher.exceptionhandler.ExceptionHandler
+import it.pagopa.ecommerce.eventdispatcher.controller.exceptionhandler.ExceptionHandler
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoEventReceiverStatusFound
 import it.pagopa.generated.eventdispatcher.server.model.ProblemJsonDto
 import jakarta.xml.bind.ValidationException

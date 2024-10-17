@@ -1,4 +1,4 @@
-package it.pagopa.ecommerce.eventdispatcher.exceptionhandler
+package it.pagopa.ecommerce.eventdispatcher.controller.exceptionhandler
 
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoEventReceiverStatusFound
 import it.pagopa.generated.eventdispatcher.server.model.ProblemJsonDto
