@@ -110,12 +110,6 @@ stages:
   - stage: "Deploy_UAT_Green"
     displayName: 'UAT green deployment'
     dependsOn: [ Build_release_candidate ]
-    condition: |
-      and(
-        eq(${{parameters.UAT_PROD_DEPLOY}}, true),
-        in(dependencies.tag_docker_release.result, 'Succeeded', 'Skipped'),
-        in(dependencies.Release.result, 'Succeeded', 'Skipped')
-      )
     variables:
       app_version: perf #chart app version, can differ from release for chart only version bumps
       release_version: soak-test-uat #chart version, this version is the same of the github release/tag
