@@ -1,7 +1,6 @@
 package it.pagopa.ecommerce.eventdispatcher.queues.v2
 
 import com.azure.spring.messaging.checkpoint.Checkpointer
-import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationOutcomeWaitingEvent
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.AuthorizationRequestedHelper
@@ -18,7 +17,7 @@ class TransactionAuthorizationOutcomeWaitingQueueConsumer(
     parsedEvent: QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>,
     checkPointer: Checkpointer
   ): Mono<Unit> {
-    return authorizationRequestedHelper.authorizationStateRetrieve(
-      Either.right(parsedEvent), checkPointer)
+    return authorizationRequestedHelper.authorizationOutcomeWaitingHandler(
+      parsedEvent, checkPointer)
   }
 }

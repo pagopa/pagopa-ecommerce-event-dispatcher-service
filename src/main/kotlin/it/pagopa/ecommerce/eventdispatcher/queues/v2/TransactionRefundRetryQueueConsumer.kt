@@ -6,6 +6,7 @@ import it.pagopa.ecommerce.commons.documents.v2.TransactionRefundRetriedEvent
 import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v2.Transaction
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransaction
+import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithRefundRequested
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
@@ -72,12 +73,12 @@ class TransactionRefundRetryQueueConsumer(
             Mono.just(it)
           }
         }
+        .cast(BaseTransactionWithRefundRequested::class.java)
         .flatMap { tx ->
           refundTransaction(
             tx,
             transactionsRefundedEventStoreRepository,
             transactionsViewRepository,
-            paymentGatewayClient,
             refundService,
             refundRetryService,
             ngpService,

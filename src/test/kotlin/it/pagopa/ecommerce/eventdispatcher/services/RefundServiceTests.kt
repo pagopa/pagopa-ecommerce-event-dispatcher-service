@@ -21,8 +21,6 @@ import it.pagopa.ecommerce.eventdispatcher.config.RedirectConfigurationBuilder
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadGatewayException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.RefundNotAllowedException
 import it.pagopa.ecommerce.eventdispatcher.utils.PaymentCode
-import it.pagopa.ecommerce.eventdispatcher.utils.getMockedVPosRefundRequest
-import it.pagopa.ecommerce.eventdispatcher.utils.getMockedXPayRefundRequest
 import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundOutcomeDto
 import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundRequestDto as RedirectRefundRequestDto
 import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundResponseDto as RedirectRefundResponseDto
@@ -341,34 +339,6 @@ class RefundServiceTests {
       .expectError(NpgApiKeyConfigurationException::class.java)
       .verify()
     verify(npgClient, times(0)).refundPayment(any(), any(), any(), any(), any(), any())
-  }
-
-  @Test
-  fun requestRefund_200_vpos() {
-    val testUUID: UUID = UUID.randomUUID()
-
-    // Precondition
-    Mockito.`when`(paymentGatewayClient.requestVPosRefund(testUUID))
-      .thenReturn(Mono.just(getMockedVPosRefundRequest(testUUID.toString())))
-    // Test
-    val response = refundService.requestVposRefund(testUUID.toString()).block()
-    // Assertions
-    assertEquals("CANCELLED", response?.status?.value)
-  }
-
-  @Test
-  fun requestRefund_200_xpay() {
-    val testUUID: UUID = UUID.randomUUID()
-
-    // Precondition
-    Mockito.`when`(paymentGatewayClient.requestXPayRefund(testUUID))
-      .thenReturn(Mono.just(getMockedXPayRefundRequest(testUUID.toString())))
-
-    // Test
-    val response = refundService.requestXpayRefund(testUUID.toString()).block()
-
-    // Assertions
-    assertEquals("CANCELLED", response?.status?.value)
   }
 
   @ParameterizedTest()

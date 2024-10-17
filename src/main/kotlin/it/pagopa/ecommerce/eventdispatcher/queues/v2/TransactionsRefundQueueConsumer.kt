@@ -83,7 +83,6 @@ class TransactionsRefundQueueConsumer(
             tx,
             transactionsRefundedEventStoreRepository,
             transactionsViewRepository,
-            paymentGatewayClient,
             refundService,
             refundRetryService,
             npgService,

@@ -12,7 +12,6 @@ import it.pagopa.ecommerce.commons.documents.v2.authorization.RedirectTransactio
 import it.pagopa.ecommerce.commons.domain.v2.*
 import it.pagopa.ecommerce.commons.domain.v2.pojos.*
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
-import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
@@ -22,7 +21,6 @@ import it.pagopa.ecommerce.commons.redis.templatewrappers.PaymentRequestInfoRedi
 import it.pagopa.ecommerce.commons.utils.UpdateTransactionStatusTracerUtils
 import it.pagopa.ecommerce.commons.utils.UpdateTransactionStatusTracerUtils.UpdateTransactionStatusOutcome
 import it.pagopa.ecommerce.commons.utils.UpdateTransactionStatusTracerUtils.UserCancelClosePaymentNodoStatusUpdate
-import it.pagopa.ecommerce.eventdispatcher.client.NodeClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.ClosePaymentErrorResponseException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
@@ -43,7 +41,6 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
-import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Schedulers
@@ -257,11 +254,14 @@ class ClosePaymentHelper(
         updateTransactionToClosureError(tx)
       }
       .flatMap { tx ->
-        val (statusCode, errorDescription) =
+        val (statusCode, errorDescription, refundTransaction) =
           if (exception is ClosePaymentErrorResponseException) {
-            Pair(exception.statusCode, exception.errorResponse?.description)
+            Triple(
+              exception.statusCode,
+              exception.errorResponse?.description,
+              exception.isRefundableError())
           } else {
-            Pair(null, null)
+            Triple(null, null, false)
           }
         traceClosePaymentUpdateStatus(
           baseTransaction = tx,
@@ -273,11 +273,7 @@ class ClosePaymentHelper(
                 "HTTP code:[${statusCode?.value() ?: "N/A"}] - descr:[${errorDescription ?: "N/A"}]"),
             ),
           updateTransactionStatusOutcome = UpdateTransactionStatusOutcome.PROCESSING_ERROR)
-        // transaction can be refund only for HTTP status code 422 and error response description
-        // equals to "Node did not receive RPT yet"
-        val refundTransaction =
-          statusCode == HttpStatus.UNPROCESSABLE_ENTITY &&
-            errorDescription == NodeClient.NODE_DID_NOT_RECEIVE_RPT_YET_ERROR
+
         // retry event enqueued only for 5xx error responses or for other exceptions that might
         // happen
         // during communication such as read timeout
@@ -454,12 +450,13 @@ class ClosePaymentHelper(
     val transactionGatewayData =
       transaction.transactionAuthorizationCompletedData.transactionGatewayAuthorizationData
     return when (transactionGatewayData) {
-      is PgsTransactionGatewayAuthorizationData ->
-        transactionGatewayData.authorizationResultDto == AuthorizationResultDto.OK
       is NpgTransactionGatewayAuthorizationData ->
         transactionGatewayData.operationResult == OperationResultDto.EXECUTED
       is RedirectTransactionGatewayAuthorizationData ->
         transactionGatewayData.outcome == RedirectTransactionGatewayAuthorizationData.Outcome.OK
+      is PgsTransactionGatewayAuthorizationData ->
+        throw IllegalArgumentException(
+          "Unhandled or invalid auth data type 'PgsTransactionGatewayAuthorizationData'")
     }
   }
 
@@ -526,11 +523,6 @@ class ClosePaymentHelper(
 
     val closureOutcome =
       when (transactionAuthGatewayData) {
-        is PgsTransactionGatewayAuthorizationData ->
-          when (transactionAuthGatewayData.authorizationResultDto) {
-            AuthorizationResultDto.OK -> ClosePaymentOutcome.OK
-            else -> ClosePaymentOutcome.KO
-          }
         is NpgTransactionGatewayAuthorizationData ->
           when (transactionAuthGatewayData.operationResult) {
             OperationResultDto.EXECUTED -> ClosePaymentOutcome.OK
@@ -541,6 +533,9 @@ class ClosePaymentHelper(
             RedirectTransactionGatewayAuthorizationData.Outcome.OK -> ClosePaymentOutcome.OK
             else -> ClosePaymentOutcome.KO
           }
+        is PgsTransactionGatewayAuthorizationData ->
+          throw IllegalArgumentException(
+            "Unhandled or invalid auth data type 'PgsTransactionGatewayAuthorizationData'")
       }
 
     return closureOutcome

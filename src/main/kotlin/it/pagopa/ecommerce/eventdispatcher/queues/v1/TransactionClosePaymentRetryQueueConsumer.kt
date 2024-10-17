@@ -15,12 +15,10 @@ import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.commons.queues.TracingUtils
-import it.pagopa.ecommerce.eventdispatcher.client.NodeClient
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.ClosePaymentErrorResponseException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
-import it.pagopa.ecommerce.eventdispatcher.queues.*
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.ClosePaymentOutcome
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
@@ -34,7 +32,6 @@ import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
 
@@ -168,17 +165,16 @@ class TransactionClosePaymentRetryQueueConsumer(
                 "Got exception while retrying closePaymentV2 for transaction with id ${tx.transactionId}!",
                 exception)
 
-              val (statusCode, errorDescription) =
+              val (statusCode, errorDescription, refundTransaction) =
                 if (exception is ClosePaymentErrorResponseException) {
-                  Pair(exception.statusCode, exception.errorResponse?.description)
+                  Triple(
+                    exception.statusCode,
+                    exception.errorResponse?.description,
+                    exception.isRefundableError())
                 } else {
-                  Pair(null, null)
+                  Triple(null, null, false)
                 }
-              // transaction can be refund only for HTTP status code 422 and error response
-              // description equals to "Node did not receive RPT yet"
-              val refundTransaction =
-                statusCode == HttpStatus.UNPROCESSABLE_ENTITY &&
-                  errorDescription == NodeClient.NODE_DID_NOT_RECEIVE_RPT_YET_ERROR
+
               // retry event enqueued only for 5xx error responses or for other exceptions that
               // might happen during communication such as read timeout
               val enqueueRetryEvent =

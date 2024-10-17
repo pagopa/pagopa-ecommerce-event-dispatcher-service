@@ -9,7 +9,7 @@
 	</parent>
 	<groupId>it.pagopa.ecommerce</groupId>
 	<artifactId>pagopa-ecommerce-event-dispatcher-service</artifactId>
-	<version>1.21.0</version>
+	<version>1.26.0</version>
 	<name>pagopa-ecommerce-event-dispatcher-service</name>
 	<description>pagoPA ecommerce microservice to handle transaction events and perform async operations such as
 		send user email, refund based on transaction status</description>
@@ -19,7 +19,7 @@
 		<kotlinx-coroutines.version>1.6.2</kotlinx-coroutines.version>
 		<spring-cloud-azure.version>4.0.0</spring-cloud-azure.version>
 		<jacoco.version>0.8.8</jacoco.version>
-		<pagopa-ecommerce-commons.version>1.24.0</pagopa-ecommerce-commons.version>
+		<pagopa-ecommerce-commons.version>1.28.0</pagopa-ecommerce-commons.version>
 		<sonar.coverage.exclusions> <!-- the members of the following list should be in the same line -->
 			**/it/pagopa/transactions/**,
 			**/it/pagopa/ecommerce/eventdispatcher/validation/**
@@ -372,28 +372,6 @@
 						</configuration>
 					</execution>
 					<execution>
-						<id>transactions-gateway-api</id>
-						<goals>
-							<goal>generate</goal>
-						</goals>
-						<configuration>
-							<inputSpec>https://raw.githubusercontent.com/pagopa/pagopa-infra/f1f4663b1b69d13449db5e91e86b0a7dd9ca195b/src/core/api/payment_transactions_gateway_api/internal/v1/_openapi.json.tpl</inputSpec>
-							<generatorName>java</generatorName>
-							<library>webclient</library>
-							<generateApiDocumentation>false</generateApiDocumentation>
-							<generateApiTests>false</generateApiTests>
-							<generateModelTests>false</generateModelTests>
-							<generateSupportingFiles>true</generateSupportingFiles>
-							<configOptions>
-								<swaggerAnnotations>false</swaggerAnnotations>
-								<openApiNullable>false</openApiNullable>
-							</configOptions>
-							<modelPackage>it.pagopa.generated.ecommerce.gateway.v1.dto</modelPackage>
-							<apiPackage>it.pagopa.generated.ecommerce.gateway.v1.api</apiPackage>
-							<modelNameSuffix>dto</modelNameSuffix>
-						</configuration>
-					</execution>
-					<execution>
 						<id>notifications-service-api</id>
 						<goals>
 							<goal>generate</goal>
@@ -484,6 +462,36 @@
 							<modelPackage>it.pagopa.generated.ecommerce.redirect.v1.dto</modelPackage>
 							<apiPackage>it.pagopa.generated.ecommerce.redirect.v1.api</apiPackage>
 							<modelNameSuffix>dto</modelNameSuffix>
+						</configuration>
+					</execution>
+					<execution>
+						<id>user-stats-api</id>
+						<goals>
+							<goal>generate</goal>
+						</goals>
+						<configuration>
+							<inputSpec>https://raw.githubusercontent.com/pagopa/pagopa-infra/v1.210.0/src/domains/ecommerce-app/api/ecommerce-user-stats-service/v1/_openapi.json.tpl</inputSpec>
+							<generatorName>java</generatorName>
+							<library>webclient</library>
+							<generateApiDocumentation>false</generateApiDocumentation>
+							<generateApiTests>false</generateApiTests>
+							<generateModelTests>false</generateModelTests>
+							<generateSupportingFiles>true</generateSupportingFiles>
+							<configOptions>
+								<swaggerAnnotations>false</swaggerAnnotations>
+								<openApiNullable>false</openApiNullable>
+								<useOneOfInterfaces>true</useOneOfInterfaces>
+								<legacyDiscriminatorBehavior>true</legacyDiscriminatorBehavior>
+							</configOptions>
+							<modelPackage>it.pagopa.generated.ecommerce.userstats.dto</modelPackage>
+							<apiPackage>it.pagopa.generated.ecommerce.userstats.api</apiPackage>
+							<!--  Commented out model name suffix because of this issue ->
+							  https://github.com/OpenAPITools/openapi-generator/issues/17343
+							 that cause discriminator field to not be set properly on deserialized class.
+							 With model name suffix on the generated code will use the class name as discriminator fields
+							 for the deserialized responses
+
+							 <modelNameSuffix>dto</modelNameSuffix> -->
 						</configuration>
 					</execution>
 				</executions>
