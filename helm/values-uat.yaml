@@ -79,7 +79,7 @@ microservice-chart:
       cpu: "900m"
   deployment:
     create: true
-    replicas: 5
+    replicas: 7
   strategy:
     type: "RollingUpdate"
     rollingUpdate:
@@ -87,7 +87,7 @@ microservice-chart:
       maxUnavailable: "100%"
   autoscaling:
     enable: true
-    minReplica: 5
+    minReplica: 7
     maxReplica: 10
     pollingInterval: 30 # seconds
     cooldownPeriod: 30 # seconds
