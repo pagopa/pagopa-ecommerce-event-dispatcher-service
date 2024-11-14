@@ -39,7 +39,7 @@ microservice-chart:
     httpGet:
       path: /actuator/health/liveness
       port: 9000
-    initialDelaySeconds: 60
+    initialDelaySeconds: 30
     failureThreshold: 6
     periodSeconds: 10
   readinessProbe:
@@ -47,7 +47,7 @@ microservice-chart:
     httpGet:
       path: /actuator/health/readiness
       port: 9000
-    initialDelaySeconds: 60
+    initialDelaySeconds: 30
     failureThreshold: 6
     periodSeconds: 10
   service:
@@ -83,8 +83,8 @@ microservice-chart:
   strategy:
     type: "RollingUpdate"
     rollingUpdate:
-      maxSurge: "100%"
-      maxUnavailable: "100%"
+      maxSurge: 2
+      maxUnavailable: 0
   autoscaling:
     enable: true
     minReplica: 5
