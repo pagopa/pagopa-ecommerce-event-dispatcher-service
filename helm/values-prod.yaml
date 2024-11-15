@@ -83,8 +83,8 @@ microservice-chart:
   strategy:
     type: "RollingUpdate"
     rollingUpdate:
-      maxSurge: 2
-      maxUnavailable: 0
+      maxSurge: "100%"
+      maxUnavailable: "100%"
   autoscaling:
     enable: true
     minReplica: 5
