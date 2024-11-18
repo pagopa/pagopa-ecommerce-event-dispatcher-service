@@ -54,6 +54,8 @@ class NodeService(
 ) {
   var logger: Logger = LoggerFactory.getLogger(NodeService::class.java)
 
+  private val closePaymentZoneId = ZoneId.of("Europe/Paris")
+
   suspend fun closePayment(
     transactionId: TransactionId,
     transactionOutcome: ClosePaymentOutcome
@@ -428,7 +430,7 @@ class NodeService(
               OffsetDateTime.parse(
                   authCompleted.transactionAuthorizationCompletedData.timestampOperation,
                   DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-                .atZoneSameInstant(ZoneId.of("Europe/Paris"))
+                .atZoneSameInstant(closePaymentZoneId)
                 .truncatedTo(ChronoUnit.SECONDS)
                 .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
                 .toString()
@@ -469,7 +471,7 @@ class NodeService(
               OffsetDateTime.parse(
                   authCompleted.transactionAuthorizationCompletedData.timestampOperation,
                   DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-                .atZoneSameInstant(ZoneId.of("Europe/Paris"))
+                .atZoneSameInstant(closePaymentZoneId)
                 .truncatedTo(ChronoUnit.SECONDS)
                 .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
                 .toString()
@@ -543,7 +545,7 @@ class NodeService(
               OffsetDateTime.parse(
                   authCompleted.transactionAuthorizationCompletedData.timestampOperation,
                   DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-                .atZoneSameInstant(ZoneId.of("Europe/Paris"))
+                .atZoneSameInstant(closePaymentZoneId)
                 .truncatedTo(ChronoUnit.SECONDS)
                 .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
                 .toString()
@@ -620,7 +622,7 @@ class NodeService(
               OffsetDateTime.parse(
                   authCompleted.transactionAuthorizationCompletedData.timestampOperation,
                   DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-                .atZoneSameInstant(ZoneId.of("Europe/Paris"))
+                .atZoneSameInstant(closePaymentZoneId)
                 .truncatedTo(ChronoUnit.SECONDS)
                 .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
                 .toString()
@@ -690,7 +692,7 @@ class NodeService(
               OffsetDateTime.parse(
                   authCompleted.transactionAuthorizationCompletedData.timestampOperation,
                   DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-                .atZoneSameInstant(ZoneId.of("Europe/Paris"))
+                .atZoneSameInstant(closePaymentZoneId)
                 .truncatedTo(ChronoUnit.SECONDS)
                 .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
                 .toString()
@@ -765,7 +767,7 @@ class NodeService(
               OffsetDateTime.parse(
                   authCompleted.transactionAuthorizationCompletedData.timestampOperation,
                   DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-                .atZoneSameInstant(ZoneId.of("Europe/Paris"))
+                .atZoneSameInstant(closePaymentZoneId)
                 .truncatedTo(ChronoUnit.SECONDS)
                 .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
                 .toString()
@@ -840,7 +842,7 @@ class NodeService(
               OffsetDateTime.parse(
                   authCompleted.transactionAuthorizationCompletedData.timestampOperation,
                   DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-                .atZoneSameInstant(ZoneId.of("Europe/Paris"))
+                .atZoneSameInstant(closePaymentZoneId)
                 .truncatedTo(ChronoUnit.SECONDS)
                 .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
                 .toString()
