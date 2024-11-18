@@ -385,13 +385,12 @@ class NodeServiceTests {
     expectedLocalDate: String
   ) = runTest {
     val transactionOutcome = ClosePaymentOutcome.OK
-    val idBundle = UUID.randomUUID()
+    val idBundle = ID_BUNDLE
     val activatedEvent = transactionActivateEvent()
     val authEvent =
       transactionAuthorizationRequestedEvent(
         TransactionAuthorizationRequestData.PaymentGateway.NPG,
         npgTransactionGatewayAuthorizationRequestedData())
-    authEvent.data.idBundle = idBundle.toString()
     val authCompletedEvent =
       transactionAuthorizationCompletedEvent(
         npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED))
@@ -1099,13 +1098,12 @@ class NodeServiceTests {
       redirectTransactionGatewayAuthorizationData(
         RedirectTransactionGatewayAuthorizationData.Outcome.OK, "")
         as RedirectTransactionGatewayAuthorizationData
-    val idBundle = UUID.randomUUID()
+    val idBundle = ID_BUNDLE
     val activatedEvent = transactionActivateEvent()
     val authEvent =
       transactionAuthorizationRequestedEvent(
         TransactionAuthorizationRequestData.PaymentGateway.REDIRECT,
         redirectTransactionGatewayAuthorizationRequestedData)
-    authEvent.data.idBundle = idBundle.toString()
     val authCompletedEvent =
       transactionAuthorizationCompletedEvent(redirectTransactionGatewayAuthorizationData)
     val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -1575,7 +1573,7 @@ class NodeServiceTests {
     expectedLocalDate: String
   ) = runTest {
     val transactionOutcome = ClosePaymentOutcome.OK
-    val idBundle = UUID.randomUUID()
+    val idBundle = ID_BUNDLE
     val satispayTransactionGatewayAuthorizationRequestedData =
       NpgTransactionGatewayAuthorizationRequestedData(
         LOGO_URI,
@@ -1605,7 +1603,7 @@ class NodeServiceTests {
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
           "paymentMethodDescription",
           satispayTransactionGatewayAuthorizationRequestedData,
-          idBundle.toString()))
+          idBundle))
 
     val authCompletedEvent =
       transactionAuthorizationCompletedEvent(satispayTransactionGatewayAuthorizationData)
@@ -2121,7 +2119,7 @@ class NodeServiceTests {
         null)
     val applepayTransactionGatewayAuthorizationData =
       npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)
-    val idBundle = UUID.randomUUID()
+    val idBundle = ID_BUNDLE
     val activatedEvent = transactionActivateEvent()
     val authEvent =
       TransactionAuthorizationRequestedEvent(
@@ -2141,7 +2139,7 @@ class NodeServiceTests {
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
           "paymentMethodDescription",
           satispayTransactionGatewayAuthorizationRequestedData,
-          idBundle.toString()))
+          idBundle))
     val authCompletedEvent =
       transactionAuthorizationCompletedEvent(applepayTransactionGatewayAuthorizationData)
     val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -2660,7 +2658,7 @@ class NodeServiceTests {
         null)
     val paypalTransactionGatewayAuthorizationData =
       npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)
-    val idBundle = UUID.randomUUID()
+    val idBundle = ID_BUNDLE
     val activatedEvent = transactionActivateEvent()
     val authEvent =
       TransactionAuthorizationRequestedEvent(
@@ -2680,7 +2678,7 @@ class NodeServiceTests {
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
           "paymentMethodDescription",
           paypalTransactionGatewayAuthorizationRequestedData,
-          idBundle.toString()))
+          idBundle))
     val authCompletedEvent =
       transactionAuthorizationCompletedEvent(paypalTransactionGatewayAuthorizationData)
     val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -3198,7 +3196,7 @@ class NodeServiceTests {
     expectedLocalDate: String
   ) = runTest {
     val transactionOutcome = ClosePaymentOutcome.OK
-    val idBundle = UUID.randomUUID()
+    val idBundle = ID_BUNDLE
     val bancomatPayTransactionGatewayAuthorizationRequestedData =
       NpgTransactionGatewayAuthorizationRequestedData(
         LOGO_URI,
@@ -3228,7 +3226,7 @@ class NodeServiceTests {
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
           "paymentMethodDescription",
           bancomatPayTransactionGatewayAuthorizationRequestedData,
-          idBundle.toString()))
+          idBundle))
     val authCompletedEvent =
       transactionAuthorizationCompletedEvent(bancomatPayTransactionGatewayAuthorizationData)
     val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -3744,7 +3742,7 @@ class NodeServiceTests {
     expectedLocalDate: String
   ) = runTest {
     val transactionOutcome = ClosePaymentOutcome.OK
-    val idBundle = UUID.randomUUID()
+    val idBundle = ID_BUNDLE
     val myBankTransactionGatewayAuthorizationRequestedData =
       NpgTransactionGatewayAuthorizationRequestedData(
         LOGO_URI,
@@ -3774,7 +3772,7 @@ class NodeServiceTests {
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
           "paymentMethodDescription",
           myBankTransactionGatewayAuthorizationRequestedData,
-          idBundle.toString()))
+          idBundle))
     val authCompletedEvent =
       transactionAuthorizationCompletedEvent(myBankTransactionGatewayAuthorizationData)
     val closureRequestedEvent = transactionClosureRequestedEvent()

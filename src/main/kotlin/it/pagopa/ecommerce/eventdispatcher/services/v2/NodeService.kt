@@ -412,8 +412,7 @@ class NodeService(
         paymentMethod = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
         idBrokerPSP = authCompleted.transactionAuthorizationRequestData.brokerName
         idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
-        idBundle =
-          authCompleted.transactionAuthorizationRequestData.idBundle?.let { UUID.fromString(it) }
+        idBundle = authCompleted.transactionAuthorizationRequestData.idBundle
       }
 
       additionalPaymentInformations =
@@ -503,8 +502,7 @@ class NodeService(
           paymentMethod = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
           idBrokerPSP = authCompleted.transactionAuthorizationRequestData.brokerName
           idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
-          idBundle =
-            authCompleted.transactionAuthorizationRequestData.idBundle?.let { UUID.fromString(it) }
+          idBundle = authCompleted.transactionAuthorizationRequestData.idBundle
         }
 
         this.additionalPaymentInformations = it.orElse(null)
@@ -577,8 +575,7 @@ class NodeService(
           paymentMethod = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
           idBrokerPSP = authCompleted.transactionAuthorizationRequestData.brokerName
           idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
-          idBundle =
-            authCompleted.transactionAuthorizationRequestData.idBundle?.let { UUID.fromString(it) }
+          idBundle = authCompleted.transactionAuthorizationRequestData.idBundle
         }
 
         this.additionalPaymentInformations = it.orElse(null)
@@ -654,8 +651,7 @@ class NodeService(
           paymentMethod = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
           idBrokerPSP = authCompleted.transactionAuthorizationRequestData.brokerName
           idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
-          idBundle =
-            authCompleted.transactionAuthorizationRequestData.idBundle?.let { UUID.fromString(it) }
+          idBundle = authCompleted.transactionAuthorizationRequestData.idBundle
         }
 
         this.additionalPaymentInformations = it.orElse(null)
@@ -725,8 +721,7 @@ class NodeService(
           paymentMethod = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
           idBrokerPSP = authCompleted.transactionAuthorizationRequestData.brokerName
           idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
-          idBundle =
-            authCompleted.transactionAuthorizationRequestData.idBundle?.let { UUID.fromString(it) }
+          idBundle = authCompleted.transactionAuthorizationRequestData.idBundle
         }
 
         this.additionalPaymentInformations = it.orElse(null)
@@ -798,8 +793,7 @@ class NodeService(
           paymentMethod = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
           idBrokerPSP = authCompleted.transactionAuthorizationRequestData.brokerName
           idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
-          idBundle =
-            authCompleted.transactionAuthorizationRequestData.idBundle?.let { UUID.fromString(it) }
+          idBundle = authCompleted.transactionAuthorizationRequestData.idBundle
         }
 
         this.additionalPaymentInformations = it.orElse(null)
@@ -873,8 +867,7 @@ class NodeService(
           paymentMethod = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
           idBrokerPSP = authCompleted.transactionAuthorizationRequestData.brokerName
           idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
-          idBundle =
-            authCompleted.transactionAuthorizationRequestData.idBundle?.let { UUID.fromString(it) }
+          idBundle = authCompleted.transactionAuthorizationRequestData.idBundle
         }
 
         this.additionalPaymentInformations = it.orElse(null)
