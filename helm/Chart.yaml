@@ -2,8 +2,8 @@ apiVersion: v2
 name: pagopa-ecommerce-event-dispatcher
 description: Microservice to schedule events in ecommerce pagoPA
 type: application
-version: 1.29.1
-appVersion: 1.28.1
+version: 1.30.0
+appVersion: 1.29.0
 dependencies:
   - name: microservice-chart
     version: 2.8.0
