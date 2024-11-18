@@ -690,7 +690,8 @@ class UserReceiptMailBuilderTest {
           AUTHORIZATION_REQUEST_ID,
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
           "paymentMethodDescription",
-          paypalTransactionGatewayAuthorizationRequestedData))
+          paypalTransactionGatewayAuthorizationRequestedData,
+          null))
 
     transactionActivatedEvent.data.paymentNotices = paymentNotices
     val events =
@@ -775,7 +776,8 @@ class UserReceiptMailBuilderTest {
           AUTHORIZATION_REQUEST_ID,
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
           "paymentMethodDescription",
-          paypalTransactionGatewayAuthorizationRequestedData))
+          paypalTransactionGatewayAuthorizationRequestedData,
+          null))
     val transactionActivatedEvent = transactionActivateEvent()
     val paymentNotices = mutableListOf<PaymentNotice>()
     repeat(5) {
@@ -849,7 +851,8 @@ class UserReceiptMailBuilderTest {
             AUTHORIZATION_REQUEST_ID,
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
-            paypalTransactionGatewayAuthorizationRequestedData))
+            paypalTransactionGatewayAuthorizationRequestedData,
+            null))
       val transactionActivatedEvent = transactionActivateEvent()
       val paymentNotices = mutableListOf<PaymentNotice>()
       repeat(5) {

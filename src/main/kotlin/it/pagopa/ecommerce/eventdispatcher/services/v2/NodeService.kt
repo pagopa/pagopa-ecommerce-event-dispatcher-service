@@ -410,6 +410,8 @@ class NodeService(
         paymentMethod = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
         idBrokerPSP = authCompleted.transactionAuthorizationRequestData.brokerName
         idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
+        idBundle =
+          authCompleted.transactionAuthorizationRequestData.idBundle?.let { UUID.fromString(it) }
       }
 
       additionalPaymentInformations =
@@ -456,7 +458,7 @@ class NodeService(
         .flatMap { email }
         .map {
           CardAdditionalPaymentInformationsDto().apply {
-            outcomePaymentGateway =
+            this.outcomePaymentGateway =
               getOutcomePaymentGateway(
                 authCompleted.transactionAuthorizationCompletedData
                   .transactionGatewayAuthorizationData)
@@ -481,11 +483,10 @@ class NodeService(
 
     return additionalPaymentInformations.map {
       CardClosePaymentRequestV2Dto().apply {
-        paymentTokens =
+        this.paymentTokens =
           authCompleted.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken.value }
-        outcome = CardClosePaymentRequestV2Dto.OutcomeEnum.valueOf(transactionOutcome.name)
+        this.outcome = CardClosePaymentRequestV2Dto.OutcomeEnum.valueOf(transactionOutcome.name)
         this.transactionId = transactionId.value()
-
         if (transactionOutcome == ClosePaymentOutcome.OK) {
           timestampOperation =
             OffsetDateTime.parse(
@@ -500,6 +501,8 @@ class NodeService(
           paymentMethod = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
           idBrokerPSP = authCompleted.transactionAuthorizationRequestData.brokerName
           idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
+          idBundle =
+            authCompleted.transactionAuthorizationRequestData.idBundle?.let { UUID.fromString(it) }
         }
 
         this.additionalPaymentInformations = it.orElse(null)
@@ -572,6 +575,8 @@ class NodeService(
           paymentMethod = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
           idBrokerPSP = authCompleted.transactionAuthorizationRequestData.brokerName
           idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
+          idBundle =
+            authCompleted.transactionAuthorizationRequestData.idBundle?.let { UUID.fromString(it) }
         }
 
         this.additionalPaymentInformations = it.orElse(null)
@@ -647,6 +652,8 @@ class NodeService(
           paymentMethod = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
           idBrokerPSP = authCompleted.transactionAuthorizationRequestData.brokerName
           idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
+          idBundle =
+            authCompleted.transactionAuthorizationRequestData.idBundle?.let { UUID.fromString(it) }
         }
 
         this.additionalPaymentInformations = it.orElse(null)
@@ -669,10 +676,6 @@ class NodeService(
           .eCommerceDecrypt(authCompleted.transactionActivatedData.email) { Email(it) }
           .map { it.value }
       }
-
-    val npgTransactionGatewayAuthorizationData =
-      authCompleted.transactionAuthorizationCompletedData.transactionGatewayAuthorizationData
-        as NpgTransactionGatewayAuthorizationData
 
     val additionalPaymentInformations =
       Mono.just(0)
@@ -720,6 +723,8 @@ class NodeService(
           paymentMethod = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
           idBrokerPSP = authCompleted.transactionAuthorizationRequestData.brokerName
           idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
+          idBundle =
+            authCompleted.transactionAuthorizationRequestData.idBundle?.let { UUID.fromString(it) }
         }
 
         this.additionalPaymentInformations = it.orElse(null)
@@ -791,6 +796,8 @@ class NodeService(
           paymentMethod = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
           idBrokerPSP = authCompleted.transactionAuthorizationRequestData.brokerName
           idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
+          idBundle =
+            authCompleted.transactionAuthorizationRequestData.idBundle?.let { UUID.fromString(it) }
         }
 
         this.additionalPaymentInformations = it.orElse(null)
@@ -864,6 +871,8 @@ class NodeService(
           paymentMethod = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
           idBrokerPSP = authCompleted.transactionAuthorizationRequestData.brokerName
           idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
+          idBundle =
+            authCompleted.transactionAuthorizationRequestData.idBundle?.let { UUID.fromString(it) }
         }
 
         this.additionalPaymentInformations = it.orElse(null)

@@ -24,6 +24,7 @@ import java.math.BigDecimal
 import java.net.URI
 import java.time.OffsetDateTime
 import java.time.ZonedDateTime
+import java.util.*
 import java.util.stream.Stream
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.reactor.mono
@@ -231,7 +232,7 @@ class NodeServiceTests {
 
   @ParameterizedTest
   @MethodSource("closePaymentDateFormat")
-  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for NPG payment gateway`(
+  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for NPG payment gateway without idBundle`(
     timestampOperation: String,
     expectedLocalDate: String
   ) = runTest {
@@ -242,6 +243,7 @@ class NodeServiceTests {
       transactionAuthorizationRequestedEvent(
         TransactionAuthorizationRequestData.PaymentGateway.NPG,
         npgTransactionGatewayAuthorizationRequestedData())
+    authEvent.data.idBundle = null
     val authCompletedEvent =
       transactionAuthorizationCompletedEvent(
         npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED))
@@ -319,6 +321,155 @@ class NodeServiceTests {
         idBrokerPSP = authEvent.data.brokerName
         paymentMethod = authEvent.data.paymentTypeCode
         this.totalAmount = totalAmountEuro
+        transactionDetails =
+          TransactionDetailsDto().apply {
+            transaction =
+              TransactionDto().apply {
+                transactionStatus =
+                  TransactionDetailsStatusEnum.TRANSACTION_DETAILS_STATUS_CONFIRMED.status
+                this.transactionId = transactionId
+                this.fee = feeEuroCents
+                this.amount = amountEuroCents
+                grandTotal = totalAmountEuroCents
+                this.errorCode = errorCode
+                rrn = authCompletedEvent.data.rrn
+                creationDate = ZonedDateTime.parse(activatedEvent.creationDate).toOffsetDateTime()
+                psp =
+                  PspDto().apply {
+                    idPsp = authEvent.data.pspId
+                    brokerName = authEvent.data.brokerName
+                    idChannel = authEvent.data.pspChannelCode
+                    businessName = authEvent.data.pspBusinessName
+                    pspOnUs = authEvent.data.isPspOnUs
+                  }
+                authorizationCode = authCompletedEvent.data.authorizationCode
+                this.timestampOperation = authCompletedEvent.data.timestampOperation
+                paymentGateway = authEvent.data.paymentGateway.name
+              }
+            user = UserDto().apply { type = UserDto.TypeEnum.GUEST }
+            info =
+              InfoDto().apply {
+                type = authEvent.data.paymentTypeCode
+                clientId = Transaction.ClientId.CHECKOUT.name
+                brand =
+                  (authEvent.data.transactionGatewayAuthorizationRequestedData
+                      as NpgTransactionGatewayAuthorizationRequestedData)
+                    .brand
+                brandLogo =
+                  (authEvent.data.transactionGatewayAuthorizationRequestedData
+                      as NpgTransactionGatewayAuthorizationRequestedData)
+                    .logo
+                    .toString()
+                paymentMethodName = authEvent.data.paymentMethodName
+              }
+          }
+        additionalPaymentInformations =
+          CardAdditionalPaymentInformationsDto().apply {
+            authorizationCode = authCompletedEvent.data.authorizationCode
+            this.fee = feeEuro.toString()
+            outcomePaymentGateway = expectedOutcome
+            rrn = authCompletedEvent.data.rrn
+            this.timestampOperation = expectedTimestamp
+            this.totalAmount = totalAmountEuro.toString()
+            this.email = EMAIL_STRING
+          }
+      }
+
+    assertEquals(expected, closePaymentRequestCaptor.value)
+  }
+
+  @ParameterizedTest
+  @MethodSource("closePaymentDateFormat")
+  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for NPG payment gateway with idBundle`(
+    timestampOperation: String,
+    expectedLocalDate: String
+  ) = runTest {
+    val transactionOutcome = ClosePaymentOutcome.OK
+    val idBundle = UUID.randomUUID()
+    val activatedEvent = transactionActivateEvent()
+    val authEvent =
+      transactionAuthorizationRequestedEvent(
+        TransactionAuthorizationRequestData.PaymentGateway.NPG,
+        npgTransactionGatewayAuthorizationRequestedData())
+    authEvent.data.idBundle = idBundle.toString()
+    val authCompletedEvent =
+      transactionAuthorizationCompletedEvent(
+        npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED))
+    val closureRequestedEvent = transactionClosureRequestedEvent()
+    val closureError = transactionClosureErrorEvent()
+    val transactionId = activatedEvent.transactionId
+    val nodoTimestampOperation = OffsetDateTime.parse(timestampOperation)
+    authCompletedEvent.data.timestampOperation = nodoTimestampOperation.toString()
+    val events =
+      listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent, closureError)
+        as List<TransactionEvent<Any>>
+
+    val closePaymentResponse =
+      ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
+
+    val fee = authEvent.data.fee
+    val amount = authEvent.data.amount
+    val totalAmount = amount + fee
+
+    val feeEuro = EuroUtils.euroCentsToEuro(fee)
+    val totalAmountEuro = EuroUtils.euroCentsToEuro(totalAmount)
+
+    val feeEuroCents = BigDecimal(fee)
+    val amountEuroCents = BigDecimal(amount)
+    val totalAmountEuroCents = BigDecimal(totalAmount)
+
+    /* preconditions */
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
+      .willReturn(events.toFlux())
+
+    given(nodeClient.closePayment(capture(closePaymentRequestCaptor)))
+      .willReturn(Mono.just(closePaymentResponse))
+
+    given(confidentialDataUtils.eCommerceDecrypt(eq(activatedEvent.data.email), any()))
+      .willReturn(Mono.just(Email(EMAIL_STRING)))
+
+    /* test */
+    assertEquals(
+      closePaymentResponse,
+      nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
+
+    val expectedTimestamp = expectedLocalDate
+
+    val expectedOutcome =
+      authCompletedEvent.data.transactionGatewayAuthorizationData.let {
+        when (it) {
+          is NpgTransactionGatewayAuthorizationData ->
+            if (it.operationResult == OperationResultDto.EXECUTED) {
+              OutcomePaymentGatewayEnum.OK
+            } else {
+              OutcomePaymentGatewayEnum.KO
+            }
+          is RedirectTransactionGatewayAuthorizationData ->
+            if (it.outcome == RedirectTransactionGatewayAuthorizationData.Outcome.OK) {
+              OutcomePaymentGatewayEnum.OK
+            } else {
+              OutcomePaymentGatewayEnum.KO
+            }
+          else -> throw IllegalArgumentException("Unhandled authorization data type")
+        }
+      }
+
+    // Check close payment request information
+    val expected =
+      CardClosePaymentRequestV2Dto().apply {
+        outcome = CardClosePaymentRequestV2Dto.OutcomeEnum.OK
+        this.transactionId = transactionId
+        paymentTokens =
+          activatedEvent.data.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken }
+        this.timestampOperation = OffsetDateTime.parse(authCompletedEvent.data.timestampOperation)
+        this.fee = feeEuro
+        idPSP = authEvent.data.pspId
+        idChannel = authEvent.data.pspChannelCode
+        idBrokerPSP = authEvent.data.brokerName
+        paymentMethod = authEvent.data.paymentTypeCode
+        this.totalAmount = totalAmountEuro
+        this.idBundle = idBundle
         transactionDetails =
           TransactionDetailsDto().apply {
             transaction =
@@ -810,7 +961,7 @@ class NodeServiceTests {
 
   @ParameterizedTest
   @MethodSource("closePaymentDateFormat")
-  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for REDIRECT payment gateway`(
+  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for REDIRECT payment gateway without idBundle`(
     timestampOperation: String,
     expectedLocalDate: String
   ) = runTest {
@@ -828,6 +979,7 @@ class NodeServiceTests {
       transactionAuthorizationRequestedEvent(
         TransactionAuthorizationRequestData.PaymentGateway.REDIRECT,
         redirectTransactionGatewayAuthorizationRequestedData)
+    authEvent.data.idBundle = null
     val authCompletedEvent =
       transactionAuthorizationCompletedEvent(redirectTransactionGatewayAuthorizationData)
     val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -879,6 +1031,133 @@ class NodeServiceTests {
         idChannel = authEvent.data.pspChannelCode
         idBrokerPSP = authEvent.data.brokerName
         paymentMethod = authEvent.data.paymentTypeCode
+        this.totalAmount = totalAmountEuro
+        transactionDetails =
+          TransactionDetailsDto().apply {
+            transaction =
+              TransactionDto().apply {
+                transactionStatus =
+                  TransactionDetailsStatusEnum.TRANSACTION_DETAILS_STATUS_CONFIRMED.status
+                this.transactionId = transactionId
+                this.fee = feeEuroCents
+                this.amount = amountEuroCents
+                grandTotal = totalAmountEuroCents
+                this.errorCode = errorCode
+                rrn = authCompletedEvent.data.rrn
+                creationDate = ZonedDateTime.parse(activatedEvent.creationDate).toOffsetDateTime()
+                psp =
+                  PspDto().apply {
+                    idPsp = authEvent.data.pspId
+                    brokerName = authEvent.data.brokerName
+                    idChannel = authEvent.data.pspChannelCode
+                    businessName = authEvent.data.pspBusinessName
+                    pspOnUs = authEvent.data.isPspOnUs
+                  }
+                authorizationCode = authCompletedEvent.data.authorizationCode
+                this.timestampOperation = authCompletedEvent.data.timestampOperation
+                paymentGateway = authEvent.data.paymentGateway.name
+              }
+            user = UserDto().apply { type = UserDto.TypeEnum.GUEST }
+            info =
+              InfoDto().apply {
+                type = authEvent.data.paymentTypeCode
+                clientId = Transaction.ClientId.CHECKOUT.name
+                brand = authEvent.data.paymentTypeCode
+                brandLogo =
+                  (authEvent.data.transactionGatewayAuthorizationRequestedData
+                      as RedirectTransactionGatewayAuthorizationRequestedData)
+                    .logo
+                    .toString()
+                paymentMethodName = authEvent.data.paymentMethodName
+              }
+          }
+        additionalPaymentInformations =
+          RedirectAdditionalPaymentInformationsDto().apply {
+            this.timestampOperation = expectedTimestamp
+            idPSPTransaction = authEvent.data.authorizationRequestId
+            this.fee = feeEuro.toString()
+            this.totalAmount = totalAmountEuro.toString()
+            authorizationCode = authCompletedEvent.data.authorizationCode
+            idTransaction = TRANSACTION_ID
+          }
+      }
+
+    assertEquals(expected, redirectClosePaymentRequestCaptor.value)
+  }
+
+  @ParameterizedTest
+  @MethodSource("closePaymentDateFormat")
+  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for REDIRECT payment gateway with idBundle`(
+    timestampOperation: String,
+    expectedLocalDate: String
+  ) = runTest {
+    val transactionOutcome = ClosePaymentOutcome.OK
+    val redirectTransactionGatewayAuthorizationRequestedData =
+      redirectTransactionGatewayAuthorizationRequestedData()
+        as RedirectTransactionGatewayAuthorizationRequestedData
+    val redirectTransactionGatewayAuthorizationData =
+      redirectTransactionGatewayAuthorizationData(
+        RedirectTransactionGatewayAuthorizationData.Outcome.OK, "")
+        as RedirectTransactionGatewayAuthorizationData
+    val idBundle = UUID.randomUUID()
+    val activatedEvent = transactionActivateEvent()
+    val authEvent =
+      transactionAuthorizationRequestedEvent(
+        TransactionAuthorizationRequestData.PaymentGateway.REDIRECT,
+        redirectTransactionGatewayAuthorizationRequestedData)
+    authEvent.data.idBundle = idBundle.toString()
+    val authCompletedEvent =
+      transactionAuthorizationCompletedEvent(redirectTransactionGatewayAuthorizationData)
+    val closureRequestedEvent = transactionClosureRequestedEvent()
+    val closureError = transactionClosureErrorEvent()
+    val transactionId = activatedEvent.transactionId
+    val nodoTimestampOperation = OffsetDateTime.parse(timestampOperation)
+    authCompletedEvent.data.timestampOperation = nodoTimestampOperation.toString()
+    val events =
+      listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent, closureError)
+        as List<TransactionEvent<Any>>
+
+    val closePaymentResponse =
+      ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
+
+    /* preconditions */
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
+      .willReturn(events.toFlux())
+
+    given(nodeClient.closePayment(capture(redirectClosePaymentRequestCaptor)))
+      .willReturn(Mono.just(closePaymentResponse))
+
+    val fee = authEvent.data.fee
+    val amount = authEvent.data.amount
+    val totalAmount = amount + fee
+
+    val feeEuro = EuroUtils.euroCentsToEuro(fee)
+    val totalAmountEuro = EuroUtils.euroCentsToEuro(totalAmount)
+
+    val feeEuroCents = BigDecimal(fee)
+    val amountEuroCents = BigDecimal(amount)
+    val totalAmountEuroCents = BigDecimal(totalAmount)
+
+    /* test */
+    assertEquals(
+      closePaymentResponse,
+      nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
+    val expectedTimestamp = expectedLocalDate
+
+    val expected =
+      RedirectClosePaymentRequestV2Dto().apply {
+        outcome = RedirectClosePaymentRequestV2Dto.OutcomeEnum.OK
+        this.transactionId = transactionId
+        paymentTokens =
+          activatedEvent.data.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken }
+        this.timestampOperation = OffsetDateTime.parse(authCompletedEvent.data.timestampOperation)
+        this.fee = feeEuro
+        idPSP = authEvent.data.pspId
+        idChannel = authEvent.data.pspChannelCode
+        idBrokerPSP = authEvent.data.brokerName
+        paymentMethod = authEvent.data.paymentTypeCode
+        this.idBundle = idBundle
         this.totalAmount = totalAmountEuro
         transactionDetails =
           TransactionDetailsDto().apply {
@@ -1145,7 +1424,7 @@ class NodeServiceTests {
 
   @ParameterizedTest
   @MethodSource("closePaymentDateFormat")
-  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for Satispay method`(
+  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for Satispay method without idBundle`(
     timestampOperation: String,
     expectedLocalDate: String
   ) = runTest {
@@ -1178,7 +1457,8 @@ class NodeServiceTests {
           AUTHORIZATION_REQUEST_ID,
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
           "paymentMethodDescription",
-          satispayTransactionGatewayAuthorizationRequestedData))
+          satispayTransactionGatewayAuthorizationRequestedData,
+          null))
     val authCompletedEvent =
       transactionAuthorizationCompletedEvent(satispayTransactionGatewayAuthorizationData)
     val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -1288,6 +1568,155 @@ class NodeServiceTests {
     assertEquals(expected, satispayClosePaymentRequestCaptor.value)
   }
 
+  @ParameterizedTest
+  @MethodSource("closePaymentDateFormat")
+  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for Satispay method with idBundle`(
+    timestampOperation: String,
+    expectedLocalDate: String
+  ) = runTest {
+    val transactionOutcome = ClosePaymentOutcome.OK
+    val idBundle = UUID.randomUUID()
+    val satispayTransactionGatewayAuthorizationRequestedData =
+      NpgTransactionGatewayAuthorizationRequestedData(
+        LOGO_URI,
+        NpgClient.PaymentMethod.SATISPAY.toString(),
+        "npgSessionId",
+        "npgConfirmPaymentSessionId",
+        null)
+    val satispayTransactionGatewayAuthorizationData =
+      npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)
+
+    val activatedEvent = transactionActivateEvent()
+    val authEvent =
+      TransactionAuthorizationRequestedEvent(
+        TRANSACTION_ID,
+        TransactionAuthorizationRequestData(
+          100,
+          10,
+          "paymentInstrumentId",
+          "pspId",
+          PaymentCode.SATY.name,
+          "brokerName",
+          "pspChannelCode",
+          "paymentMethodName",
+          "pspBusinessName",
+          false,
+          AUTHORIZATION_REQUEST_ID,
+          TransactionAuthorizationRequestData.PaymentGateway.NPG,
+          "paymentMethodDescription",
+          satispayTransactionGatewayAuthorizationRequestedData,
+          idBundle.toString()))
+
+    val authCompletedEvent =
+      transactionAuthorizationCompletedEvent(satispayTransactionGatewayAuthorizationData)
+    val closureRequestedEvent = transactionClosureRequestedEvent()
+    val closureError = transactionClosureErrorEvent()
+    val transactionId = activatedEvent.transactionId
+    val nodoTimestampOperation = OffsetDateTime.parse(timestampOperation)
+    authCompletedEvent.data.timestampOperation = nodoTimestampOperation.toString()
+    val events =
+      listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent, closureError)
+        as List<TransactionEvent<Any>>
+
+    val closePaymentResponse =
+      ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
+
+    /* preconditions */
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
+      .willReturn(events.toFlux())
+    given(confidentialDataUtils.eCommerceDecrypt(eq(activatedEvent.data.email), any()))
+      .willReturn(Mono.just(Email(EMAIL_STRING)))
+
+    given(nodeClient.closePayment(capture(satispayClosePaymentRequestCaptor)))
+      .willReturn(Mono.just(closePaymentResponse))
+
+    val fee = authEvent.data.fee
+    val amount = authEvent.data.amount
+    val totalAmount = amount + fee
+
+    val feeEuro = EuroUtils.euroCentsToEuro(fee)
+    val totalAmountEuro = EuroUtils.euroCentsToEuro(totalAmount)
+
+    val feeEuroCents = BigDecimal(fee)
+    val amountEuroCents = BigDecimal(amount)
+    val totalAmountEuroCents = BigDecimal(totalAmount)
+
+    /* test */
+    assertEquals(
+      closePaymentResponse,
+      nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
+    val expectedTimestamp = expectedLocalDate
+
+    val expected =
+      SatispayClosePaymentRequestV2Dto().apply {
+        outcome = SatispayClosePaymentRequestV2Dto.OutcomeEnum.OK
+        this.transactionId = transactionId
+        paymentTokens =
+          activatedEvent.data.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken }
+        this.timestampOperation = OffsetDateTime.parse(authCompletedEvent.data.timestampOperation)
+        this.fee = feeEuro
+        idPSP = authEvent.data.pspId
+        idChannel = authEvent.data.pspChannelCode
+        idBrokerPSP = authEvent.data.brokerName
+        paymentMethod = authEvent.data.paymentTypeCode
+        this.idBundle = idBundle
+        this.totalAmount = totalAmountEuro
+        transactionDetails =
+          TransactionDetailsDto().apply {
+            transaction =
+              TransactionDto().apply {
+                transactionStatus =
+                  TransactionDetailsStatusEnum.TRANSACTION_DETAILS_STATUS_CONFIRMED.status
+                this.transactionId = transactionId
+                this.fee = feeEuroCents
+                this.amount = amountEuroCents
+                grandTotal = totalAmountEuroCents
+                this.errorCode = errorCode
+                rrn = authCompletedEvent.data.rrn
+                creationDate = ZonedDateTime.parse(activatedEvent.creationDate).toOffsetDateTime()
+                psp =
+                  PspDto().apply {
+                    idPsp = authEvent.data.pspId
+                    brokerName = authEvent.data.brokerName
+                    idChannel = authEvent.data.pspChannelCode
+                    businessName = authEvent.data.pspBusinessName
+                    pspOnUs = authEvent.data.isPspOnUs
+                  }
+                authorizationCode = authCompletedEvent.data.authorizationCode
+                this.timestampOperation = authCompletedEvent.data.timestampOperation
+                paymentGateway = authEvent.data.paymentGateway.name
+              }
+            user = UserDto().apply { type = UserDto.TypeEnum.GUEST }
+            info =
+              InfoDto().apply {
+                type = authEvent.data.paymentTypeCode
+                clientId = Transaction.ClientId.CHECKOUT.name
+                brand = authEvent.data.paymentTypeCode
+                brandLogo =
+                  (authEvent.data.transactionGatewayAuthorizationRequestedData
+                      as NpgTransactionGatewayAuthorizationRequestedData)
+                    .logo
+                    .toString()
+                paymentMethodName = authEvent.data.paymentMethodName
+              }
+          }
+        additionalPaymentInformations =
+          SatispayAdditionalPaymentInformationsDto().apply {
+            this.satispayTransactionId =
+              (authCompletedEvent.data.transactionGatewayAuthorizationData
+                  as NpgTransactionGatewayAuthorizationData)
+                .paymentEndToEndId
+            this.timestampOperation = expectedTimestamp
+            this.fee = feeEuro.toString()
+            this.totalAmount = totalAmountEuro.toString()
+            this.email = EMAIL_STRING
+          }
+      }
+
+    assertEquals(expected, satispayClosePaymentRequestCaptor.value)
+  }
+
   @Test
   fun `ClosePaymentRequestV2Dto for close payment KO for cancelled transaction is correct for Satispay method`() =
     runTest {
@@ -1320,7 +1749,8 @@ class NodeServiceTests {
             AUTHORIZATION_REQUEST_ID,
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
-            paypalTransactionGatewayAuthorizationRequestedData))
+            paypalTransactionGatewayAuthorizationRequestedData,
+            null))
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(satispayTransactionGatewayAuthorizationData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -1441,7 +1871,8 @@ class NodeServiceTests {
             AUTHORIZATION_REQUEST_ID,
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
-            paypalTransactionGatewayAuthorizationRequestedData))
+            paypalTransactionGatewayAuthorizationRequestedData,
+            null))
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(satispayTransactionGatewayAuthorizationData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -1532,7 +1963,7 @@ class NodeServiceTests {
 
   @ParameterizedTest
   @MethodSource("closePaymentDateFormat")
-  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for Applepay method`(
+  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for Applepay method without idBundle`(
     timestampOperation: String,
     expectedLocalDate: String
   ) = runTest {
@@ -1565,7 +1996,8 @@ class NodeServiceTests {
           AUTHORIZATION_REQUEST_ID,
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
           "paymentMethodDescription",
-          satispayTransactionGatewayAuthorizationRequestedData))
+          satispayTransactionGatewayAuthorizationRequestedData,
+          null))
     val authCompletedEvent =
       transactionAuthorizationCompletedEvent(applepayTransactionGatewayAuthorizationData)
     val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -1673,6 +2105,151 @@ class NodeServiceTests {
     assertEquals(expected, satispayClosePaymentRequestCaptor.value)
   }
 
+  @ParameterizedTest
+  @MethodSource("closePaymentDateFormat")
+  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for Applepay method with idBundle`(
+    timestampOperation: String,
+    expectedLocalDate: String
+  ) = runTest {
+    val transactionOutcome = ClosePaymentOutcome.OK
+    val satispayTransactionGatewayAuthorizationRequestedData =
+      NpgTransactionGatewayAuthorizationRequestedData(
+        LOGO_URI,
+        NpgClient.PaymentMethod.APPLEPAY.toString(),
+        "npgSessionId",
+        "npgConfirmPaymentSessionId",
+        null)
+    val applepayTransactionGatewayAuthorizationData =
+      npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)
+    val idBundle = UUID.randomUUID()
+    val activatedEvent = transactionActivateEvent()
+    val authEvent =
+      TransactionAuthorizationRequestedEvent(
+        TRANSACTION_ID,
+        TransactionAuthorizationRequestData(
+          100,
+          10,
+          "paymentInstrumentId",
+          "pspId",
+          PaymentCode.APPL.name,
+          "brokerName",
+          "pspChannelCode",
+          "paymentMethodName",
+          "pspBusinessName",
+          false,
+          AUTHORIZATION_REQUEST_ID,
+          TransactionAuthorizationRequestData.PaymentGateway.NPG,
+          "paymentMethodDescription",
+          satispayTransactionGatewayAuthorizationRequestedData,
+          idBundle.toString()))
+    val authCompletedEvent =
+      transactionAuthorizationCompletedEvent(applepayTransactionGatewayAuthorizationData)
+    val closureRequestedEvent = transactionClosureRequestedEvent()
+    val closureError = transactionClosureErrorEvent()
+    val transactionId = activatedEvent.transactionId
+    val nodoTimestampOperation = OffsetDateTime.parse(timestampOperation)
+    authCompletedEvent.data.timestampOperation = nodoTimestampOperation.toString()
+    val events =
+      listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent, closureError)
+        as List<TransactionEvent<Any>>
+
+    val closePaymentResponse =
+      ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
+
+    /* preconditions */
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
+      .willReturn(events.toFlux())
+    given(confidentialDataUtils.eCommerceDecrypt(eq(activatedEvent.data.email), any()))
+      .willReturn(Mono.just(Email(EMAIL_STRING)))
+
+    given(nodeClient.closePayment(capture(satispayClosePaymentRequestCaptor)))
+      .willReturn(Mono.just(closePaymentResponse))
+
+    val fee = authEvent.data.fee
+    val amount = authEvent.data.amount
+    val totalAmount = amount + fee
+
+    val feeEuro = EuroUtils.euroCentsToEuro(fee)
+    val totalAmountEuro = EuroUtils.euroCentsToEuro(totalAmount)
+
+    val feeEuroCents = BigDecimal(fee)
+    val amountEuroCents = BigDecimal(amount)
+    val totalAmountEuroCents = BigDecimal(totalAmount)
+
+    /* test */
+    assertEquals(
+      closePaymentResponse,
+      nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
+    val expectedTimestamp = expectedLocalDate
+
+    val expected =
+      ApplePayClosePaymentRequestV2Dto().apply {
+        outcome = ApplePayClosePaymentRequestV2Dto.OutcomeEnum.OK
+        this.transactionId = transactionId
+        paymentTokens =
+          activatedEvent.data.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken }
+        this.timestampOperation = OffsetDateTime.parse(authCompletedEvent.data.timestampOperation)
+        this.fee = feeEuro
+        idPSP = authEvent.data.pspId
+        idChannel = authEvent.data.pspChannelCode
+        idBrokerPSP = authEvent.data.brokerName
+        paymentMethod = authEvent.data.paymentTypeCode
+        this.idBundle = idBundle
+        this.totalAmount = totalAmountEuro
+        transactionDetails =
+          TransactionDetailsDto().apply {
+            transaction =
+              TransactionDto().apply {
+                transactionStatus =
+                  TransactionDetailsStatusEnum.TRANSACTION_DETAILS_STATUS_CONFIRMED.status
+                this.transactionId = transactionId
+                this.fee = feeEuroCents
+                this.amount = amountEuroCents
+                grandTotal = totalAmountEuroCents
+                this.errorCode = errorCode
+                rrn = authCompletedEvent.data.rrn
+                creationDate = ZonedDateTime.parse(activatedEvent.creationDate).toOffsetDateTime()
+                psp =
+                  PspDto().apply {
+                    idPsp = authEvent.data.pspId
+                    brokerName = authEvent.data.brokerName
+                    idChannel = authEvent.data.pspChannelCode
+                    businessName = authEvent.data.pspBusinessName
+                    pspOnUs = authEvent.data.isPspOnUs
+                  }
+                authorizationCode = authCompletedEvent.data.authorizationCode
+                this.timestampOperation = authCompletedEvent.data.timestampOperation
+                paymentGateway = authEvent.data.paymentGateway.name
+              }
+            user = UserDto().apply { type = UserDto.TypeEnum.GUEST }
+            info =
+              InfoDto().apply {
+                type = authEvent.data.paymentTypeCode
+                clientId = Transaction.ClientId.CHECKOUT.name
+                brand = authEvent.data.paymentTypeCode
+                brandLogo =
+                  (authEvent.data.transactionGatewayAuthorizationRequestedData
+                      as NpgTransactionGatewayAuthorizationRequestedData)
+                    .logo
+                    .toString()
+                paymentMethodName = authEvent.data.paymentMethodName
+              }
+          }
+        additionalPaymentInformations =
+          ApplePayAdditionalPaymentInformationsDto().apply {
+            this.rrn = authCompletedEvent.data.rrn
+            this.timestampOperation = expectedTimestamp
+            this.fee = feeEuro.toString()
+            this.totalAmount = totalAmountEuro.toString()
+            this.email = EMAIL_STRING
+            this.authorizationCode = authCompletedEvent.data.authorizationCode
+          }
+      }
+
+    assertEquals(expected, satispayClosePaymentRequestCaptor.value)
+  }
+
   @Test
   fun `ClosePaymentRequestV2Dto for close payment KO for cancelled transaction is correct for Applepay method`() =
     runTest {
@@ -1705,7 +2282,8 @@ class NodeServiceTests {
             AUTHORIZATION_REQUEST_ID,
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
-            paypalTransactionGatewayAuthorizationRequestedData))
+            paypalTransactionGatewayAuthorizationRequestedData,
+            null))
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(satispayTransactionGatewayAuthorizationData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -1826,7 +2404,8 @@ class NodeServiceTests {
             AUTHORIZATION_REQUEST_ID,
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
-            paypalTransactionGatewayAuthorizationRequestedData))
+            paypalTransactionGatewayAuthorizationRequestedData,
+            null))
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(satispayTransactionGatewayAuthorizationData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -1917,7 +2496,7 @@ class NodeServiceTests {
 
   @ParameterizedTest
   @MethodSource("closePaymentDateFormat")
-  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for PayPal method`(
+  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for PayPal method without idBundle`(
     timestampOperation: String,
     expectedLocalDate: String
   ) = runTest {
@@ -1950,7 +2529,8 @@ class NodeServiceTests {
           AUTHORIZATION_REQUEST_ID,
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
           "paymentMethodDescription",
-          paypalTransactionGatewayAuthorizationRequestedData))
+          paypalTransactionGatewayAuthorizationRequestedData,
+          null))
     val authCompletedEvent =
       transactionAuthorizationCompletedEvent(paypalTransactionGatewayAuthorizationData)
     val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -2064,6 +2644,157 @@ class NodeServiceTests {
     assertEquals(expected, paypalClosePaymentRequestCaptor.value)
   }
 
+  @ParameterizedTest
+  @MethodSource("closePaymentDateFormat")
+  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for PayPal method with idBundle`(
+    timestampOperation: String,
+    expectedLocalDate: String
+  ) = runTest {
+    val transactionOutcome = ClosePaymentOutcome.OK
+    val paypalTransactionGatewayAuthorizationRequestedData =
+      NpgTransactionGatewayAuthorizationRequestedData(
+        LOGO_URI,
+        NpgClient.PaymentMethod.PAYPAL.toString(),
+        "npgSessionId",
+        "npgConfirmPaymentSessionId",
+        null)
+    val paypalTransactionGatewayAuthorizationData =
+      npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)
+    val idBundle = UUID.randomUUID()
+    val activatedEvent = transactionActivateEvent()
+    val authEvent =
+      TransactionAuthorizationRequestedEvent(
+        TRANSACTION_ID,
+        TransactionAuthorizationRequestData(
+          100,
+          10,
+          "paymentInstrumentId",
+          "pspId",
+          PaymentCode.PPAL.name,
+          "brokerName",
+          "pspChannelCode",
+          "paymentMethodName",
+          "pspBusinessName",
+          false,
+          AUTHORIZATION_REQUEST_ID,
+          TransactionAuthorizationRequestData.PaymentGateway.NPG,
+          "paymentMethodDescription",
+          paypalTransactionGatewayAuthorizationRequestedData,
+          idBundle.toString()))
+    val authCompletedEvent =
+      transactionAuthorizationCompletedEvent(paypalTransactionGatewayAuthorizationData)
+    val closureRequestedEvent = transactionClosureRequestedEvent()
+    val closureError = transactionClosureErrorEvent()
+    val transactionId = activatedEvent.transactionId
+    val nodoTimestampOperation = OffsetDateTime.parse(timestampOperation)
+    authCompletedEvent.data.timestampOperation = nodoTimestampOperation.toString()
+    val events =
+      listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent, closureError)
+        as List<TransactionEvent<Any>>
+
+    val closePaymentResponse =
+      ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
+
+    /* preconditions */
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
+      .willReturn(events.toFlux())
+    given(confidentialDataUtils.eCommerceDecrypt(eq(activatedEvent.data.email), any()))
+      .willReturn(Mono.just(Email(EMAIL_STRING)))
+
+    given(nodeClient.closePayment(capture(paypalClosePaymentRequestCaptor)))
+      .willReturn(Mono.just(closePaymentResponse))
+
+    val fee = authEvent.data.fee
+    val amount = authEvent.data.amount
+    val totalAmount = amount + fee
+
+    val feeEuro = EuroUtils.euroCentsToEuro(fee)
+    val totalAmountEuro = EuroUtils.euroCentsToEuro(totalAmount)
+
+    val feeEuroCents = BigDecimal(fee)
+    val amountEuroCents = BigDecimal(amount)
+    val totalAmountEuroCents = BigDecimal(totalAmount)
+
+    /* test */
+    assertEquals(
+      closePaymentResponse,
+      nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
+    val expectedTimestamp = expectedLocalDate
+
+    val expected =
+      PayPalClosePaymentRequestV2Dto().apply {
+        outcome = PayPalClosePaymentRequestV2Dto.OutcomeEnum.OK
+        this.transactionId = transactionId
+        paymentTokens =
+          activatedEvent.data.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken }
+        this.timestampOperation = OffsetDateTime.parse(authCompletedEvent.data.timestampOperation)
+        this.fee = feeEuro
+        idPSP = authEvent.data.pspId
+        idChannel = authEvent.data.pspChannelCode
+        idBrokerPSP = authEvent.data.brokerName
+        paymentMethod = authEvent.data.paymentTypeCode
+        this.idBundle = idBundle
+        this.totalAmount = totalAmountEuro
+        transactionDetails =
+          TransactionDetailsDto().apply {
+            transaction =
+              TransactionDto().apply {
+                transactionStatus =
+                  TransactionDetailsStatusEnum.TRANSACTION_DETAILS_STATUS_CONFIRMED.status
+                this.transactionId = transactionId
+                this.fee = feeEuroCents
+                this.amount = amountEuroCents
+                grandTotal = totalAmountEuroCents
+                this.errorCode = errorCode
+                rrn = authCompletedEvent.data.rrn
+                creationDate = ZonedDateTime.parse(activatedEvent.creationDate).toOffsetDateTime()
+                psp =
+                  PspDto().apply {
+                    idPsp = authEvent.data.pspId
+                    brokerName = authEvent.data.brokerName
+                    idChannel = authEvent.data.pspChannelCode
+                    businessName = authEvent.data.pspBusinessName
+                    pspOnUs = authEvent.data.isPspOnUs
+                  }
+                authorizationCode = authCompletedEvent.data.authorizationCode
+                this.timestampOperation = authCompletedEvent.data.timestampOperation
+                paymentGateway = authEvent.data.paymentGateway.name
+              }
+            user = UserDto().apply { type = UserDto.TypeEnum.GUEST }
+            info =
+              InfoDto().apply {
+                type = authEvent.data.paymentTypeCode
+                clientId = Transaction.ClientId.CHECKOUT.name
+                brand = authEvent.data.paymentTypeCode
+                brandLogo =
+                  (authEvent.data.transactionGatewayAuthorizationRequestedData
+                      as NpgTransactionGatewayAuthorizationRequestedData)
+                    .logo
+                    .toString()
+                paymentMethodName = authEvent.data.paymentMethodName
+              }
+          }
+        additionalPaymentInformations =
+          PayPalAdditionalPaymentInformationsDto().apply {
+            this.transactionId =
+              (authCompletedEvent.data.transactionGatewayAuthorizationData
+                  as NpgTransactionGatewayAuthorizationData)
+                .operationId
+            this.pspTransactionId =
+              (authCompletedEvent.data.transactionGatewayAuthorizationData
+                  as NpgTransactionGatewayAuthorizationData)
+                .paymentEndToEndId
+            this.timestampOperation = expectedTimestamp
+            this.fee = feeEuro.toString()
+            this.totalAmount = totalAmountEuro.toString()
+            this.email = EMAIL_STRING
+          }
+      }
+
+    assertEquals(expected, paypalClosePaymentRequestCaptor.value)
+  }
+
   @Test
   fun `ClosePaymentRequestV2Dto for close payment KO for cancelled transaction is correct for PayPal method`() =
     runTest {
@@ -2096,7 +2827,8 @@ class NodeServiceTests {
             AUTHORIZATION_REQUEST_ID,
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
-            paypalTransactionGatewayAuthorizationRequestedData))
+            paypalTransactionGatewayAuthorizationRequestedData,
+            null))
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(paypalTransactionGatewayAuthorizationData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -2217,7 +2949,8 @@ class NodeServiceTests {
             AUTHORIZATION_REQUEST_ID,
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
-            paypalTransactionGatewayAuthorizationRequestedData))
+            paypalTransactionGatewayAuthorizationRequestedData,
+            null))
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(paypalTransactionGatewayAuthorizationData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -2308,7 +3041,7 @@ class NodeServiceTests {
 
   @ParameterizedTest
   @MethodSource("closePaymentDateFormat")
-  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for BancomatPay method`(
+  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for BancomatPay method without idBundle`(
     timestampOperation: String,
     expectedLocalDate: String
   ) = runTest {
@@ -2341,7 +3074,8 @@ class NodeServiceTests {
           AUTHORIZATION_REQUEST_ID,
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
           "paymentMethodDescription",
-          bancomatPayTransactionGatewayAuthorizationRequestedData))
+          bancomatPayTransactionGatewayAuthorizationRequestedData,
+          null))
     val authCompletedEvent =
       transactionAuthorizationCompletedEvent(bancomatPayTransactionGatewayAuthorizationData)
     val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -2457,6 +3191,160 @@ class NodeServiceTests {
     assertEquals(expected, bancomatPayClosePaymentRequestCaptor.value)
   }
 
+  @ParameterizedTest
+  @MethodSource("closePaymentDateFormat")
+  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for BancomatPay method with idBundle`(
+    timestampOperation: String,
+    expectedLocalDate: String
+  ) = runTest {
+    val transactionOutcome = ClosePaymentOutcome.OK
+    val idBundle = UUID.randomUUID()
+    val bancomatPayTransactionGatewayAuthorizationRequestedData =
+      NpgTransactionGatewayAuthorizationRequestedData(
+        LOGO_URI,
+        NpgClient.PaymentMethod.BANCOMATPAY.toString(),
+        "npgSessionId",
+        "npgConfirmPaymentSessionId",
+        null)
+    val bancomatPayTransactionGatewayAuthorizationData =
+      npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)
+
+    val activatedEvent = transactionActivateEvent()
+    val authEvent =
+      TransactionAuthorizationRequestedEvent(
+        TRANSACTION_ID,
+        TransactionAuthorizationRequestData(
+          100,
+          10,
+          "paymentInstrumentId",
+          "pspId",
+          PaymentCode.BPAY.name,
+          "brokerName",
+          "pspChannelCode",
+          "paymentMethodName",
+          "pspBusinessName",
+          false,
+          AUTHORIZATION_REQUEST_ID,
+          TransactionAuthorizationRequestData.PaymentGateway.NPG,
+          "paymentMethodDescription",
+          bancomatPayTransactionGatewayAuthorizationRequestedData,
+          idBundle.toString()))
+    val authCompletedEvent =
+      transactionAuthorizationCompletedEvent(bancomatPayTransactionGatewayAuthorizationData)
+    val closureRequestedEvent = transactionClosureRequestedEvent()
+    val closureError = transactionClosureErrorEvent()
+    val transactionId = activatedEvent.transactionId
+    val nodoTimestampOperation = OffsetDateTime.parse(timestampOperation)
+    authCompletedEvent.data.timestampOperation = nodoTimestampOperation.toString()
+    val events =
+      listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent, closureError)
+        as List<TransactionEvent<Any>>
+
+    val closePaymentResponse =
+      ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
+
+    /* preconditions */
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
+      .willReturn(events.toFlux())
+    given(confidentialDataUtils.eCommerceDecrypt(eq(activatedEvent.data.email), any()))
+      .willReturn(Mono.just(Email(EMAIL_STRING)))
+
+    given(nodeClient.closePayment(capture(bancomatPayClosePaymentRequestCaptor)))
+      .willReturn(Mono.just(closePaymentResponse))
+
+    val fee = authEvent.data.fee
+    val amount = authEvent.data.amount
+    val totalAmount = amount + fee
+
+    val feeEuro = EuroUtils.euroCentsToEuro(fee)
+    val totalAmountEuro = EuroUtils.euroCentsToEuro(totalAmount)
+
+    val feeEuroCents = BigDecimal(fee)
+    val amountEuroCents = BigDecimal(amount)
+    val totalAmountEuroCents = BigDecimal(totalAmount)
+
+    /* test */
+    assertEquals(
+      closePaymentResponse,
+      nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
+    val expectedTimestamp = expectedLocalDate
+
+    val expected =
+      BancomatPayClosePaymentRequestV2Dto().apply {
+        outcome = BancomatPayClosePaymentRequestV2Dto.OutcomeEnum.OK
+        this.transactionId = transactionId
+        paymentTokens =
+          activatedEvent.data.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken }
+        this.timestampOperation = OffsetDateTime.parse(authCompletedEvent.data.timestampOperation)
+        this.fee = feeEuro
+        idPSP = authEvent.data.pspId
+        idChannel = authEvent.data.pspChannelCode
+        idBrokerPSP = authEvent.data.brokerName
+        paymentMethod = authEvent.data.paymentTypeCode
+        this.totalAmount = totalAmountEuro
+        this.idBundle = idBundle
+        transactionDetails =
+          TransactionDetailsDto().apply {
+            transaction =
+              TransactionDto().apply {
+                transactionStatus =
+                  TransactionDetailsStatusEnum.TRANSACTION_DETAILS_STATUS_CONFIRMED.status
+                this.transactionId = transactionId
+                this.fee = feeEuroCents
+                this.amount = amountEuroCents
+                grandTotal = totalAmountEuroCents
+                this.errorCode = errorCode
+                rrn = authCompletedEvent.data.rrn
+                creationDate = ZonedDateTime.parse(activatedEvent.creationDate).toOffsetDateTime()
+                psp =
+                  PspDto().apply {
+                    idPsp = authEvent.data.pspId
+                    brokerName = authEvent.data.brokerName
+                    idChannel = authEvent.data.pspChannelCode
+                    businessName = authEvent.data.pspBusinessName
+                    pspOnUs = authEvent.data.isPspOnUs
+                  }
+                authorizationCode = authCompletedEvent.data.authorizationCode
+                this.timestampOperation = authCompletedEvent.data.timestampOperation
+                paymentGateway = authEvent.data.paymentGateway.name
+              }
+            user = UserDto().apply { type = UserDto.TypeEnum.GUEST }
+            info =
+              InfoDto().apply {
+                type = authEvent.data.paymentTypeCode
+                clientId = Transaction.ClientId.CHECKOUT.name
+                brand = authEvent.data.paymentTypeCode
+                brandLogo =
+                  (authEvent.data.transactionGatewayAuthorizationRequestedData
+                      as NpgTransactionGatewayAuthorizationRequestedData)
+                    .logo
+                    .toString()
+                paymentMethodName = authEvent.data.paymentMethodName
+              }
+          }
+        additionalPaymentInformations =
+          BancomatPayAdditionalPaymentInformationsDto().apply {
+            this.transactionId =
+              (authCompletedEvent.data.transactionGatewayAuthorizationData
+                  as NpgTransactionGatewayAuthorizationData)
+                .paymentEndToEndId
+            this.outcomePaymentGateway =
+              BancomatPayAdditionalPaymentInformationsDto.OutcomePaymentGatewayEnum.OK
+            this.totalAmount = totalAmountEuro.toString()
+            this.fee = feeEuro.toString()
+            this.timestampOperation = expectedTimestamp
+            this.authorizationCode =
+              (authCompletedEvent.data.transactionGatewayAuthorizationData
+                  as NpgTransactionGatewayAuthorizationData)
+                .operationId
+            this.email = EMAIL_STRING
+          }
+      }
+
+    assertEquals(expected, bancomatPayClosePaymentRequestCaptor.value)
+  }
+
   @Test
   fun `ClosePaymentRequestV2Dto for close payment KO for cancelled transaction is correct for BancomatPay method`() =
     runTest {
@@ -2489,7 +3377,8 @@ class NodeServiceTests {
             AUTHORIZATION_REQUEST_ID,
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
-            bancomatPayTransactionGatewayAuthorizationRequestedData))
+            bancomatPayTransactionGatewayAuthorizationRequestedData,
+            null))
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(bancomatPayTransactionGatewayAuthorizationData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -2610,7 +3499,8 @@ class NodeServiceTests {
             AUTHORIZATION_REQUEST_ID,
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
-            bancomatPayTransactionGatewayAuthorizationRequestedData))
+            bancomatPayTransactionGatewayAuthorizationRequestedData,
+            null))
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(bancomatPayTransactionGatewayAuthorizationData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -2701,7 +3591,7 @@ class NodeServiceTests {
 
   @ParameterizedTest
   @MethodSource("closePaymentDateFormat")
-  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for MyBank method`(
+  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for MyBank method without idBundle`(
     timestampOperation: String,
     expectedLocalDate: String
   ) = runTest {
@@ -2734,7 +3624,8 @@ class NodeServiceTests {
           AUTHORIZATION_REQUEST_ID,
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
           "paymentMethodDescription",
-          myBankTransactionGatewayAuthorizationRequestedData))
+          myBankTransactionGatewayAuthorizationRequestedData,
+          null))
     val authCompletedEvent =
       transactionAuthorizationCompletedEvent(myBankTransactionGatewayAuthorizationData)
     val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -2846,6 +3737,156 @@ class NodeServiceTests {
     assertEquals(expected, myBankClosePaymentRequestCaptor.value)
   }
 
+  @ParameterizedTest
+  @MethodSource("closePaymentDateFormat")
+  fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for MyBank method with idBundle`(
+    timestampOperation: String,
+    expectedLocalDate: String
+  ) = runTest {
+    val transactionOutcome = ClosePaymentOutcome.OK
+    val idBundle = UUID.randomUUID()
+    val myBankTransactionGatewayAuthorizationRequestedData =
+      NpgTransactionGatewayAuthorizationRequestedData(
+        LOGO_URI,
+        NpgClient.PaymentMethod.MYBANK.toString(),
+        "npgSessionId",
+        "npgConfirmPaymentSessionId",
+        null)
+    val myBankTransactionGatewayAuthorizationData =
+      npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)
+
+    val activatedEvent = transactionActivateEvent()
+    val authEvent =
+      TransactionAuthorizationRequestedEvent(
+        TRANSACTION_ID,
+        TransactionAuthorizationRequestData(
+          100,
+          10,
+          "paymentInstrumentId",
+          "pspId",
+          PaymentCode.MYBK.name,
+          "brokerName",
+          "pspChannelCode",
+          "paymentMethodName",
+          "pspBusinessName",
+          false,
+          AUTHORIZATION_REQUEST_ID,
+          TransactionAuthorizationRequestData.PaymentGateway.NPG,
+          "paymentMethodDescription",
+          myBankTransactionGatewayAuthorizationRequestedData,
+          idBundle.toString()))
+    val authCompletedEvent =
+      transactionAuthorizationCompletedEvent(myBankTransactionGatewayAuthorizationData)
+    val closureRequestedEvent = transactionClosureRequestedEvent()
+    val closureError = transactionClosureErrorEvent()
+    val transactionId = activatedEvent.transactionId
+    val nodoTimestampOperation = OffsetDateTime.parse(timestampOperation)
+    authCompletedEvent.data.timestampOperation = nodoTimestampOperation.toString()
+    val events =
+      listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent, closureError)
+        as List<TransactionEvent<Any>>
+
+    val closePaymentResponse =
+      ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
+
+    /* preconditions */
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
+      .willReturn(events.toFlux())
+    given(confidentialDataUtils.eCommerceDecrypt(eq(activatedEvent.data.email), any()))
+      .willReturn(Mono.just(Email(EMAIL_STRING)))
+
+    given(nodeClient.closePayment(capture(myBankClosePaymentRequestCaptor)))
+      .willReturn(Mono.just(closePaymentResponse))
+
+    val fee = authEvent.data.fee
+    val amount = authEvent.data.amount
+    val totalAmount = amount + fee
+
+    val feeEuro = EuroUtils.euroCentsToEuro(fee)
+    val totalAmountEuro = EuroUtils.euroCentsToEuro(totalAmount)
+
+    val feeEuroCents = BigDecimal(fee)
+    val amountEuroCents = BigDecimal(amount)
+    val totalAmountEuroCents = BigDecimal(totalAmount)
+
+    /* test */
+    assertEquals(
+      closePaymentResponse,
+      nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
+    val expectedTimestamp = expectedLocalDate
+
+    val expected =
+      MyBankClosePaymentRequestV2Dto().apply {
+        outcome = MyBankClosePaymentRequestV2Dto.OutcomeEnum.OK
+        this.transactionId = transactionId
+        paymentTokens =
+          activatedEvent.data.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken }
+        this.timestampOperation = OffsetDateTime.parse(authCompletedEvent.data.timestampOperation)
+        this.fee = feeEuro
+        idPSP = authEvent.data.pspId
+        idChannel = authEvent.data.pspChannelCode
+        idBrokerPSP = authEvent.data.brokerName
+        paymentMethod = authEvent.data.paymentTypeCode
+        this.idBundle = idBundle
+        this.totalAmount = totalAmountEuro
+        transactionDetails =
+          TransactionDetailsDto().apply {
+            transaction =
+              TransactionDto().apply {
+                transactionStatus =
+                  TransactionDetailsStatusEnum.TRANSACTION_DETAILS_STATUS_CONFIRMED.status
+                this.transactionId = transactionId
+                this.fee = feeEuroCents
+                this.amount = amountEuroCents
+                grandTotal = totalAmountEuroCents
+                this.errorCode = errorCode
+                rrn = authCompletedEvent.data.rrn
+                creationDate = ZonedDateTime.parse(activatedEvent.creationDate).toOffsetDateTime()
+                psp =
+                  PspDto().apply {
+                    idPsp = authEvent.data.pspId
+                    brokerName = authEvent.data.brokerName
+                    idChannel = authEvent.data.pspChannelCode
+                    businessName = authEvent.data.pspBusinessName
+                    pspOnUs = authEvent.data.isPspOnUs
+                  }
+                authorizationCode = authCompletedEvent.data.authorizationCode
+                this.timestampOperation = authCompletedEvent.data.timestampOperation
+                paymentGateway = authEvent.data.paymentGateway.name
+              }
+            user = UserDto().apply { type = UserDto.TypeEnum.GUEST }
+            info =
+              InfoDto().apply {
+                type = authEvent.data.paymentTypeCode
+                clientId = Transaction.ClientId.CHECKOUT.name
+                brand = authEvent.data.paymentTypeCode
+                brandLogo =
+                  (authEvent.data.transactionGatewayAuthorizationRequestedData
+                      as NpgTransactionGatewayAuthorizationRequestedData)
+                    .logo
+                    .toString()
+                paymentMethodName = authEvent.data.paymentMethodName
+              }
+          }
+        additionalPaymentInformations =
+          MyBankAdditionalPaymentInformationsDto().apply {
+            this.transactionId = authCompletedEvent.transactionId
+            this.myBankTransactionId =
+              (authCompletedEvent.data.transactionGatewayAuthorizationData
+                  as NpgTransactionGatewayAuthorizationData)
+                .paymentEndToEndId
+            this.totalAmount = totalAmountEuro.toString()
+            this.fee = feeEuro.toString()
+            this.validationServiceId = NPG_VALIDATION_SERVICE_ID
+            this.timestampOperation = expectedTimestamp
+            this.email = EMAIL_STRING
+          }
+      }
+
+    assertEquals(expected, myBankClosePaymentRequestCaptor.value)
+  }
+
   @Test
   fun `ClosePaymentRequestV2Dto for close payment KO for cancelled transaction is correct for MyBank method`() =
     runTest {
@@ -2878,7 +3919,8 @@ class NodeServiceTests {
             AUTHORIZATION_REQUEST_ID,
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
-            myBankTransactionGatewayAuthorizationRequestedData))
+            myBankTransactionGatewayAuthorizationRequestedData,
+            null))
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(myBankTransactionGatewayAuthorizationData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -2999,7 +4041,8 @@ class NodeServiceTests {
             AUTHORIZATION_REQUEST_ID,
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
-            myBankTransactionGatewayAuthorizationRequestedData))
+            myBankTransactionGatewayAuthorizationRequestedData,
+            null))
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(myBankTransactionGatewayAuthorizationData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -3122,7 +4165,8 @@ class NodeServiceTests {
           AUTHORIZATION_REQUEST_ID,
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
           "paymentMethodDescription",
-          authRequestedData))
+          authRequestedData,
+          null))
     val authCompletedEvent = transactionAuthorizationCompletedEvent(authData)
     val closureRequestedEvent = transactionClosureRequestedEvent()
     val closureError = transactionClosureErrorEvent()
@@ -3265,7 +4309,8 @@ class NodeServiceTests {
             AUTHORIZATION_REQUEST_ID,
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
-            authRequestedData))
+            authRequestedData,
+            null))
       val authCompletedEvent = transactionAuthorizationCompletedEvent(authCompletedData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
       val closureError = transactionClosureErrorEvent()
@@ -3386,7 +4431,8 @@ class NodeServiceTests {
             AUTHORIZATION_REQUEST_ID,
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
-            authRequestedData))
+            authRequestedData,
+            null))
       val authCompletedEvent = transactionAuthorizationCompletedEvent(authCompletedData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
       val closureError = transactionClosureErrorEvent()
@@ -3510,7 +4556,8 @@ class NodeServiceTests {
           AUTHORIZATION_REQUEST_ID,
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
           "paymentMethodDescription",
-          authRequestedData))
+          authRequestedData,
+          null))
     val authCompletedEvent = transactionAuthorizationCompletedEvent(authData)
     val closureRequestedEvent = transactionClosureRequestedEvent()
     val closureError = transactionClosureErrorEvent()
@@ -3655,7 +4702,8 @@ class NodeServiceTests {
             AUTHORIZATION_REQUEST_ID,
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
-            authRequestedData))
+            authRequestedData,
+            null))
       val authCompletedEvent = transactionAuthorizationCompletedEvent(authCompletedData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
       val closureError = transactionClosureErrorEvent()
@@ -3775,7 +4823,8 @@ class NodeServiceTests {
             AUTHORIZATION_REQUEST_ID,
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
-            authRequestedData))
+            authRequestedData,
+            null))
       val authCompletedEvent = transactionAuthorizationCompletedEvent(authCompletedData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
       val closureError = transactionClosureErrorEvent()
@@ -3885,6 +4934,7 @@ class NodeServiceTests {
       transactionAuthorizationRequestedEvent(
         TransactionAuthorizationRequestData.PaymentGateway.REDIRECT,
         redirectTransactionGatewayAuthorizationRequestedData)
+    authEvent.data.idBundle = null
     val authCompletedEvent =
       transactionAuthorizationCompletedEvent(redirectTransactionGatewayAuthorizationData)
     val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -4245,7 +5295,8 @@ class NodeServiceTests {
           AUTHORIZATION_REQUEST_ID,
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
           "paymentMethodDescription",
-          paypalTransactionGatewayAuthorizationRequestedData))
+          paypalTransactionGatewayAuthorizationRequestedData,
+          null))
     val authCompletedEvent =
       transactionAuthorizationCompletedEvent(paypalTransactionGatewayAuthorizationData)
     val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -4399,7 +5450,8 @@ class NodeServiceTests {
             AUTHORIZATION_REQUEST_ID,
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
-            paypalTransactionGatewayAuthorizationRequestedData))
+            paypalTransactionGatewayAuthorizationRequestedData,
+            null))
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(paypalTransactionGatewayAuthorizationData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -4521,7 +5573,8 @@ class NodeServiceTests {
             AUTHORIZATION_REQUEST_ID,
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
-            paypalTransactionGatewayAuthorizationRequestedData))
+            paypalTransactionGatewayAuthorizationRequestedData,
+            null))
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(paypalTransactionGatewayAuthorizationData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -4646,7 +5699,8 @@ class NodeServiceTests {
           AUTHORIZATION_REQUEST_ID,
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
           "paymentMethodDescription",
-          bancomatPayTransactionGatewayAuthorizationRequestedData))
+          bancomatPayTransactionGatewayAuthorizationRequestedData,
+          null))
     val authCompletedEvent =
       transactionAuthorizationCompletedEvent(bancomatPayTransactionGatewayAuthorizationData)
     val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -4803,7 +5857,8 @@ class NodeServiceTests {
             AUTHORIZATION_REQUEST_ID,
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
-            bancomatPayTransactionGatewayAuthorizationRequestedData))
+            bancomatPayTransactionGatewayAuthorizationRequestedData,
+            null))
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(bancomatPayTransactionGatewayAuthorizationData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -4925,7 +5980,8 @@ class NodeServiceTests {
             AUTHORIZATION_REQUEST_ID,
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
-            bancomatPayTransactionGatewayAuthorizationRequestedData))
+            bancomatPayTransactionGatewayAuthorizationRequestedData,
+            null))
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(bancomatPayTransactionGatewayAuthorizationData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -5050,7 +6106,8 @@ class NodeServiceTests {
           AUTHORIZATION_REQUEST_ID,
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
           "paymentMethodDescription",
-          myBankTransactionGatewayAuthorizationRequestedData))
+          myBankTransactionGatewayAuthorizationRequestedData,
+          null))
     val authCompletedEvent =
       transactionAuthorizationCompletedEvent(myBankTransactionGatewayAuthorizationData)
     val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -5202,7 +6259,8 @@ class NodeServiceTests {
             AUTHORIZATION_REQUEST_ID,
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
-            myBankTransactionGatewayAuthorizationRequestedData))
+            myBankTransactionGatewayAuthorizationRequestedData,
+            null))
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(myBankTransactionGatewayAuthorizationData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -5324,7 +6382,8 @@ class NodeServiceTests {
             AUTHORIZATION_REQUEST_ID,
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
-            myBankTransactionGatewayAuthorizationRequestedData))
+            myBankTransactionGatewayAuthorizationRequestedData,
+            null))
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(myBankTransactionGatewayAuthorizationData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -5448,7 +6507,8 @@ class NodeServiceTests {
           AUTHORIZATION_REQUEST_ID,
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
           "paymentMethodDescription",
-          authRequestedData))
+          authRequestedData,
+          null))
     val authCompletedEvent = transactionAuthorizationCompletedEvent(authData)
     val closureRequestedEvent = transactionClosureRequestedEvent()
     val closureError = transactionClosureErrorEvent()
@@ -5598,7 +6658,8 @@ class NodeServiceTests {
             AUTHORIZATION_REQUEST_ID,
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
-            authRequestedData))
+            authRequestedData,
+            null))
       val authCompletedEvent = transactionAuthorizationCompletedEvent(authCompletedData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
       val closureError = transactionClosureErrorEvent()
@@ -5720,7 +6781,8 @@ class NodeServiceTests {
             AUTHORIZATION_REQUEST_ID,
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
-            authRequestedData))
+            authRequestedData,
+            null))
       val authCompletedEvent = transactionAuthorizationCompletedEvent(authCompletedData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
       val closureError = transactionClosureErrorEvent()
@@ -5843,7 +6905,8 @@ class NodeServiceTests {
             AUTHORIZATION_REQUEST_ID,
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
-            authRequestedData))
+            authRequestedData,
+            null))
       val authCompletedEvent = transactionAuthorizationCompletedEvent(authData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
       val closureError = transactionClosureErrorEvent()
@@ -5909,7 +6972,8 @@ class NodeServiceTests {
           AUTHORIZATION_REQUEST_ID,
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
           "paymentMethodDescription",
-          authRequestedData))
+          authRequestedData,
+          null))
     val authCompletedEvent = transactionAuthorizationCompletedEvent(authData)
     val closureRequestedEvent = transactionClosureRequestedEvent()
     val closureError = transactionClosureErrorEvent()
@@ -5984,7 +7048,8 @@ class NodeServiceTests {
             AUTHORIZATION_REQUEST_ID,
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
-            authRequestedData))
+            authRequestedData,
+            null))
       val authCompletedEvent = transactionAuthorizationCompletedEvent(authData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
       val closureError = transactionClosureErrorEvent()
@@ -6136,7 +7201,8 @@ class NodeServiceTests {
             AUTHORIZATION_REQUEST_ID,
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
-            paypalTransactionGatewayAuthorizationRequestedData))
+            paypalTransactionGatewayAuthorizationRequestedData,
+            null))
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(paypalTransactionGatewayAuthorizationData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
