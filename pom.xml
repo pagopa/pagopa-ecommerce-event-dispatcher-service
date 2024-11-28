@@ -9,7 +9,7 @@
 	</parent>
 	<groupId>it.pagopa.ecommerce</groupId>
 	<artifactId>pagopa-ecommerce-event-dispatcher-service</artifactId>
-	<version>1.26.0</version>
+	<version>1.29.0</version>
 	<name>pagopa-ecommerce-event-dispatcher-service</name>
 	<description>pagoPA ecommerce microservice to handle transaction events and perform async operations such as
 		send user email, refund based on transaction status</description>
@@ -19,7 +19,7 @@
 		<kotlinx-coroutines.version>1.6.2</kotlinx-coroutines.version>
 		<spring-cloud-azure.version>4.0.0</spring-cloud-azure.version>
 		<jacoco.version>0.8.8</jacoco.version>
-		<pagopa-ecommerce-commons.version>1.28.0</pagopa-ecommerce-commons.version>
+		<pagopa-ecommerce-commons.version>1.30.0</pagopa-ecommerce-commons.version>
 		<sonar.coverage.exclusions> <!-- the members of the following list should be in the same line -->
 			**/it/pagopa/transactions/**,
 			**/it/pagopa/ecommerce/eventdispatcher/validation/**
@@ -355,7 +355,7 @@
 						</goals>
 						<configuration>
 							<inputSpec>
-								https://raw.githubusercontent.com/pagopa/pagopa-infra/main/src/core/api/nodopagamenti_api/nodoPerPM/v2/_openapi.json.tpl
+								https://raw.githubusercontent.com/pagopa/pagopa-infra/v1.256.1/src/core/api/nodopagamenti_api/nodoPerPM/v2/_openapi.json.tpl
 							</inputSpec>
 							<generatorName>spring</generatorName>
 							<library>spring-cloud</library>

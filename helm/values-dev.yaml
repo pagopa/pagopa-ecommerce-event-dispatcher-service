@@ -35,7 +35,7 @@ microservice-chart:
     create: true
   image:
     repository: pagopadcommonacr.azurecr.io/pagopaecommerceeventdispatcherservice
-    tag: "1.26.0"
+    tag: "1.29.0"
     pullPolicy: Always
   livenessProbe:
     handlerType: httpGet
@@ -140,6 +140,7 @@ microservice-chart:
     CLOSE_PAYMENT_RETRY_EVENT_MAX_ATTEMPTS: "3"
     NOTIFICATION_RETRY_EVENT_BASE_INTERVAL_SECONDS: "600"
     NOTIFICATION_RETRY_EVENT_MAX_ATTEMPTS: "3"
+    AUTHORIZATION_OUTCOME_FIRST_ATTEMPT_DELAY_SECONDS: "175"
     AUTHORIZATION_OUTCOME_WAITING_EVENT_BASE_INTERVAL_SECONDS: "80"
     AUTHORIZATION_OUTCOME_WAITING_EVENT_MAX_ATTEMPTS: "3"
     PERSONAL_DATA_VAULT_API_BASE_PATH: "https://api.uat.tokenizer.pdv.pagopa.it/tokenizer/v1"
