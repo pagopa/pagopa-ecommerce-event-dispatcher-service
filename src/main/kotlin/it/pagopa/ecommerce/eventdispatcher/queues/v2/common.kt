@@ -340,9 +340,7 @@ fun patchAuthRequestByState(
                     stateResponseDto.operation!!.additionalData!!["validationServiceId"] as String?
                   errorCode = stateResponseDto.operation!!.additionalData!!["errorCode"] as String?
                 }
-                paymentEndToEndId =
-                  (NpgClientUtils.getPaymentEndToEndId(stateResponseDto.operation!!)
-                    ?: stateResponseDto.operation!!.paymentEndToEndId)
+                paymentEndToEndId = NpgClientUtils.getPaymentEndToEndId(stateResponseDto.operation)
               }
             timestampOperation = getTimeStampOperation(stateResponseDto.operation!!.operationTime!!)
           })
