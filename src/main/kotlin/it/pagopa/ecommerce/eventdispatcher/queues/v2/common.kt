@@ -23,6 +23,7 @@ import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.commons.queues.TracingUtils
+import it.pagopa.ecommerce.commons.utils.NpgClientUtils
 import it.pagopa.ecommerce.eventdispatcher.client.TransactionsServiceClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.*
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.QueueCommonsLogger.logger
@@ -34,7 +35,6 @@ import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetrySer
 import it.pagopa.ecommerce.eventdispatcher.services.v2.AuthorizationStateRetrieverService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
-import it.pagopa.ecommerce.eventdispatcher.utils.EndToEndId
 import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundOutcomeDto
 import it.pagopa.generated.transactionauthrequests.v1.dto.OutcomeNpgGatewayDto
 import it.pagopa.generated.transactionauthrequests.v1.dto.TransactionInfoDto
@@ -340,7 +340,7 @@ fun patchAuthRequestByState(
                     stateResponseDto.operation!!.additionalData!!["validationServiceId"] as String?
                   errorCode = stateResponseDto.operation!!.additionalData!!["errorCode"] as String?
                 }
-                paymentEndToEndId = getPaymentEndToEndId(stateResponseDto.operation!!)
+                paymentEndToEndId = NpgClientUtils.getPaymentEndToEndId(stateResponseDto.operation)
               }
             timestampOperation = getTimeStampOperation(stateResponseDto.operation!!.operationTime!!)
           })
@@ -352,17 +352,6 @@ fun patchAuthRequestByState(
         }
     }
 }
-
-fun getPaymentEndToEndId(operationDto: OperationDto): String? =
-  when (operationDto.paymentCircuit) {
-    // for bancomatPay we expect an `bpayEndToEndId` entry into additional data map to be used as
-    // the paymentEndToEndId
-    NpgClient.PaymentMethod.BANCOMATPAY.serviceName ->
-      operationDto.additionalData?.get(EndToEndId.BANCOMAT_PAY.value) as String?
-    NpgClient.PaymentMethod.MYBANK.serviceName ->
-      operationDto.additionalData?.get(EndToEndId.MYBANK.value) as String?
-    else -> operationDto.paymentEndToEndId
-  }
 
 fun getTimeStampOperation(operationTime: String): OffsetDateTime {
   val operationTimeT: String = operationTime.replace(" ", "T")
