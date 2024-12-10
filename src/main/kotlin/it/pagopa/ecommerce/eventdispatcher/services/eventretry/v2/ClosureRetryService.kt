@@ -99,7 +99,7 @@ class ClosureRetryService(
       .cast(Transaction::class.java)
       .flatMap {
         it.status = newStatus
-        it.closureErrorData = (event as TransactionClosureErrorEvent).data
+        it.closureErrorData = (event as TransactionClosureRetriedEvent).data.closureErrorData
         viewRepository.save(it).flatMap { Mono.just(event) }
       }
   }

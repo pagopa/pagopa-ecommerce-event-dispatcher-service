@@ -82,7 +82,11 @@ data class ClosePaymentEvent(
         ClosureErrorData(
           exception.statusCode,
           exception.errorResponse?.description,
-          ClosureErrorData.ErrorType.KO_RESPONSE_RECEIVED)
+          if (exception.statusCode != null) {
+            ClosureErrorData.ErrorType.KO_RESPONSE_RECEIVED
+          } else {
+            ClosureErrorData.ErrorType.COMMUNICATION_ERROR
+          })
       } else {
         ClosureErrorData(null, null, ClosureErrorData.ErrorType.COMMUNICATION_ERROR)
       }

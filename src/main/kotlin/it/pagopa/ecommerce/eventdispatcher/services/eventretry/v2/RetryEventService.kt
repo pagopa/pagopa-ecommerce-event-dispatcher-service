@@ -48,7 +48,7 @@ abstract class RetryEventService<E>(
         baseTransaction.transactionId,
         TransactionRetriedData(retriedCount + 1),
         transactionGatewayAuthorizationData,
-        null)
+        throwable)
     val visibilityTimeout = Duration.ofSeconds((retryOffset * retryEvent.data.retryCount).toLong())
     return Mono.just(retryEvent)
       .filter { it.data.retryCount <= maxAttempts }
