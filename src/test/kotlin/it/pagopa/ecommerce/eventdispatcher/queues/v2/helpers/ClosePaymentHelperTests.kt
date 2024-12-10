@@ -73,7 +73,8 @@ class ClosePaymentHelperTests {
 
   private val transactionsEventStoreRepository: TransactionsEventStoreRepository<Any> = mock()
 
-  private val transactionClosureErrorEventStoreRepository: TransactionsEventStoreRepository<Void> =
+  private val transactionClosureErrorEventStoreRepository:
+    TransactionsEventStoreRepository<ClosureErrorData> =
     mock()
 
   private val transactionsViewRepository: TransactionsViewRepository = mock()
@@ -111,7 +112,7 @@ class ClosePaymentHelperTests {
 
   @Captor
   private lateinit var closureErrorEventStoreRepositoryCaptor:
-    ArgumentCaptor<TransactionEvent<Void>>
+    ArgumentCaptor<TransactionEvent<ClosureErrorData>>
 
   @Captor private lateinit var retryCountCaptor: ArgumentCaptor<Int>
   private val strictJsonSerializerProviderV2 = QueuesConsumerConfig().strictSerializerProviderV2()

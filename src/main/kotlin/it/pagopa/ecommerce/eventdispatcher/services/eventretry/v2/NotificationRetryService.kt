@@ -45,7 +45,8 @@ class NotificationRetryService(
   override fun buildRetryEvent(
     transactionId: TransactionId,
     transactionRetriedData: TransactionRetriedData,
-    transactionGatewayAuthorizationData: TransactionGatewayAuthorizationData?
+    transactionGatewayAuthorizationData: TransactionGatewayAuthorizationData?,
+    throwable: Throwable?
   ): TransactionEvent<BaseTransactionRetriedData> =
     TransactionUserReceiptAddRetriedEvent(transactionId.value(), transactionRetriedData)
       as TransactionEvent<BaseTransactionRetriedData>
