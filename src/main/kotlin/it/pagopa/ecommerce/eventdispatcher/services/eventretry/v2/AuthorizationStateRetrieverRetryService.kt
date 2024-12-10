@@ -46,7 +46,8 @@ class AuthorizationStateRetrieverRetryService(
   override fun buildRetryEvent(
     transactionId: TransactionId,
     transactionRetriedData: TransactionRetriedData,
-    transactionGatewayAuthorizationData: TransactionGatewayAuthorizationData?
+    transactionGatewayAuthorizationData: TransactionGatewayAuthorizationData?,
+    throwable: Throwable?
   ): TransactionEvent<BaseTransactionRetriedData> =
     TransactionAuthorizationOutcomeWaitingEvent(transactionId.value(), transactionRetriedData)
       as TransactionEvent<BaseTransactionRetriedData>

@@ -40,13 +40,15 @@ abstract class RetryEventService<E>(
     baseTransaction: BaseTransaction,
     retriedCount: Int,
     tracingInfo: TracingInfo?,
-    transactionGatewayAuthorizationData: TransactionGatewayAuthorizationData? = null
+    transactionGatewayAuthorizationData: TransactionGatewayAuthorizationData? = null,
+    throwable: Throwable? = null
   ): Mono<Void> {
     val retryEvent =
       buildRetryEvent(
         baseTransaction.transactionId,
         TransactionRetriedData(retriedCount + 1),
-        transactionGatewayAuthorizationData)
+        transactionGatewayAuthorizationData,
+        null)
     val visibilityTimeout = Duration.ofSeconds((retryOffset * retryEvent.data.retryCount).toLong())
     return Mono.just(retryEvent)
       .filter { it.data.retryCount <= maxAttempts }
@@ -73,7 +75,8 @@ abstract class RetryEventService<E>(
   abstract fun buildRetryEvent(
     transactionId: TransactionId,
     transactionRetriedData: TransactionRetriedData,
-    transactionGatewayAuthorizationData: TransactionGatewayAuthorizationData? = null
+    transactionGatewayAuthorizationData: TransactionGatewayAuthorizationData?,
+    throwable: Throwable?
   ): E
 
   abstract fun newTransactionStatus(): TransactionStatusDto
@@ -83,7 +86,7 @@ abstract class RetryEventService<E>(
     visibilityTimeout: Duration
   ): Boolean
 
-  private fun storeEventAndUpdateView(event: E, newStatus: TransactionStatusDto): Mono<E> =
+  open fun storeEventAndUpdateView(event: E, newStatus: TransactionStatusDto): Mono<E> =
     Mono.just(event)
       .flatMap { retryEventStoreRepository.save(it) }
       .flatMap { viewRepository.findByTransactionId(it.transactionId) }

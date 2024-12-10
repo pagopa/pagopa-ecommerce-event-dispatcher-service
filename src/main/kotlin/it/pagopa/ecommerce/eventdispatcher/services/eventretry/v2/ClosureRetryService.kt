@@ -1,16 +1,14 @@
 package it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2
 
 import com.azure.storage.queue.QueueAsyncClient
-import it.pagopa.ecommerce.commons.documents.v2.BaseTransactionRetriedData
-import it.pagopa.ecommerce.commons.documents.v2.TransactionClosureRetriedEvent
-import it.pagopa.ecommerce.commons.documents.v2.TransactionEvent
-import it.pagopa.ecommerce.commons.documents.v2.TransactionRetriedData
+import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.documents.v2.authorization.TransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithPaymentToken
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
+import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.ClosePaymentEvent
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import java.time.Duration
@@ -18,6 +16,7 @@ import java.time.Instant
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
+import reactor.core.publisher.Mono
 
 @Service(ClosureRetryService.QUALIFIER)
 class ClosureRetryService(
@@ -49,9 +48,14 @@ class ClosureRetryService(
   override fun buildRetryEvent(
     transactionId: TransactionId,
     transactionRetriedData: TransactionRetriedData,
-    transactionGatewayAuthorizationData: TransactionGatewayAuthorizationData?
+    transactionGatewayAuthorizationData: TransactionGatewayAuthorizationData?,
+    throwable: Throwable?
   ): TransactionEvent<BaseTransactionRetriedData> =
-    TransactionClosureRetriedEvent(transactionId.value(), transactionRetriedData)
+    TransactionClosureRetriedEvent(
+      transactionId.value(),
+      TransactionClosureRetriedData(
+        throwable?.let { ClosePaymentEvent.exceptionToClosureErrorData(it) },
+        transactionRetriedData.retryCount))
       as TransactionEvent<BaseTransactionRetriedData>
 
   override fun newTransactionStatus(): TransactionStatusDto = TransactionStatusDto.CLOSURE_ERROR
@@ -84,4 +88,19 @@ class ClosureRetryService(
         .transactionActivatedData
         .paymentTokenValiditySeconds
         .toLong())
+
+  override fun storeEventAndUpdateView(
+    event: TransactionEvent<BaseTransactionRetriedData>,
+    newStatus: TransactionStatusDto
+  ): Mono<TransactionEvent<BaseTransactionRetriedData>> {
+    return Mono.just(event)
+      .flatMap { eventStoreRepository.save(it) }
+      .flatMap { viewRepository.findByTransactionId(it.transactionId) }
+      .cast(Transaction::class.java)
+      .flatMap {
+        it.status = newStatus
+        it.closureErrorData = (event as TransactionClosureErrorEvent).data
+        viewRepository.save(it).flatMap { Mono.just(event) }
+      }
+  }
 }

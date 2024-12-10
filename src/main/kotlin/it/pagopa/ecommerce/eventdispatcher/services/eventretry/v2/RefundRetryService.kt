@@ -1,11 +1,7 @@
 package it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2
 
 import com.azure.storage.queue.QueueAsyncClient
-import it.pagopa.ecommerce.commons.documents.v2.BaseTransactionRetriedData
-import it.pagopa.ecommerce.commons.documents.v2.TransactionEvent
-import it.pagopa.ecommerce.commons.documents.v2.TransactionRefundRetriedData
-import it.pagopa.ecommerce.commons.documents.v2.TransactionRefundRetriedEvent
-import it.pagopa.ecommerce.commons.documents.v2.TransactionRetriedData
+import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.documents.v2.authorization.TransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransaction
@@ -46,7 +42,8 @@ class RefundRetryService(
   override fun buildRetryEvent(
     transactionId: TransactionId,
     transactionRetriedData: TransactionRetriedData,
-    transactionGatewayAuthorizationData: TransactionGatewayAuthorizationData?
+    transactionGatewayAuthorizationData: TransactionGatewayAuthorizationData?,
+    throwable: Throwable?
   ): TransactionEvent<BaseTransactionRetriedData> =
     TransactionRefundRetriedEvent(
       transactionId.value(),

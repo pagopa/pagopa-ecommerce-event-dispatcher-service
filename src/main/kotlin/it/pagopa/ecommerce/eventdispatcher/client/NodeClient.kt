@@ -81,7 +81,7 @@ class NodeClient(
           "Received closePaymentV2 Response Status Error for transactionId [$transactionId]",
           exception)
         if (exception is ResponseStatusException) {
-          throw ClosePaymentErrorResponseException(
+          ClosePaymentErrorResponseException(
             exception.status,
             runCatching { objectMapper.readValue(exception.reason, ErrorDto::class.java) }
               .onFailure {
@@ -89,7 +89,7 @@ class NodeClient(
               }
               .getOrNull())
         } else {
-          throw ClosePaymentErrorResponseException(null, null)
+          ClosePaymentErrorResponseException(null, null)
         }
       }
   }

@@ -24,6 +24,7 @@ import it.pagopa.ecommerce.commons.utils.UpdateTransactionStatusTracerUtils.User
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.ClosePaymentErrorResponseException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
+import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.ClosePaymentEvent.Companion.exceptionToClosureErrorData
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.reduceEvents
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.requestRefundTransaction
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.runTracedPipelineWithDeadLetterQueue
@@ -75,6 +76,16 @@ data class ClosePaymentEvent(
 
     fun errored(event: QueueEvent<TransactionClosureErrorEvent>): ClosePaymentEvent =
       ClosePaymentEvent(null, null, null, event)
+
+    fun exceptionToClosureErrorData(exception: Throwable): ClosureErrorData =
+      if (exception is ClosePaymentErrorResponseException) {
+        ClosureErrorData(
+          exception.statusCode,
+          exception.errorResponse?.description,
+          ClosureErrorData.ErrorType.KO_RESPONSE_RECEIVED)
+      } else {
+        ClosureErrorData(null, null, ClosureErrorData.ErrorType.COMMUNICATION_ERROR)
+      }
   }
 
   fun <T> fold(
@@ -113,7 +124,8 @@ class ClosePaymentHelper(
   private val transactionClosureSentEventRepository:
     TransactionsEventStoreRepository<TransactionClosureData>,
   @Autowired
-  private val transactionClosureErrorEventStoreRepository: TransactionsEventStoreRepository<Void>,
+  private val transactionClosureErrorEventStoreRepository:
+    TransactionsEventStoreRepository<ClosureErrorData>,
   @Autowired private val transactionsViewRepository: TransactionsViewRepository,
   @Autowired private val nodeService: NodeService,
   @Autowired private val closureRetryService: ClosureRetryService,
@@ -251,7 +263,7 @@ class ClosePaymentHelper(
           "Got exception while processing closePaymentV2 for transaction with id ${tx.transactionId.value()}!",
           exception)
 
-        updateTransactionToClosureError(tx)
+        updateTransactionToClosureError(tx, exception)
       }
       .flatMap { tx ->
         val (statusCode, errorDescription, refundTransaction) =
@@ -291,7 +303,10 @@ class ClosePaymentHelper(
         } else {
           if (enqueueRetryEvent) {
             enqueueClosureRetryEventPipeline(
-              baseTransaction = tx, retryCount = retryCount, tracingInfo = tracingInfo)
+              baseTransaction = tx,
+              retryCount = retryCount,
+              tracingInfo = tracingInfo,
+              exception = exception)
           } else {
             Mono.empty()
           }
@@ -301,22 +316,30 @@ class ClosePaymentHelper(
   private fun enqueueClosureRetryEventPipeline(
     baseTransaction: BaseTransaction,
     retryCount: Int,
-    tracingInfo: TracingInfo
+    tracingInfo: TracingInfo,
+    exception: Throwable
   ) =
     closureRetryService
-      .enqueueRetryEvent(baseTransaction, retryCount, tracingInfo)
+      .enqueueRetryEvent(
+        baseTransaction = baseTransaction,
+        retriedCount = retryCount,
+        tracingInfo = tracingInfo,
+        throwable = exception)
       .publishOn(Schedulers.boundedElastic())
-      .doOnError(NoRetryAttemptsLeftException::class.java) { exception ->
-        logger.error("No more attempts left for closure retry", exception)
+      .doOnError(NoRetryAttemptsLeftException::class.java) {
+        logger.error("No more attempts left for closure retry", it)
       }
 
   private fun updateTransactionToClosureError(
-    baseTransaction: BaseTransaction
-  ): Mono<BaseTransactionWithClosureError> =
-    if (baseTransaction.status != TransactionStatusDto.CLOSURE_ERROR) {
+    baseTransaction: BaseTransaction,
+    exception: Throwable
+  ): Mono<BaseTransactionWithClosureError> {
+    return if (baseTransaction.status != TransactionStatusDto.CLOSURE_ERROR) {
       logger.info(
         "Updating transaction with id: [${baseTransaction.transactionId.value()}] to ${TransactionStatusDto.CLOSURE_ERROR} status")
-      val event = TransactionClosureErrorEvent(baseTransaction.transactionId.value())
+      val closureErrorData = exceptionToClosureErrorData(exception)
+      val event =
+        TransactionClosureErrorEvent(baseTransaction.transactionId.value(), closureErrorData)
 
       transactionClosureErrorEventStoreRepository
         .save(event)
@@ -326,6 +349,7 @@ class ClosePaymentHelper(
         .cast(Transaction::class.java)
         .flatMap { trx ->
           trx.status = TransactionStatusDto.CLOSURE_ERROR
+          trx.closureErrorData = closureErrorData
           transactionsViewRepository.save(trx)
         }
         .thenReturn(
@@ -336,6 +360,7 @@ class ClosePaymentHelper(
         "Transaction with id: [${baseTransaction.transactionId.value()}] already in ${TransactionStatusDto.CLOSURE_ERROR} status")
       Mono.just(baseTransaction as BaseTransactionWithClosureError)
     }
+  }
 
   private fun updateTransactionStatus(
     transaction: BaseTransaction,
@@ -343,7 +368,7 @@ class ClosePaymentHelper(
     closePaymentResponseDto: ClosePaymentResponseDto
   ): Mono<Either<TransactionClosureFailedEvent, TransactionClosedEvent>> {
     val outcome =
-      when (closePaymentResponseDto.outcome) {
+      when (closePaymentResponseDto.outcome!!) {
         ClosePaymentResponseDto.OutcomeEnum.OK -> TransactionClosureData.Outcome.OK
         ClosePaymentResponseDto.OutcomeEnum.KO -> TransactionClosureData.Outcome.KO
       }
