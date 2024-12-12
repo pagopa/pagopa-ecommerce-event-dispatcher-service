@@ -163,7 +163,8 @@ class TransactionNotificationsQueueConsumerTest {
     verify(transactionsEventStoreRepository, times(1))
       .findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID)
     verify(notificationsServiceClient, times(1)).sendNotificationEmail(any())
-    verify(notificationRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+    verify(notificationRetryService, times(0))
+      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
     verify(transactionsViewRepository, times(1)).save(any())
     verify(refundRequestedAsyncClient, times(0))
       .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
@@ -240,7 +241,8 @@ class TransactionNotificationsQueueConsumerTest {
       verify(transactionRefundRepository, times(1)).save(any())
       verify(refundRequestedAsyncClient, times(1))
         .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
-      verify(notificationRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      verify(notificationRetryService, times(0))
+        .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
       verify(transactionsViewRepository, times(2)).save(any())
       verify(transactionUserReceiptRepository, times(1)).save(any())
       verify(notificationsServiceClient, times(1)).sendNotificationEmail(any())
@@ -312,7 +314,8 @@ class TransactionNotificationsQueueConsumerTest {
       verify(transactionsEventStoreRepository, times(1))
         .findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID)
       verify(notificationsServiceClient, times(1)).sendNotificationEmail(any())
-      verify(notificationRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      verify(notificationRetryService, times(0))
+        .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
       verify(transactionsViewRepository, times(1)).save(any())
       verify(transactionRefundRepository, times(0)).save(any())
       verify(refundRequestedAsyncClient, times(0))
@@ -389,7 +392,8 @@ class TransactionNotificationsQueueConsumerTest {
       verify(transactionRefundRepository, times(1)).save(any())
       verify(refundRequestedAsyncClient, times(1))
         .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
-      verify(notificationRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      verify(notificationRetryService, times(0))
+        .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
       verify(transactionsViewRepository, times(2)).save(any())
       verify(transactionUserReceiptRepository, times(1)).save(any())
       verify(notificationsServiceClient, times(1)).sendNotificationEmail(any())
@@ -454,7 +458,7 @@ class TransactionNotificationsQueueConsumerTest {
         .willAnswer { Mono.just(it.arguments[0]) }
       given(
           notificationRetryService.enqueueRetryEvent(
-            any(), capture(retryCountCaptor), any(), anyOrNull()))
+            any(), capture(retryCountCaptor), any(), anyOrNull(), anyOrNull()))
         .willReturn(Mono.empty())
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
@@ -465,7 +469,8 @@ class TransactionNotificationsQueueConsumerTest {
       verify(transactionsEventStoreRepository, times(1))
         .findByTransactionIdOrderByCreationDateAsc(transactionId)
       verify(notificationsServiceClient, times(1)).sendNotificationEmail(any())
-      verify(notificationRetryService, times(1)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      verify(notificationRetryService, times(1))
+        .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
       verify(transactionsViewRepository, times(1)).save(any())
       verify(transactionRefundRepository, times(0)).save(any())
       verify(refundRequestedAsyncClient, times(0))
@@ -523,7 +528,7 @@ class TransactionNotificationsQueueConsumerTest {
         .willAnswer { Mono.just(it.arguments[0]) }
       given(
           notificationRetryService.enqueueRetryEvent(
-            any(), capture(retryCountCaptor), any(), anyOrNull()))
+            any(), capture(retryCountCaptor), any(), anyOrNull(), anyOrNull()))
         .willReturn(Mono.empty())
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
@@ -534,7 +539,8 @@ class TransactionNotificationsQueueConsumerTest {
       verify(transactionsEventStoreRepository, times(1))
         .findByTransactionIdOrderByCreationDateAsc(transactionId)
       verify(notificationsServiceClient, times(1)).sendNotificationEmail(any())
-      verify(notificationRetryService, times(1)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      verify(notificationRetryService, times(1))
+        .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
       verify(transactionsViewRepository, times(1)).save(any())
       verify(transactionRefundRepository, times(0)).save(any())
       verify(refundRequestedAsyncClient, times(0))
@@ -597,7 +603,7 @@ class TransactionNotificationsQueueConsumerTest {
         .willAnswer { Mono.just(it.arguments[0]) }
       given(
           notificationRetryService.enqueueRetryEvent(
-            any(), capture(retryCountCaptor), any(), anyOrNull()))
+            any(), capture(retryCountCaptor), any(), anyOrNull(), anyOrNull()))
         .willReturn(Mono.error(RuntimeException("Error enqueueing notification retry event")))
       given(
           deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(
@@ -613,7 +619,8 @@ class TransactionNotificationsQueueConsumerTest {
       verify(transactionsEventStoreRepository, times(1))
         .findByTransactionIdOrderByCreationDateAsc(transactionId)
       verify(notificationsServiceClient, times(1)).sendNotificationEmail(any())
-      verify(notificationRetryService, times(1)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      verify(notificationRetryService, times(1))
+        .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
       verify(transactionsViewRepository, times(1)).save(any())
       verify(transactionRefundRepository, times(0)).save(any())
       verify(transactionUserReceiptRepository, times(1)).save(any())
@@ -675,7 +682,8 @@ class TransactionNotificationsQueueConsumerTest {
     verify(transactionsEventStoreRepository, times(1))
       .findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID)
     verify(notificationsServiceClient, times(0)).sendNotificationEmail(any())
-    verify(notificationRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+    verify(notificationRetryService, times(0))
+      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
     verify(transactionsViewRepository, times(0)).save(any())
     verify(transactionRefundRepository, times(0)).save(any())
     verify(refundRequestedAsyncClient, times(0))
@@ -828,7 +836,7 @@ class TransactionNotificationsQueueConsumerTest {
         .willAnswer { Mono.just(it.arguments[0]) }
       given(
           notificationRetryService.enqueueRetryEvent(
-            any(), capture(retryCountCaptor), any(), anyOrNull()))
+            any(), capture(retryCountCaptor), any(), anyOrNull(), anyOrNull()))
         .willReturn(Mono.empty())
       StepVerifier.create(
           transactionNotificationsRetryQueueConsumer.messageReceiver(
@@ -839,7 +847,8 @@ class TransactionNotificationsQueueConsumerTest {
       verify(transactionsEventStoreRepository, times(1))
         .findByTransactionIdOrderByCreationDateAsc(transactionId)
       verify(notificationsServiceClient, times(1)).sendNotificationEmail(any())
-      verify(notificationRetryService, times(1)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      verify(notificationRetryService, times(1))
+        .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
       verify(transactionsViewRepository, times(1)).save(any())
       verify(transactionRefundRepository, times(0)).save(any())
       verify(refundRequestedAsyncClient, times(0))

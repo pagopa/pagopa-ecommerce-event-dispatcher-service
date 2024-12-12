@@ -203,7 +203,8 @@ class ClosePaymentHelperTests {
       verify(transactionClosedEventRepository, Mockito.times(0)).save(any())
 
       verify(transactionsViewRepository, Mockito.times(0)).save(expectedUpdatedTransaction)
-      verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      verify(closureRetryService, times(0))
+        .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
       verify(deadLetterTracedQueueAsyncClient, times(1))
         .sendAndTraceDeadLetterQueueEvent(
           argThat<BinaryData> {
@@ -278,7 +279,8 @@ class ClosePaymentHelperTests {
     verify(transactionClosedEventRepository, Mockito.times(0)).save(any())
 
     verify(transactionsViewRepository, Mockito.times(0)).save(expectedUpdatedTransaction)
-    verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+    verify(closureRetryService, times(0))
+      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
     verify(deadLetterTracedQueueAsyncClient, times(1))
       .sendAndTraceDeadLetterQueueEvent(
         argThat<BinaryData> {
@@ -366,7 +368,8 @@ class ClosePaymentHelperTests {
           any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
       // mocking
       verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransaction)
-      verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      verify(closureRetryService, times(0))
+        .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
       verify(paymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never()).deleteById(any())
       assertEquals(TransactionStatusDto.CLOSED, viewArgumentCaptor.value.status)
       assertEquals(
@@ -457,7 +460,8 @@ class ClosePaymentHelperTests {
       // mocking
       verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransaction)
       verify(paymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never()).deleteById(any())
-      verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      verify(closureRetryService, times(0))
+        .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
       assertEquals(TransactionStatusDto.UNAUTHORIZED, viewArgumentCaptor.value.status)
       assertEquals(
         TransactionEventCode.TRANSACTION_CLOSURE_FAILED_EVENT,
@@ -545,7 +549,8 @@ class ClosePaymentHelperTests {
       // mocking
       verify(transactionsViewRepository, Mockito.times(0)).save(expectedUpdatedTransaction)
       verify(paymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never()).deleteById(any())
-      verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      verify(closureRetryService, times(0))
+        .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
       verify(deadLetterTracedQueueAsyncClient, times(1))
         .sendAndTraceDeadLetterQueueEvent(
           argThat<BinaryData> {
@@ -609,7 +614,8 @@ class ClosePaymentHelperTests {
       verify(nodeService, Mockito.times(0))
         .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.KO)
       verify(transactionClosedEventRepository, Mockito.times(0)).save(any())
-      verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      verify(closureRetryService, times(0))
+        .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
       verify(paymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never()).deleteById(any())
       verify(deadLetterTracedQueueAsyncClient, times(1))
         .sendAndTraceDeadLetterQueueEvent(
@@ -698,7 +704,8 @@ class ClosePaymentHelperTests {
       .save(any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
     // mocking
     verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransaction)
-    verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+    verify(closureRetryService, times(0))
+      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
     verify(updateTransactionStatusTracerUtils, times(1))
       .traceStatusUpdateOperation(
         ClosePaymentNodoStatusUpdate(
@@ -757,7 +764,8 @@ class ClosePaymentHelperTests {
     verify(transactionClosedEventRepository, Mockito.times(0)).save(any())
     verify(transactionsViewRepository, Mockito.times(0)).save(any())
     verify(paymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never()).deleteById(any())
-    verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+    verify(closureRetryService, times(0))
+      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
     verify(deadLetterTracedQueueAsyncClient, times(1))
       .sendAndTraceDeadLetterQueueEvent(
         argThat<BinaryData> {
@@ -858,7 +866,8 @@ class ClosePaymentHelperTests {
       verify(paymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never()).deleteById(any())
       verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
       verify(transactionsViewRepository, Mockito.times(2)).save(any())
-      verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      verify(closureRetryService, times(0))
+        .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
 
       val expectedViewUpdateStatuses =
         listOf(TransactionStatusDto.CLOSED, TransactionStatusDto.REFUND_REQUESTED)
@@ -976,7 +985,8 @@ class ClosePaymentHelperTests {
       verify(paymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never()).deleteById(any())
       verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).save(any())
       verify(transactionsViewRepository, Mockito.times(0)).save(any())
-      verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      verify(closureRetryService, times(0))
+        .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
       verify(updateTransactionStatusTracerUtils, times(0)).traceStatusUpdateOperation(any())
       verify(deadLetterTracedQueueAsyncClient, times(1))
         .sendAndTraceDeadLetterQueueEvent(
@@ -1044,7 +1054,7 @@ class ClosePaymentHelperTests {
           ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.KO })
       given(
           closureRetryService.enqueueRetryEvent(
-            any(), retryCountCaptor.capture(), any(), anyOrNull()))
+            any(), retryCountCaptor.capture(), any(), anyOrNull(), anyOrNull()))
         .willReturn(Mono.empty())
 
       /* test */
@@ -1067,7 +1077,8 @@ class ClosePaymentHelperTests {
       verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).save(any())
       verify(transactionsViewRepository, Mockito.times(1)).save(any())
 
-      verify(closureRetryService, times(1)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      verify(closureRetryService, times(1))
+        .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
 
       val expectedViewUpdateStatuses =
         listOf(
@@ -1148,7 +1159,7 @@ class ClosePaymentHelperTests {
         ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.KO })
     given(
         closureRetryService.enqueueRetryEvent(
-          any(), retryCountCaptor.capture(), any(), anyOrNull()))
+          any(), retryCountCaptor.capture(), any(), anyOrNull(), anyOrNull()))
       .willReturn(Mono.empty())
 
     /* test */
@@ -1170,7 +1181,8 @@ class ClosePaymentHelperTests {
     verify(paymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never()).deleteById(any())
     verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).save(any())
     verify(transactionsViewRepository, Mockito.times(1)).save(any())
-    verify(closureRetryService, times(1)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+    verify(closureRetryService, times(1))
+      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
 
     val expectedViewUpdateStatuses =
       listOf(
@@ -1263,7 +1275,7 @@ class ClosePaymentHelperTests {
 
     given(
         closureRetryService.enqueueRetryEvent(
-          any(), retryCountCaptor.capture(), any(), anyOrNull()))
+          any(), retryCountCaptor.capture(), any(), anyOrNull(), anyOrNull()))
       .willReturn(
         Mono.error(
           NoRetryAttemptsLeftException(
@@ -1289,7 +1301,8 @@ class ClosePaymentHelperTests {
     verify(transactionClosureErrorEventStoreRepository, Mockito.times(0)).save(any())
     verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).save(any())
     verify(transactionsViewRepository, Mockito.times(0)).save(any())
-    verify(closureRetryService, times(1)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+    verify(closureRetryService, times(1))
+      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
     verify(updateTransactionStatusTracerUtils, times(1))
       .traceStatusUpdateOperation(
         ClosePaymentNodoStatusUpdate(
@@ -1352,7 +1365,7 @@ class ClosePaymentHelperTests {
 
       given(
           closureRetryService.enqueueRetryEvent(
-            any(), retryCountCaptor.capture(), any(), anyOrNull()))
+            any(), retryCountCaptor.capture(), any(), anyOrNull(), anyOrNull()))
         .willReturn(Mono.error(RuntimeException("Error enqueuing retry event")))
 
       given(
@@ -1380,7 +1393,8 @@ class ClosePaymentHelperTests {
       verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).save(any())
       verify(transactionsViewRepository, Mockito.times(0))
         .save(argThat { it -> (it as Transaction).status == TransactionStatusDto.CLOSURE_ERROR })
-      verify(closureRetryService, times(1)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      verify(closureRetryService, times(1))
+        .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
       verify(deadLetterTracedQueueAsyncClient, times(1))
         .sendAndTraceDeadLetterQueueEvent(
           argThat<BinaryData> {
@@ -1465,7 +1479,8 @@ class ClosePaymentHelperTests {
       .save(any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
     // mocking
     verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransactionCanceled)
-    verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+    verify(closureRetryService, times(0))
+      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
     verify(paymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).times(1)).deleteById(any())
     assertEquals(TransactionStatusDto.CANCELED, viewArgumentCaptor.value.status)
     assertEquals(
@@ -1535,7 +1550,8 @@ class ClosePaymentHelperTests {
       .save(any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
     // mocking
     verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransactionCanceled)
-    verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+    verify(closureRetryService, times(0))
+      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
     verify(paymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).times(1)).deleteById(any())
     assertEquals(TransactionStatusDto.CANCELED, viewArgumentCaptor.value.status)
     assertEquals(
@@ -1590,7 +1606,7 @@ class ClosePaymentHelperTests {
       Mono.just(it.arguments[0])
     }
 
-    given(closureRetryService.enqueueRetryEvent(any(), any(), any(), anyOrNull()))
+    given(closureRetryService.enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull()))
       .willReturn(Mono.empty())
     /* test */
 
@@ -1611,7 +1627,8 @@ class ClosePaymentHelperTests {
     verify(paymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).times(1)).deleteById(any())
     // mocking
     verify(transactionsViewRepository, Mockito.times(0)).save(expectedUpdatedTransactionCanceled)
-    verify(closureRetryService, times(1)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+    verify(closureRetryService, times(1))
+      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
     assertEquals(TransactionStatusDto.CLOSURE_ERROR, viewArgumentCaptor.value.status)
     assertEquals(
       TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT,
@@ -1664,7 +1681,7 @@ class ClosePaymentHelperTests {
         Mono.just(it.arguments[0])
       }
 
-      given(closureRetryService.enqueueRetryEvent(any(), any(), any(), anyOrNull()))
+      given(closureRetryService.enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull()))
         .willReturn(Mono.empty())
       /* test */
 
@@ -1688,7 +1705,7 @@ class ClosePaymentHelperTests {
       verify(transactionsViewRepository, Mockito.times(1)).save(any())
       verify(transactionClosureErrorEventStoreRepository, Mockito.times(1)).save(any())
       verify(closureRetryService, times(0))
-        .enqueueRetryEvent(any(), any(), eq(MOCK_TRACING_INFO), anyOrNull())
+        .enqueueRetryEvent(any(), any(), eq(MOCK_TRACING_INFO), anyOrNull(), anyOrNull())
       assertEquals(
         TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT,
         TransactionEventCode.valueOf(closureErrorEventStoreRepositoryCaptor.value.eventCode))
@@ -1737,7 +1754,7 @@ class ClosePaymentHelperTests {
         Mono.just(it.arguments[0])
       }
 
-      given(closureRetryService.enqueueRetryEvent(any(), any(), any(), anyOrNull()))
+      given(closureRetryService.enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull()))
         .willReturn(Mono.empty())
       /* test */
 
@@ -1761,7 +1778,7 @@ class ClosePaymentHelperTests {
       verify(transactionsViewRepository, Mockito.times(1)).save(any())
       verify(transactionClosureErrorEventStoreRepository, Mockito.times(1)).save(any())
       verify(closureRetryService, times(0))
-        .enqueueRetryEvent(any(), any(), eq(MOCK_TRACING_INFO), anyOrNull())
+        .enqueueRetryEvent(any(), any(), eq(MOCK_TRACING_INFO), anyOrNull(), anyOrNull())
       assertEquals(
         TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT,
         TransactionEventCode.valueOf(closureErrorEventStoreRepositoryCaptor.value.eventCode))
@@ -1845,7 +1862,8 @@ class ClosePaymentHelperTests {
       verify(transactionClosedEventRepository, Mockito.times(1)).save(any())
       verify(paymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never()).deleteById(any())
       verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransaction)
-      verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      verify(closureRetryService, times(0))
+        .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
       assertEquals(TransactionStatusDto.CLOSED, viewArgumentCaptor.value.status)
       assertEquals(
         TransactionEventCode.TRANSACTION_CLOSED_EVENT,
@@ -1934,7 +1952,8 @@ class ClosePaymentHelperTests {
       verify(paymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never()).deleteById(any())
       verify(transactionClosedEventRepository, Mockito.times(1)).save(any())
       verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransaction)
-      verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      verify(closureRetryService, times(0))
+        .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
       assertEquals(TransactionStatusDto.UNAUTHORIZED, viewArgumentCaptor.value.status)
       assertEquals(
         TransactionEventCode.TRANSACTION_CLOSURE_FAILED_EVENT,
@@ -2036,7 +2055,8 @@ class ClosePaymentHelperTests {
       verify(transactionClosedEventRepository, Mockito.times(0)).save(any())
       verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
       verify(transactionsViewRepository, Mockito.times(1)).save(any())
-      verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      verify(closureRetryService, times(0))
+        .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
 
       val expectedViewUpdateStatuses = listOf(TransactionStatusDto.REFUND_REQUESTED)
       val expectedEventsCodes = listOf(TransactionEventCode.TRANSACTION_REFUND_REQUESTED_EVENT)
@@ -2144,7 +2164,8 @@ class ClosePaymentHelperTests {
     verify(transactionClosedEventRepository, Mockito.times(0)).save(any())
     verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).save(any())
     verify(transactionsViewRepository, Mockito.times(0)).save(any())
-    verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+    verify(closureRetryService, times(0))
+      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
     verify(updateTransactionStatusTracerUtils, times(1))
       .traceStatusUpdateOperation(
         ClosePaymentNodoStatusUpdate(
@@ -2239,7 +2260,8 @@ class ClosePaymentHelperTests {
     verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).save(any())
     verify(transactionsViewRepository, Mockito.times(1)).save(any())
     verify(transactionClosureErrorEventStoreRepository, Mockito.times(1)).save(any())
-    verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+    verify(closureRetryService, times(0))
+      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
     assertEquals(TransactionStatusDto.CLOSURE_ERROR, viewArgumentCaptor.value.status)
     assertEquals(
       TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT.name,
@@ -2337,7 +2359,8 @@ class ClosePaymentHelperTests {
     verify(transactionClosedEventRepository, Mockito.times(0)).save(any())
     verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
     verify(transactionsViewRepository, Mockito.times(1)).save(any())
-    verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+    verify(closureRetryService, times(0))
+      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
     verify(updateTransactionStatusTracerUtils, times(1))
       .traceStatusUpdateOperation(
         ClosePaymentNodoStatusUpdate(
@@ -2434,7 +2457,7 @@ class ClosePaymentHelperTests {
 
     given(
         closureRetryService.enqueueRetryEvent(
-          any(), retryCountCaptor.capture(), any(), anyOrNull()))
+          any(), retryCountCaptor.capture(), any(), anyOrNull(), anyOrNull()))
       .willReturn(Mono.empty())
 
     /* test */
@@ -2457,7 +2480,8 @@ class ClosePaymentHelperTests {
     verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).save(any())
     verify(transactionsViewRepository, Mockito.times(0)).save(any())
 
-    verify(closureRetryService, times(1)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+    verify(closureRetryService, times(1))
+      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
     assertEquals(0, retryCountCaptor.value)
     verify(updateTransactionStatusTracerUtils, times(1))
       .traceStatusUpdateOperation(
@@ -2559,7 +2583,8 @@ class ClosePaymentHelperTests {
       verify(transactionClosureErrorEventStoreRepository, Mockito.times(1)).save(any())
       verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
       verify(transactionsViewRepository, Mockito.times(2)).save(any())
-      verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      verify(closureRetryService, times(0))
+        .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
 
       val expectedViewUpdateStatuses =
         listOf(
@@ -2677,7 +2702,8 @@ class ClosePaymentHelperTests {
       verify(transactionClosureErrorEventStoreRepository, Mockito.times(1)).save(any())
       verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).save(any())
       verify(transactionsViewRepository, Mockito.times(1)).save(any())
-      verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      verify(closureRetryService, times(0))
+        .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
       assertEquals(TransactionStatusDto.CLOSURE_ERROR, viewArgumentCaptor.value.status)
       assertEquals(
         TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT.name,
@@ -2775,7 +2801,8 @@ class ClosePaymentHelperTests {
       verify(transactionClosureErrorEventStoreRepository, Mockito.times(1)).save(any())
       verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).save(any())
       verify(transactionsViewRepository, Mockito.times(1)).save(any())
-      verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      verify(closureRetryService, times(0))
+        .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
       assertEquals(TransactionStatusDto.CLOSURE_ERROR, viewArgumentCaptor.value.status)
       assertEquals(
         TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT.name,
@@ -2876,7 +2903,8 @@ class ClosePaymentHelperTests {
     verify(transactionClosureErrorEventStoreRepository, Mockito.times(1)).save(any())
     verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
     verify(transactionsViewRepository, Mockito.times(2)).save(any())
-    verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+    verify(closureRetryService, times(0))
+      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
     verify(refundQueueAsyncClient, times(1))
       .sendMessageWithResponse(any<QueueEvent<TransactionRefundRequestedEvent>>(), any(), any())
     verify(updateTransactionStatusTracerUtils, times(1))
@@ -2962,7 +2990,7 @@ class ClosePaymentHelperTests {
 
     given(
         closureRetryService.enqueueRetryEvent(
-          any(), retryCountCaptor.capture(), any(), anyOrNull()))
+          any(), retryCountCaptor.capture(), any(), anyOrNull(), anyOrNull()))
       .willReturn(Mono.empty())
     val (expectedHttpErrorCode, expectedErrorDescription) =
       if (throwable is ClosePaymentErrorResponseException) {
@@ -2992,7 +3020,8 @@ class ClosePaymentHelperTests {
     verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).save(any())
     verify(transactionsViewRepository, Mockito.times(1)).save(any())
 
-    verify(closureRetryService, times(1)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+    verify(closureRetryService, times(1))
+      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
     assertEquals(0, retryCountCaptor.value)
     assertEquals(TransactionStatusDto.CLOSURE_ERROR, viewArgumentCaptor.value.status)
     assertEquals(
@@ -3095,7 +3124,8 @@ class ClosePaymentHelperTests {
       verify(paymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never()).deleteById(any())
       verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
       verify(transactionsViewRepository, Mockito.times(2)).save(any())
-      verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      verify(closureRetryService, times(0))
+        .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
 
       val expectedViewUpdateStatuses =
         listOf(TransactionStatusDto.CLOSED, TransactionStatusDto.REFUND_REQUESTED)
@@ -3183,7 +3213,7 @@ class ClosePaymentHelperTests {
           ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.KO })
       given(
           closureRetryService.enqueueRetryEvent(
-            any(), retryCountCaptor.capture(), any(), anyOrNull()))
+            any(), retryCountCaptor.capture(), any(), anyOrNull(), anyOrNull()))
         .willReturn(Mono.empty())
       given(
           deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(
@@ -3212,7 +3242,8 @@ class ClosePaymentHelperTests {
       verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).save(any())
       verify(transactionsViewRepository, Mockito.times(2)).save(any())
 
-      verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      verify(closureRetryService, times(0))
+        .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
       verify(deadLetterTracedQueueAsyncClient, times(1))
         .sendAndTraceDeadLetterQueueEvent(
           argThat<BinaryData> {
@@ -3324,7 +3355,8 @@ class ClosePaymentHelperTests {
           any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
       // mocking
       verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransaction)
-      verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      verify(closureRetryService, times(0))
+        .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
       verify(paymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never()).deleteById(any())
       assertEquals(TransactionStatusDto.CLOSED, viewArgumentCaptor.value.status)
       assertEquals(
@@ -3416,7 +3448,8 @@ class ClosePaymentHelperTests {
       .save(any()) // FIXME: Unable to use better argument captor because of misbehaviour in static
     // mocking
     verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransaction)
-    verify(closureRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+    verify(closureRetryService, times(0))
+      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
     verify(paymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never()).deleteById(any())
     assertEquals(TransactionStatusDto.CLOSED, viewArgumentCaptor.value.status)
     assertEquals(

@@ -146,7 +146,8 @@ class TransactionRefundRetryQueueConsumerTest {
     given(refundService.requestNpgRefund(any(), any(), any(), any(), any(), any()))
       .willReturn(Mono.just(gatewayClientResponse))
     given(
-        refundRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture(), any(), anyOrNull()))
+        refundRetryService.enqueueRetryEvent(
+          any(), retryCountCaptor.capture(), any(), anyOrNull(), anyOrNull()))
       .willReturn(Mono.empty())
     given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
       .willReturn(
@@ -173,7 +174,8 @@ class TransactionRefundRetryQueueConsumerTest {
       TransactionEventCode.TRANSACTION_REFUNDED_EVENT,
       TransactionEventCode.valueOf(transactionRefundEventStoreCaptor.value.eventCode),
       "Unexpected event code")
-    verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+    verify(refundRetryService, times(0))
+      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
   }
 
   @Test
@@ -227,7 +229,7 @@ class TransactionRefundRetryQueueConsumerTest {
         .willReturn(Mono.error(BadGatewayException("mockError")))
       given(
           refundRetryService.enqueueRetryEvent(
-            any(), retryCountCaptor.capture(), any(), anyOrNull()))
+            any(), retryCountCaptor.capture(), any(), anyOrNull(), anyOrNull()))
         .willReturn(Mono.empty())
       given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
         .willReturn(
@@ -248,7 +250,8 @@ class TransactionRefundRetryQueueConsumerTest {
       verify(refundService, times(1)).requestNpgRefund(any(), any(), any(), any(), any(), any())
       verify(transactionsRefundedEventStoreRepository, times(1)).save(any())
       verify(transactionsViewRepository, times(1)).save(any())
-      verify(refundRetryService, times(1)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      verify(refundRetryService, times(1))
+        .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
       assertEquals(retryCount, retryCountCaptor.value)
       assertEquals(TransactionStatusDto.REFUND_ERROR, transactionViewRepositoryCaptor.value.status)
       assertEquals(
@@ -309,7 +312,8 @@ class TransactionRefundRetryQueueConsumerTest {
       .willReturn(
         Mono.just(RefundResponseDto().operationId("operationId").operationTime("operationTime")))
     given(
-        refundRetryService.enqueueRetryEvent(any(), retryCountCaptor.capture(), any(), anyOrNull()))
+        refundRetryService.enqueueRetryEvent(
+          any(), retryCountCaptor.capture(), any(), anyOrNull(), anyOrNull()))
       .willReturn(Mono.empty())
     given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
       .willReturn(
@@ -337,7 +341,8 @@ class TransactionRefundRetryQueueConsumerTest {
       TransactionEventCode.TRANSACTION_REFUNDED_EVENT,
       TransactionEventCode.valueOf(transactionRefundEventStoreCaptor.value.eventCode),
       "Unexpected event code")
-    verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+    verify(refundRetryService, times(0))
+      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
   }
 
   @Test
@@ -394,7 +399,7 @@ class TransactionRefundRetryQueueConsumerTest {
         .willReturn(Mono.error(BadGatewayException("mockError")))
       given(
           refundRetryService.enqueueRetryEvent(
-            any(), retryCountCaptor.capture(), isNull(), anyOrNull()))
+            any(), retryCountCaptor.capture(), isNull(), anyOrNull(), anyOrNull()))
         .willReturn(Mono.empty())
       given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
         .willReturn(
@@ -415,7 +420,8 @@ class TransactionRefundRetryQueueConsumerTest {
       verify(refundService, times(1)).requestNpgRefund(any(), any(), any(), any(), any(), any())
       verify(transactionsRefundedEventStoreRepository, times(1)).save(any())
       verify(transactionsViewRepository, times(1)).save(any())
-      verify(refundRetryService, times(1)).enqueueRetryEvent(any(), any(), isNull(), anyOrNull())
+      verify(refundRetryService, times(1))
+        .enqueueRetryEvent(any(), any(), isNull(), anyOrNull(), anyOrNull())
       assertEquals(retryCount, retryCountCaptor.value)
       assertEquals(TransactionStatusDto.REFUND_ERROR, transactionViewRepositoryCaptor.value.status)
       assertEquals(
@@ -474,7 +480,7 @@ class TransactionRefundRetryQueueConsumerTest {
         .willReturn(Mono.error(BadGatewayException("mockError")))
       given(
           refundRetryService.enqueueRetryEvent(
-            any(), retryCountCaptor.capture(), any(), anyOrNull()))
+            any(), retryCountCaptor.capture(), any(), anyOrNull(), anyOrNull()))
         .willReturn(Mono.empty())
       given(authorizationStateRetrieverService.performGetOrder(any()))
         .willReturn(npgAuthorizedOrderResponse("operationId", "paymentEnd2EndId"))
@@ -490,7 +496,8 @@ class TransactionRefundRetryQueueConsumerTest {
       verify(refundService, times(1)).requestNpgRefund(any(), any(), any(), any(), any(), any())
       verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
       verify(transactionsViewRepository, times(0)).save(any())
-      verify(refundRetryService, times(1)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      verify(refundRetryService, times(1))
+        .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
       assertEquals(retryCount, retryCountCaptor.value)
     }
 
@@ -530,7 +537,7 @@ class TransactionRefundRetryQueueConsumerTest {
         .willReturn(Mono.just(gatewayClientResponse))
       given(
           refundRetryService.enqueueRetryEvent(
-            any(), retryCountCaptor.capture(), any(), anyOrNull()))
+            any(), retryCountCaptor.capture(), any(), anyOrNull(), anyOrNull()))
         .willReturn(Mono.empty())
       given(
           deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(
@@ -549,7 +556,8 @@ class TransactionRefundRetryQueueConsumerTest {
       verify(refundService, times(0)).requestNpgRefund(any(), any(), any(), any(), any(), any())
       verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
       verify(transactionsViewRepository, times(0)).save(any())
-      verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      verify(refundRetryService, times(0))
+        .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
       verify(deadLetterTracedQueueAsyncClient, times(1))
         .sendAndTraceDeadLetterQueueEvent(
           argThat<BinaryData> {
@@ -628,7 +636,7 @@ class TransactionRefundRetryQueueConsumerTest {
         .willReturn(Mono.error(BadGatewayException("mockError")))
       given(
           refundRetryService.enqueueRetryEvent(
-            any(), retryCountCaptor.capture(), any(), anyOrNull()))
+            any(), retryCountCaptor.capture(), any(), anyOrNull(), anyOrNull()))
         .willReturn(Mono.error(NoRetryAttemptsLeftException("No retry attempt left")))
       given(
           deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(
@@ -648,7 +656,8 @@ class TransactionRefundRetryQueueConsumerTest {
       verify(refundService, times(1)).requestNpgRefund(any(), any(), any(), any(), any(), any())
       verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
       verify(transactionsViewRepository, times(0)).save(any())
-      verify(refundRetryService, times(1)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      verify(refundRetryService, times(1))
+        .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
       assertEquals(retryCount, retryCountCaptor.value)
       verify(deadLetterTracedQueueAsyncClient, times(1))
         .sendAndTraceDeadLetterQueueEvent(
