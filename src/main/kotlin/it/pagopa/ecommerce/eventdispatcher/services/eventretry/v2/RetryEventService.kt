@@ -86,7 +86,7 @@ abstract class RetryEventService<E>(
     visibilityTimeout: Duration
   ): Boolean
 
-  open fun storeEventAndUpdateView(event: E, newStatus: TransactionStatusDto): Mono<E> =
+  private fun storeEventAndUpdateView(event: E, newStatus: TransactionStatusDto): Mono<E> =
     Mono.just(event)
       .flatMap { retryEventStoreRepository.save(it) }
       .flatMap { viewRepository.findByTransactionId(it.transactionId) }

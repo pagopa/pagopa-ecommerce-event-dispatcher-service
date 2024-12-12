@@ -16,7 +16,6 @@ import java.time.Instant
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
-import reactor.core.publisher.Mono
 
 @Service(ClosureRetryService.QUALIFIER)
 class ClosureRetryService(
@@ -88,19 +87,4 @@ class ClosureRetryService(
         .transactionActivatedData
         .paymentTokenValiditySeconds
         .toLong())
-
-  override fun storeEventAndUpdateView(
-    event: TransactionEvent<BaseTransactionRetriedData>,
-    newStatus: TransactionStatusDto
-  ): Mono<TransactionEvent<BaseTransactionRetriedData>> {
-    return Mono.just(event)
-      .flatMap { eventStoreRepository.save(it) }
-      .flatMap { viewRepository.findByTransactionId(it.transactionId) }
-      .cast(Transaction::class.java)
-      .flatMap {
-        it.status = newStatus
-        it.closureErrorData = (event as TransactionClosureRetriedEvent).data.closureErrorData
-        viewRepository.save(it).flatMap { Mono.just(event) }
-      }
-  }
 }

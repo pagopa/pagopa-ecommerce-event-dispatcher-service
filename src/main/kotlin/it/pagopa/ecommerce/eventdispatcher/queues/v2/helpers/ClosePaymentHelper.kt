@@ -338,10 +338,10 @@ class ClosePaymentHelper(
     baseTransaction: BaseTransaction,
     exception: Throwable
   ): Mono<BaseTransactionWithClosureError> {
+    val closureErrorData = exceptionToClosureErrorData(exception)
     return if (baseTransaction.status != TransactionStatusDto.CLOSURE_ERROR) {
       logger.info(
         "Updating transaction with id: [${baseTransaction.transactionId.value()}] to ${TransactionStatusDto.CLOSURE_ERROR} status")
-      val closureErrorData = exceptionToClosureErrorData(exception)
       val event =
         TransactionClosureErrorEvent(baseTransaction.transactionId.value(), closureErrorData)
 
@@ -362,7 +362,15 @@ class ClosePaymentHelper(
     } else {
       logger.info(
         "Transaction with id: [${baseTransaction.transactionId.value()}] already in ${TransactionStatusDto.CLOSURE_ERROR} status")
-      Mono.just(baseTransaction as BaseTransactionWithClosureError)
+      transactionsViewRepository
+        .findByTransactionId(baseTransaction.transactionId.value())
+        .cast(Transaction::class.java)
+        .flatMap { trx ->
+          trx.status = TransactionStatusDto.CLOSURE_ERROR
+          trx.closureErrorData = closureErrorData
+          transactionsViewRepository.save(trx)
+        }
+        .thenReturn((baseTransaction as BaseTransactionWithClosureError))
     }
   }
 
