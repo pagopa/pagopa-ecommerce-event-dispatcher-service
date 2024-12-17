@@ -419,7 +419,11 @@ class ClosePaymentHelperTests {
       val transactionDocument =
         transactionDocument(
           TransactionStatusDto.CLOSURE_ERROR, ZonedDateTime.parse(activationEvent.creationDate))
-
+      transactionDocument.closureErrorData =
+        ClosureErrorData(
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          "node error description",
+          ErrorType.KO_RESPONSE_RECEIVED)
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
       given(
@@ -478,6 +482,7 @@ class ClosePaymentHelperTests {
             false,
             UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
               ClosePaymentOutcome.KO.toString(), Optional.empty())))
+      assertNull(viewArgumentCaptor.value.closureErrorData)
     }
 
   @Test
@@ -667,7 +672,9 @@ class ClosePaymentHelperTests {
     val transactionDocument =
       transactionDocument(
         TransactionStatusDto.CLOSURE_ERROR, ZonedDateTime.parse(activationEvent.creationDate))
-
+    transactionDocument.closureErrorData =
+      ClosureErrorData(
+        HttpStatus.INTERNAL_SERVER_ERROR, "node error description", ErrorType.KO_RESPONSE_RECEIVED)
     val expectedClosureEvent = transactionClosedEvent(TransactionClosureData.Outcome.OK)
 
     /* preconditions */
@@ -677,7 +684,9 @@ class ClosePaymentHelperTests {
       .willReturn(events.toFlux())
     given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
       .willReturn(Mono.just(transactionDocument))
-    given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
+    given(transactionsViewRepository.save(viewArgumentCaptor.capture())).willAnswer {
+      Mono.just(it.arguments[0])
+    }
     given(transactionClosedEventRepository.save(any())).willReturn(Mono.just(expectedClosureEvent))
     given(nodeService.closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK))
       .willReturn(
@@ -715,6 +724,7 @@ class ClosePaymentHelperTests {
           false,
           UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
             ClosePaymentOutcome.OK.toString(), Optional.empty())))
+    assertNull(viewArgumentCaptor.allValues[0].closureErrorData)
   }
 
   @Test

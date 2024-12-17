@@ -436,6 +436,8 @@ class ClosePaymentHelper(
               .flatMap { tx ->
                 tx.status = newStatus
                 tx.sendPaymentResultOutcome = sendPaymentResultOutcome
+                tx.closureErrorData =
+                  null // reset closure error state when a close payment response have been received
                 transactionsViewRepository.save(tx)
               }
               .thenReturn(closedEvent)
@@ -447,6 +449,8 @@ class ClosePaymentHelper(
               .flatMap { tx ->
                 tx.status = newStatus
                 tx.sendPaymentResultOutcome = sendPaymentResultOutcome
+                tx.closureErrorData =
+                  null // reset closure error state when a close payment response have been received
                 transactionsViewRepository.save(tx)
               }
               .thenReturn(closedEvent)
