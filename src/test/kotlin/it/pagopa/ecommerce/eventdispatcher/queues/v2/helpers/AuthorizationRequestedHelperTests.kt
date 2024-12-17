@@ -212,7 +212,7 @@ class AuthorizationRequestedHelperTests {
 
     given(
         authorizationStateRetrieverRetryService.enqueueRetryEvent(
-          any(), retryCountCaptor.capture(), any(), any()))
+          any(), retryCountCaptor.capture(), any(), any(), anyOrNull()))
       .willReturn(Mono.empty())
     given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
       .willReturn(
@@ -239,7 +239,7 @@ class AuthorizationRequestedHelperTests {
     /* Asserts */
     verify(checkpointer, times(1)).success()
     verify(authorizationStateRetrieverRetryService, times(0))
-      .enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
     verify(authorizationStateRetrieverService, times(1))
       .getStateNpg(
         transactionId,
@@ -313,7 +313,7 @@ class AuthorizationRequestedHelperTests {
 
     given(
         authorizationStateRetrieverRetryService.enqueueRetryEvent(
-          any(), retryCountCaptor.capture(), any(), any()))
+          any(), retryCountCaptor.capture(), any(), any(), anyOrNull()))
       .willReturn(Mono.empty())
     given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
       .willReturn(
@@ -339,7 +339,7 @@ class AuthorizationRequestedHelperTests {
     /* Asserts */
     verify(checkpointer, times(1)).success()
     verify(authorizationStateRetrieverRetryService, times(0))
-      .enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
     verify(authorizationStateRetrieverService, times(1))
       .getStateNpg(
         transactionId,
@@ -413,7 +413,7 @@ class AuthorizationRequestedHelperTests {
 
     given(
         authorizationStateRetrieverRetryService.enqueueRetryEvent(
-          any(), retryCountCaptor.capture(), any(), any()))
+          any(), retryCountCaptor.capture(), any(), any(), anyOrNull()))
       .willReturn(Mono.empty())
     given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
       .willReturn(
@@ -439,7 +439,7 @@ class AuthorizationRequestedHelperTests {
     /* Asserts */
     verify(checkpointer, times(1)).success()
     verify(authorizationStateRetrieverRetryService, times(0))
-      .enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
     verify(authorizationStateRetrieverService, times(1))
       .getStateNpg(
         transactionId,
@@ -499,7 +499,7 @@ class AuthorizationRequestedHelperTests {
 
       given(
           authorizationStateRetrieverRetryService.enqueueRetryEvent(
-            any(), retryCountCaptor.capture(), any(), anyOrNull()))
+            any(), retryCountCaptor.capture(), any(), anyOrNull(), anyOrNull()))
         .willReturn(Mono.empty())
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(
@@ -525,7 +525,7 @@ class AuthorizationRequestedHelperTests {
       /* Asserts */
       verify(checkpointer, times(1)).success()
       verify(authorizationStateRetrieverRetryService, times(1))
-        .enqueueRetryEvent(any(), any(), any(), anyOrNull())
+        .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
       verify(authorizationStateRetrieverService, times(1))
         .getStateNpg(
           transactionId,
@@ -586,7 +586,7 @@ class AuthorizationRequestedHelperTests {
 
       given(
           authorizationStateRetrieverRetryService.enqueueRetryEvent(
-            any(), retryCountCaptor.capture(), any(), anyOrNull()))
+            any(), retryCountCaptor.capture(), any(), anyOrNull(), anyOrNull()))
         .willReturn(Mono.empty())
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(
@@ -612,7 +612,7 @@ class AuthorizationRequestedHelperTests {
       /* Asserts */
       verify(checkpointer, times(1)).success()
       verify(authorizationStateRetrieverRetryService, times(1))
-        .enqueueRetryEvent(any(), any(), any(), anyOrNull())
+        .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
       verify(authorizationStateRetrieverService, times(1))
         .getStateNpg(
           transactionId,
@@ -659,7 +659,7 @@ class AuthorizationRequestedHelperTests {
 
       given(
           authorizationStateRetrieverRetryService.enqueueRetryEvent(
-            any(), retryCountCaptor.capture(), any(), any()))
+            any(), retryCountCaptor.capture(), any(), any(), anyOrNull()))
         .willReturn(Mono.empty())
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(
@@ -684,7 +684,7 @@ class AuthorizationRequestedHelperTests {
       /* Asserts */
       verify(checkpointer, times(1)).success()
       verify(authorizationStateRetrieverRetryService, times(0))
-        .enqueueRetryEvent(any(), any(), any(), anyOrNull())
+        .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
       verify(authorizationStateRetrieverService, times(0))
         .getStateNpg(any(), any(), any(), any(), any())
       verify(userStatsServiceClient, times(0)).saveLastUsage(any(), any())
@@ -714,7 +714,8 @@ class AuthorizationRequestedHelperTests {
           transactionId.value()))
       .willReturn(Flux.fromIterable(events))
     given(
-        authorizationStateRetrieverRetryService.enqueueRetryEvent(any(), any(), any(), anyOrNull()))
+        authorizationStateRetrieverRetryService.enqueueRetryEvent(
+          any(), any(), any(), anyOrNull(), anyOrNull()))
       .willReturn(Mono.empty())
     given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any(), any()))
       .willReturn(Mono.error(NpgServerErrorException("Error retrieving transaction status")))
@@ -742,7 +743,7 @@ class AuthorizationRequestedHelperTests {
     verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
     verify(userStatsServiceClient, times(0)).saveLastUsage(any(), any())
     verify(authorizationStateRetrieverRetryService, times(1))
-      .enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
     verify(deadLetterTracedQueueAsyncClient, times(0))
       .sendAndTraceDeadLetterQueueEvent(any(), any())
   }
@@ -771,7 +772,8 @@ class AuthorizationRequestedHelperTests {
           transactionId.value()))
       .willReturn(Flux.fromIterable(events))
     given(
-        authorizationStateRetrieverRetryService.enqueueRetryEvent(any(), any(), any(), anyOrNull()))
+        authorizationStateRetrieverRetryService.enqueueRetryEvent(
+          any(), any(), any(), anyOrNull(), anyOrNull()))
       .willReturn(Mono.empty())
     given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any(), any()))
       .willReturn(
@@ -797,7 +799,7 @@ class AuthorizationRequestedHelperTests {
     verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
     verify(userStatsServiceClient, times(0)).saveLastUsage(any(), any())
     verify(authorizationStateRetrieverRetryService, times(0))
-      .enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
     verify(deadLetterTracedQueueAsyncClient, times(0))
       .sendAndTraceDeadLetterQueueEvent(any(), any())
   }
@@ -865,7 +867,8 @@ class AuthorizationRequestedHelperTests {
         deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(any<BinaryData>(), any()))
       .willReturn(mono {})
     given(
-        authorizationStateRetrieverRetryService.enqueueRetryEvent(any(), any(), any(), anyOrNull()))
+        authorizationStateRetrieverRetryService.enqueueRetryEvent(
+          any(), any(), any(), anyOrNull(), anyOrNull()))
       .willReturn(Mono.empty())
     // Test
     StepVerifier.create(
@@ -889,7 +892,7 @@ class AuthorizationRequestedHelperTests {
     verify(deadLetterTracedQueueAsyncClient, times(0))
       .sendAndTraceDeadLetterQueueEvent(any(), any())
     verify(authorizationStateRetrieverRetryService, times(0))
-      .enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
   }
 
   @ParameterizedTest
@@ -954,7 +957,8 @@ class AuthorizationRequestedHelperTests {
         deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(any<BinaryData>(), any()))
       .willReturn(mono {})
     given(
-        authorizationStateRetrieverRetryService.enqueueRetryEvent(any(), any(), any(), anyOrNull()))
+        authorizationStateRetrieverRetryService.enqueueRetryEvent(
+          any(), any(), any(), anyOrNull(), anyOrNull()))
       .willReturn(Mono.empty())
     // Test
     StepVerifier.create(
@@ -978,7 +982,7 @@ class AuthorizationRequestedHelperTests {
     verify(deadLetterTracedQueueAsyncClient, times(0))
       .sendAndTraceDeadLetterQueueEvent(any(), any())
     verify(authorizationStateRetrieverRetryService, times(1))
-      .enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
   }
 
   @Test
@@ -1039,7 +1043,8 @@ class AuthorizationRequestedHelperTests {
         deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(any<BinaryData>(), any()))
       .willReturn(mono {})
     given(
-        authorizationStateRetrieverRetryService.enqueueRetryEvent(any(), any(), any(), anyOrNull()))
+        authorizationStateRetrieverRetryService.enqueueRetryEvent(
+          any(), any(), any(), anyOrNull(), anyOrNull()))
       .willReturn(Mono.empty())
     // Test
     StepVerifier.create(
@@ -1063,7 +1068,7 @@ class AuthorizationRequestedHelperTests {
     verify(deadLetterTracedQueueAsyncClient, times(0))
       .sendAndTraceDeadLetterQueueEvent(any(), any())
     verify(authorizationStateRetrieverRetryService, times(0))
-      .enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
   }
 
   @Test
@@ -1112,7 +1117,8 @@ class AuthorizationRequestedHelperTests {
         deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(any<BinaryData>(), any()))
       .willReturn(mono {})
     given(
-        authorizationStateRetrieverRetryService.enqueueRetryEvent(any(), any(), any(), anyOrNull()))
+        authorizationStateRetrieverRetryService.enqueueRetryEvent(
+          any(), any(), any(), anyOrNull(), anyOrNull()))
       .willReturn(Mono.empty())
 
     // Test
@@ -1136,7 +1142,7 @@ class AuthorizationRequestedHelperTests {
     verify(deadLetterTracedQueueAsyncClient, times(0))
       .sendAndTraceDeadLetterQueueEvent(any(), any())
     verify(authorizationStateRetrieverRetryService, times(1))
-      .enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
   }
 
   @ParameterizedTest
@@ -1535,7 +1541,8 @@ class AuthorizationRequestedHelperTests {
           transactionId.value()))
       .willReturn(Flux.fromIterable(events))
     given(
-        authorizationStateRetrieverRetryService.enqueueRetryEvent(any(), any(), any(), anyOrNull()))
+        authorizationStateRetrieverRetryService.enqueueRetryEvent(
+          any(), any(), any(), anyOrNull(), anyOrNull()))
       .willReturn(Mono.empty())
     given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any(), any()))
       .willReturn(
@@ -1566,7 +1573,7 @@ class AuthorizationRequestedHelperTests {
     verify(userStatsServiceClient, times(0)).saveLastUsage(any(), any())
     verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
     verify(authorizationStateRetrieverRetryService, times(0))
-      .enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
     verify(deadLetterTracedQueueAsyncClient, times(0))
       .sendAndTraceDeadLetterQueueEvent(any(), any())
   }
@@ -1594,7 +1601,8 @@ class AuthorizationRequestedHelperTests {
           transactionId.value()))
       .willReturn(Flux.fromIterable(events))
     given(
-        authorizationStateRetrieverRetryService.enqueueRetryEvent(any(), any(), any(), anyOrNull()))
+        authorizationStateRetrieverRetryService.enqueueRetryEvent(
+          any(), any(), any(), anyOrNull(), anyOrNull()))
       .willReturn(Mono.empty())
     given(authRequestedQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), any()))
       .willReturn(queueSuccessfulResponse())
@@ -1623,7 +1631,7 @@ class AuthorizationRequestedHelperTests {
     verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
     verify(userStatsServiceClient, times(0)).saveLastUsage(any(), any())
     verify(authorizationStateRetrieverRetryService, times(1))
-      .enqueueRetryEvent(any(), eq(0), any(), anyOrNull())
+      .enqueueRetryEvent(any(), eq(0), any(), anyOrNull(), anyOrNull())
     verify(deadLetterTracedQueueAsyncClient, times(0))
       .sendAndTraceDeadLetterQueueEvent(any(), any())
     /*verify(authRequestedOutcomeWaitingQueueAsyncClient, times(1))
@@ -1709,7 +1717,8 @@ class AuthorizationRequestedHelperTests {
         deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(any<BinaryData>(), any()))
       .willReturn(mono {})
     given(
-        authorizationStateRetrieverRetryService.enqueueRetryEvent(any(), any(), any(), anyOrNull()))
+        authorizationStateRetrieverRetryService.enqueueRetryEvent(
+          any(), any(), any(), anyOrNull(), anyOrNull()))
       .willReturn(Mono.empty())
     given(userStatsServiceClient.saveLastUsage(any(), any())).willReturn(Mono.empty())
     // Test
@@ -1734,7 +1743,7 @@ class AuthorizationRequestedHelperTests {
     verify(deadLetterTracedQueueAsyncClient, times(0))
       .sendAndTraceDeadLetterQueueEvent(any(), any())
     verify(authorizationStateRetrieverRetryService, times(0))
-      .enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
   }
 
   @ParameterizedTest
@@ -1802,7 +1811,8 @@ class AuthorizationRequestedHelperTests {
         deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(any<BinaryData>(), any()))
       .willReturn(mono {})
     given(
-        authorizationStateRetrieverRetryService.enqueueRetryEvent(any(), any(), any(), anyOrNull()))
+        authorizationStateRetrieverRetryService.enqueueRetryEvent(
+          any(), any(), any(), anyOrNull(), anyOrNull()))
       .willReturn(Mono.empty())
     given(userStatsServiceClient.saveLastUsage(any(), any())).willReturn(Mono.empty())
     // Test
@@ -1827,7 +1837,7 @@ class AuthorizationRequestedHelperTests {
     verify(deadLetterTracedQueueAsyncClient, times(0))
       .sendAndTraceDeadLetterQueueEvent(any(), any())
     verify(authorizationStateRetrieverRetryService, times(1))
-      .enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
   }
 
   @Test
@@ -1891,7 +1901,8 @@ class AuthorizationRequestedHelperTests {
         deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(any<BinaryData>(), any()))
       .willReturn(mono {})
     given(
-        authorizationStateRetrieverRetryService.enqueueRetryEvent(any(), any(), any(), anyOrNull()))
+        authorizationStateRetrieverRetryService.enqueueRetryEvent(
+          any(), any(), any(), anyOrNull(), anyOrNull()))
       .willReturn(Mono.empty())
     given(authRequestedQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), any()))
       .willReturn(queueSuccessfulResponse())
@@ -1916,7 +1927,7 @@ class AuthorizationRequestedHelperTests {
     verify(deadLetterTracedQueueAsyncClient, times(0))
       .sendAndTraceDeadLetterQueueEvent(any(), any())
     verify(authorizationStateRetrieverRetryService, times(0))
-      .enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
     verify(authRequestedQueueAsyncClient, times(0))
       .sendMessageWithResponse(any<BinaryData>(), any(), any())
   }
@@ -1969,7 +1980,8 @@ class AuthorizationRequestedHelperTests {
         deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(any<BinaryData>(), any()))
       .willReturn(mono {})
     given(
-        authorizationStateRetrieverRetryService.enqueueRetryEvent(any(), any(), any(), anyOrNull()))
+        authorizationStateRetrieverRetryService.enqueueRetryEvent(
+          any(), any(), any(), anyOrNull(), anyOrNull()))
       .willReturn(Mono.empty())
     given(userStatsServiceClient.saveLastUsage(any(), any())).willReturn(Mono.empty())
 
@@ -1994,7 +2006,7 @@ class AuthorizationRequestedHelperTests {
     verify(deadLetterTracedQueueAsyncClient, times(0))
       .sendAndTraceDeadLetterQueueEvent(any(), any())
     verify(authorizationStateRetrieverRetryService, times(1))
-      .enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
   }
 
   @ParameterizedTest
@@ -2062,7 +2074,7 @@ class AuthorizationRequestedHelperTests {
 
     given(
         authorizationStateRetrieverRetryService.enqueueRetryEvent(
-          any(), retryCountCaptor.capture(), any(), any()))
+          any(), retryCountCaptor.capture(), any(), any(), anyOrNull()))
       .willReturn(Mono.empty())
     given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
       .willReturn(
@@ -2088,7 +2100,7 @@ class AuthorizationRequestedHelperTests {
     /* Asserts */
     verify(checkpointer, times(1)).success()
     verify(authorizationStateRetrieverRetryService, times(0))
-      .enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
     verify(authorizationStateRetrieverService, times(1))
       .getStateNpg(
         transactionId,

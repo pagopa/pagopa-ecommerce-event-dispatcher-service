@@ -40,13 +40,15 @@ abstract class RetryEventService<E>(
     baseTransaction: BaseTransaction,
     retriedCount: Int,
     tracingInfo: TracingInfo?,
-    transactionGatewayAuthorizationData: TransactionGatewayAuthorizationData? = null
+    transactionGatewayAuthorizationData: TransactionGatewayAuthorizationData? = null,
+    throwable: Throwable? = null
   ): Mono<Void> {
     val retryEvent =
       buildRetryEvent(
         baseTransaction.transactionId,
         TransactionRetriedData(retriedCount + 1),
-        transactionGatewayAuthorizationData)
+        transactionGatewayAuthorizationData,
+        throwable)
     val visibilityTimeout = Duration.ofSeconds((retryOffset * retryEvent.data.retryCount).toLong())
     return Mono.just(retryEvent)
       .filter { it.data.retryCount <= maxAttempts }
@@ -73,7 +75,8 @@ abstract class RetryEventService<E>(
   abstract fun buildRetryEvent(
     transactionId: TransactionId,
     transactionRetriedData: TransactionRetriedData,
-    transactionGatewayAuthorizationData: TransactionGatewayAuthorizationData? = null
+    transactionGatewayAuthorizationData: TransactionGatewayAuthorizationData?,
+    throwable: Throwable?
   ): E
 
   abstract fun newTransactionStatus(): TransactionStatusDto

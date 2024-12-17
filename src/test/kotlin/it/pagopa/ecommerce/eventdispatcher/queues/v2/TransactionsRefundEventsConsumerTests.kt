@@ -174,7 +174,8 @@ class TransactionsRefundEventsConsumerTests {
       verify(refundService, Mockito.times(0))
         .requestNpgRefund(any(), any(), any(), any(), any(), any())
       verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).save(any())
-      verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      verify(refundRetryService, times(0))
+        .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
     }
 
   @Test
@@ -258,7 +259,8 @@ class TransactionsRefundEventsConsumerTests {
           paymentMethod =
             NpgClient.PaymentMethod.valueOf(authorizationRequestEvent.data.paymentMethodName))
       verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
-      verify(refundRetryService, times(1)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      verify(refundRetryService, times(1))
+        .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
       val storedEvent = refundEventStoreCaptor.value
       assertEquals(
         TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT.toString(), storedEvent.eventCode)
@@ -353,7 +355,8 @@ class TransactionsRefundEventsConsumerTests {
         paymentMethod =
           NpgClient.PaymentMethod.valueOf(authorizationRequestEvent.data.paymentMethodName))
     verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
-    verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+    verify(refundRetryService, times(0))
+      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
     val storedEvent = refundEventStoreCaptor.value
     assertEquals(TransactionEventCode.TRANSACTION_REFUNDED_EVENT.toString(), storedEvent.eventCode)
     assertEquals(TransactionStatusDto.REFUND_REQUESTED, storedEvent.data.statusBeforeRefunded)
@@ -408,7 +411,7 @@ class TransactionsRefundEventsConsumerTests {
         .willAnswer { Mono.just(it.arguments[0]) }
       given(refundService.requestNpgRefund(any(), any(), any(), any(), any(), any()))
         .willThrow(RefundNotAllowedException(transaction.transactionId))
-      given(refundRetryService.enqueueRetryEvent(any(), any(), any(), anyOrNull()))
+      given(refundRetryService.enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull()))
         .willReturn(Mono.empty())
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(
@@ -453,7 +456,8 @@ class TransactionsRefundEventsConsumerTests {
           paymentMethod =
             NpgClient.PaymentMethod.valueOf(authorizationRequestEvent.data.paymentMethodName))
       verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
-      verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+      verify(refundRetryService, times(0))
+        .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
       verify(deadLetterTracedQueueAsyncClient, times(1))
         .sendAndTraceDeadLetterQueueEvent(
           any<BinaryData>(),
@@ -656,7 +660,8 @@ class TransactionsRefundEventsConsumerTests {
     verify(refundService, times(0)).requestNpgRefund(any(), any(), any(), any(), any(), any())
     verify(refundService, times(0)).requestRedirectRefund(any(), any(), any(), any(), any())
     verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).save(any())
-    verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+    verify(refundRetryService, times(0))
+      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
   }
 
   @ParameterizedTest
@@ -740,7 +745,8 @@ class TransactionsRefundEventsConsumerTests {
         paymentTypeCode = expectedPaymentTypeCode,
         pspId = expectedPspId)
     verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
-    verify(refundRetryService, times(0)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+    verify(refundRetryService, times(0))
+      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
     val storedEvent = refundEventStoreCaptor.value
     assertEquals(TransactionEventCode.TRANSACTION_REFUNDED_EVENT.toString(), storedEvent.eventCode)
     assertEquals(TransactionStatusDto.REFUND_REQUESTED, storedEvent.data.statusBeforeRefunded)
@@ -789,7 +795,7 @@ class TransactionsRefundEventsConsumerTests {
     given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
       .willReturn(
         mono { transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now()) })
-    given(refundRetryService.enqueueRetryEvent(any(), any(), any(), anyOrNull()))
+    given(refundRetryService.enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull()))
       .willReturn(Mono.empty())
     Hooks.onOperatorDebug()
     /* test */
@@ -812,7 +818,8 @@ class TransactionsRefundEventsConsumerTests {
         paymentTypeCode = any(),
         pspId = any())
     verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
-    verify(refundRetryService, times(1)).enqueueRetryEvent(any(), any(), any(), anyOrNull())
+    verify(refundRetryService, times(1))
+      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
 
     val storedEvent = refundEventStoreCaptor.value
     assertEquals(
