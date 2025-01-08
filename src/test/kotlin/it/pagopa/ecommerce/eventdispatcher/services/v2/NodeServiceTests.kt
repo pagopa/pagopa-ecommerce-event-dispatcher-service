@@ -2094,6 +2094,7 @@ class NodeServiceTests {
             this.rrn = authCompletedEvent.data.rrn
             this.timestampOperation = expectedTimestamp
             this.fee = feeEuro.toString()
+            this.authorizationRequestId = AUTHORIZATION_REQUEST_ID
             this.totalAmount = totalAmountEuro.toString()
             this.email = EMAIL_STRING
             this.authorizationCode = authCompletedEvent.data.authorizationCode
@@ -2238,6 +2239,7 @@ class NodeServiceTests {
           ApplePayAdditionalPaymentInformationsDto().apply {
             this.rrn = authCompletedEvent.data.rrn
             this.timestampOperation = expectedTimestamp
+            this.authorizationRequestId = AUTHORIZATION_REQUEST_ID
             this.fee = feeEuro.toString()
             this.totalAmount = totalAmountEuro.toString()
             this.email = EMAIL_STRING
