@@ -681,6 +681,9 @@ class NodeService(
         .flatMap { email }
         .map {
           ApplePayAdditionalPaymentInformationsDto().apply {
+            if (transactionOutcome == ClosePaymentOutcome.OK) {
+              this.authorizationRequestId = authCompleted.transactionAuthorizationRequestData.authorizationRequestId
+            }
             this.rrn = authCompleted.transactionAuthorizationCompletedData.rrn
             this.totalAmount = totalAmountEuro.toString()
             this.fee = feeEuro.toString()
@@ -721,7 +724,7 @@ class NodeService(
           paymentMethod = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
           idBrokerPSP = authCompleted.transactionAuthorizationRequestData.brokerName
           idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
-          idBundle = authCompleted.transactionAuthorizationRequestData.idBundle
+          idBundle = authCompleted.transactionAuthorizationRequestData.idBundle,
         }
 
         this.additionalPaymentInformations = it.orElse(null)
