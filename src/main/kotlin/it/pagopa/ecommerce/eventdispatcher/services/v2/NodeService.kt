@@ -681,6 +681,8 @@ class NodeService(
         .flatMap { email }
         .map {
           ApplePayAdditionalPaymentInformationsDto().apply {
+            this.authorizationRequestId =
+              authCompleted.transactionAuthorizationRequestData.authorizationRequestId
             this.rrn = authCompleted.transactionAuthorizationCompletedData.rrn
             this.totalAmount = totalAmountEuro.toString()
             this.fee = feeEuro.toString()
