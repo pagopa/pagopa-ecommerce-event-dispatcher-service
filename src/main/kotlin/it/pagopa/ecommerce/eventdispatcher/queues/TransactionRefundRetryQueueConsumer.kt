@@ -14,6 +14,7 @@ import it.pagopa.ecommerce.eventdispatcher.exceptions.InvalidEventException
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.ecommerce.eventdispatcher.warmup.annotations.WarmupFunction
 import it.pagopa.ecommerce.payment.requests.warmup.utils.DummyCheckpointer
+import it.pagopa.ecommerce.payment.requests.warmup.utils.WarmupRequests.getTransactionRefundRetry
 import java.util.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -124,6 +125,6 @@ class TransactionRefundRetryQueueConsumer(
 
   @WarmupFunction
   fun warmupService() {
-    messageReceiver(ByteArray(0), DummyCheckpointer)
+    messageReceiver(getTransactionRefundRetry(), DummyCheckpointer)
   }
 }
