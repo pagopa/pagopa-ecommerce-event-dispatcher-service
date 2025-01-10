@@ -16,6 +16,7 @@ import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.eventdispatcher.exceptions.InvalidEventException
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.ecommerce.eventdispatcher.warmup.annotations.WarmupFunction
+import it.pagopa.ecommerce.payment.requests.warmup.utils.DummyCheckpointer
 import java.util.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -171,11 +172,6 @@ class TransactionsRefundQueueConsumer(
 
   @WarmupFunction
   fun warmupService() {
-    val dummyCheckpointer =
-      object : Checkpointer {
-        override fun success(): Mono<Void> = Mono.empty()
-        override fun failure(): Mono<Void> = Mono.empty()
-      }
-    messageReceiver(ByteArray(0), dummyCheckpointer)
+    messageReceiver(ByteArray(0), DummyCheckpointer)
   }
 }

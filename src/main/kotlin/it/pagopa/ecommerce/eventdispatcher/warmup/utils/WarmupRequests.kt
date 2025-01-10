@@ -1,5 +1,13 @@
 package it.pagopa.ecommerce.payment.requests.warmup.utils
 
+import com.azure.spring.messaging.checkpoint.Checkpointer
+import reactor.core.publisher.Mono
+
+object DummyCheckpointer : Checkpointer {
+  override fun success(): Mono<Void> = Mono.empty()
+  override fun failure(): Mono<Void> = Mono.empty()
+}
+
 object WarmupRequests {
 
   fun getTransactionAuthorizationRequestedEventV2(): ByteArray {
