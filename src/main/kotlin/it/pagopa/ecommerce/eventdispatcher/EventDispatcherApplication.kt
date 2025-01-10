@@ -14,8 +14,8 @@ class EventDispatcherApplication {
   @Bean
   fun initializeLazyBeans(applicationContext: ApplicationContext): () -> Unit {
     return {
-      applicationContext.getBeansWithAnnotation(Lazy::class.java).forEach { (name, _) ->
-        applicationContext.getBean(name)
+      applicationContext.beanDefinitionNames.forEach { beanName ->
+        applicationContext.getBean(beanName)
       }
     }
   }
