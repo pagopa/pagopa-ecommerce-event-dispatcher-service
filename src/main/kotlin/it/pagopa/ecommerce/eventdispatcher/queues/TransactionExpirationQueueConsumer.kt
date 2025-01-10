@@ -177,6 +177,6 @@ class TransactionExpirationQueueConsumer(
 
   @WarmupFunction
   fun warmupService() {
-    messageReceiver(getTransactionExpiration(), DummyCheckpointer,MessageHeaders(emptyMap()))
+    messageReceiver(getTransactionExpiration(), DummyCheckpointer, MessageHeaders(emptyMap()))
   }
 }
