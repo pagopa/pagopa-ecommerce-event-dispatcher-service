@@ -10,7 +10,32 @@ object DummyCheckpointer : Checkpointer {
 
 object WarmupRequests {
 
-  fun getTransactionAuthorizationRequestedEventV2(): ByteArray {
+  fun getTransactionAuthorizationOutcomeWaiting(): ByteArray {
+    val jsonString =
+      """
+          {
+              "event": {
+                  "_class": "it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationOutcomeWaitingEvent",
+                  "id": "7ee814b9-8bb8-4f61-9204-2aa55cb56773",
+                  "transactionId": "00000000000000000000000000000000",
+                  "creationDate": "2025-01-10T14:28:47.843515440Z[Etc/UTC]",
+                  "data": {
+                      "retryCount": 1
+                  },
+                  "eventCode": "TRANSACTION_AUTHORIZATION_OUTCOME_WAITING_EVENT"
+              },
+              "tracingInfo": {
+                  "traceparent": "00-5868efa082297543570dafff7d53c70b-56f1d9262e6ee6cf-00",
+                  "tracestate": null,
+                  "baggage": null
+              }
+          }
+          """
+
+    return jsonString.toByteArray()
+  }
+
+  fun getTransactionAuthorizationRequested(): ByteArray {
     val jsonString =
       """
         {
@@ -51,6 +76,184 @@ object WarmupRequests {
             }
         }
         """
+    return jsonString.toByteArray()
+  }
+
+  fun getTransactionClosePayment(): ByteArray {
+    val jsonString =
+      """
+        {
+            "event": {
+                "_class": "it.pagopa.ecommerce.commons.documents.v2.TransactionClosureRequestedEvent",
+                "id": "7ee814b9-8bb8-4f61-9204-2aa55cb56773",
+                "transactionId": "00000000000000000000000000000000",
+                "creationDate": "2025-01-10T14:28:47.843515440Z[Etc/UTC]",
+                "data": null,
+                "eventCode": "TRANSACTION_CLOSURE_REQUESTED_EVENT"
+            },
+            "tracingInfo": {
+                "traceparent": "00-5868efa082297543570dafff7d53c70b-56f1d9262e6ee6cf-00",
+                "tracestate": null,
+                "baggage": null
+            }
+        }
+      """
+    return jsonString.toByteArray()
+  }
+
+  fun getTransactionClosePaymentRetry(): ByteArray {
+    val jsonString =
+      """
+        {
+          "event": {
+              "_class": "it.pagopa.ecommerce.commons.documents.v2.TransactionClosureErrorEvent",
+              "id": "7ee814b9-8bb8-4f61-9204-2aa55cb56773",
+              "transactionId": "00000000000000000000000000000000",
+              "creationDate": "2025-01-10T14:28:47.843515440Z[Etc/UTC]",
+              "data": {
+                  "httpErrorCode": "INTERNAL_SERVER_ERROR",
+                  "errorDescription": "Sample error message",
+                  "errorType": "KO_RESPONSE_RECEIVED"
+              },
+              "eventCode": "TRANSACTION_CLOSURE_ERROR_EVENT"
+          },
+          "tracingInfo": {
+              "traceparent": "00-5868efa082297543570dafff7d53c70b-56f1d9262e6ee6cf-00",
+              "tracestate": null,
+              "baggage": null
+          }
+        }
+      """
+    return jsonString.toByteArray()
+  }
+
+  fun getTransactionExpiration(): ByteArray {
+    val jsonString =
+      """
+        {
+            "event": {
+                "_class": "it.pagopa.ecommerce.commons.documents.v2.TransactionExpiredEvent",
+                "id": "7ee814b9-8bb8-4f61-9204-2aa55cb56773",
+                "transactionId": "00000000000000000000000000000000",
+                "creationDate": "2025-01-10T14:28:47.843515440Z[Etc/UTC]",
+                "data": {
+                    "statusBeforeExpiration": "AUTHORIZED"
+                },
+                "eventCode": "TRANSACTION_EXPIRED_EVENT"
+            },
+            "tracingInfo": {
+                "traceparent": "00-5868efa082297543570dafff7d53c70b-56f1d9262e6ee6cf-00",
+                "tracestate": null,
+                "baggage": null
+            }
+        }
+      """
+    return jsonString.toByteArray()
+  }
+
+  fun getTransactionNotifications(): ByteArray {
+    val jsonString =
+      """
+        {
+            "event": {
+                "_class": "it.pagopa.ecommerce.commons.documents.v2.TransactionUserReceiptRequestedEvent",
+                "id": "7ee814b9-8bb8-4f61-9204-2aa55cb56773",
+                "transactionId": "00000000000000000000000000000000",
+                "creationDate": "2025-01-10T14:28:47.843515440Z[Etc/UTC]",
+                "data": {
+                    "responseOutcome": "OK",
+                    "language": "en",
+                    "paymentDate": "2025-01-10T14:28:47.843515440Z[Etc/UTC]"
+                },
+                "eventCode": "TRANSACTION_USER_RECEIPT_REQUESTED_EVENT"
+            },
+            "tracingInfo": {
+                "traceparent": "00-5868efa082297543570dafff7d53c70b-56f1d9262e6ee6cf-00",
+                "tracestate": null,
+                "baggage": null
+            }
+        }
+      """
+    return jsonString.toByteArray()
+  }
+
+  fun getTransactionNotificationsRetry(): ByteArray {
+    val jsonString =
+      """
+        {
+            "event": {
+                "_class": "it.pagopa.ecommerce.commons.documents.v2.TransactionUserReceiptAddRetriedEvent",
+                "id": "7ee814b9-8bb8-4f61-9204-2aa55cb56773",
+                "transactionId": "00000000000000000000000000000000",
+                "creationDate": "2025-01-10T14:28:47.843515440Z[Etc/UTC]",
+                "data": {
+                    "retryCount": 1
+                },
+                "eventCode": "TRANSACTION_ADD_USER_RECEIPT_RETRY_EVENT"
+            },
+            "tracingInfo": {
+                "traceparent": "00-5868efa082297543570dafff7d53c70b-56f1d9262e6ee6cf-00",
+                "tracestate": null,
+                "baggage": null
+            }
+        }
+      """
+    return jsonString.toByteArray()
+  }
+
+  fun getTransactionRefund(): ByteArray {
+    val jsonString =
+      """
+        {
+            "event": {
+                "_class": "it.pagopa.ecommerce.commons.documents.v2.TransactionRefundRetriedEvent",
+                "id": "7ee814b9-8bb8-4f61-9204-2aa55cb56773",
+                "transactionId": "00000000000000000000000000000000",
+                "creationDate": "2025-01-10T14:28:47.843515440Z[Etc/UTC]",
+                "data": {
+                    "transactionGatewayAuthorizationData": {
+                        "authorizationCode": "AUTH_CODE_SAMPLE",
+                        "authorizationOutcome": "SUCCESS"
+                    },
+                    "retryCount": 1
+                },
+                "eventCode": "TRANSACTION_REFUND_RETRIED_EVENT"
+            },
+            "tracingInfo": {
+                "traceparent": "00-5868efa082297543570dafff7d53c70b-56f1d9262e6ee6cf-00",
+                "tracestate": null,
+                "baggage": null
+            }
+        }
+      """
+    return jsonString.toByteArray()
+  }
+
+  fun getTransactionRefundRetry(): ByteArray {
+    val jsonString =
+      """
+        {
+            "event": {
+                "_class": "it.pagopa.ecommerce.commons.documents.v2.TransactionRefundRetriedEvent",
+                "id": "7ee814b9-8bb8-4f61-9204-2aa55cb56773",
+                "transactionId": "00000000000000000000000000000000",
+                "creationDate": "2025-01-10T14:28:47.843515440Z[Etc/UTC]",
+                "data": {
+                    "transactionGatewayAuthorizationData": {
+                        "authorizationCode": "AUTH_CODE_SAMPLE",
+                        "authorizationOutcome": "SUCCESS"
+                    },
+                    "retryCount": 1
+                },
+                "eventCode": "TRANSACTION_REFUND_RETRIED_EVENT"
+            },
+            "tracingInfo": {
+                "traceparent": "00-5868efa082297543570dafff7d53c70b-56f1d9262e6ee6cf-00",
+                "tracestate": null,
+                "baggage": null
+            }
+        }
+      """
     return jsonString.toByteArray()
   }
 }
