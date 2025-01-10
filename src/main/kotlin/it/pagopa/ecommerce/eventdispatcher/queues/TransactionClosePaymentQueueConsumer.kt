@@ -14,6 +14,7 @@ import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.eventdispatcher.exceptions.*
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
+import it.pagopa.ecommerce.eventdispatcher.warmup.annotations.WarmupFunction
 import java.util.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -125,5 +126,15 @@ class TransactionClosePaymentQueueConsumer(
           deadLetterTracedQueueAsyncClient,
           DeadLetterTracedQueueAsyncClient.PARSING_EVENT_ERROR_CONTEXT)
       }
+  }
+
+  @WarmupFunction
+  fun warmupService() {
+    val dummyCheckpointer =
+      object : Checkpointer {
+        override fun success(): Mono<Void> = Mono.empty()
+        override fun failure(): Mono<Void> = Mono.empty()
+      }
+    messageReceiver(ByteArray(0), dummyCheckpointer)
   }
 }

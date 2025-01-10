@@ -10,7 +10,6 @@ import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.eventdispatcher.exceptions.InvalidEventException
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.ecommerce.eventdispatcher.warmup.annotations.WarmupFunction
-import it.pagopa.ecommerce.payment.requests.warmup.utils.WarmupRequests.getTransactionAuthorizationRequestedEventV2
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -95,6 +94,6 @@ class TransactionAuthorizationOutcomeWaitingQueueConsumer(
         override fun success(): Mono<Void> = Mono.empty()
         override fun failure(): Mono<Void> = Mono.empty()
       }
-    messageReceiver(getTransactionAuthorizationRequestedEventV2(), dummyCheckpointer)
+    messageReceiver(ByteArray(0), dummyCheckpointer)
   }
 }
