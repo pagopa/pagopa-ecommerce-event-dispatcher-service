@@ -19,7 +19,7 @@ import it.pagopa.ecommerce.eventdispatcher.queues.v2.TransactionExpirationQueueC
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.ecommerce.eventdispatcher.warmup.annotations.WarmupFunction
 import it.pagopa.ecommerce.payment.requests.warmup.utils.DummyCheckpointer
-import it.pagopa.ecommerce.payment.requests.warmup.utils.WarmupRequests.getTransactionExpiration
+import it.pagopa.ecommerce.payment.requests.warmup.utils.WarmupRequests.getTransactionExpiredEvent
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -177,6 +177,7 @@ class TransactionExpirationQueueConsumer(
 
   @WarmupFunction
   fun warmupService() {
-    messageReceiver(getTransactionExpiration(), DummyCheckpointer, MessageHeaders(emptyMap()))
+    messageReceiver(getTransactionExpiredEvent(), DummyCheckpointer, MessageHeaders(emptyMap()))
+      .block()
   }
 }

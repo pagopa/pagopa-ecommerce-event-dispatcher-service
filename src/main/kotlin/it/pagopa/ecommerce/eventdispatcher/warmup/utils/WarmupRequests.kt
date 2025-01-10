@@ -10,7 +10,7 @@ object DummyCheckpointer : Checkpointer {
 
 object WarmupRequests {
 
-  fun getTransactionAuthorizationOutcomeWaiting(): ByteArray {
+  fun getTransactionAuthorizationOutcomeWaitingEvent(): ByteArray {
     val jsonString =
       """
           {
@@ -35,7 +35,7 @@ object WarmupRequests {
     return jsonString.toByteArray()
   }
 
-  fun getTransactionAuthorizationRequested(): ByteArray {
+  fun getTransactionAuthorizationRequestedEvent(): ByteArray {
     val jsonString =
       """
         {
@@ -79,7 +79,7 @@ object WarmupRequests {
     return jsonString.toByteArray()
   }
 
-  fun getTransactionClosePayment(): ByteArray {
+  fun getTransactionClosureRequestedEvent(): ByteArray {
     val jsonString =
       """
         {
@@ -101,7 +101,7 @@ object WarmupRequests {
     return jsonString.toByteArray()
   }
 
-  fun getTransactionClosePaymentRetry(): ByteArray {
+  fun getTransactionClosureErrorEvent(): ByteArray {
     val jsonString =
       """
         {
@@ -127,7 +127,7 @@ object WarmupRequests {
     return jsonString.toByteArray()
   }
 
-  fun getTransactionExpiration(): ByteArray {
+  fun getTransactionExpiredEvent(): ByteArray {
     val jsonString =
       """
         {
@@ -151,7 +151,7 @@ object WarmupRequests {
     return jsonString.toByteArray()
   }
 
-  fun getTransactionNotifications(): ByteArray {
+  fun getTransactionUserReceiptRequestedEvent(): ByteArray {
     val jsonString =
       """
         {
@@ -177,59 +177,7 @@ object WarmupRequests {
     return jsonString.toByteArray()
   }
 
-  fun getTransactionNotificationsRetry(): ByteArray {
-    val jsonString =
-      """
-        {
-            "event": {
-                "_class": "it.pagopa.ecommerce.commons.documents.v2.TransactionUserReceiptAddRetriedEvent",
-                "id": "7ee814b9-8bb8-4f61-9204-2aa55cb56773",
-                "transactionId": "00000000000000000000000000000000",
-                "creationDate": "2025-01-10T14:28:47.843515440Z[Etc/UTC]",
-                "data": {
-                    "retryCount": 1
-                },
-                "eventCode": "TRANSACTION_ADD_USER_RECEIPT_RETRY_EVENT"
-            },
-            "tracingInfo": {
-                "traceparent": "00-5868efa082297543570dafff7d53c70b-56f1d9262e6ee6cf-00",
-                "tracestate": null,
-                "baggage": null
-            }
-        }
-      """
-    return jsonString.toByteArray()
-  }
-
-  fun getTransactionRefund(): ByteArray {
-    val jsonString =
-      """
-        {
-            "event": {
-                "_class": "it.pagopa.ecommerce.commons.documents.v2.TransactionRefundRetriedEvent",
-                "id": "7ee814b9-8bb8-4f61-9204-2aa55cb56773",
-                "transactionId": "00000000000000000000000000000000",
-                "creationDate": "2025-01-10T14:28:47.843515440Z[Etc/UTC]",
-                "data": {
-                    "transactionGatewayAuthorizationData": {
-                        "authorizationCode": "AUTH_CODE_SAMPLE",
-                        "authorizationOutcome": "SUCCESS"
-                    },
-                    "retryCount": 1
-                },
-                "eventCode": "TRANSACTION_REFUND_RETRIED_EVENT"
-            },
-            "tracingInfo": {
-                "traceparent": "00-5868efa082297543570dafff7d53c70b-56f1d9262e6ee6cf-00",
-                "tracestate": null,
-                "baggage": null
-            }
-        }
-      """
-    return jsonString.toByteArray()
-  }
-
-  fun getTransactionRefundRetry(): ByteArray {
+  fun getTransactionRefundRetriedEvent(): ByteArray {
     val jsonString =
       """
         {

@@ -16,7 +16,7 @@ import it.pagopa.ecommerce.eventdispatcher.exceptions.InvalidEventException
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.ecommerce.eventdispatcher.warmup.annotations.WarmupFunction
 import it.pagopa.ecommerce.payment.requests.warmup.utils.DummyCheckpointer
-import it.pagopa.ecommerce.payment.requests.warmup.utils.WarmupRequests.getTransactionNotifications
+import it.pagopa.ecommerce.payment.requests.warmup.utils.WarmupRequests.getTransactionUserReceiptRequestedEvent
 import it.pagopa.generated.notifications.templates.success.*
 import java.util.*
 import org.slf4j.Logger
@@ -121,6 +121,6 @@ class TransactionNotificationsQueueConsumer(
 
   @WarmupFunction
   fun warmupService() {
-    messageReceiver(getTransactionNotifications(), DummyCheckpointer)
+    messageReceiver(getTransactionUserReceiptRequestedEvent(), DummyCheckpointer).block()
   }
 }
