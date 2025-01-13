@@ -36,7 +36,6 @@ class ServicesWarmup : ApplicationListener<ContextRefreshedEvent> {
   }
 
   private fun warmUpservice(serviceToWarmUpInstance: Any) {
-    var warmUpMethods = 0
     val serviceToWarmUpKClass = ClassUtils.getUserClass(serviceToWarmUpInstance).kotlin
     val elapsedTime = measureTimeMillis {
       runCatching {
