@@ -51,7 +51,6 @@ class StreamConfig {
   @Bean
   @InboundChannelAdapter(
     channel = "eventDispatcherReceiverCommandChannel",
-    autoStartup = "false",
     poller = [Poller(fixedDelay = "1000", maxMessagesPerPoll = "1")])
   fun eventDispatcherReceiverCommandMessageSource(
     redisStreamReceiver: StreamReceiver<String, ObjectRecord<String, LinkedHashMap<*, *>>>,
