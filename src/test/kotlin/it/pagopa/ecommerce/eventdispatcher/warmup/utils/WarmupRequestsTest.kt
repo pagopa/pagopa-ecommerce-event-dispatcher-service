@@ -5,7 +5,6 @@ import it.pagopa.ecommerce.commons.documents.v2.TransactionClosureErrorEvent as 
 import it.pagopa.ecommerce.commons.documents.v2.TransactionClosureRequestedEvent as TransactionClosureRequestedEventV2
 import it.pagopa.ecommerce.commons.documents.v2.TransactionExpiredEvent as TransactionExpiredEventV2
 import it.pagopa.ecommerce.commons.documents.v2.TransactionRefundRequestedEvent
-import it.pagopa.ecommerce.commons.documents.v2.TransactionRefundRetriedEvent as TransactionRefundRetriedEventV2
 import it.pagopa.ecommerce.commons.documents.v2.TransactionUserReceiptAddErrorEvent
 import it.pagopa.ecommerce.eventdispatcher.config.QueuesConsumerConfig
 import it.pagopa.ecommerce.eventdispatcher.queues.*
@@ -162,7 +161,7 @@ class WarmupRequestsTest {
       }
       .verifyComplete()
   }
-/*
+  /*
   @Test
   fun `test parse TransactionRefundRetriedEvent`() {
     val payload = WarmupRequests.getTransactionRefundRetriedEvent()
