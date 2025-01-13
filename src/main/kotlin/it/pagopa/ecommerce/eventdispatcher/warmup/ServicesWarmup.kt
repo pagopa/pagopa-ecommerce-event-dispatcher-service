@@ -16,6 +16,13 @@ import org.springframework.util.ClassUtils
 class ServicesWarmup : ApplicationListener<ContextRefreshedEvent> {
 
   private val logger = LoggerFactory.getLogger(this.javaClass)
+
+  companion object {
+    private var warmUpMethods = 0
+    fun getWarmUpMethods(): Int {
+      return warmUpMethods
+    }
+  }
   override fun onApplicationEvent(event: ContextRefreshedEvent) {
     val restservices =
       event.applicationContext

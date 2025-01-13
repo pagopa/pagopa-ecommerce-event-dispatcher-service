@@ -35,6 +35,33 @@ object WarmupRequests {
     return jsonString.toByteArray()
   }
 
+  fun getTransactionUserReceiptAddErrorEvent(): ByteArray {
+    val jsonString =
+      """
+        {
+            "event": {
+                "_class": "it.pagopa.ecommerce.commons.documents.v2.TransactionUserReceiptAddErrorEvent",
+                "id": "12345678-1234-1234-1234-123456789012",
+                "transactionId": "00000000000000000000000000000000",
+                "creationDate": "2025-01-13T10:26:33.000Z[Etc/UTC]",
+                "data": {
+                    "responseOutcome": "KO",
+                    "language": "en",
+                    "paymentDate": "2025-01-12T10:00:00.000Z"
+                },
+                "eventCode": "TRANSACTION_ADD_USER_RECEIPT_ERROR_EVENT"
+            },
+            "tracingInfo": {
+                "traceparent": "00-abcdef1234567890abcdef1234567890-abcdef1234567890-00",
+                "tracestate": null,
+                "baggage": null
+            }
+        }
+
+        """
+    return jsonString.toByteArray()
+  }
+
   fun getTransactionAuthorizationRequestedEvent(): ByteArray {
     val jsonString =
       """
@@ -137,12 +164,37 @@ object WarmupRequests {
                 "transactionId": "00000000000000000000000000000000",
                 "creationDate": "2025-01-10T14:28:47.843515440Z[Etc/UTC]",
                 "data": {
-                    "statusBeforeExpiration": "AUTHORIZED"
+                    "statusBeforeExpiration": "AUTHORIZATION_COMPLETED"
                 },
                 "eventCode": "TRANSACTION_EXPIRED_EVENT"
             },
             "tracingInfo": {
                 "traceparent": "00-5868efa082297543570dafff7d53c70b-56f1d9262e6ee6cf-00",
+                "tracestate": null,
+                "baggage": null
+            }
+        }
+      """
+    return jsonString.toByteArray()
+  }
+
+  fun getTransactionRefundRequestedEvent(): ByteArray {
+    val jsonString =
+      """
+        {
+            "event": {
+                "_class": "it.pagopa.ecommerce.commons.documents.v2.TransactionRefundRequestedEvent",
+                "id": "abcdef12-3456-7890-abcd-ef1234567890",
+                "transactionId": "00000000000000000000000000000000",
+                "creationDate": "2025-01-13T10:30:00.000Z[Etc/UTC]",
+                "data": {
+                    "gatewayAuthData": null,
+                    "statusBeforeRefunded": "AUTHORIZATION_REQUESTED"
+                },
+                "eventCode": "TRANSACTION_REFUND_REQUESTED_EVENT"
+            },
+            "tracingInfo": {
+                "traceparent": "00-1234567890abcdef1234567890abcdef-1234567890abcdef-00",
                 "tracestate": null,
                 "baggage": null
             }
@@ -188,6 +240,7 @@ object WarmupRequests {
                 "creationDate": "2025-01-10T14:28:47.843515440Z[Etc/UTC]",
                 "data": {
                     "transactionGatewayAuthorizationData": {
+                        "type": "PGS",
                         "authorizationCode": "AUTH_CODE_SAMPLE",
                         "authorizationOutcome": "SUCCESS"
                     },

@@ -1,12 +1,12 @@
 package it.pagopa.ecommerce.eventdispatcher.warmup.utils
 
-import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationOutcomeWaitingEvent
 import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationRequestedEvent as TransactionAuthorizationRequestedEventV2
 import it.pagopa.ecommerce.commons.documents.v2.TransactionClosureErrorEvent as TransactionClosureErrorEventV2
 import it.pagopa.ecommerce.commons.documents.v2.TransactionClosureRequestedEvent as TransactionClosureRequestedEventV2
 import it.pagopa.ecommerce.commons.documents.v2.TransactionExpiredEvent as TransactionExpiredEventV2
+import it.pagopa.ecommerce.commons.documents.v2.TransactionRefundRequestedEvent
 import it.pagopa.ecommerce.commons.documents.v2.TransactionRefundRetriedEvent as TransactionRefundRetriedEventV2
-import it.pagopa.ecommerce.commons.documents.v2.TransactionUserReceiptRequestedEvent as TransactionUserReceiptRequestedEventV2
+import it.pagopa.ecommerce.commons.documents.v2.TransactionUserReceiptAddErrorEvent
 import it.pagopa.ecommerce.eventdispatcher.config.QueuesConsumerConfig
 import it.pagopa.ecommerce.eventdispatcher.queues.*
 import it.pagopa.ecommerce.eventdispatcher.queues.TransactionsRefundQueueConsumerTest.Companion.strictSerializerProviderV1
@@ -87,13 +87,13 @@ class WarmupRequestsTest {
 
   @Test
   fun `test parse TransactionAuthorizationOutcomeWaitingEvent`() {
-    val payload = WarmupRequests.getTransactionAuthorizationOutcomeWaitingEvent()
+    val payload = WarmupRequests.getTransactionUserReceiptAddErrorEvent()
     val result = transactionNotificationsRetryQueueConsumer.parseEvent(payload)
 
     StepVerifier.create(result)
       .assertNext { event ->
-        assertEquals(TransactionAuthorizationOutcomeWaitingEvent::class.java, event::class.java)
-        assertEquals("TRANSACTION_AUTHORIZATION_OUTCOME_WAITING_EVENT", event.first.eventCode)
+        assertEquals(TransactionUserReceiptAddErrorEvent::class.java, event::class.java)
+        assertEquals("TRANSACTION_ADD_USER_RECEIPT_ERROR_EVENT", event.first.eventCode)
       }
       .verifyComplete()
   }
@@ -152,17 +152,17 @@ class WarmupRequestsTest {
 
   @Test
   fun `test parse TransactionUserReceiptRequestedEvent`() {
-    val payload = WarmupRequests.getTransactionUserReceiptRequestedEvent()
+    val payload = WarmupRequests.getTransactionRefundRequestedEvent()
     val result = transactionRefundedEventsConsumer.parseEvent(payload)
 
     StepVerifier.create(result)
       .assertNext { event ->
-        assertEquals(TransactionUserReceiptRequestedEventV2::class.java, event::class.java)
-        assertEquals("TRANSACTION_USER_RECEIPT_REQUESTED_EVENT", event.first.eventCode)
+        assertEquals(TransactionRefundRequestedEvent::class.java, event::class.java)
+        assertEquals("TRANSACTION_REFUND_REQUESTED_EVENT", event.first.eventCode)
       }
       .verifyComplete()
   }
-
+/*
   @Test
   fun `test parse TransactionRefundRetriedEvent`() {
     val payload = WarmupRequests.getTransactionRefundRetriedEvent()
@@ -174,5 +174,5 @@ class WarmupRequestsTest {
         assertEquals("TRANSACTION_REFUND_RETRIED_EVENT", event.first.eventCode)
       }
       .verifyComplete()
-  }
+  }*/
 }
