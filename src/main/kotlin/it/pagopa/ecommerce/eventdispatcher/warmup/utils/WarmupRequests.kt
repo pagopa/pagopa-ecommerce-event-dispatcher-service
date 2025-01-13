@@ -240,9 +240,7 @@ object WarmupRequests {
                 "creationDate": "2025-01-10T14:28:47.843515440Z[Etc/UTC]",
                 "data": {
                     "transactionGatewayAuthorizationData": {
-                        "type": "PGS",
-                        "authorizationCode": "AUTH_CODE_SAMPLE",
-                        "authorizationOutcome": "SUCCESS"
+                        "type": "PGS"
                     },
                     "retryCount": 1
                 },
