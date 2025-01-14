@@ -29,7 +29,9 @@ class ServicesWarmup(
         .getBeansWithAnnotation(Service::class.java)
         .map { it.value }
         .filter { service ->
-          service::class.java.methods.any { method -> method.name == "messageReceiver" }
+          service.javaClass.kotlin.declaredMemberFunctions.any {
+            it.hasAnnotation<WarmupFunction>()
+          }
         }
     logger.info("Found services: [{}]", restservices.size)
 
