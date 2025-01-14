@@ -24,7 +24,7 @@ class ServicesWarmup(
   private val logger = LoggerFactory.getLogger(this.javaClass)
 
   override fun onApplicationEvent(event: ContextRefreshedEvent) {
-    val restservices =
+    val eventReceiverServices =
       event.applicationContext
         .getBeansWithAnnotation(Service::class.java)
         .map { it.value }
@@ -33,10 +33,10 @@ class ServicesWarmup(
             it.hasAnnotation<WarmupFunction>()
           }
         }
-    logger.info("Found services: [{}]", restservices.size)
+    logger.info("Found services: [{}]", eventReceiverServices.size)
 
     try {
-      restservices.forEach(this::warmUpservice)
+      eventReceiverServices.forEach(this::warmUpService)
     } catch (e: Exception) {
       logger.error("Exception during service warm-up", e)
     } finally {
@@ -44,7 +44,7 @@ class ServicesWarmup(
     }
   }
 
-  private fun warmUpservice(serviceToWarmUpInstance: Any) {
+  private fun warmUpService(serviceToWarmUpInstance: Any) {
     var warmUpMethods = 0
     val serviceToWarmUpKClass = ClassUtils.getUserClass(serviceToWarmUpInstance).kotlin
     val elapsedTime = measureTimeMillis {
