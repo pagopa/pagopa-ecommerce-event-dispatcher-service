@@ -6,7 +6,6 @@ import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto;
 import it.pagopa.ecommerce.commons.queues.TracingInfo;
 import it.pagopa.ecommerce.commons.queues.TracingUtils;
 import org.springframework.http.HttpStatus;
-
 import java.net.URI;
 
 public class EventsUtil {
