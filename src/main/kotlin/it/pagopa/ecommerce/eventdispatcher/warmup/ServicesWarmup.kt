@@ -7,7 +7,6 @@ import kotlin.reflect.full.hasAnnotation
 import kotlin.system.measureTimeMillis
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.beans.factory.getBeansWithAnnotation
 import org.springframework.context.ApplicationListener
 import org.springframework.context.event.ContextRefreshedEvent
 import org.springframework.stereotype.Component
@@ -41,6 +40,7 @@ class ServicesWarmup(
       logger.error("Exception during service warm-up", e)
     } finally {
       inboundChannelAdapterLifecycleHandlerService.invokeCommandForAllEndpoints("start")
+      inboundChannelAdapterLifecycleHandlerService.invokeCommandForRedisStreamMessageSource("start")
     }
   }
 
