@@ -98,7 +98,7 @@ stages:
           - script: newman run api-tests/transaction-service/redirect/transaction-service_ecommerce_local.postman_collection.json --environment=api-tests/transaction-service/redirect/transaction-service_ecommerce_local.postman_environment.json --reporters cli,junit --reporter-junit-export Results/REDIRECT-api-TEST.xml
             displayName: 'Run api test for REDIRECT integration'
           - script: newman run api-tests/event-dispatcher-service/ecommerce-event-dispatcher_tests.postman_collection.json --environment=api-tests/event-dispatcher-service/ecommerce-event-dispatcher_tests.postman_environment.json --reporters cli,junit --reporter-junit-export Results/event-dispatcher-api-TEST.xml
-            displayName: 'Run api test for event-dispatcher '
+            displayName: 'Run api test for event-dispatcher'
             continueOnError: false
           - task: PublishTestResults@2
             inputs:
