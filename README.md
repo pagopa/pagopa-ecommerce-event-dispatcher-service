@@ -1,7 +1,7 @@
 # pagopa-ecommerce-event-dispatcher-service
 
 ## What is this?
-test
+
 This is a PagoPA microservice that handles scheduled retry mechanism for the eCommerce product.
 
 ### Environment variables
