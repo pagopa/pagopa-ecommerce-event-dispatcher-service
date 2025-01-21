@@ -12,7 +12,7 @@ resources:
     - repository: pagopaEcommerceLocal
       type: github
       name: pagopa/pagopa-ecommerce-local
-      ref: CHK-3644-event-dispatcher-queue-api-tests
+      ref: main
       endpoint: 'io-azure-devops-github-ro'
 
 stages:
