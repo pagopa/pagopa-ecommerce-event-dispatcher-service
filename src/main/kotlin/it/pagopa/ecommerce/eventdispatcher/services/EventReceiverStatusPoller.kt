@@ -35,13 +35,13 @@ class EventReceiverStatusPoller(
   fun eventReceiverStatusPoller() {
     logger.info("Polling event receiver statuses")
     val statuses = inboundChannelAdapterLifecycleHandlerService.getAllChannelStatus()
-    val consumerName = redisStreamEventControllerConfigs.consumerName
+    val instanceId = redisStreamEventControllerConfigs.instanceId
     val queriedAt = OffsetDateTime.now().toString()
     val receiversStatus =
       ReceiversStatus(
         queriedAt = queriedAt,
         receiverStatuses = statuses,
-        consumerInstanceId = consumerName,
+        consumerInstanceId = instanceId,
         version = deploymentVersion)
     // save new receivers status as redis instance, all records will be saved with the same key,
     // making this document to be updated automatically for each poll
