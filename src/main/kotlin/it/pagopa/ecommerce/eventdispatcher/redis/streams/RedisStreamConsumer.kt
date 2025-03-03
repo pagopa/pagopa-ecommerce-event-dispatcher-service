@@ -25,6 +25,10 @@ import reactor.core.publisher.Mono
 import reactor.core.scheduler.Schedulers
 import reactor.util.retry.Retry
 
+/**
+ * Redis Stream event consumer. This class handles all Redis Stream events performing requested
+ * operation based on input event type
+ */
 @Service
 class RedisStreamConsumer(
   @Autowired

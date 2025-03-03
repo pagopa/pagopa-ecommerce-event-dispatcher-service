@@ -39,7 +39,4 @@ class StreamConfig {
         .build()
     return StreamReceiver.create(reactiveRedisConnectionFactory, streamReceiverOptions)
   }
-
-  // The InboundChannelAdapter and RedisStreamMessageSource are removed in favor of
-  // direct reactive consumption in RedisStreamConsumer
 }
