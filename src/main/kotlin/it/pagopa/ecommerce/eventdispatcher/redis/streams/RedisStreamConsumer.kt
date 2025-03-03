@@ -47,14 +47,18 @@ class RedisStreamConsumer(
 
   override fun onApplicationEvent(event: ApplicationReadyEvent) {
     logger.info("Starting Redis stream receiver")
-    eventStreamPipelineWithRetry().subscribeOn(Schedulers.parallel()).subscribe { record ->
+
+    eventStreamPipelineWithRetry().subscribeOn(Schedulers.parallel()).subscribe (
+      { record ->
       runCatching {
           val event =
             objectMapper.convertValue(record.value, EventDispatcherGenericCommand::class.java)
           processStreamEvent(event)
         }
         .onFailure { ex -> logger.error("Error processing redis stream event", ex) }
-    }
+      },
+      { error -> logger.error("Error in Redis stream pipeline", error) }
+    )
   }
 
   fun eventStreamPipelineWithRetry(): Flux<ObjectRecord<String, LinkedHashMap<*, *>>> =
@@ -71,11 +75,11 @@ class RedisStreamConsumer(
   fun processStreamEvent(event: EventDispatcherGenericCommand) {
     logger.info("Received event: ${event.type}")
     when (event) {
-      is EventDispatcherReceiverCommand -> hanldeEventReceiverCommand(event)
+      is EventDispatcherReceiverCommand -> handleEventReceiverCommand(event)
     }
   }
 
-  fun hanldeEventReceiverCommand(command: EventDispatcherReceiverCommand) {
+  fun handleEventReceiverCommand(command: EventDispatcherReceiverCommand) {
     val currentDeploymentVersion = deploymentVersion
     val commandTargetVersion = command.version
 

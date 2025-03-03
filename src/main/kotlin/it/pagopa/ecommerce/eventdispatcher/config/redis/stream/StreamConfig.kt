@@ -40,24 +40,6 @@ class StreamConfig {
     return StreamReceiver.create(reactiveRedisConnectionFactory, streamReceiverOptions)
   }
 
-  /**
-   * InboundChannelAdapter has only method scope, used this producer method to bound custom
-   * RedisStreamMessageSource to inbound channel adapter
-   */
-  /*@Bean
-  @InboundChannelAdapter(
-    channel = "eventDispatcherReceiverCommandChannel",
-    poller = [Poller(fixedDelay = "1000", maxMessagesPerPoll = "1")],
-    autoStartup = "false")
-  @EndpointId("eventDispatcherReceiverCommandChannelEndpoint")
-  fun eventDispatcherReceiverCommandMessageSource(
-    redisStreamReceiver: StreamReceiver<String, ObjectRecord<String, LinkedHashMap<*, *>>>,
-    eventDispatcherCommandsTemplateWrapper: EventDispatcherCommandsTemplateWrapper,
-    redisStreamConf: RedisStreamEventControllerConfigs
-  ): RedisStreamMessageSource =
-    RedisStreamMessageSource(
-      redisStreamReceiver = redisStreamReceiver,
-      eventDispatcherCommandsTemplateWrapper = eventDispatcherCommandsTemplateWrapper,
-      redisStreamConf = redisStreamConf)
-   */
+  // The InboundChannelAdapter and RedisStreamMessageSource are removed in favor of
+  // direct reactive consumption in RedisStreamConsumer
 }
