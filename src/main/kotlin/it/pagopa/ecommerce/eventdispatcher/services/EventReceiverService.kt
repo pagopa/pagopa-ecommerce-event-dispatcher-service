@@ -75,12 +75,4 @@ class EventReceiverService(
     }
     return EventReceiverStatusResponseDto(status = lastStatuses)
   }
-
-  @PreDestroy
-  fun close() {
-    RedisStreamMessageSource.RedisStreamMessageSourceLogger.logger.info(
-      "Deleting consumer group with id ${redisStreamConf.consumerGroup}")
-    eventDispatcherCommandsTemplateWrapper.destroyGroup(
-      redisStreamConf.streamKey, redisStreamConf.consumerGroup)
-  }
 }
