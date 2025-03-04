@@ -78,7 +78,6 @@ class RedisStreamConsumer(
         })
 
   fun processStreamEvent(event: EventDispatcherGenericCommand) {
-    logger.info("Received event: ${event.type}")
     when (event) {
       is EventDispatcherReceiverCommand -> handleEventReceiverCommand(event)
     }
