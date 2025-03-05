@@ -165,8 +165,6 @@ microservice-chart:
     NPG_SATISPAY_PSP_LIST: "SATYLUL1"
     NPG_APPLEPAY_PSP_LIST: "SIGPITM1XXX"
     REDIS_STREAM_EVENT_CONTROLLER_STREAM_KEY: "event-dispatcher-commands"
-    REDIS_STREAM_EVENT_CONTROLLER_CONSUMER_GROUP_PREFIX: "event-dispatcher"
-    REDIS_STREAM_EVENT_CONTROLLER_CONSUMER_NAME_PREFIX: "event-dispatcher"
     EVENT_CONTROLLER_STATUS_POLLING_CHRON: "*/10 * * * * *"
     NODE_FORWARDER_URL: "https://api.uat.platform.pagopa.it/pagopa-node-forwarder/api/v1"
     NODE_FORWARDER_READ_TIMEOUT: "10000"

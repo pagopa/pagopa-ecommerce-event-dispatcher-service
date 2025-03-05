@@ -40,7 +40,6 @@ class ServicesWarmup(
       logger.error("Exception during service warm-up", e)
     } finally {
       inboundChannelAdapterLifecycleHandlerService.invokeCommandForAllEndpoints("start")
-      inboundChannelAdapterLifecycleHandlerService.invokeCommandForRedisStreamMessageSource("start")
     }
   }
 

@@ -2,7 +2,7 @@ package it.pagopa.ecommerce.eventdispatcher.services
 
 import it.pagopa.ecommerce.eventdispatcher.config.redis.bean.ReceiverStatus
 import it.pagopa.ecommerce.eventdispatcher.config.redis.bean.Status
-import it.pagopa.ecommerce.eventdispatcher.config.redis.stream.RedisStreamMessageSource
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.context.ApplicationContext
@@ -13,17 +13,20 @@ import org.springframework.messaging.MessageHeaders
 import org.springframework.messaging.support.MessageBuilder
 import org.springframework.stereotype.Service
 
-/** This class handles InboundChannelAdapter lifecycle through SpEL ControlBus implementation */
+/** This class handles InboundChannelAdapter lifecycle through SpEL ControlBus implementation. It */
 @Service
 class InboundChannelAdapterLifecycleHandlerService(
   @Autowired private val applicationContext: ApplicationContext,
   @Autowired @Qualifier("controlBusInCH") private val controlBusInput: DirectChannel,
   @Autowired @Qualifier("controlBusOutCH") private val controlBusOutput: QueueChannel
 ) {
+  private val logger = LoggerFactory.getLogger(javaClass)
+
   /**
-   * Invoke input command for all endpoints sending a message to the SpEL control bus input channel
+   * Invoke input command for all endpoints sending a message to the SpEL control bus input channel.
    */
   fun invokeCommandForAllEndpoints(command: String) {
+    logger.info("Invoking command [{}] for all eligible endpoints", command)
     findInboundChannelAdapterBeans().forEach {
       val controllerBusMessage =
         MessageBuilder.createMessage("@${it}Endpoint.$command()", MessageHeaders(mapOf()))
@@ -33,7 +36,7 @@ class InboundChannelAdapterLifecycleHandlerService(
 
   /**
    * Return all channels status querying the isRunning() method result sending a message to the SpEL
-   * control bus input channel
+   * control bus input channel.
    */
   fun getAllChannelStatus() = findInboundChannelAdapterBeans().map { getChannelStatus(it) }
 
@@ -61,15 +64,5 @@ class InboundChannelAdapterLifecycleHandlerService(
 
   /** Retrieve all InboundChannelAdapter on which perform commands */
   fun findInboundChannelAdapterBeans() =
-    applicationContext
-      .getBeansWithAnnotation(InboundChannelAdapter::class.java)
-      .filterNot { it.value is RedisStreamMessageSource }
-      .keys
-
-  fun invokeCommandForRedisStreamMessageSource(command: String) {
-    val controllerBusMessage =
-      MessageBuilder.createMessage(
-        "@eventDispatcherReceiverCommandChannelEndpoint.$command()", MessageHeaders(mapOf()))
-    controlBusInput.send(controllerBusMessage)
-  }
+    applicationContext.getBeansWithAnnotation(InboundChannelAdapter::class.java).keys
 }

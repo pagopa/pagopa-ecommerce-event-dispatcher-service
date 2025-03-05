@@ -30,11 +30,7 @@ class EventReceiversServiceTest {
     mock()
 
   private val redisStreamConf: RedisStreamEventControllerConfigs =
-    RedisStreamEventControllerConfigs(
-      streamKey = "streamKey",
-      consumerNamePrefix = "consumerName",
-      consumerGroupPrefix = "consumerGroup",
-      faiOnErrorCreatingConsumerGroup = false)
+    RedisStreamEventControllerConfigs(streamKey = "streamKey")
 
   private val eventReceiverService =
     EventReceiverService(
@@ -115,21 +111,6 @@ class EventReceiversServiceTest {
       // assertions
       verify(eventDispatcherReceiverStatusTemplateWrapper, times(1)).allValuesInKeySpace
     }
-
-  @Test
-  fun `Should delete consumer group on pre destroy method`() = runTest {
-    // pre-requisites
-    given(
-        eventDispatcherCommandsTemplateWrapper.destroyGroup(
-          redisStreamConf.streamKey, redisStreamConf.consumerGroup))
-      .willReturn(true)
-
-    // test
-    eventReceiverService.close()
-
-    // assertions
-    verify(eventDispatcherCommandsTemplateWrapper, times(1)).destroyGroup(any(), any())
-  }
 
   @Test
   fun `Should get receiver statuses filtering for specific version`() = runTest {
