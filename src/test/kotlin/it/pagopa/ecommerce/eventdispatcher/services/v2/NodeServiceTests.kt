@@ -133,10 +133,7 @@ class NodeServiceTests {
           null,
           UserDto.TypeEnum.GUEST),
         Arguments.of(
-          Transaction.ClientId.IO,
-          Transaction.ClientId.IO,
-          "userId",
-          UserDto.TypeEnum.REGISTERED),
+          Transaction.ClientId.IO, Transaction.ClientId.IO, "userId", UserDto.TypeEnum.REGISTERED),
       )
   }
 
