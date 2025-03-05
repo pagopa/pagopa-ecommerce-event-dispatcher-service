@@ -132,6 +132,11 @@ class NodeServiceTests {
           Transaction.ClientId.CHECKOUT_CART,
           null,
           UserDto.TypeEnum.GUEST),
+        Arguments.of(
+          Transaction.ClientId.IO,
+          Transaction.ClientId.IO,
+          "userId",
+          UserDto.TypeEnum.REGISTERED),
       )
   }
 
