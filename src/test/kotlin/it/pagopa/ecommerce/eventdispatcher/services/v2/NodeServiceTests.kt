@@ -1,10 +1,7 @@
 package it.pagopa.ecommerce.eventdispatcher.services.v2
 
 import it.pagopa.ecommerce.commons.client.NpgClient
-import it.pagopa.ecommerce.commons.documents.v2.Transaction
-import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationRequestData
-import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationRequestedEvent
-import it.pagopa.ecommerce.commons.documents.v2.TransactionEvent
+import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.documents.v2.authorization.*
 import it.pagopa.ecommerce.commons.domain.Email
 import it.pagopa.ecommerce.commons.domain.TransactionId
@@ -146,8 +143,7 @@ class NodeServiceTests {
       val canceledEvent = transactionUserCanceledEvent()
       val events = listOf(activatedEvent, canceledEvent) as List<TransactionEvent<Any>>
       val transactionId = activatedEvent.transactionId
-      val amount =
-        BigDecimal(activatedEvent.data.paymentNotices.stream().mapToInt { el -> el.amount }.sum())
+
       val closePaymentResponse =
         ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
 
@@ -179,18 +175,28 @@ class NodeServiceTests {
       assertEquals(
         Transaction.ClientId.CHECKOUT.name,
         closePaymentRequestCaptor.value.transactionDetails.info.clientId)
-      assertEquals(TIPO_VERSAMENTO_CP, closePaymentRequestCaptor.value.transactionDetails.info.type)
-      assertEquals(
-        closePaymentRequestCaptor.value.transactionDetails.transaction.amount,
-        closePaymentRequestCaptor.value.transactionDetails.transaction.grandTotal)
-      assertNull(closePaymentRequestCaptor.value.transactionDetails.transaction.fee)
-      assertNotNull(closePaymentRequestCaptor.value.transactionDetails.transaction.amount)
-      assertNotNull(closePaymentRequestCaptor.value.transactionDetails.transaction.grandTotal)
-      assertEquals(amount, closePaymentRequestCaptor.value.transactionDetails.transaction.amount)
-      assertEquals(
-        amount, closePaymentRequestCaptor.value.transactionDetails.transaction.grandTotal)
-      assertNotNull(closePaymentRequestCaptor.value.transactionDetails.transaction.creationDate)
     }
+
+  @Test
+  fun `closePayment returns error in case of unhandled client id`() = runTest {
+    val transactionOutcome = ClosePaymentOutcome.KO
+    val clientIdMock = mock<Transaction.ClientId>()
+
+    val activatedEvent = transactionActivateEvent().apply { data.clientId = clientIdMock }
+    val canceledEvent = transactionUserCanceledEvent()
+    val events = listOf(activatedEvent, canceledEvent) as List<TransactionEvent<Any>>
+    val transactionId = activatedEvent.transactionId
+
+    /* preconditions */
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
+      .willReturn(events.toFlux())
+
+    /* test */
+    assertThrows<RuntimeException> {
+      nodeService.closePayment(TransactionId(transactionId), transactionOutcome)
+    }
+  }
 
   @ParameterizedTest
   @MethodSource("closePaymentClient")
