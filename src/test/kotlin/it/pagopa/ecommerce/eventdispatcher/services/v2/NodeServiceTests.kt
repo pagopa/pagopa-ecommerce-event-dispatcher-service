@@ -1,10 +1,7 @@
 package it.pagopa.ecommerce.eventdispatcher.services.v2
 
 import it.pagopa.ecommerce.commons.client.NpgClient
-import it.pagopa.ecommerce.commons.documents.v2.Transaction
-import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationRequestData
-import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationRequestedEvent
-import it.pagopa.ecommerce.commons.documents.v2.TransactionEvent
+import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.documents.v2.authorization.*
 import it.pagopa.ecommerce.commons.domain.Email
 import it.pagopa.ecommerce.commons.domain.TransactionId
@@ -65,6 +62,10 @@ class NodeServiceTests {
   private lateinit var closePaymentRequestCaptor: ArgumentCaptor<CardClosePaymentRequestV2Dto>
 
   @Captor
+  private lateinit var closePaymentRequestCaptorRedirect:
+    ArgumentCaptor<RedirectClosePaymentRequestV2Dto>
+
+  @Captor
   private lateinit var redirectClosePaymentRequestCaptor:
     ArgumentCaptor<RedirectClosePaymentRequestV2Dto>
 
@@ -88,17 +89,61 @@ class NodeServiceTests {
   private lateinit var myBankClosePaymentRequestCaptor:
     ArgumentCaptor<MyBankClosePaymentRequestV2Dto>
 
+  companion object {
+    @JvmStatic
+    private fun closePaymentDateFormat() =
+      Stream.of(
+        Arguments.of("2023-05-01T23:59:59.000Z", "2023-05-02T01:59:59"),
+        Arguments.of("2023-12-01T23:59:59.000Z", "2023-12-02T00:59:59"))
+
+    @JvmStatic
+    private fun closePaymentClient() =
+      Stream.of(
+        Arguments.of(
+          Transaction.ClientId.CHECKOUT,
+          Transaction.ClientId.CHECKOUT,
+          "userId",
+          UserDto.TypeEnum.REGISTERED),
+        Arguments.of(
+          Transaction.ClientId.CHECKOUT,
+          Transaction.ClientId.CHECKOUT,
+          null,
+          UserDto.TypeEnum.GUEST),
+        Arguments.of(
+          Transaction.ClientId.CHECKOUT_CART,
+          Transaction.ClientId.CHECKOUT_CART,
+          "userId",
+          UserDto.TypeEnum.REGISTERED),
+        Arguments.of(
+          Transaction.ClientId.CHECKOUT_CART,
+          Transaction.ClientId.CHECKOUT_CART,
+          null,
+          UserDto.TypeEnum.GUEST),
+        Arguments.of(
+          Transaction.ClientId.WISP_REDIRECT,
+          Transaction.ClientId.CHECKOUT_CART,
+          "userId",
+          UserDto.TypeEnum.REGISTERED),
+        Arguments.of(
+          Transaction.ClientId.WISP_REDIRECT,
+          Transaction.ClientId.CHECKOUT_CART,
+          null,
+          UserDto.TypeEnum.GUEST),
+        Arguments.of(
+          Transaction.ClientId.IO, Transaction.ClientId.IO, "userId", UserDto.TypeEnum.REGISTERED),
+      )
+  }
+
   @Test
   fun `closePayment returns successfully for close payment on user cancel request transaction`() =
     runTest {
       val transactionOutcome = ClosePaymentOutcome.KO
 
-      val activatedEvent = transactionActivateEvent()
+      val activatedEvent = transactionActivateEvent().apply { data.userId = null }
       val canceledEvent = transactionUserCanceledEvent()
       val events = listOf(activatedEvent, canceledEvent) as List<TransactionEvent<Any>>
       val transactionId = activatedEvent.transactionId
-      val amount =
-        BigDecimal(activatedEvent.data.paymentNotices.stream().mapToInt { el -> el.amount }.sum())
+
       val closePaymentResponse =
         ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
 
@@ -130,25 +175,190 @@ class NodeServiceTests {
       assertEquals(
         Transaction.ClientId.CHECKOUT.name,
         closePaymentRequestCaptor.value.transactionDetails.info.clientId)
-      assertEquals(TIPO_VERSAMENTO_CP, closePaymentRequestCaptor.value.transactionDetails.info.type)
-      assertEquals(
-        closePaymentRequestCaptor.value.transactionDetails.transaction.amount,
-        closePaymentRequestCaptor.value.transactionDetails.transaction.grandTotal)
-      assertNull(closePaymentRequestCaptor.value.transactionDetails.transaction.fee)
-      assertNotNull(closePaymentRequestCaptor.value.transactionDetails.transaction.amount)
-      assertNotNull(closePaymentRequestCaptor.value.transactionDetails.transaction.grandTotal)
-      assertEquals(amount, closePaymentRequestCaptor.value.transactionDetails.transaction.amount)
-      assertEquals(
-        amount, closePaymentRequestCaptor.value.transactionDetails.transaction.grandTotal)
-      assertNotNull(closePaymentRequestCaptor.value.transactionDetails.transaction.creationDate)
     }
+
+  @Test
+  fun `closePayment returns error in case of unhandled client id`() = runTest {
+    val transactionOutcome = ClosePaymentOutcome.KO
+    val clientIdMock = mock<Transaction.ClientId>()
+
+    val activatedEvent = transactionActivateEvent().apply { data.clientId = clientIdMock }
+    val canceledEvent = transactionUserCanceledEvent()
+    val events = listOf(activatedEvent, canceledEvent) as List<TransactionEvent<Any>>
+    val transactionId = activatedEvent.transactionId
+
+    /* preconditions */
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
+      .willReturn(events.toFlux())
+
+    /* test */
+    assertThrows<RuntimeException> {
+      nodeService.closePayment(TransactionId(transactionId), transactionOutcome)
+    }
+  }
+
+  @ParameterizedTest
+  @MethodSource("closePaymentClient")
+  fun `closePayment returns successfully for close payment on authenticated user cancel request transaction`(
+    inputClientId: Transaction.ClientId,
+    expectedClientId: Transaction.ClientId,
+    userId: String?,
+    clientType: UserDto.TypeEnum
+  ) = runTest {
+    val transactionOutcome = ClosePaymentOutcome.KO
+
+    val activatedEvent =
+      transactionActivateEvent().apply {
+        data.clientId = inputClientId
+        data.userId = userId
+      }
+    val canceledEvent = transactionUserCanceledEvent()
+    val events = listOf(activatedEvent, canceledEvent) as List<TransactionEvent<Any>>
+    val transactionId = activatedEvent.transactionId
+    val amount =
+      BigDecimal(activatedEvent.data.paymentNotices.stream().mapToInt { el -> el.amount }.sum())
+    val closePaymentResponse =
+      ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
+
+    /* preconditions */
+    given(confidentialDataUtils.decryptWalletSessionToken(any()))
+      .willReturn(mono { activatedEvent.data.userId })
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
+      .willReturn(events.toFlux())
+
+    given(nodeClient.closePayment(capture(closePaymentRequestCaptor)))
+      .willReturn(Mono.just(closePaymentResponse))
+
+    /* test */
+    assertEquals(
+      closePaymentResponse,
+      nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
+
+    assertEquals(transactionId, closePaymentRequestCaptor.value.transactionId)
+    assertEquals(
+      CardClosePaymentRequestV2Dto.OutcomeEnum.KO, closePaymentRequestCaptor.value.outcome)
+    // check additionalPaymentInformations
+    assertNull(closePaymentRequestCaptor.value.additionalPaymentInformations)
+    // check transactionDetails
+    assertEquals(clientType, closePaymentRequestCaptor.value.transactionDetails.user.type)
+    assertEquals(
+      TransactionDetailsStatusEnum.TRANSACTION_DETAILS_STATUS_CANCELED.status,
+      closePaymentRequestCaptor.value.transactionDetails.transaction.transactionStatus)
+    assertEquals(
+      expectedClientId.name, closePaymentRequestCaptor.value.transactionDetails.info.clientId)
+    assertEquals(TIPO_VERSAMENTO_CP, closePaymentRequestCaptor.value.transactionDetails.info.type)
+    assertEquals(
+      closePaymentRequestCaptor.value.transactionDetails.transaction.amount,
+      closePaymentRequestCaptor.value.transactionDetails.transaction.grandTotal)
+    assertNull(closePaymentRequestCaptor.value.transactionDetails.transaction.fee)
+    assertNotNull(closePaymentRequestCaptor.value.transactionDetails.transaction.amount)
+    assertNotNull(closePaymentRequestCaptor.value.transactionDetails.transaction.grandTotal)
+    assertEquals(amount, closePaymentRequestCaptor.value.transactionDetails.transaction.amount)
+    assertEquals(amount, closePaymentRequestCaptor.value.transactionDetails.transaction.grandTotal)
+    assertNotNull(closePaymentRequestCaptor.value.transactionDetails.transaction.creationDate)
+  }
+
+  @ParameterizedTest
+  @MethodSource("closePaymentClient")
+  fun `closePayment returns successfully for close payment on authenticated user request transaction`(
+    inputClientId: Transaction.ClientId,
+    expectedClientId: Transaction.ClientId,
+    userId: String?,
+    clientType: UserDto.TypeEnum
+  ) = runTest {
+    val transactionOutcome = ClosePaymentOutcome.OK
+
+    val authRequestedData = redirectTransactionGatewayAuthorizationRequestedData()
+    val authCompletedData =
+      redirectTransactionGatewayAuthorizationData(
+        RedirectTransactionGatewayAuthorizationData.Outcome.OK, null)
+
+    val activatedEvent =
+      transactionActivateEvent().apply {
+        data.clientId = inputClientId
+        data.userId = userId
+      }
+    val authEvent =
+      TransactionAuthorizationRequestedEvent(
+        TRANSACTION_ID,
+        TransactionAuthorizationRequestData(
+          100,
+          10,
+          "paymentInstrumentId",
+          "pspId",
+          PaymentCode.PPAL.name,
+          "brokerName",
+          "pspChannelCode",
+          "paymentMethodName",
+          "pspBusinessName",
+          false,
+          AUTHORIZATION_REQUEST_ID,
+          TransactionAuthorizationRequestData.PaymentGateway.REDIRECT,
+          "paymentMethodDescription",
+          authRequestedData,
+          null))
+    val authCompletedEvent = transactionAuthorizationCompletedEvent(authCompletedData)
+    val closureRequestedEvent = transactionClosureRequestedEvent()
+    val closureError = transactionClosureErrorEvent()
+    val transactionId = activatedEvent.transactionId
+    val events =
+      listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent, closureError)
+        as List<TransactionEvent<Any>>
+    val amount =
+      BigDecimal(activatedEvent.data.paymentNotices.stream().mapToInt { el -> el.amount }.sum())
+    val closePaymentResponse =
+      ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
+
+    /* preconditions */
+    given(confidentialDataUtils.decryptWalletSessionToken(any()))
+      .willReturn(mono { activatedEvent.data.userId })
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
+      .willReturn(events.toFlux())
+
+    given(nodeClient.closePayment(capture(closePaymentRequestCaptorRedirect)))
+      .willReturn(Mono.just(closePaymentResponse))
+
+    /* test */
+    assertEquals(
+      closePaymentResponse,
+      nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
+
+    assertEquals(transactionId, closePaymentRequestCaptorRedirect.value.transactionId)
+    assertEquals(
+      RedirectClosePaymentRequestV2Dto.OutcomeEnum.OK,
+      closePaymentRequestCaptorRedirect.value.outcome)
+    // check additionalPaymentInformations
+    assertNotNull(closePaymentRequestCaptorRedirect.value.additionalPaymentInformations)
+    // check transactionDetails
+    assertEquals(clientType, closePaymentRequestCaptorRedirect.value.transactionDetails.user.type)
+    assertEquals(
+      activatedEvent.data.userId,
+      closePaymentRequestCaptorRedirect.value.transactionDetails.user.fiscalCode)
+    assertEquals(
+      TransactionDetailsStatusEnum.TRANSACTION_DETAILS_STATUS_CONFIRMED.status,
+      closePaymentRequestCaptorRedirect.value.transactionDetails.transaction.transactionStatus)
+    assertEquals(
+      expectedClientId.name,
+      closePaymentRequestCaptorRedirect.value.transactionDetails.info.clientId)
+    assertEquals("PPAL", closePaymentRequestCaptorRedirect.value.transactionDetails.info.type)
+    assertNotNull(closePaymentRequestCaptorRedirect.value.transactionDetails.transaction.fee)
+    assertNotNull(closePaymentRequestCaptorRedirect.value.transactionDetails.transaction.amount)
+    assertNotNull(closePaymentRequestCaptorRedirect.value.transactionDetails.transaction.grandTotal)
+    assertEquals(
+      amount, closePaymentRequestCaptorRedirect.value.transactionDetails.transaction.amount)
+    assertNotNull(
+      closePaymentRequestCaptorRedirect.value.transactionDetails.transaction.creationDate)
+  }
 
   @Test
   fun `closePayment returns successfully for retry close payment on user cancel request transaction`() =
     runTest {
       val transactionOutcome = ClosePaymentOutcome.KO
 
-      val activatedEvent = transactionActivateEvent()
+      val activatedEvent = transactionActivateEvent().apply { data.userId = null }
       val canceledEvent = transactionUserCanceledEvent()
       val closureError = transactionClosureErrorEvent()
 
@@ -207,7 +417,8 @@ class NodeServiceTests {
       val transactionId = TRANSACTION_ID
       val transactionOutcome = ClosePaymentOutcome.OK
 
-      val activatedEvent = transactionActivateEvent() as TransactionEvent<Any>
+      val activatedEvent =
+        transactionActivateEvent().apply { data.userId = null } as TransactionEvent<Any>
       val events = listOf(activatedEvent)
       /* preconditions */
       given(
@@ -222,14 +433,6 @@ class NodeServiceTests {
       }
     }
 
-  companion object {
-    @JvmStatic
-    private fun closePaymentDateFormat() =
-      Stream.of(
-        Arguments.of("2023-05-01T23:59:59.000Z", "2023-05-02T01:59:59"),
-        Arguments.of("2023-12-01T23:59:59.000Z", "2023-12-02T00:59:59"))
-  }
-
   @ParameterizedTest
   @MethodSource("closePaymentDateFormat")
   fun `ClosePaymentRequestV2Dto for close payment OK has additional properties and transaction details valued correctly for NPG payment gateway without idBundle`(
@@ -238,7 +441,7 @@ class NodeServiceTests {
   ) = runTest {
     val transactionOutcome = ClosePaymentOutcome.OK
 
-    val activatedEvent = transactionActivateEvent()
+    val activatedEvent = transactionActivateEvent().apply { data.userId = null }
     val authEvent =
       transactionAuthorizationRequestedEvent(
         TransactionAuthorizationRequestData.PaymentGateway.NPG,
@@ -386,7 +589,7 @@ class NodeServiceTests {
   ) = runTest {
     val transactionOutcome = ClosePaymentOutcome.OK
     val idBundle = ID_BUNDLE
-    val activatedEvent = transactionActivateEvent()
+    val activatedEvent = transactionActivateEvent().apply { data.userId = null }
     val authEvent =
       transactionAuthorizationRequestedEvent(
         TransactionAuthorizationRequestData.PaymentGateway.NPG,
@@ -531,7 +734,7 @@ class NodeServiceTests {
     runTest {
       val transactionOutcome = ClosePaymentOutcome.KO
 
-      val activatedEvent = transactionActivateEvent()
+      val activatedEvent = transactionActivateEvent().apply { data.userId = null }
       val authEvent =
         transactionAuthorizationRequestedEvent(
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
@@ -631,7 +834,7 @@ class NodeServiceTests {
     runTest {
       val transactionOutcome = ClosePaymentOutcome.KO
 
-      val activatedEvent = transactionActivateEvent()
+      val activatedEvent = transactionActivateEvent().apply { data.userId = null }
       val authEvent =
         transactionAuthorizationRequestedEvent(
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
@@ -730,7 +933,7 @@ class NodeServiceTests {
     runTest {
       val transactionOutcome = ClosePaymentOutcome.KO
 
-      val activatedEvent = transactionActivateEvent()
+      val activatedEvent = transactionActivateEvent().apply { data.userId = null }
       val authEvent =
         transactionAuthorizationRequestedEvent(
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
@@ -867,7 +1070,7 @@ class NodeServiceTests {
   @Test
   fun `closePayment throws error for close payment with auth request and auth completed PGS`() =
     runTest {
-      val activatedEvent = transactionActivateEvent()
+      val activatedEvent = transactionActivateEvent().apply { data.userId = null }
       val authEvent =
         transactionAuthorizationRequestedEvent(
           TransactionAuthorizationRequestData.PaymentGateway.VPOS,
@@ -900,7 +1103,7 @@ class NodeServiceTests {
 
   @Test
   fun `closePayment throws error for close payment with auth request with PGS`() = runTest {
-    val activatedEvent = transactionActivateEvent()
+    val activatedEvent = transactionActivateEvent().apply { data.userId = null }
     val authEvent =
       transactionAuthorizationRequestedEvent(
         TransactionAuthorizationRequestData.PaymentGateway.VPOS,
@@ -934,7 +1137,7 @@ class NodeServiceTests {
   @Test
   fun `closePayment returns error for close payment missing authorization completed event`() =
     runTest {
-      val activatedEvent = transactionActivateEvent()
+      val activatedEvent = transactionActivateEvent().apply { data.userId = null }
       val authEvent = transactionAuthorizationRequestedEvent()
 
       val transactionId = activatedEvent.transactionId
@@ -973,7 +1176,7 @@ class NodeServiceTests {
         RedirectTransactionGatewayAuthorizationData.Outcome.OK, "")
         as RedirectTransactionGatewayAuthorizationData
 
-    val activatedEvent = transactionActivateEvent()
+    val activatedEvent = transactionActivateEvent().apply { data.userId = null }
     val authEvent =
       transactionAuthorizationRequestedEvent(
         TransactionAuthorizationRequestData.PaymentGateway.REDIRECT,
@@ -1099,7 +1302,7 @@ class NodeServiceTests {
         RedirectTransactionGatewayAuthorizationData.Outcome.OK, "")
         as RedirectTransactionGatewayAuthorizationData
     val idBundle = ID_BUNDLE
-    val activatedEvent = transactionActivateEvent()
+    val activatedEvent = transactionActivateEvent().apply { data.userId = null }
     val authEvent =
       transactionAuthorizationRequestedEvent(
         TransactionAuthorizationRequestData.PaymentGateway.REDIRECT,
@@ -1222,7 +1425,7 @@ class NodeServiceTests {
           RedirectTransactionGatewayAuthorizationData.Outcome.KO, "errorCode")
           as RedirectTransactionGatewayAuthorizationData
 
-      val activatedEvent = transactionActivateEvent()
+      val activatedEvent = transactionActivateEvent().apply { data.userId = null }
       val authEvent =
         transactionAuthorizationRequestedEvent(
           TransactionAuthorizationRequestData.PaymentGateway.REDIRECT,
@@ -1327,7 +1530,7 @@ class NodeServiceTests {
           RedirectTransactionGatewayAuthorizationData.Outcome.KO, "errorCode")
           as RedirectTransactionGatewayAuthorizationData
 
-      val activatedEvent = transactionActivateEvent()
+      val activatedEvent = transactionActivateEvent().apply { data.userId = null }
       val authEvent =
         transactionAuthorizationRequestedEvent(
           TransactionAuthorizationRequestData.PaymentGateway.REDIRECT,
@@ -1437,7 +1640,7 @@ class NodeServiceTests {
     val satispayTransactionGatewayAuthorizationData =
       npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)
 
-    val activatedEvent = transactionActivateEvent()
+    val activatedEvent = transactionActivateEvent().apply { data.userId = null }
     val authEvent =
       TransactionAuthorizationRequestedEvent(
         TRANSACTION_ID,
@@ -1584,7 +1787,7 @@ class NodeServiceTests {
     val satispayTransactionGatewayAuthorizationData =
       npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)
 
-    val activatedEvent = transactionActivateEvent()
+    val activatedEvent = transactionActivateEvent().apply { data.userId = null }
     val authEvent =
       TransactionAuthorizationRequestedEvent(
         TRANSACTION_ID,
@@ -1729,7 +1932,7 @@ class NodeServiceTests {
       val satispayTransactionGatewayAuthorizationData =
         npgTransactionGatewayAuthorizationData(OperationResultDto.DECLINED)
 
-      val activatedEvent = transactionActivateEvent()
+      val activatedEvent = transactionActivateEvent().apply { data.userId = null }
       val authEvent =
         TransactionAuthorizationRequestedEvent(
           TRANSACTION_ID,
@@ -1851,7 +2054,7 @@ class NodeServiceTests {
       val satispayTransactionGatewayAuthorizationData =
         npgTransactionGatewayAuthorizationData(OperationResultDto.DECLINED)
 
-      val activatedEvent = transactionActivateEvent()
+      val activatedEvent = transactionActivateEvent().apply { data.userId = null }
       val authEvent =
         TransactionAuthorizationRequestedEvent(
           TRANSACTION_ID,
@@ -1976,7 +2179,7 @@ class NodeServiceTests {
     val applepayTransactionGatewayAuthorizationData =
       npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)
 
-    val activatedEvent = transactionActivateEvent()
+    val activatedEvent = transactionActivateEvent().apply { data.userId = null }
     val authEvent =
       TransactionAuthorizationRequestedEvent(
         TRANSACTION_ID,
@@ -2121,7 +2324,7 @@ class NodeServiceTests {
     val applepayTransactionGatewayAuthorizationData =
       npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)
     val idBundle = ID_BUNDLE
-    val activatedEvent = transactionActivateEvent()
+    val activatedEvent = transactionActivateEvent().apply { data.userId = null }
     val authEvent =
       TransactionAuthorizationRequestedEvent(
         TRANSACTION_ID,
@@ -2264,7 +2467,7 @@ class NodeServiceTests {
       val satispayTransactionGatewayAuthorizationData =
         npgTransactionGatewayAuthorizationData(OperationResultDto.DECLINED)
 
-      val activatedEvent = transactionActivateEvent()
+      val activatedEvent = transactionActivateEvent().apply { data.userId = null }
       val authEvent =
         TransactionAuthorizationRequestedEvent(
           TRANSACTION_ID,
@@ -2386,7 +2589,7 @@ class NodeServiceTests {
       val satispayTransactionGatewayAuthorizationData =
         npgTransactionGatewayAuthorizationData(OperationResultDto.DECLINED)
 
-      val activatedEvent = transactionActivateEvent()
+      val activatedEvent = transactionActivateEvent().apply { data.userId = null }
       val authEvent =
         TransactionAuthorizationRequestedEvent(
           TRANSACTION_ID,
@@ -2511,7 +2714,7 @@ class NodeServiceTests {
     val paypalTransactionGatewayAuthorizationData =
       npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)
 
-    val activatedEvent = transactionActivateEvent()
+    val activatedEvent = transactionActivateEvent().apply { data.userId = null }
     val authEvent =
       TransactionAuthorizationRequestedEvent(
         TRANSACTION_ID,
@@ -2661,7 +2864,7 @@ class NodeServiceTests {
     val paypalTransactionGatewayAuthorizationData =
       npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)
     val idBundle = ID_BUNDLE
-    val activatedEvent = transactionActivateEvent()
+    val activatedEvent = transactionActivateEvent().apply { data.userId = null }
     val authEvent =
       TransactionAuthorizationRequestedEvent(
         TRANSACTION_ID,
@@ -2809,7 +3012,7 @@ class NodeServiceTests {
       val paypalTransactionGatewayAuthorizationData =
         npgTransactionGatewayAuthorizationData(OperationResultDto.DECLINED)
 
-      val activatedEvent = transactionActivateEvent()
+      val activatedEvent = transactionActivateEvent().apply { data.userId = null }
       val authEvent =
         TransactionAuthorizationRequestedEvent(
           TRANSACTION_ID,
@@ -2931,7 +3134,7 @@ class NodeServiceTests {
       val paypalTransactionGatewayAuthorizationData =
         npgTransactionGatewayAuthorizationData(OperationResultDto.DECLINED)
 
-      val activatedEvent = transactionActivateEvent()
+      val activatedEvent = transactionActivateEvent().apply { data.userId = null }
       val authEvent =
         TransactionAuthorizationRequestedEvent(
           TRANSACTION_ID,
@@ -3056,7 +3259,7 @@ class NodeServiceTests {
     val bancomatPayTransactionGatewayAuthorizationData =
       npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)
 
-    val activatedEvent = transactionActivateEvent()
+    val activatedEvent = transactionActivateEvent().apply { data.userId = null }
     val authEvent =
       TransactionAuthorizationRequestedEvent(
         TRANSACTION_ID,
@@ -3209,7 +3412,7 @@ class NodeServiceTests {
     val bancomatPayTransactionGatewayAuthorizationData =
       npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)
 
-    val activatedEvent = transactionActivateEvent()
+    val activatedEvent = transactionActivateEvent().apply { data.userId = null }
     val authEvent =
       TransactionAuthorizationRequestedEvent(
         TRANSACTION_ID,
@@ -3359,7 +3562,7 @@ class NodeServiceTests {
       val bancomatPayTransactionGatewayAuthorizationData =
         npgTransactionGatewayAuthorizationData(OperationResultDto.DECLINED)
 
-      val activatedEvent = transactionActivateEvent()
+      val activatedEvent = transactionActivateEvent().apply { data.userId = null }
       val authEvent =
         TransactionAuthorizationRequestedEvent(
           TRANSACTION_ID,
@@ -3481,7 +3684,7 @@ class NodeServiceTests {
       val bancomatPayTransactionGatewayAuthorizationData =
         npgTransactionGatewayAuthorizationData(OperationResultDto.DECLINED)
 
-      val activatedEvent = transactionActivateEvent()
+      val activatedEvent = transactionActivateEvent().apply { data.userId = null }
       val authEvent =
         TransactionAuthorizationRequestedEvent(
           TRANSACTION_ID,
@@ -3606,7 +3809,7 @@ class NodeServiceTests {
     val myBankTransactionGatewayAuthorizationData =
       npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)
 
-    val activatedEvent = transactionActivateEvent()
+    val activatedEvent = transactionActivateEvent().apply { data.userId = null }
     val authEvent =
       TransactionAuthorizationRequestedEvent(
         TRANSACTION_ID,
@@ -3755,7 +3958,7 @@ class NodeServiceTests {
     val myBankTransactionGatewayAuthorizationData =
       npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)
 
-    val activatedEvent = transactionActivateEvent()
+    val activatedEvent = transactionActivateEvent().apply { data.userId = null }
     val authEvent =
       TransactionAuthorizationRequestedEvent(
         TRANSACTION_ID,
@@ -3901,7 +4104,7 @@ class NodeServiceTests {
       val myBankTransactionGatewayAuthorizationData =
         npgTransactionGatewayAuthorizationData(OperationResultDto.DECLINED)
 
-      val activatedEvent = transactionActivateEvent()
+      val activatedEvent = transactionActivateEvent().apply { data.userId = null }
       val authEvent =
         TransactionAuthorizationRequestedEvent(
           TRANSACTION_ID,
@@ -4023,7 +4226,7 @@ class NodeServiceTests {
       val myBankTransactionGatewayAuthorizationData =
         npgTransactionGatewayAuthorizationData(OperationResultDto.DECLINED)
 
-      val activatedEvent = transactionActivateEvent()
+      val activatedEvent = transactionActivateEvent().apply { data.userId = null }
       val authEvent =
         TransactionAuthorizationRequestedEvent(
           TRANSACTION_ID,
@@ -4147,7 +4350,7 @@ class NodeServiceTests {
         cardsWalletInfo())
     val authData = npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)
 
-    val activatedEvent = transactionActivateEvent()
+    val activatedEvent = transactionActivateEvent().apply { data.userId = null }
     val authEvent =
       TransactionAuthorizationRequestedEvent(
         TRANSACTION_ID,
@@ -4291,7 +4494,7 @@ class NodeServiceTests {
           cardsWalletInfo())
       val authCompletedData = npgTransactionGatewayAuthorizationData(OperationResultDto.DECLINED)
 
-      val activatedEvent = transactionActivateEvent()
+      val activatedEvent = transactionActivateEvent().apply { data.userId = null }
       val authEvent =
         TransactionAuthorizationRequestedEvent(
           TRANSACTION_ID,
@@ -4413,7 +4616,7 @@ class NodeServiceTests {
           cardsWalletInfo())
       val authCompletedData = npgTransactionGatewayAuthorizationData(OperationResultDto.DECLINED)
 
-      val activatedEvent = transactionActivateEvent()
+      val activatedEvent = transactionActivateEvent().apply { data.userId = null }
       val authEvent =
         TransactionAuthorizationRequestedEvent(
           TRANSACTION_ID,
@@ -4538,7 +4741,7 @@ class NodeServiceTests {
         paypalWalletInfo())
     val authData = npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)
 
-    val activatedEvent = transactionActivateEvent()
+    val activatedEvent = transactionActivateEvent().apply { data.userId = null }
     val authEvent =
       TransactionAuthorizationRequestedEvent(
         TRANSACTION_ID,
@@ -4684,7 +4887,7 @@ class NodeServiceTests {
           paypalWalletInfo())
       val authCompletedData = npgTransactionGatewayAuthorizationData(OperationResultDto.DECLINED)
 
-      val activatedEvent = transactionActivateEvent()
+      val activatedEvent = transactionActivateEvent().apply { data.userId = null }
       val authEvent =
         TransactionAuthorizationRequestedEvent(
           TRANSACTION_ID,
@@ -4805,7 +5008,7 @@ class NodeServiceTests {
           paypalWalletInfo())
       val authCompletedData = npgTransactionGatewayAuthorizationData(OperationResultDto.DECLINED)
 
-      val activatedEvent = transactionActivateEvent()
+      val activatedEvent = transactionActivateEvent().apply { data.userId = null }
       val authEvent =
         TransactionAuthorizationRequestedEvent(
           TRANSACTION_ID,
