@@ -40,17 +40,10 @@ class InboundChannelAdapterLifecycleHandlerServiceTest {
   fun `Should invoke command for all receiver endpoints filtering out Redis-related endpoints`() {
     // pre-requisites
     val command = "stop"
-    val redisBeanName = "redis"
     val storageChannelAdapterBeanName = "storage"
 
     given(applicationContext.getBeansWithAnnotation(InboundChannelAdapter::class.java))
-      .willReturn(
-        mapOf(
-          redisBeanName to redisStreamConsumer,
-          storageChannelAdapterBeanName to storageMessageQueueMock))
-
-    given(applicationContext.getBeanNamesForType(RedisStreamConsumer::class.java))
-      .willReturn(arrayOf(redisBeanName))
+      .willReturn(mapOf(storageChannelAdapterBeanName to storageMessageQueueMock))
 
     given(controlBusInput.send(messageArgumentMatcher.capture())).willReturn(true)
 
@@ -80,17 +73,10 @@ class InboundChannelAdapterLifecycleHandlerServiceTest {
     storageStatusMessageResponse: Message<Boolean>?,
     expectedStatus: Status
   ) {
-    val redisBeanName = "redis"
     val storageChannelAdapterBeanName = "storage"
 
     given(applicationContext.getBeansWithAnnotation(InboundChannelAdapter::class.java))
-      .willReturn(
-        mapOf(
-          redisBeanName to redisStreamConsumer,
-          storageChannelAdapterBeanName to storageMessageQueueMock))
-
-    given(applicationContext.getBeanNamesForType(RedisStreamConsumer::class.java))
-      .willReturn(arrayOf(redisBeanName))
+      .willReturn(mapOf(storageChannelAdapterBeanName to storageMessageQueueMock))
 
     given(controlBusInput.send(messageArgumentMatcher.capture())).willReturn(true)
     given(controlBusOutput.receive(any())).willReturn(storageStatusMessageResponse)

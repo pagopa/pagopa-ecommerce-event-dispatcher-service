@@ -10,5 +10,5 @@ class RedisStreamEventControllerConfigs(
 ) {
   private val uniqueInstanceId = UUID.randomUUID().toString()
 
-  val instanceId: String = "instance-$uniqueInstanceId"
+  val instanceId: String = "event-dispatcher-$uniqueInstanceId"
 }
