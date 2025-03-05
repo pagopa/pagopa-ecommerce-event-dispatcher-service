@@ -92,6 +92,49 @@ class NodeServiceTests {
   private lateinit var myBankClosePaymentRequestCaptor:
     ArgumentCaptor<MyBankClosePaymentRequestV2Dto>
 
+  companion object {
+    @JvmStatic
+    private fun closePaymentDateFormat() =
+      Stream.of(
+        Arguments.of("2023-05-01T23:59:59.000Z", "2023-05-02T01:59:59"),
+        Arguments.of("2023-12-01T23:59:59.000Z", "2023-12-02T00:59:59"))
+
+    @JvmStatic
+    private fun closePaymentClient() =
+      Stream.of(
+        Arguments.of(
+          Transaction.ClientId.CHECKOUT,
+          Transaction.ClientId.CHECKOUT,
+          "userId",
+          UserDto.TypeEnum.REGISTERED),
+        Arguments.of(
+          Transaction.ClientId.CHECKOUT,
+          Transaction.ClientId.CHECKOUT,
+          null,
+          UserDto.TypeEnum.GUEST),
+        Arguments.of(
+          Transaction.ClientId.CHECKOUT_CART,
+          Transaction.ClientId.CHECKOUT_CART,
+          "userId",
+          UserDto.TypeEnum.REGISTERED),
+        Arguments.of(
+          Transaction.ClientId.CHECKOUT_CART,
+          Transaction.ClientId.CHECKOUT_CART,
+          null,
+          UserDto.TypeEnum.GUEST),
+        Arguments.of(
+          Transaction.ClientId.WISP_REDIRECT,
+          Transaction.ClientId.CHECKOUT_CART,
+          "userId",
+          UserDto.TypeEnum.REGISTERED),
+        Arguments.of(
+          Transaction.ClientId.WISP_REDIRECT,
+          Transaction.ClientId.CHECKOUT_CART,
+          null,
+          UserDto.TypeEnum.GUEST),
+      )
+  }
+
   @Test
   fun `closePayment returns successfully for close payment on user cancel request transaction`() =
     runTest {
@@ -147,151 +190,160 @@ class NodeServiceTests {
       assertNotNull(closePaymentRequestCaptor.value.transactionDetails.transaction.creationDate)
     }
 
-  @Test
-  fun `closePayment returns successfully for close payment on authenticated user cancel request transaction`() =
-    runTest {
-      val transactionOutcome = ClosePaymentOutcome.KO
+  @ParameterizedTest
+  @MethodSource("closePaymentClient")
+  fun `closePayment returns successfully for close payment on authenticated user cancel request transaction`(
+    inputClientId: Transaction.ClientId,
+    expectedClientId: Transaction.ClientId,
+    userId: String?,
+    clientType: UserDto.TypeEnum
+  ) = runTest {
+    val transactionOutcome = ClosePaymentOutcome.KO
 
-      val activatedEvent = transactionActivateEvent()
-      val canceledEvent = transactionUserCanceledEvent()
-      val events = listOf(activatedEvent, canceledEvent) as List<TransactionEvent<Any>>
-      val transactionId = activatedEvent.transactionId
-      val amount =
-        BigDecimal(activatedEvent.data.paymentNotices.stream().mapToInt { el -> el.amount }.sum())
-      val closePaymentResponse =
-        ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
+    val activatedEvent =
+      transactionActivateEvent().apply {
+        data.clientId = inputClientId
+        data.userId = userId
+      }
+    val canceledEvent = transactionUserCanceledEvent()
+    val events = listOf(activatedEvent, canceledEvent) as List<TransactionEvent<Any>>
+    val transactionId = activatedEvent.transactionId
+    val amount =
+      BigDecimal(activatedEvent.data.paymentNotices.stream().mapToInt { el -> el.amount }.sum())
+    val closePaymentResponse =
+      ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
 
-      /* preconditions */
-      given(confidentialDataUtils.decryptWalletSessionToken(any()))
-        .willReturn(mono { activatedEvent.data.userId })
-      given(
-          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
-            TRANSACTION_ID))
-        .willReturn(events.toFlux())
+    /* preconditions */
+    given(confidentialDataUtils.decryptWalletSessionToken(any()))
+      .willReturn(mono { activatedEvent.data.userId })
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
+      .willReturn(events.toFlux())
 
-      given(nodeClient.closePayment(capture(closePaymentRequestCaptor)))
-        .willReturn(Mono.just(closePaymentResponse))
+    given(nodeClient.closePayment(capture(closePaymentRequestCaptor)))
+      .willReturn(Mono.just(closePaymentResponse))
 
-      /* test */
-      assertEquals(
-        closePaymentResponse,
-        nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
+    /* test */
+    assertEquals(
+      closePaymentResponse,
+      nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
 
-      assertEquals(transactionId, closePaymentRequestCaptor.value.transactionId)
-      assertEquals(
-        CardClosePaymentRequestV2Dto.OutcomeEnum.KO, closePaymentRequestCaptor.value.outcome)
-      // check additionalPaymentInformations
-      assertNull(closePaymentRequestCaptor.value.additionalPaymentInformations)
-      // check transactionDetails
-      assertEquals(
-        UserDto.TypeEnum.REGISTERED, closePaymentRequestCaptor.value.transactionDetails.user.type)
-      assertEquals(
-        TransactionDetailsStatusEnum.TRANSACTION_DETAILS_STATUS_CANCELED.status,
-        closePaymentRequestCaptor.value.transactionDetails.transaction.transactionStatus)
-      assertEquals(
-        Transaction.ClientId.CHECKOUT.name,
-        closePaymentRequestCaptor.value.transactionDetails.info.clientId)
-      assertEquals(TIPO_VERSAMENTO_CP, closePaymentRequestCaptor.value.transactionDetails.info.type)
-      assertEquals(
-        closePaymentRequestCaptor.value.transactionDetails.transaction.amount,
-        closePaymentRequestCaptor.value.transactionDetails.transaction.grandTotal)
-      assertNull(closePaymentRequestCaptor.value.transactionDetails.transaction.fee)
-      assertNotNull(closePaymentRequestCaptor.value.transactionDetails.transaction.amount)
-      assertNotNull(closePaymentRequestCaptor.value.transactionDetails.transaction.grandTotal)
-      assertEquals(amount, closePaymentRequestCaptor.value.transactionDetails.transaction.amount)
-      assertEquals(
-        amount, closePaymentRequestCaptor.value.transactionDetails.transaction.grandTotal)
-      assertNotNull(closePaymentRequestCaptor.value.transactionDetails.transaction.creationDate)
-    }
+    assertEquals(transactionId, closePaymentRequestCaptor.value.transactionId)
+    assertEquals(
+      CardClosePaymentRequestV2Dto.OutcomeEnum.KO, closePaymentRequestCaptor.value.outcome)
+    // check additionalPaymentInformations
+    assertNull(closePaymentRequestCaptor.value.additionalPaymentInformations)
+    // check transactionDetails
+    assertEquals(clientType, closePaymentRequestCaptor.value.transactionDetails.user.type)
+    assertEquals(
+      TransactionDetailsStatusEnum.TRANSACTION_DETAILS_STATUS_CANCELED.status,
+      closePaymentRequestCaptor.value.transactionDetails.transaction.transactionStatus)
+    assertEquals(
+      expectedClientId.name, closePaymentRequestCaptor.value.transactionDetails.info.clientId)
+    assertEquals(TIPO_VERSAMENTO_CP, closePaymentRequestCaptor.value.transactionDetails.info.type)
+    assertEquals(
+      closePaymentRequestCaptor.value.transactionDetails.transaction.amount,
+      closePaymentRequestCaptor.value.transactionDetails.transaction.grandTotal)
+    assertNull(closePaymentRequestCaptor.value.transactionDetails.transaction.fee)
+    assertNotNull(closePaymentRequestCaptor.value.transactionDetails.transaction.amount)
+    assertNotNull(closePaymentRequestCaptor.value.transactionDetails.transaction.grandTotal)
+    assertEquals(amount, closePaymentRequestCaptor.value.transactionDetails.transaction.amount)
+    assertEquals(amount, closePaymentRequestCaptor.value.transactionDetails.transaction.grandTotal)
+    assertNotNull(closePaymentRequestCaptor.value.transactionDetails.transaction.creationDate)
+  }
 
-  @Test
-  fun `closePayment returns successfully for close payment on authenticated user request transaction`() =
-    runTest {
-      val transactionOutcome = ClosePaymentOutcome.OK
+  @ParameterizedTest
+  @MethodSource("closePaymentClient")
+  fun `closePayment returns successfully for close payment on authenticated user request transaction`(
+    inputClientId: Transaction.ClientId,
+    expectedClientId: Transaction.ClientId,
+    userId: String?,
+    clientType: UserDto.TypeEnum
+  ) = runTest {
+    val transactionOutcome = ClosePaymentOutcome.OK
 
-      val authRequestedData = redirectTransactionGatewayAuthorizationRequestedData()
-      val authCompletedData =
-        redirectTransactionGatewayAuthorizationData(
-          RedirectTransactionGatewayAuthorizationData.Outcome.OK, null)
+    val authRequestedData = redirectTransactionGatewayAuthorizationRequestedData()
+    val authCompletedData =
+      redirectTransactionGatewayAuthorizationData(
+        RedirectTransactionGatewayAuthorizationData.Outcome.OK, null)
 
-      val activatedEvent = transactionActivateEvent()
-      activatedEvent.data.clientId = Transaction.ClientId.CHECKOUT_CART
-      val authEvent =
-        TransactionAuthorizationRequestedEvent(
-          TRANSACTION_ID,
-          TransactionAuthorizationRequestData(
-            100,
-            10,
-            "paymentInstrumentId",
-            "pspId",
-            PaymentCode.PPAL.name,
-            "brokerName",
-            "pspChannelCode",
-            "paymentMethodName",
-            "pspBusinessName",
-            false,
-            AUTHORIZATION_REQUEST_ID,
-            TransactionAuthorizationRequestData.PaymentGateway.REDIRECT,
-            "paymentMethodDescription",
-            authRequestedData,
-            null))
-      val authCompletedEvent = transactionAuthorizationCompletedEvent(authCompletedData)
-      val closureRequestedEvent = transactionClosureRequestedEvent()
-      val closureError = transactionClosureErrorEvent()
-      val transactionId = activatedEvent.transactionId
-      val events =
-        listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent, closureError)
-          as List<TransactionEvent<Any>>
-      val amount =
-        BigDecimal(activatedEvent.data.paymentNotices.stream().mapToInt { el -> el.amount }.sum())
-      val closePaymentResponse =
-        ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
+    val activatedEvent =
+      transactionActivateEvent().apply {
+        data.clientId = inputClientId
+        data.userId = userId
+      }
+    val authEvent =
+      TransactionAuthorizationRequestedEvent(
+        TRANSACTION_ID,
+        TransactionAuthorizationRequestData(
+          100,
+          10,
+          "paymentInstrumentId",
+          "pspId",
+          PaymentCode.PPAL.name,
+          "brokerName",
+          "pspChannelCode",
+          "paymentMethodName",
+          "pspBusinessName",
+          false,
+          AUTHORIZATION_REQUEST_ID,
+          TransactionAuthorizationRequestData.PaymentGateway.REDIRECT,
+          "paymentMethodDescription",
+          authRequestedData,
+          null))
+    val authCompletedEvent = transactionAuthorizationCompletedEvent(authCompletedData)
+    val closureRequestedEvent = transactionClosureRequestedEvent()
+    val closureError = transactionClosureErrorEvent()
+    val transactionId = activatedEvent.transactionId
+    val events =
+      listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent, closureError)
+        as List<TransactionEvent<Any>>
+    val amount =
+      BigDecimal(activatedEvent.data.paymentNotices.stream().mapToInt { el -> el.amount }.sum())
+    val closePaymentResponse =
+      ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
 
-      /* preconditions */
-      given(confidentialDataUtils.decryptWalletSessionToken(any()))
-        .willReturn(mono { activatedEvent.data.userId })
-      given(
-          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
-            TRANSACTION_ID))
-        .willReturn(events.toFlux())
+    /* preconditions */
+    given(confidentialDataUtils.decryptWalletSessionToken(any()))
+      .willReturn(mono { activatedEvent.data.userId })
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
+      .willReturn(events.toFlux())
 
-      given(nodeClient.closePayment(capture(closePaymentRequestCaptorRedirect)))
-        .willReturn(Mono.just(closePaymentResponse))
+    given(nodeClient.closePayment(capture(closePaymentRequestCaptorRedirect)))
+      .willReturn(Mono.just(closePaymentResponse))
 
-      /* test */
-      assertEquals(
-        closePaymentResponse,
-        nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
+    /* test */
+    assertEquals(
+      closePaymentResponse,
+      nodeService.closePayment(TransactionId(transactionId), transactionOutcome))
 
-      assertEquals(transactionId, closePaymentRequestCaptorRedirect.value.transactionId)
-      assertEquals(
-        RedirectClosePaymentRequestV2Dto.OutcomeEnum.OK,
-        closePaymentRequestCaptorRedirect.value.outcome)
-      // check additionalPaymentInformations
-      assertNotNull(closePaymentRequestCaptorRedirect.value.additionalPaymentInformations)
-      // check transactionDetails
-      assertEquals(
-        UserDto.TypeEnum.REGISTERED,
-        closePaymentRequestCaptorRedirect.value.transactionDetails.user.type)
-      assertEquals(
-        activatedEvent.data.userId,
-        closePaymentRequestCaptorRedirect.value.transactionDetails.user.fiscalCode)
-      assertEquals(
-        TransactionDetailsStatusEnum.TRANSACTION_DETAILS_STATUS_CONFIRMED.status,
-        closePaymentRequestCaptorRedirect.value.transactionDetails.transaction.transactionStatus)
-      assertEquals(
-        Transaction.ClientId.CHECKOUT_CART.name,
-        closePaymentRequestCaptorRedirect.value.transactionDetails.info.clientId)
-      assertEquals("PPAL", closePaymentRequestCaptorRedirect.value.transactionDetails.info.type)
-      assertNotNull(closePaymentRequestCaptorRedirect.value.transactionDetails.transaction.fee)
-      assertNotNull(closePaymentRequestCaptorRedirect.value.transactionDetails.transaction.amount)
-      assertNotNull(
-        closePaymentRequestCaptorRedirect.value.transactionDetails.transaction.grandTotal)
-      assertEquals(
-        amount, closePaymentRequestCaptorRedirect.value.transactionDetails.transaction.amount)
-      assertNotNull(
-        closePaymentRequestCaptorRedirect.value.transactionDetails.transaction.creationDate)
-    }
+    assertEquals(transactionId, closePaymentRequestCaptorRedirect.value.transactionId)
+    assertEquals(
+      RedirectClosePaymentRequestV2Dto.OutcomeEnum.OK,
+      closePaymentRequestCaptorRedirect.value.outcome)
+    // check additionalPaymentInformations
+    assertNotNull(closePaymentRequestCaptorRedirect.value.additionalPaymentInformations)
+    // check transactionDetails
+    assertEquals(clientType, closePaymentRequestCaptorRedirect.value.transactionDetails.user.type)
+    assertEquals(
+      activatedEvent.data.userId,
+      closePaymentRequestCaptorRedirect.value.transactionDetails.user.fiscalCode)
+    assertEquals(
+      TransactionDetailsStatusEnum.TRANSACTION_DETAILS_STATUS_CONFIRMED.status,
+      closePaymentRequestCaptorRedirect.value.transactionDetails.transaction.transactionStatus)
+    assertEquals(
+      expectedClientId.name,
+      closePaymentRequestCaptorRedirect.value.transactionDetails.info.clientId)
+    assertEquals("PPAL", closePaymentRequestCaptorRedirect.value.transactionDetails.info.type)
+    assertNotNull(closePaymentRequestCaptorRedirect.value.transactionDetails.transaction.fee)
+    assertNotNull(closePaymentRequestCaptorRedirect.value.transactionDetails.transaction.amount)
+    assertNotNull(closePaymentRequestCaptorRedirect.value.transactionDetails.transaction.grandTotal)
+    assertEquals(
+      amount, closePaymentRequestCaptorRedirect.value.transactionDetails.transaction.amount)
+    assertNotNull(
+      closePaymentRequestCaptorRedirect.value.transactionDetails.transaction.creationDate)
+  }
 
   @Test
   fun `closePayment returns successfully for retry close payment on user cancel request transaction`() =
@@ -372,14 +424,6 @@ class NodeServiceTests {
         nodeService.closePayment(TransactionId(transactionId), transactionOutcome)
       }
     }
-
-  companion object {
-    @JvmStatic
-    private fun closePaymentDateFormat() =
-      Stream.of(
-        Arguments.of("2023-05-01T23:59:59.000Z", "2023-05-02T01:59:59"),
-        Arguments.of("2023-12-01T23:59:59.000Z", "2023-12-02T00:59:59"))
-  }
 
   @ParameterizedTest
   @MethodSource("closePaymentDateFormat")
