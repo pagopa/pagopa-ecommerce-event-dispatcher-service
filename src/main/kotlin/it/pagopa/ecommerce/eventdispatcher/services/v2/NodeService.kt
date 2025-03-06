@@ -914,24 +914,20 @@ class NodeService(
   private fun buildUserInfo(
     baseTransaction: BaseTransactionWithPaymentToken,
     outcome: ClosePaymentOutcome
-  ): Mono<UserDto> =
-    when (baseTransaction.clientId.effectiveClient) {
+  ): Mono<UserDto> {
+    val userId = baseTransaction.transactionActivatedData.userId
+    return when (baseTransaction.clientId.effectiveClient) {
       it.pagopa.ecommerce.commons.documents.v2.Transaction.ClientId.CHECKOUT,
-      it.pagopa.ecommerce.commons.documents.v2.Transaction.ClientId.CHECKOUT_CART ->
-        mono { UserDto().apply { type = UserDto.TypeEnum.GUEST } }
-      it.pagopa.ecommerce.commons.documents.v2.Transaction.ClientId.IO -> {
-        val userId = baseTransaction.transactionActivatedData.userId
+      it.pagopa.ecommerce.commons.documents.v2.Transaction.ClientId.CHECKOUT_CART -> {
         if (userId != null) {
-          if (outcome == ClosePaymentOutcome.OK) {
-            confidentialDataUtils.decryptWalletSessionToken(userId).map {
-              UserDto().apply {
-                type = UserDto.TypeEnum.REGISTERED
-                fiscalCode = it
-              }
-            }
-          } else {
-            mono { UserDto().apply { type = UserDto.TypeEnum.REGISTERED } }
-          }
+          handleUserId(outcome, userId)
+        } else {
+          mono { UserDto().apply { type = UserDto.TypeEnum.GUEST } }
+        }
+      }
+      it.pagopa.ecommerce.commons.documents.v2.Transaction.ClientId.IO -> {
+        if (userId != null) {
+          handleUserId(outcome, userId)
         } else {
           Mono.error(
             RuntimeException(
@@ -939,5 +935,18 @@ class NodeService(
         }
       }
       else -> Mono.error(RuntimeException("Unhandled client id: [${baseTransaction.clientId}]"))
+    }
+  }
+
+  private fun handleUserId(outcome: ClosePaymentOutcome, userId: String) =
+    if (outcome == ClosePaymentOutcome.OK) {
+      confidentialDataUtils.decryptWalletSessionToken(userId).map {
+        UserDto().apply {
+          type = UserDto.TypeEnum.REGISTERED
+          fiscalCode = it
+        }
+      }
+    } else {
+      mono { UserDto().apply { type = UserDto.TypeEnum.REGISTERED } }
     }
 }
