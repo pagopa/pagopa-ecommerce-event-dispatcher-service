@@ -20,11 +20,7 @@ class EventReceiverStatusPollerTest {
     mock()
 
   private val redisStreamEventControllerConfigs =
-    RedisStreamEventControllerConfigs(
-      streamKey = "streamKey",
-      consumerGroupPrefix = "consumerPrefix",
-      consumerNamePrefix = "consumerName",
-      faiOnErrorCreatingConsumerGroup = false)
+    RedisStreamEventControllerConfigs(streamKey = "streamKey")
 
   private val eventReceiverStatusPoller =
     EventReceiverStatusPoller(
@@ -48,7 +44,6 @@ class EventReceiverStatusPollerTest {
     verify(eventDispatcherReceiverStatusTemplateWrapper, times(1))
       .save(
         argThat {
-          assertEquals(redisStreamEventControllerConfigs.consumerName, this.consumerInstanceId)
           assertEquals(receiverStatuses, this.receiverStatuses)
           true
         })
