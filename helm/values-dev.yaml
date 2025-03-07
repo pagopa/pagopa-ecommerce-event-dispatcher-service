@@ -5,34 +5,31 @@ microservice-chart:
   canaryDelivery:
     create: true
     ingress:
-      create: true
-      canary:
-        type: bluegreen
-    service:
-      create: true
-    deployment:
-      create: true
-      image:
-        repository: pagopadcommonacr.azurecr.io/pagopaecommerceeventdispatcherservice
-        tag: "latest"
-        pullPolicy: Always
-      envConfig:
-        TRANSACTIONS_CLOSE_PAYMENT_QUEUE_NAME: pagopa-d-weu-ecommerce-transactions-close-payment-queue-b
-        TRANSACTIONS_CLOSE_PAYMENT_RETRY_QUEUE_NAME: pagopa-d-weu-ecommerce-transactions-close-payment-retry-queue-b
-        TRANSACTIONS_EXPIRATION_QUEUE_NAME: pagopa-d-weu-ecommerce-transactions-expiration-queue-b
-        TRANSACTIONS_REFUND_RETRY_QUEUE_NAME: pagopa-d-weu-ecommerce-transactions-refund-retry-queue-b
-        TRANSACTIONS_REFUND_QUEUE_NAME: pagopa-d-weu-ecommerce-transactions-refund-queue-b
-        TRANSACTIONS_NOTIFICATIONS_RETRY_QUEUE_NAME: pagopa-d-weu-ecommerce-transaction-notifications-retry-queue-b
-        TRANSACTIONS_NOTIFICATIONS_QUEUE_NAME: pagopa-d-weu-ecommerce-transaction-notifications-queue-b
-        TRANSACTIONS_DEAD_LETTER_QUEUE_NAME: pagopa-d-weu-ecommerce-transactions-dead-letter-queue-b
-        TRANSACTIONS_AUTHORIZATION_REQUESTED_QUEUE_NAME: pagopa-d-weu-ecommerce-transaction-auth-requested-queue-b
-        TRANSACTIONS_AUTHORIZATION_OUTCOME_WAITING_QUEUE_NAME: pagopa-d-weu-ecommerce-transaction-auth-outcome-waiting-queue-b
-        NODO_ECOMMERCE_CLIENT_ID: ecomm-blue
-        OTEL_RESOURCE_ATTRIBUTES: "service.name=pagopa-ecommerce-event-dispatcher-service-blue,deployment.environment=dev"
-        ECS_SERVICE_NAME: pagopa-ecommerce-event-dispatcher-service-blue
-        NODO_URI: https://api.dev.platform.pagopa.it/nodo/nodo-per-pm/v2
-  deployment:
-    create: true
+      bluegreen: true
+      #set canary deployment with traffic balancing see https://github.com/kubernetes/ingress-nginx/blob/main/docs/user-guide/nginx-configuration/annotations.md#canary for more info
+      header: true
+      headerName: deployment
+      headerValue: blue
+      weightPercent: 10
+    image:
+      repository: pagopadcommonacr.azurecr.io/pagopaecommerceeventdispatcherservice
+      tag: "latest"
+    envConfig:
+      TRANSACTIONS_CLOSE_PAYMENT_QUEUE_NAME: pagopa-d-weu-ecommerce-transactions-close-payment-queue-b
+      TRANSACTIONS_CLOSE_PAYMENT_RETRY_QUEUE_NAME: pagopa-d-weu-ecommerce-transactions-close-payment-retry-queue-b
+      TRANSACTIONS_EXPIRATION_QUEUE_NAME: pagopa-d-weu-ecommerce-transactions-expiration-queue-b
+      TRANSACTIONS_REFUND_RETRY_QUEUE_NAME: pagopa-d-weu-ecommerce-transactions-refund-retry-queue-b
+      TRANSACTIONS_REFUND_QUEUE_NAME: pagopa-d-weu-ecommerce-transactions-refund-queue-b
+      TRANSACTIONS_NOTIFICATIONS_RETRY_QUEUE_NAME: pagopa-d-weu-ecommerce-transaction-notifications-retry-queue-b
+      TRANSACTIONS_NOTIFICATIONS_QUEUE_NAME: pagopa-d-weu-ecommerce-transaction-notifications-queue-b
+      TRANSACTIONS_DEAD_LETTER_QUEUE_NAME: pagopa-d-weu-ecommerce-transactions-dead-letter-queue-b
+      TRANSACTIONS_AUTHORIZATION_REQUESTED_QUEUE_NAME: pagopa-d-weu-ecommerce-transaction-auth-requested-queue-b
+      TRANSACTIONS_AUTHORIZATION_OUTCOME_WAITING_QUEUE_NAME: pagopa-d-weu-ecommerce-transaction-auth-outcome-waiting-queue-b
+      NODO_ECOMMERCE_CLIENT_ID: ecomm-blue
+      OTEL_RESOURCE_ATTRIBUTES: "service.name=pagopa-ecommerce-event-dispatcher-service-blue,deployment.environment=dev"
+      ECS_SERVICE_NAME: pagopa-ecommerce-event-dispatcher-service-blue
+      NODO_URI: https://api.dev.platform.pagopa.it/nodo/nodo-per-pm/v2
+    envSecret: {}
   image:
     repository: pagopadcommonacr.azurecr.io/pagopaecommerceeventdispatcherservice
     tag: "1.37.0"
@@ -65,8 +62,8 @@ microservice-chart:
     servicePort: 9000
   serviceAccount:
     create: false
-    annotations: {}
-    name: ""
+    annotations: { }
+    name: "ecommerce-workload-identity"
   podAnnotations: {}
   podSecurityContext:
     seccompProfile:
@@ -212,3 +209,5 @@ microservice-chart:
                 operator: In
                 values:
                   - user
+  azure:
+    workloadIdentityClientId: 1be61b58-24e2-49c8-b401-89ebd004bf2e
