@@ -3,17 +3,14 @@ microservice-chart:
   nameOverride: ""
   fullnameOverride: ""
   canaryDelivery:
-    create: true
+    create: false
     ingress:
-      bluegreen: true
+      bluegreen: false
       #set canary deployment with traffic balancing see https://github.com/kubernetes/ingress-nginx/blob/main/docs/user-guide/nginx-configuration/annotations.md#canary for more info
       header: true
       headerName: deployment
       headerValue: blue
       weightPercent: 10
-    image:
-      repository: pagopadcommonacr.azurecr.io/pagopaecommerceeventdispatcherservice
-      tag: "latest"
     envConfig:
       TRANSACTIONS_CLOSE_PAYMENT_QUEUE_NAME: pagopa-d-weu-ecommerce-transactions-close-payment-queue-b
       TRANSACTIONS_CLOSE_PAYMENT_RETRY_QUEUE_NAME: pagopa-d-weu-ecommerce-transactions-close-payment-retry-queue-b
@@ -29,6 +26,10 @@ microservice-chart:
       OTEL_RESOURCE_ATTRIBUTES: "service.name=pagopa-ecommerce-event-dispatcher-service-blue,service.deployment.environment=dev"
       ECS_SERVICE_NAME: pagopa-ecommerce-event-dispatcher-service-blue
       NODO_URI: https://api.dev.platform.pagopa.it/nodo/nodo-per-pm/v2
+    envSecret: {}
+    image:
+      repository: pagopadcommonacr.azurecr.io/pagopaecommerceeventdispatcherservice
+      tag: "latest"
   image:
     repository: pagopadcommonacr.azurecr.io/pagopaecommerceeventdispatcherservice
     tag: "1.35.0"
@@ -61,8 +62,8 @@ microservice-chart:
     servicePort: 9000
   serviceAccount:
     create: false
-    annotations: {}
-    name: ""
+    annotations: { }
+    name: "ecommerce-workload-identity"
   podAnnotations: {}
   podSecurityContext:
     seccompProfile:
@@ -210,3 +211,5 @@ microservice-chart:
                 operator: In
                 values:
                   - user
+  azure:
+    workloadIdentityClientId: 1be61b58-24e2-49c8-b401-89ebd004bf2e
