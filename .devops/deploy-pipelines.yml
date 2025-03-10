@@ -137,7 +137,7 @@ stages:
                     ENV: 'DEV'
                     KUBERNETES_SERVICE_CONN: $(DEV_KUBERNETES_SERVICE_CONN)
                     NAMESPACE: ecommerce
-                    APP_NAME: $(K8S_IMAGE_REPOSITORY_NAME)
+                    APP_NAME: beta-$(K8S_IMAGE_REPOSITORY_NAME)
                     VALUE_FILE: "helm/values-dev.yaml"
                     GREEN_VERSION: $(Build.SourceVersion)
                     BLUE_VERSION: $(Build.SourceVersion)
@@ -205,7 +205,7 @@ stages:
                     ENV: 'UAT'
                     KUBERNETES_SERVICE_CONN: $(UAT_KUBERNETES_SERVICE_CONN)
                     NAMESPACE: ecommerce
-                    APP_NAME: $(K8S_IMAGE_REPOSITORY_NAME)
+                    APP_NAME: beta-$(K8S_IMAGE_REPOSITORY_NAME)
                     VALUE_FILE: "helm/values-uat.yaml"
                     GREEN_VERSION: $(green_app_version)
                     BLUE_VERSION: $(Build.SourceVersion)
@@ -306,6 +306,15 @@ stages:
           runOnce:
             deploy:
               steps:
+                # uninstall helm release used for blue instance
+                - task: HelmDeploy@0
+                  displayName: Un-install UAT blue version
+                  continueOnError: true
+                  inputs:
+                    kubernetesServiceEndpoint: $(UAT_KUBERNETES_SERVICE_CONN)
+                    namespace: "ecommerce"
+                    command: uninstall
+                    arguments: beta-$(K8S_IMAGE_REPOSITORY_NAME)
                 - checkout: self
                   displayName: "Checkout"
                   # without the below checkout git head is set on the commit before release version bump
