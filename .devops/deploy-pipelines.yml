@@ -121,19 +121,10 @@ stages:
                     script: |
                       helm repo add microservice-chart https://pagopa.github.io/aks-microservice-chart-blueprint
                       helm dep build helm
-                - task: Kubernetes@1
-                  displayName: (workaround) Delete old beta deployment
-                  continueOnError: true
-                  inputs:
-                    kubernetesServiceEndpoint: $(DEV_KUBERNETES_SERVICE_CONN)
-                    kubernetesCluster: $(kubernetesCluster)
-                    namespace: ecommerce
-                    command: delete
-                    arguments: deployment beta-pagopaecommerceeventdispatcherservice-microservice-chart
                 - template: azure-templates/helm-microservice-chart-deploy.yml
                   parameters:
                     DO_DEPLOY: true
-                    DO_BLUE_GREEN_DEPLOY: true
+                    DO_BLUE_GREEN_DEPLOY: false
                     ENV: 'DEV'
                     KUBERNETES_SERVICE_CONN: $(DEV_KUBERNETES_SERVICE_CONN)
                     NAMESPACE: ecommerce
@@ -205,7 +196,7 @@ stages:
                     ENV: 'UAT'
                     KUBERNETES_SERVICE_CONN: $(UAT_KUBERNETES_SERVICE_CONN)
                     NAMESPACE: ecommerce
-                    APP_NAME: $(K8S_IMAGE_REPOSITORY_NAME)
+                    APP_NAME: beta-$(K8S_IMAGE_REPOSITORY_NAME)
                     VALUE_FILE: "helm/values-uat.yaml"
                     GREEN_VERSION: $(green_app_version)
                     BLUE_VERSION: $(Build.SourceVersion)
