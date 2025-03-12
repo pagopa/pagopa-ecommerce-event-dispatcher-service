@@ -32,7 +32,7 @@ microservice-chart:
     envSecret: {}
   image:
     repository: pagopadcommonacr.azurecr.io/pagopaecommerceeventdispatcherservice
-    tag: "1.37.0"
+    tag: "1.38.0"
     pullPolicy: Always
   livenessProbe:
     handlerType: httpGet
@@ -62,7 +62,7 @@ microservice-chart:
     servicePort: 9000
   serviceAccount:
     create: false
-    annotations: { }
+    annotations: {}
     name: "ecommerce-workload-identity"
   podAnnotations: {}
   podSecurityContext:
