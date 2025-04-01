@@ -53,7 +53,7 @@ class NodeClientTest {
           nodoUri = "http://localhost:8080",
           nodoConnectionTimeout = 1000,
           nodoReadTimeout = 1000,
-          "api-key"),
+          nodoClosePaymentApiKey = "api-key"),
       "ecomm",
       ObjectMapper())
 
