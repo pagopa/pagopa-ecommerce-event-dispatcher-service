@@ -50,7 +50,10 @@ class NodeClientTest {
     NodeClient(
       WebClientConfig()
         .nodoApi(
-          nodoUri = "http://localhost:8080", nodoConnectionTimeout = 1000, nodoReadTimeout = 1000, "api-key"),
+          nodoUri = "http://localhost:8080",
+          nodoConnectionTimeout = 1000,
+          nodoReadTimeout = 1000,
+          "api-key"),
       "ecomm",
       ObjectMapper())
 
