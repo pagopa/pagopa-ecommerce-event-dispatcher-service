@@ -28,7 +28,7 @@ microservice-chart:
       NODO_ECOMMERCE_CLIENT_ID: ecomm-blue
       OTEL_RESOURCE_ATTRIBUTES: "service.name=pagopa-ecommerce-event-dispatcher-service-blue,deployment.environment=dev"
       ECS_SERVICE_NAME: pagopa-ecommerce-event-dispatcher-service-blue
-      NODO_URI: https://api.dev.platform.pagopa.it/nodo/nodo-per-pm/v2
+      NODO_URI: https://api.dev.platform.pagopa.it/nodo-auth/nodo-per-pm/v2
     envSecret: {}
   image:
     repository: pagopadcommonacr.azurecr.io/pagopaecommerceeventdispatcherservice
@@ -174,6 +174,7 @@ microservice-chart:
     NPG_REFUND_EVENT_PROCESSING_DELAY_SECONDS: "10"
   envSecret:
     ECOMMERCE_STORAGE_TRANSIENT_QUEUE_KEY: ecommerce-storage-transient-account-key
+    NODO_CLOSEPAYMENT_API_KEY: nodo-close-payment-api-key
     MONGO_PASSWORD: mongo-ecommerce-password
     REDIS_PASSWORD: redis-ecommerce-access-key
     REDIS_HOST: redis-ecommerce-hostname

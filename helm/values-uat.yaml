@@ -104,7 +104,7 @@ microservice-chart:
     TRANSACTIONS_DEAD_LETTER_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-dead-letter-queue
     TRANSACTIONS_AUTHORIZATION_REQUESTED_QUEUE_NAME: pagopa-u-weu-ecommerce-transaction-auth-requested-queue
     TRANSACTIONS_AUTHORIZATION_OUTCOME_WAITING_QUEUE_NAME: pagopa-u-weu-ecommerce-transaction-auth-outcome-waiting-queue
-    NODO_URI: https://api.uat.platform.pagopa.it/nodo/nodo-per-pm/v2
+    NODO_URI: https://api.uat.platform.pagopa.it/nodo-auth/nodo-per-pm/v2
     NODO_READ_TIMEOUT: "14000"
     NODO_CONNECTION_TIMEOUT: "14000"
     NODO_ECOMMERCE_CLIENT_ID: ecomm
@@ -173,6 +173,7 @@ microservice-chart:
     NPG_REFUND_EVENT_PROCESSING_DELAY_SECONDS: "10"
   envSecret:
     ECOMMERCE_STORAGE_TRANSIENT_QUEUE_KEY: ecommerce-storage-transient-account-key
+    NODO_CLOSEPAYMENT_API_KEY: nodo-close-payment-api-key
     MONGO_PASSWORD: mongo-ecommerce-password
     REDIS_PASSWORD: redis-ecommerce-access-key
     REDIS_HOST: redis-ecommerce-hostname
