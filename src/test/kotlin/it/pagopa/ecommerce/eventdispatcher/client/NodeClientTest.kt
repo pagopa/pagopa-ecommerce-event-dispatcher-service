@@ -100,7 +100,7 @@ class NodeClientTest {
 
     // validate presence of your header
     val recordedRequest = mockWebServer.takeRequest()
-    // assertEquals("nodoPerPmApiKey", recordedRequest.getHeader("ocp-apim-subscription-key"))
+    assertEquals("nodoPerPmApiKey", recordedRequest.getHeader("ocp-apim-subscription-key"))
   }
 
   @Test
