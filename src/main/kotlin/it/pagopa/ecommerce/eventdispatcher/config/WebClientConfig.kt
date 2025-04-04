@@ -51,7 +51,7 @@ class WebClientConfig {
     @Value("\${nodo.uri}") nodoUri: String,
     @Value("\${nodo.readTimeout}") nodoReadTimeout: Long,
     @Value("\${nodo.connectionTimeout}") nodoConnectionTimeout: Int,
-    @Value("\${nodo.closepayment.apikey}") nodoClosePaymentApiKey: String
+    @Value("\${nodo.nodeforpm.apikey}") nodoPerPmApiKey: String
   ): WebClient {
     val httpClient: HttpClient =
       HttpClient.create()
@@ -80,7 +80,7 @@ class WebClientConfig {
       .clientConnector(ReactorClientHttpConnector(httpClient))
       .exchangeStrategies(exchangeStrategies)
       .baseUrl(nodoUri)
-      .defaultHeader("ocp-apim-subscription-key", nodoClosePaymentApiKey)
+      .defaultHeader("ocp-apim-subscription-key", nodoPerPmApiKey)
       .build()
   }
 
