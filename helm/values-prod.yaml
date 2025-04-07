@@ -115,6 +115,7 @@ microservice-chart:
     NODO_URI: https://api.platform.pagopa.it/nodo-auth/nodo-per-pm/v2
     NODO_READ_TIMEOUT: "14000"
     NODO_CONNECTION_TIMEOUT: "14000"
+    NODO_CONNECTION_STRING: "{\"idPSP\":\"AGID_01\",\"idChannel\":\"97735020584_09\",\"idBrokerPSP\":\"97735020584\"}"
     NODO_ECOMMERCE_CLIENT_ID: ecomm
     MONGO_HOST: pagopa-p-weu-ecommerce-cosmos-account.mongo.cosmos.azure.com
     MONGO_USERNAME: pagopa-p-weu-ecommerce-cosmos-account
@@ -188,7 +189,6 @@ microservice-chart:
     MONGO_PASSWORD: mongo-ecommerce-password
     REDIS_PASSWORD: redis-ecommerce-access-key
     REDIS_HOST: redis-ecommerce-hostname
-    NODO_CONNECTION_STRING: nodo-connection-string
     QUEUE_TRANSIENT_CONNECTION_STRING: ecommerce-storage-transient-connection-string
     QUEUE_DEADLETTER_CONNECTION_STRING: ecommerce-storage-deadletter-connection-string
     NOTIFICATIONS_SERVICE_API_KEY: notifications-service-api-key
