@@ -2,12 +2,9 @@ package it.pagopa.ecommerce.eventdispatcher.client
 
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.eventdispatcher.exceptions.*
-import it.pagopa.ecommerce.eventdispatcher.exceptions.BadGatewayException
-import it.pagopa.ecommerce.eventdispatcher.exceptions.GatewayTimeoutException
-import it.pagopa.ecommerce.eventdispatcher.exceptions.TransactionNotFound
-import it.pagopa.generated.transactionauthrequests.v1.api.TransactionsApi
-import it.pagopa.generated.transactionauthrequests.v1.dto.TransactionInfoDto
-import it.pagopa.generated.transactionauthrequests.v1.dto.UpdateAuthorizationRequestDto
+import it.pagopa.generated.transactionauthrequests.v2.api.TransactionsApi
+import it.pagopa.generated.transactionauthrequests.v2.dto.UpdateAuthorizationRequestDto
+import it.pagopa.generated.transactionauthrequests.v2.dto.UpdateAuthorizationResponseDto
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.http.HttpStatus
@@ -23,9 +20,9 @@ class TransactionsServiceClient(
   fun patchAuthRequest(
     transactionId: TransactionId,
     updateAuthorizationRequestDto: UpdateAuthorizationRequestDto
-  ): Mono<TransactionInfoDto> {
+  ): Mono<UpdateAuthorizationResponseDto> {
     return transactionsApi
-      .updateTransactionAuthorization(transactionId.base64(), updateAuthorizationRequestDto)
+      .updateTransactionAuthorization(transactionId.value(), updateAuthorizationRequestDto)
       .onErrorMap(WebClientResponseException::class.java) { exception: WebClientResponseException ->
         when (exception.statusCode) {
           HttpStatus.BAD_REQUEST ->

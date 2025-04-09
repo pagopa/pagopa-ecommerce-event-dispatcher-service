@@ -15,8 +15,8 @@ import it.pagopa.generated.ecommerce.userstats.ApiClient as UserStatsApiClient
 import it.pagopa.generated.ecommerce.userstats.api.UserStatsApi
 import it.pagopa.generated.notifications.v1.ApiClient
 import it.pagopa.generated.notifications.v1.api.DefaultApi
-import it.pagopa.generated.transactionauthrequests.v1.ApiClient as TransanctionsApiClient
-import it.pagopa.generated.transactionauthrequests.v1.api.TransactionsApi
+import it.pagopa.generated.transactionauthrequests.v2.ApiClient as TransanctionsApiClient
+import it.pagopa.generated.transactionauthrequests.v2.api.TransactionsApi
 import java.util.concurrent.TimeUnit
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.beans.factory.annotation.Value

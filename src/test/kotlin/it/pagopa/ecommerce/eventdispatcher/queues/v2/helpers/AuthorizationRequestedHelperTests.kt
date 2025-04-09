@@ -32,10 +32,10 @@ import it.pagopa.ecommerce.eventdispatcher.utils.queueSuccessfulResponse
 import it.pagopa.generated.ecommerce.userstats.dto.GuestMethodLastUsageData
 import it.pagopa.generated.ecommerce.userstats.dto.UserLastPaymentMethodData
 import it.pagopa.generated.ecommerce.userstats.dto.WalletLastUsageData
-import it.pagopa.generated.transactionauthrequests.v1.dto.OutcomeNpgGatewayDto
-import it.pagopa.generated.transactionauthrequests.v1.dto.TransactionInfoDto
-import it.pagopa.generated.transactionauthrequests.v1.dto.TransactionStatusDto
-import it.pagopa.generated.transactionauthrequests.v1.dto.UpdateAuthorizationRequestDto
+import it.pagopa.generated.transactionauthrequests.v2.dto.OutcomeNpgGatewayDto
+import it.pagopa.generated.transactionauthrequests.v2.dto.TransactionStatusDto
+import it.pagopa.generated.transactionauthrequests.v2.dto.UpdateAuthorizationRequestDto
+import it.pagopa.generated.transactionauthrequests.v2.dto.UpdateAuthorizationResponseDto
 import java.time.Duration
 import java.time.Instant
 import java.time.OffsetDateTime
@@ -226,7 +226,9 @@ class AuthorizationRequestedHelperTests {
       .willReturn(mono { npgStateResponse })
     given(transactionsServiceClient.patchAuthRequest(any(), any()))
       .willReturn(
-        mono { TransactionInfoDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED) })
+        mono {
+          UpdateAuthorizationResponseDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED)
+        })
     given(userStatsServiceClient.saveLastUsage(any(), any())).willReturn(Mono.empty())
     /* test */
     StepVerifier.create(
@@ -327,7 +329,9 @@ class AuthorizationRequestedHelperTests {
       .willReturn(mono { npgStateResponse })
     given(transactionsServiceClient.patchAuthRequest(any(), any()))
       .willReturn(
-        mono { TransactionInfoDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED) })
+        mono {
+          UpdateAuthorizationResponseDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED)
+        })
     /* test */
     StepVerifier.create(
         authorizationRequestedHelper.authorizationOutcomeWaitingHandler(
@@ -427,7 +431,9 @@ class AuthorizationRequestedHelperTests {
       .willReturn(mono { npgStateResponse })
     given(transactionsServiceClient.patchAuthRequest(any(), any()))
       .willReturn(
-        mono { TransactionInfoDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED) })
+        mono {
+          UpdateAuthorizationResponseDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED)
+        })
     /* test */
     StepVerifier.create(
         authorizationRequestedHelper.authorizationOutcomeWaitingHandler(
@@ -513,7 +519,9 @@ class AuthorizationRequestedHelperTests {
         .willReturn(mono { npgStateResponse })
       given(transactionsServiceClient.patchAuthRequest(any(), any()))
         .willReturn(
-          mono { TransactionInfoDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED) })
+          mono {
+            UpdateAuthorizationResponseDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED)
+          })
       /* test */
       StepVerifier.create(
           authorizationRequestedHelper.authorizationOutcomeWaitingHandler(
@@ -600,7 +608,9 @@ class AuthorizationRequestedHelperTests {
         .willReturn(mono { npgStateResponse })
       given(transactionsServiceClient.patchAuthRequest(any(), any()))
         .willReturn(
-          mono { TransactionInfoDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED) })
+          mono {
+            UpdateAuthorizationResponseDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED)
+          })
       /* test */
       StepVerifier.create(
           authorizationRequestedHelper.authorizationOutcomeWaitingHandler(
@@ -1037,7 +1047,7 @@ class AuthorizationRequestedHelperTests {
     given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any(), any()))
       .willReturn(mono { npgStateResponse })
     given(transactionsServiceClient.patchAuthRequest(any(), any()))
-      .willReturn(mono { TransactionInfoDto() })
+      .willReturn(mono { UpdateAuthorizationResponseDto() })
     given(checkpointer.success()).willReturn(Mono.empty())
     given(
         deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(any<BinaryData>(), any()))
@@ -1111,7 +1121,9 @@ class AuthorizationRequestedHelperTests {
       .willReturn(mono { npgStateResponse })
     given(transactionsServiceClient.patchAuthRequest(any(), any()))
       .willReturn(
-        mono { TransactionInfoDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED) })
+        mono {
+          UpdateAuthorizationResponseDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED)
+        })
     given(checkpointer.success()).willReturn(Mono.empty())
     given(
         deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(any<BinaryData>(), any()))
@@ -1204,7 +1216,9 @@ class AuthorizationRequestedHelperTests {
       .willReturn(mono { npgStateResponse })
     given(transactionsServiceClient.patchAuthRequest(any(), any()))
       .willReturn(
-        mono { TransactionInfoDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED) })
+        mono {
+          UpdateAuthorizationResponseDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED)
+        })
     given(userStatsServiceClient.saveLastUsage(any(), any())).willReturn(Mono.empty())
     given(checkpointer.success()).willReturn(Mono.empty())
 
@@ -1287,7 +1301,9 @@ class AuthorizationRequestedHelperTests {
       .willReturn(mono { npgStateResponse })
     given(transactionsServiceClient.patchAuthRequest(any(), any()))
       .willReturn(
-        mono { TransactionInfoDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED) })
+        mono {
+          UpdateAuthorizationResponseDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED)
+        })
     given(checkpointer.success()).willReturn(Mono.empty())
     given(userStatsServiceClient.saveLastUsage(any(), any())).willReturn(Mono.empty())
     given(authRequestedQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), any()))
@@ -1894,7 +1910,7 @@ class AuthorizationRequestedHelperTests {
     given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any(), any()))
       .willReturn(mono { npgStateResponse })
     given(transactionsServiceClient.patchAuthRequest(any(), any()))
-      .willReturn(mono { TransactionInfoDto() })
+      .willReturn(mono { UpdateAuthorizationResponseDto() })
     given(userStatsServiceClient.saveLastUsage(any(), any())).willReturn(Mono.empty())
     given(checkpointer.success()).willReturn(Mono.empty())
     given(
@@ -1974,7 +1990,9 @@ class AuthorizationRequestedHelperTests {
       .willReturn(mono { npgStateResponse })
     given(transactionsServiceClient.patchAuthRequest(any(), any()))
       .willReturn(
-        mono { TransactionInfoDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED) })
+        mono {
+          UpdateAuthorizationResponseDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED)
+        })
     given(checkpointer.success()).willReturn(Mono.empty())
     given(
         deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(any<BinaryData>(), any()))
@@ -2088,7 +2106,9 @@ class AuthorizationRequestedHelperTests {
       .willReturn(mono { npgStateResponse })
     given(transactionsServiceClient.patchAuthRequest(any(), any()))
       .willReturn(
-        mono { TransactionInfoDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED) })
+        mono {
+          UpdateAuthorizationResponseDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED)
+        })
     /* test */
     StepVerifier.create(
         authorizationRequestedHelper.authorizationOutcomeWaitingHandler(
@@ -2157,7 +2177,9 @@ class AuthorizationRequestedHelperTests {
         .willReturn(mono { npgStateResponse })
       given(transactionsServiceClient.patchAuthRequest(any(), any()))
         .willReturn(
-          mono { TransactionInfoDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED) })
+          mono {
+            UpdateAuthorizationResponseDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED)
+          })
       given(userStatsServiceClient.saveLastUsage(any(), any())).willReturn(Mono.empty())
       given(authRequestedQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), any()))
         .willReturn(queueSuccessfulResponse())
@@ -2242,7 +2264,9 @@ class AuthorizationRequestedHelperTests {
         .willReturn(mono { npgStateResponse })
       given(transactionsServiceClient.patchAuthRequest(any(), any()))
         .willReturn(
-          mono { TransactionInfoDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED) })
+          mono {
+            UpdateAuthorizationResponseDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED)
+          })
       given(authRequestedQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), any()))
         .willReturn(queueSuccessfulResponse())
       given(checkpointer.success()).willReturn(Mono.empty())
@@ -2410,7 +2434,9 @@ class AuthorizationRequestedHelperTests {
         .willReturn(mono { npgStateResponse })
       given(transactionsServiceClient.patchAuthRequest(any(), any()))
         .willReturn(
-          mono { TransactionInfoDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED) })
+          mono {
+            UpdateAuthorizationResponseDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED)
+          })
       given(userStatsServiceClient.saveLastUsage(any(), any()))
         .willReturn(Mono.error(RuntimeException("Bad Request")))
       given(authRequestedQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), any()))
@@ -2496,7 +2522,9 @@ class AuthorizationRequestedHelperTests {
         .willReturn(mono { npgStateResponse })
       given(transactionsServiceClient.patchAuthRequest(any(), any()))
         .willReturn(
-          mono { TransactionInfoDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED) })
+          mono {
+            UpdateAuthorizationResponseDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED)
+          })
       given(authRequestedQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), any()))
         .willReturn(queueSuccessfulResponse())
       given(checkpointer.success()).willReturn(Mono.empty())
@@ -2578,7 +2606,9 @@ class AuthorizationRequestedHelperTests {
         .willReturn(Flux.fromIterable(events))
       given(transactionsServiceClient.patchAuthRequest(any(), any()))
         .willReturn(
-          mono { TransactionInfoDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED) })
+          mono {
+            UpdateAuthorizationResponseDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED)
+          })
       given(userStatsServiceClient.saveLastUsage(any(), any())).willReturn(Mono.empty())
       given(checkpointer.success()).willReturn(Mono.empty())
 
@@ -2651,7 +2681,9 @@ class AuthorizationRequestedHelperTests {
         .willReturn(mono { npgStateResponse })
       given(transactionsServiceClient.patchAuthRequest(any(), any()))
         .willReturn(
-          mono { TransactionInfoDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED) })
+          mono {
+            UpdateAuthorizationResponseDto().status(TransactionStatusDto.AUTHORIZATION_COMPLETED)
+          })
       given(authRequestedQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), any()))
         .willReturn(queueSuccessfulResponse())
       given(checkpointer.success()).willReturn(Mono.empty())

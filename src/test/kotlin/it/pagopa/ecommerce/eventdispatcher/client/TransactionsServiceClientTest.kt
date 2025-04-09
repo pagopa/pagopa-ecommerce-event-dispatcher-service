@@ -3,9 +3,9 @@ package it.pagopa.ecommerce.eventdispatcher.client
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils
 import it.pagopa.ecommerce.eventdispatcher.exceptions.*
-import it.pagopa.generated.transactionauthrequests.v1.api.TransactionsApi
-import it.pagopa.generated.transactionauthrequests.v1.dto.TransactionInfoDto
-import it.pagopa.generated.transactionauthrequests.v1.dto.UpdateAuthorizationRequestDto
+import it.pagopa.generated.transactionauthrequests.v2.api.TransactionsApi
+import it.pagopa.generated.transactionauthrequests.v2.dto.UpdateAuthorizationRequestDto
+import it.pagopa.generated.transactionauthrequests.v2.dto.UpdateAuthorizationResponseDto
 import java.nio.charset.StandardCharsets
 import java.util.stream.Stream
 import kotlinx.coroutines.reactor.mono
@@ -33,7 +33,7 @@ class TransactionsServiceClientTest {
     // pre-requisites
     val transactionId = TransactionId(TransactionTestUtils.TRANSACTION_ID)
     val updateAuthRequest = UpdateAuthorizationRequestDto()
-    val expectedResponse = TransactionInfoDto()
+    val expectedResponse = UpdateAuthorizationResponseDto()
     given(transactionApi.updateTransactionAuthorization(transactionId.base64(), updateAuthRequest))
       .willReturn(mono { expectedResponse })
     // test
