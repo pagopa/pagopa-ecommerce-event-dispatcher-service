@@ -50,7 +50,8 @@ class WebClientConfig {
   fun nodoApi(
     @Value("\${nodo.uri}") nodoUri: String,
     @Value("\${nodo.readTimeout}") nodoReadTimeout: Long,
-    @Value("\${nodo.connectionTimeout}") nodoConnectionTimeout: Int
+    @Value("\${nodo.connectionTimeout}") nodoConnectionTimeout: Int,
+    @Value("\${nodo.nodeforecommerce.apikey}") nodeForEcommerceApiKey: String
   ): WebClient {
     val httpClient: HttpClient =
       HttpClient.create()
@@ -79,6 +80,7 @@ class WebClientConfig {
       .clientConnector(ReactorClientHttpConnector(httpClient))
       .exchangeStrategies(exchangeStrategies)
       .baseUrl(nodoUri)
+      .defaultHeader("ocp-apim-subscription-key", nodeForEcommerceApiKey)
       .build()
   }
 
