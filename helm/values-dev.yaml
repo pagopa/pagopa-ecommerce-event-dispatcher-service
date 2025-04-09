@@ -111,7 +111,7 @@ microservice-chart:
     TRANSACTIONS_SERVICE_URI: https://api.dev.platform.pagopa.it/ecommerce/transaction-auth-requests-service/v1
     TRANSACTIONS_SERVICE_READ_TIMEOUT: "10000"
     TRANSACTIONS_SERVICE_CONNECTION_TIMEOUT: "10000"
-    NODO_URI: https://api.uat.platform.pagopa.it/nodo/nodo-per-pm/v2
+    NODO_URI: https://api.uat.platform.pagopa.it/nodo-auth/nodo-per-pm/v2
     NODO_READ_TIMEOUT: "14000"
     NODO_CONNECTION_TIMEOUT: "14000"
     NODO_CONNECTION_STRING: "{\"idPSP\":\"AGID_01\",\"idChannel\":\"97735020584_09\",\"idBrokerPSP\":\"97735020584\"}"
@@ -175,7 +175,7 @@ microservice-chart:
     NPG_REFUND_EVENT_PROCESSING_DELAY_SECONDS: "10"
   envSecret:
     ECOMMERCE_STORAGE_TRANSIENT_QUEUE_KEY: ecommerce-storage-transient-account-key
-    NODO_NODEFORPM_API_KEY: nodo-nodeforpm-api-key
+    NODO_NODEFORECOMMERCE_API_KEY: node-for-ecommerce-api-v2-key
     MONGO_PASSWORD: mongo-ecommerce-password
     REDIS_PASSWORD: redis-ecommerce-access-key
     REDIS_HOST: redis-ecommerce-hostname

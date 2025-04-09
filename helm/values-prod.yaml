@@ -185,7 +185,7 @@ microservice-chart:
     NPG_REFUND_EVENT_PROCESSING_DELAY_SECONDS: "10"
   envSecret:
     ECOMMERCE_STORAGE_TRANSIENT_QUEUE_KEY: ecommerce-storage-transient-account-key
-    NODO_NODEFORPM_API_KEY: nodo-nodeforpm-api-key
+    NODO_NODEFORECOMMERCE_API_KEY: node-for-ecommerce-api-v2-key
     MONGO_PASSWORD: mongo-ecommerce-password
     REDIS_PASSWORD: redis-ecommerce-access-key
     REDIS_HOST: redis-ecommerce-hostname
