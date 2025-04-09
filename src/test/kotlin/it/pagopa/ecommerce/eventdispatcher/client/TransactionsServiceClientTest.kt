@@ -14,8 +14,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
-import org.mockito.kotlin.given
-import org.mockito.kotlin.mock
+import org.mockito.kotlin.*
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.web.reactive.function.client.WebClientResponseException
@@ -34,13 +33,15 @@ class TransactionsServiceClientTest {
     val transactionId = TransactionId(TransactionTestUtils.TRANSACTION_ID)
     val updateAuthRequest = UpdateAuthorizationRequestDto()
     val expectedResponse = UpdateAuthorizationResponseDto()
-    given(transactionApi.updateTransactionAuthorization(transactionId.base64(), updateAuthRequest))
+    given(transactionApi.updateTransactionAuthorization(any(), any()))
       .willReturn(mono { expectedResponse })
     // test
     StepVerifier.create(
         transactionsServiceClient.patchAuthRequest(transactionId, updateAuthRequest))
       .expectNext(expectedResponse)
       .verifyComplete()
+    verify(transactionApi, times(1))
+      .updateTransactionAuthorization(transactionId.value(), updateAuthRequest)
   }
 
   companion object {
@@ -80,7 +81,7 @@ class TransactionsServiceClientTest {
     // pre-requisites
     val transactionId = TransactionId(TransactionTestUtils.TRANSACTION_ID)
     val updateAuthRequest = UpdateAuthorizationRequestDto()
-    given(transactionApi.updateTransactionAuthorization(transactionId.base64(), updateAuthRequest))
+    given(transactionApi.updateTransactionAuthorization(any(), any()))
       .willReturn(
         Mono.error {
           WebClientResponseException.create(
@@ -99,5 +100,7 @@ class TransactionsServiceClientTest {
         true
       }
       .verify()
+    verify(transactionApi, times(1))
+      .updateTransactionAuthorization(transactionId.value(), updateAuthRequest)
   }
 }
