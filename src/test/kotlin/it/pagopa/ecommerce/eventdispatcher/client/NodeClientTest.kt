@@ -53,7 +53,7 @@ class NodeClientTest {
           nodoUri = "http://localhost:8080",
           nodoConnectionTimeout = 1000,
           nodoReadTimeout = 1000,
-          nodoPerPmApiKey = "nodoPerPmApiKey"),
+          nodeForEcommerceApiKey = "nodeForEcommerceApiKey"),
       "ecomm",
       ObjectMapper())
 
@@ -100,7 +100,7 @@ class NodeClientTest {
 
     // validate presence of your header
     val recordedRequest = mockWebServer.takeRequest()
-    assertEquals("nodoPerPmApiKey", recordedRequest.getHeader("ocp-apim-subscription-key"))
+    assertEquals("nodeForEcommerceApiKey", recordedRequest.getHeader("ocp-apim-subscription-key"))
   }
 
   @Test
