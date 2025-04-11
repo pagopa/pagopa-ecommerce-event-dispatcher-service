@@ -80,7 +80,7 @@ class WebClientConfig {
       .clientConnector(ReactorClientHttpConnector(httpClient))
       .exchangeStrategies(exchangeStrategies)
       .baseUrl(nodoUri)
-      .defaultHeader("ocp-apim-subscription-key", nodeForEcommerceApiKey)
+      // .defaultHeader("ocp-apim-subscription-key", nodeForEcommerceApiKey)
       .build()
   }
 
