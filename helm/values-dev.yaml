@@ -108,7 +108,7 @@ microservice-chart:
     NOTIFICATIONS_SERVICE_URI: https://api.dev.platform.pagopa.it/ecommerce/notifications-service/v1
     NOTIFICATIONS_SERVICE_READ_TIMEOUT: "10000"
     NOTIFICATIONS_SERVICE_CONNECTION_TIMEOUT: "10000"
-    TRANSACTIONS_SERVICE_URI: https://api.dev.platform.pagopa.it/ecommerce/transaction-auth-requests-service/v1
+    TRANSACTIONS_SERVICE_URI: https://api.dev.platform.pagopa.it/ecommerce/transaction-auth-requests-service/v2
     TRANSACTIONS_SERVICE_READ_TIMEOUT: "10000"
     TRANSACTIONS_SERVICE_CONNECTION_TIMEOUT: "10000"
     NODO_URI: https://api.uat.platform.pagopa.it/nodo-auth/node-for-ecommerce/v2
@@ -182,7 +182,7 @@ microservice-chart:
     QUEUE_TRANSIENT_CONNECTION_STRING: ecommerce-storage-transient-connection-string
     QUEUE_DEADLETTER_CONNECTION_STRING: ecommerce-storage-deadletter-connection-string
     NOTIFICATIONS_SERVICE_API_KEY: notifications-service-api-key
-    TRANSACTIONS_SERVICE_API_KEY: transactions-service-auth-update-api-key
+    TRANSACTIONS_SERVICE_API_KEY: transactions-service-auth-update-api-key-v2
     ECOMMERCE_PERSONAL_DATA_VAULT_API_KEY: personal-data-vault-api-key
     WALLET_SESSION_PERSONAL_DATA_VAULT_API_KEY: personal-data-vault-api-key-wallet-session
     OTEL_EXPORTER_OTLP_HEADERS: elastic-otel-token-header

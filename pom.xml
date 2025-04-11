@@ -399,7 +399,7 @@
 							<goal>generate</goal>
 						</goals>
 						<configuration>
-							<inputSpec>https://raw.githubusercontent.com/pagopa/pagopa-infra/main/src/domains/ecommerce-app/api/ecommerce-transaction-auth-requests-service/v1/_openapi.json.tpl</inputSpec>
+							<inputSpec>https://raw.githubusercontent.com/pagopa/pagopa-infra/v1.474.0/src/domains/ecommerce-app/api/ecommerce-transaction-auth-requests-service/v2/_openapi.json.tpl</inputSpec>
 							<generatorName>java</generatorName>
 							<library>webclient</library>
 							<generateApiDocumentation>false</generateApiDocumentation>
@@ -411,8 +411,8 @@
 								<openApiNullable>false</openApiNullable>
 								<useOneOfInterfaces>true</useOneOfInterfaces>
 							</configOptions>
-							<modelPackage>it.pagopa.generated.transactionauthrequests.v1.dto</modelPackage>
-							<apiPackage>it.pagopa.generated.transactionauthrequests.v1.api</apiPackage>
+							<modelPackage>it.pagopa.generated.transactionauthrequests.v2.dto</modelPackage>
+							<apiPackage>it.pagopa.generated.transactionauthrequests.v2.api</apiPackage>
 							<modelNameSuffix>dto</modelNameSuffix>
 						</configuration>
 					</execution>

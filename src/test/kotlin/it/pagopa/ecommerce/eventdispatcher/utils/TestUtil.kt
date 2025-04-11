@@ -13,9 +13,9 @@ import it.pagopa.ecommerce.commons.v1.TransactionTestUtils
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.ClosePaymentOutcome
 import it.pagopa.generated.ecommerce.nodo.v2.dto.CardClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
-import it.pagopa.generated.transactionauthrequests.v1.dto.PaymentInfoDto
-import it.pagopa.generated.transactionauthrequests.v1.dto.TransactionInfoDto
-import it.pagopa.generated.transactionauthrequests.v1.dto.TransactionStatusDto
+import it.pagopa.generated.transactionauthrequests.v2.dto.PaymentInfoDto
+import it.pagopa.generated.transactionauthrequests.v2.dto.TransactionInfoDto
+import it.pagopa.generated.transactionauthrequests.v2.dto.TransactionStatusDto
 import java.time.OffsetDateTime
 import java.util.*
 import org.junit.jupiter.api.Assertions

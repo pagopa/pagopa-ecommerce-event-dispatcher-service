@@ -3,9 +3,9 @@ package it.pagopa.ecommerce.eventdispatcher.client
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils
 import it.pagopa.ecommerce.eventdispatcher.exceptions.*
-import it.pagopa.generated.transactionauthrequests.v1.api.TransactionsApi
-import it.pagopa.generated.transactionauthrequests.v1.dto.TransactionInfoDto
-import it.pagopa.generated.transactionauthrequests.v1.dto.UpdateAuthorizationRequestDto
+import it.pagopa.generated.transactionauthrequests.v2.api.TransactionsApi
+import it.pagopa.generated.transactionauthrequests.v2.dto.UpdateAuthorizationRequestDto
+import it.pagopa.generated.transactionauthrequests.v2.dto.UpdateAuthorizationResponseDto
 import java.nio.charset.StandardCharsets
 import java.util.stream.Stream
 import kotlinx.coroutines.reactor.mono
@@ -14,8 +14,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
-import org.mockito.kotlin.given
-import org.mockito.kotlin.mock
+import org.mockito.kotlin.*
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.web.reactive.function.client.WebClientResponseException
@@ -33,14 +32,16 @@ class TransactionsServiceClientTest {
     // pre-requisites
     val transactionId = TransactionId(TransactionTestUtils.TRANSACTION_ID)
     val updateAuthRequest = UpdateAuthorizationRequestDto()
-    val expectedResponse = TransactionInfoDto()
-    given(transactionApi.updateTransactionAuthorization(transactionId.base64(), updateAuthRequest))
+    val expectedResponse = UpdateAuthorizationResponseDto()
+    given(transactionApi.updateTransactionAuthorization(any(), any()))
       .willReturn(mono { expectedResponse })
     // test
     StepVerifier.create(
         transactionsServiceClient.patchAuthRequest(transactionId, updateAuthRequest))
       .expectNext(expectedResponse)
       .verifyComplete()
+    verify(transactionApi, times(1))
+      .updateTransactionAuthorization(transactionId.value(), updateAuthRequest)
   }
 
   companion object {
@@ -80,7 +81,7 @@ class TransactionsServiceClientTest {
     // pre-requisites
     val transactionId = TransactionId(TransactionTestUtils.TRANSACTION_ID)
     val updateAuthRequest = UpdateAuthorizationRequestDto()
-    given(transactionApi.updateTransactionAuthorization(transactionId.base64(), updateAuthRequest))
+    given(transactionApi.updateTransactionAuthorization(any(), any()))
       .willReturn(
         Mono.error {
           WebClientResponseException.create(
@@ -99,5 +100,7 @@ class TransactionsServiceClientTest {
         true
       }
       .verify()
+    verify(transactionApi, times(1))
+      .updateTransactionAuthorization(transactionId.value(), updateAuthRequest)
   }
 }

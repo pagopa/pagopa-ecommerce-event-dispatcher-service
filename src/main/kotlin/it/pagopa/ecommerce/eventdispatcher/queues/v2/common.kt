@@ -16,7 +16,10 @@ import it.pagopa.ecommerce.commons.domain.v2.TransactionEventCode
 import it.pagopa.ecommerce.commons.domain.v2.TransactionWithClosureError
 import it.pagopa.ecommerce.commons.domain.v2.pojos.*
 import it.pagopa.ecommerce.commons.exceptions.NpgResponseException
-import it.pagopa.ecommerce.commons.generated.npg.v1.dto.*
+import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
+import it.pagopa.ecommerce.commons.generated.npg.v1.dto.RefundResponseDto
+import it.pagopa.ecommerce.commons.generated.npg.v1.dto.StateResponseDto
+import it.pagopa.ecommerce.commons.generated.npg.v1.dto.WorkflowStateDto
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
@@ -36,9 +39,9 @@ import it.pagopa.ecommerce.eventdispatcher.services.v2.AuthorizationStateRetriev
 import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundOutcomeDto
-import it.pagopa.generated.transactionauthrequests.v1.dto.OutcomeNpgGatewayDto
-import it.pagopa.generated.transactionauthrequests.v1.dto.TransactionInfoDto
-import it.pagopa.generated.transactionauthrequests.v1.dto.UpdateAuthorizationRequestDto
+import it.pagopa.generated.transactionauthrequests.v2.dto.OutcomeNpgGatewayDto
+import it.pagopa.generated.transactionauthrequests.v2.dto.UpdateAuthorizationRequestDto
+import it.pagopa.generated.transactionauthrequests.v2.dto.UpdateAuthorizationResponseDto
 import java.math.BigDecimal
 import java.time.*
 import java.util.*
@@ -300,7 +303,7 @@ fun patchAuthRequestByState(
   stateResponseDto: StateResponseDto,
   tx: BaseTransaction,
   transactionsServiceClient: TransactionsServiceClient,
-): Mono<TransactionInfoDto> {
+): Mono<UpdateAuthorizationResponseDto> {
   logger.info(
     "NPG Get State for transaction with id: [{}] processed successfully with state result [{}]",
     tx.transactionId.value(),
