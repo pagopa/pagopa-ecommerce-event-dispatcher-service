@@ -15,6 +15,7 @@ import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.client.NotificationsServiceClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
+import it.pagopa.ecommerce.eventdispatcher.mdcutilities.MdcTransactionHelper
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.NotificationRetryService
@@ -51,6 +52,7 @@ class TransactionNotificationsRetryQueueConsumer(
   @Autowired private val npgService: NpgService,
   @Value("\${azurestorage.queues.transientQueues.ttlSeconds}")
   private val transientQueueTTLSeconds: Int,
+  @Autowired private val mdcTransactionHelper: MdcTransactionHelper
 ) {
   var logger: Logger =
     LoggerFactory.getLogger(TransactionNotificationsRetryQueueConsumer::class.java)
@@ -153,9 +155,15 @@ class TransactionNotificationsRetryQueueConsumer(
             }
         }
 
+    // Add transaction ID to context before running the traced pipeline
+    val notificationResendPipelineWithMdc = mdcTransactionHelper.addTransactionIdToContext(
+      transactionId,
+      notificationResendPipeline
+    )
+
     return runTracedPipelineWithDeadLetterQueue(
       checkPointer,
-      notificationResendPipeline,
+      notificationResendPipelineWithMdc,
       queueEvent,
       deadLetterTracedQueueAsyncClient,
       tracingUtils,
