@@ -158,7 +158,8 @@ microservice-chart:
     NPG_MYBANK_PSP_LIST: "BCITITMM,UNCRITMM"
     NPG_BANCOMATPAY_PSP_LIST: "BCITITMM"
     NPG_SATISPAY_PSP_LIST: "SATYLUL1"
-    NPG_APPLEPAY_PSP_LIST: "SIGPITM1XXX"
+    NPG_APPLEPAY_PSP_LIST: "SIGPITM1XXX,CIPBITMM"
+    NPG_GOOGLE_PAY_PSP_LIST: "CIPBITMM"
     ECS_SERVICE_NAME: pagopa-ecommerce-event-dispatcher-service
     ECS_SERVICE_ENVIRONMENT: uat
     REDIS_STREAM_EVENT_CONTROLLER_STREAM_KEY: "event-dispatcher-commands"
@@ -195,6 +196,7 @@ microservice-chart:
     NPG_MYBANK_PSP_KEYS: npg-mybank-psp-keys
     NPG_SATISPAY_PSP_KEYS: npg-satispay-psp-keys
     NPG_APPLEPAY_PSP_KEYS: npg-apple-pay-psp-keys
+    NPG_GOOGLE_PAY_PSP_KEYS: npg-google-pay-psp-keys
   keyvault:
     name: "pagopa-u-ecommerce-kv"
     tenantId: "7788edaf-0346-4068-9d79-c868aed15b3d"
