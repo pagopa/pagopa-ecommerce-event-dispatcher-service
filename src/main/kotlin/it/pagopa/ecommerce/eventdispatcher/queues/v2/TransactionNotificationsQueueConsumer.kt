@@ -9,6 +9,7 @@ import it.pagopa.ecommerce.commons.documents.v2.TransactionUserReceiptData
 import it.pagopa.ecommerce.commons.documents.v2.TransactionUserReceiptRequestedEvent
 import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithRequestedUserReceipt
+import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithUserReceipt
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
@@ -95,7 +96,7 @@ class TransactionNotificationsQueueConsumer(
             }
             .map {
               finalStatusTracing.addSpan(
-                FinalStatusTracing::class.toString(), extractSpanAttributesFromTransaction(tx))
+                FinalStatusTracing::class.toString(), extractSpanAttributesFromTransaction(it))
               it
             }
             .flatMap {
@@ -135,12 +136,14 @@ class TransactionNotificationsQueueConsumer(
       strictSerializerProviderV2)
   }
 
-  private fun extractSpanAttributesFromTransaction(
-    tx: BaseTransactionWithRequestedUserReceipt
-  ): Attributes {
+  private fun extractSpanAttributesFromTransaction(tx: BaseTransactionWithUserReceipt): Attributes {
     return Attributes.of(
       AttributeKey.stringKey(FinalStatusTracing.TRANSACTIONID),
       tx.transactionId.toString(),
+      AttributeKey.stringKey(FinalStatusTracing.TRANSACTIONEVENT),
+      tx.transactionUserReceiptAddedEvent.eventCode,
+      AttributeKey.stringKey(FinalStatusTracing.TRANSACTIONSTATUS),
+      tx.status.value,
       AttributeKey.stringKey(FinalStatusTracing.CLIENTID),
       tx.clientId.toString(),
       AttributeKey.stringKey(FinalStatusTracing.PSPID),
