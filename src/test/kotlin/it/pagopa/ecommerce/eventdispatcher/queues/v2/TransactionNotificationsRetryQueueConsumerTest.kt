@@ -24,6 +24,7 @@ import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.NotificationRe
 import it.pagopa.ecommerce.eventdispatcher.services.v2.AuthorizationStateRetrieverService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
+import it.pagopa.ecommerce.eventdispatcher.utils.FinalStatusTracing
 import it.pagopa.ecommerce.eventdispatcher.utils.TRANSIENT_QUEUE_TTL_SECONDS
 import it.pagopa.ecommerce.eventdispatcher.utils.queueSuccessfulResponse
 import it.pagopa.ecommerce.eventdispatcher.utils.v2.UserReceiptMailBuilder
@@ -39,6 +40,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.ArgumentCaptor
 import org.mockito.Captor
+import org.mockito.Mockito
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.*
 import reactor.core.publisher.Flux
@@ -75,6 +77,8 @@ class TransactionNotificationsRetryQueueConsumerTest {
   private val userReceiptMailBuilder: UserReceiptMailBuilder = mock()
 
   private val tracingUtils = TracingUtilsTests.getMock()
+
+  private val finalStatusTracing = getFinalStatusTracingMock()
 
   @Captor private lateinit var transactionViewRepositoryCaptor: ArgumentCaptor<Transaction>
 
@@ -113,6 +117,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
           authorizationStateRetrieverService,
           refundDelayFromAuthRequestMinutes,
           eventProcessingDelaySeconds),
+      finalStatusTracing = finalStatusTracing,
       transientQueueTTLSeconds = TRANSIENT_QUEUE_TTL_SECONDS)
 
   @Test
@@ -1140,4 +1145,12 @@ class TransactionNotificationsRetryQueueConsumerTest {
         assertEquals(transactionStatus, transactionViewRepositoryCaptor.allValues[index].status)
       }
     }
+
+  fun getFinalStatusTracingMock(): FinalStatusTracing {
+    val finalStatusTracingMock: FinalStatusTracing = Mockito.mock(FinalStatusTracing::class.java)
+
+    Mockito.doNothing().`when`(finalStatusTracingMock).addSpan(any(), any())
+
+    return finalStatusTracingMock
+  }
 }
