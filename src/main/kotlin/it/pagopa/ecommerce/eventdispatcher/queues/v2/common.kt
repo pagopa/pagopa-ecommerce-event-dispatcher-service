@@ -406,21 +406,6 @@ fun requestRefundTransaction(
       IllegalArgumentException(
         "Tried to call `refundRequested` on transaction with null authorization request data in status ${transaction.status.value}!"))
   }
-  val authorizationRequestedTimestamp =
-    events
-      .filter {
-        TransactionEventCode.valueOf(it.eventCode) ==
-          TransactionEventCode.TRANSACTION_AUTHORIZATION_REQUESTED_EVENT
-      }
-      .next()
-      .map { ZonedDateTime.parse(it.creationDate) }
-      // safe here, transaction will always have a TRANSACTION_AUTHORIZATION_REQUESTED_EVENT event
-      // here, covered by the above check against transactionAuthorizationRequestData presence
-      // this switchIfEmpty set here just for check completeness
-      .switchIfEmpty(
-        Mono.error(
-          IllegalArgumentException(
-            "Tried to call `refundRequested` on transaction with null authorization requested event! Transaction id: ${transaction.transactionId.value()}!")))
   return when (transactionAuthorizationRequestData.paymentGateway) {
       TransactionAuthorizationRequestData.PaymentGateway.REDIRECT ->
         appendRefundRequestedEventIfNeeded(
@@ -493,9 +478,9 @@ fun calculateRefundEventVisibilityTimeout(
   val refundEventVisibilityTimeout =
     if (paymentGateway == TransactionAuthorizationRequestData.PaymentGateway.NPG) {
       val now = ZonedDateTime.now()
-      val processRefundNotBefore = authorizationRequestedTimestamp.plus(npgDelayFromAuthRequest)
+      val processRefundNotBefore = authorizationRequestedTimestamp + npgDelayFromAuthRequest
       val timeToWaitForRefund = Duration.between(now, processRefundNotBefore)
-      if (timeToWaitForRefund.isNegative) {
+      if (now.isAfter(processRefundNotBefore)) {
         Duration.ZERO
       } else {
         timeToWaitForRefund

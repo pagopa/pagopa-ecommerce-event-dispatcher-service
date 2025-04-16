@@ -21,10 +21,6 @@ class NodeClient(
   @Autowired private val objectMapper: ObjectMapper
 ) {
 
-  companion object {
-    const val NODE_DID_NOT_RECEIVE_RPT_YET_ERROR = "Node did not receive RPT yet"
-  }
-
   private val logger = LoggerFactory.getLogger(javaClass)
 
   fun closePayment(closePaymentRequest: ClosePaymentRequestV2Dto): Mono<ClosePaymentResponseDto> {
