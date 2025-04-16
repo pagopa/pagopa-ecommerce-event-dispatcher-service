@@ -14,6 +14,7 @@ import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingUtils
+import it.pagopa.ecommerce.commons.utils.OpenTelemetryUtils
 import it.pagopa.ecommerce.eventdispatcher.client.NotificationsServiceClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
@@ -21,7 +22,7 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewReposito
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.NotificationRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
-import it.pagopa.ecommerce.eventdispatcher.utils.FinalStatusTracing
+import it.pagopa.ecommerce.eventdispatcher.utils.TransactionTracing
 import it.pagopa.ecommerce.eventdispatcher.utils.v2.UserReceiptMailBuilder
 import java.time.Duration
 import kotlinx.coroutines.reactor.mono
@@ -52,7 +53,7 @@ class TransactionNotificationsQueueConsumer(
   @Autowired private val npgService: NpgService,
   @Value("\${azurestorage.queues.transientQueues.ttlSeconds}")
   private val transientQueueTTLSeconds: Int,
-  @Autowired private val finalStatusTracing: FinalStatusTracing
+  @Autowired private val openTelemetryUtils: OpenTelemetryUtils
 ) {
   var logger: Logger = LoggerFactory.getLogger(TransactionNotificationsQueueConsumer::class.java)
 
@@ -95,8 +96,8 @@ class TransactionNotificationsQueueConsumer(
                 tx, transactionsViewRepository, transactionUserReceiptRepository)
             }
             .map {
-              finalStatusTracing.addSpan(
-                FinalStatusTracing::class.simpleName.toString(),
+              openTelemetryUtils.addSpanWithAttributes(
+                TransactionTracing::class.simpleName.toString(),
                 extractSpanAttributesFromTransaction(it))
               it
             }
@@ -139,17 +140,17 @@ class TransactionNotificationsQueueConsumer(
 
   private fun extractSpanAttributesFromTransaction(tx: BaseTransactionWithUserReceipt): Attributes {
     return Attributes.of(
-      AttributeKey.stringKey(FinalStatusTracing.TRANSACTIONID),
+      AttributeKey.stringKey(TransactionTracing.TRANSACTIONID),
       tx.transactionId.toString(),
-      AttributeKey.stringKey(FinalStatusTracing.TRANSACTIONEVENT),
+      AttributeKey.stringKey(TransactionTracing.TRANSACTIONEVENT),
       tx.transactionUserReceiptAddedEvent.eventCode,
-      AttributeKey.stringKey(FinalStatusTracing.TRANSACTIONSTATUS),
+      AttributeKey.stringKey(TransactionTracing.TRANSACTIONSTATUS),
       tx.status.value,
-      AttributeKey.stringKey(FinalStatusTracing.CLIENTID),
+      AttributeKey.stringKey(TransactionTracing.CLIENTID),
       tx.clientId.toString(),
-      AttributeKey.stringKey(FinalStatusTracing.PSPID),
+      AttributeKey.stringKey(TransactionTracing.PSPID),
       tx.transactionAuthorizationRequestData.pspId,
-      AttributeKey.stringKey(FinalStatusTracing.PAYMENTMETHOD),
+      AttributeKey.stringKey(TransactionTracing.PAYMENTMETHOD),
       tx.transactionAuthorizationRequestData.paymentMethodName)
   }
 }

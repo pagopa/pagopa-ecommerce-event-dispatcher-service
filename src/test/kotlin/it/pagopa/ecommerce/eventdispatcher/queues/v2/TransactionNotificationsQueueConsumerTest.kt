@@ -14,6 +14,7 @@ import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.TracingInfoTest.MOCK_TRACING_INFO
 import it.pagopa.ecommerce.commons.queues.TracingUtilsTests
+import it.pagopa.ecommerce.commons.utils.OpenTelemetryUtils
 import it.pagopa.ecommerce.commons.v2.TransactionTestUtils.*
 import it.pagopa.ecommerce.eventdispatcher.client.NotificationsServiceClient
 import it.pagopa.ecommerce.eventdispatcher.config.QueuesConsumerConfig
@@ -72,7 +73,7 @@ class TransactionNotificationsQueueConsumerTest {
 
   private val tracingUtils = TracingUtilsTests.getMock()
 
-  private val finalStatusTracing = getFinalStatusTracingMock()
+  private val openTelemetryUtils = getFinalStatusTracingMock()
 
   @Captor private lateinit var transactionViewRepositoryCaptor: ArgumentCaptor<Transaction>
 
@@ -113,7 +114,7 @@ class TransactionNotificationsQueueConsumerTest {
           authorizationStateRetrieverService,
           refundDelayFromAuthRequestMinutes,
           eventProcessingDelaySeconds),
-      finalStatusTracing = finalStatusTracing,
+      openTelemetryUtils = openTelemetryUtils,
       transientQueueTTLSeconds = TRANSIENT_QUEUE_TTL_SECONDS,
     )
 
@@ -323,7 +324,7 @@ class TransactionNotificationsQueueConsumerTest {
         .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
       verify(transactionUserReceiptRepository, times(1)).save(any())
       verify(userReceiptMailBuilder, times(1)).buildNotificationEmailRequestDto(baseTransaction)
-      verify(finalStatusTracing, times(1)).addSpan(any(), any())
+      verify(openTelemetryUtils, times(1)).addSpanWithAttributes(any(), any())
       assertEquals(TransactionStatusDto.NOTIFIED_OK, transactionViewRepositoryCaptor.value.status)
       val savedEvent = transactionUserReceiptCaptor.value
       assertEquals(
@@ -867,10 +868,10 @@ class TransactionNotificationsQueueConsumerTest {
         TransactionStatusDto.NOTIFICATION_ERROR, transactionViewRepositoryCaptor.value.status)
     }
 
-  fun getFinalStatusTracingMock(): FinalStatusTracing {
-    val finalStatusTracingMock: FinalStatusTracing = Mockito.mock(FinalStatusTracing::class.java)
+  fun getFinalStatusTracingMock(): OpenTelemetryUtils {
+    val finalStatusTracingMock: OpenTelemetryUtils = Mockito.mock(OpenTelemetryUtils::class.java)
 
-    Mockito.doNothing().`when`(finalStatusTracingMock).addSpan(any(), any())
+    Mockito.doNothing().`when`(finalStatusTracingMock).addSpanWithAttributes(any(), any())
 
     return finalStatusTracingMock
   }

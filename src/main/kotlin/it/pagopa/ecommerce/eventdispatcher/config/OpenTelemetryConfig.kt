@@ -26,4 +26,6 @@ class OpenTelemetryConfig {
     openTelemetryTracer: Tracer
   ): UpdateTransactionStatusTracerUtils =
     UpdateTransactionStatusTracerUtils(OpenTelemetryUtils(openTelemetryTracer))
+
+  @Bean fun openTelemetryUtils(tracer: Tracer): OpenTelemetryUtils = OpenTelemetryUtils(tracer)
 }
