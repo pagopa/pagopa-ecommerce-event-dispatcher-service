@@ -126,6 +126,16 @@ class NpgPspsApiKeyConfigBuilder {
     parsePspApiKeyConfiguration(
       apiKeys = apiKeys, pspToHandle = pspToHandle, paymentMethod = PaymentMethod.GOOGLEPAY)
 
+  /*
+   * @formatter:off
+   *
+   * Warning kotlin:S107 - Functions should not have too many parameters
+   * Suppressed because there is a bean per NPG payment method as per secret management choice.
+   * Moreover, this is a factory method that is never called programmatically
+   *
+   * @formatter:on
+   */
+  @SuppressWarnings("kotlin:S107")
   @Bean
   fun npgApiKeyHandler(
     npgCardsApiKeys: NpgPspApiKeysConfig,
