@@ -8,7 +8,6 @@ import it.pagopa.ecommerce.commons.documents.v2.BaseTransactionRefundedData
 import it.pagopa.ecommerce.commons.documents.v2.TransactionUserReceiptData
 import it.pagopa.ecommerce.commons.documents.v2.TransactionUserReceiptRequestedEvent
 import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
-import it.pagopa.ecommerce.commons.domain.v2.TransactionWithUserReceiptError
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithRequestedUserReceipt
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
@@ -94,9 +93,10 @@ class TransactionNotificationsQueueConsumer(
               updateNotifiedTransactionStatus(
                 tx, transactionsViewRepository, transactionUserReceiptRepository)
             }
-            .flatMap {
-              finalStatusTracing.addSpan(FinalStatusTracing::class.toString(), extractSpanAttributesFromTransaction(tx));
-              Mono.just(tx)
+            .map {
+              finalStatusTracing.addSpan(
+                FinalStatusTracing::class.toString(), extractSpanAttributesFromTransaction(tx))
+              it
             }
             .flatMap {
               notificationRefundTransactionPipeline(
@@ -135,7 +135,9 @@ class TransactionNotificationsQueueConsumer(
       strictSerializerProviderV2)
   }
 
-  private fun extractSpanAttributesFromTransaction(tx: BaseTransactionWithRequestedUserReceipt): Attributes {
+  private fun extractSpanAttributesFromTransaction(
+    tx: BaseTransactionWithRequestedUserReceipt
+  ): Attributes {
     return Attributes.of(
       AttributeKey.stringKey(FinalStatusTracing.TRANSACTIONID),
       tx.transactionId.toString(),
@@ -144,7 +146,6 @@ class TransactionNotificationsQueueConsumer(
       AttributeKey.stringKey(FinalStatusTracing.PSPID),
       tx.transactionAuthorizationRequestData.pspId,
       AttributeKey.stringKey(FinalStatusTracing.PAYMENTMETHOD),
-      tx.transactionAuthorizationRequestData.paymentMethodName
-    )
+      tx.transactionAuthorizationRequestData.paymentMethodName)
   }
 }

@@ -9,20 +9,17 @@ import org.springframework.stereotype.Component
 
 @Component
 class FinalStatusTracing(private val openTelemetry: OpenTelemetry, private val tracer: Tracer) {
-    companion object {
-        const val TRANSACTIONID: String = "transactionId"
-        const val PSPID: String = "pspId"
-        const val CLIENTID: String = "clientId"
-        const val PAYMENTMETHOD: String = "paymentMethod"
-    }
+  companion object {
+    const val TRANSACTIONID: String = "transactionId"
+    const val PSPID: String = "pspId"
+    const val CLIENTID: String = "clientId"
+    const val PAYMENTMETHOD: String = "paymentMethod"
+  }
 
-    fun addSpan(spanName: String, attributes: Attributes) {
-        val span: Span =
-            tracer
-                .spanBuilder(spanName)
-                .setParent(Context.current().with(Span.current()))
-                .startSpan()
-        span.setAllAttributes(attributes)
-        span.end()
-    }
+  fun addSpan(spanName: String, attributes: Attributes) {
+    val span: Span =
+      tracer.spanBuilder(spanName).setParent(Context.current().with(Span.current())).startSpan()
+    span.setAllAttributes(attributes)
+    span.end()
+  }
 }

@@ -107,9 +107,10 @@ class TransactionNotificationsRetryQueueConsumer(
             .flatMap {
               updateNotifiedTransactionStatus(
                   tx, transactionsViewRepository, transactionUserReceiptRepository)
-                .flatMap {
-                  finalStatusTracing.addSpan(FinalStatusTracing::class.toString(), extractSpanAttributesFromTransaction(tx));
-                  Mono.just(tx)
+                .map {
+                  finalStatusTracing.addSpan(
+                    FinalStatusTracing::class.toString(), extractSpanAttributesFromTransaction(tx))
+                  it
                 }
                 .flatMap {
                   notificationRefundTransactionPipeline(
@@ -171,7 +172,9 @@ class TransactionNotificationsRetryQueueConsumer(
       strictSerializerProviderV2)
   }
 
-  private fun extractSpanAttributesFromTransaction(tx: TransactionWithUserReceiptError): Attributes {
+  private fun extractSpanAttributesFromTransaction(
+    tx: TransactionWithUserReceiptError
+  ): Attributes {
     return Attributes.of(
       AttributeKey.stringKey(FinalStatusTracing.TRANSACTIONID),
       tx.transactionId.toString(),
@@ -180,7 +183,6 @@ class TransactionNotificationsRetryQueueConsumer(
       AttributeKey.stringKey(FinalStatusTracing.PSPID),
       tx.transactionAuthorizationRequestData.pspId,
       AttributeKey.stringKey(FinalStatusTracing.PAYMENTMETHOD),
-      tx.transactionAuthorizationRequestData.paymentMethodName
-    )
+      tx.transactionAuthorizationRequestData.paymentMethodName)
   }
 }
