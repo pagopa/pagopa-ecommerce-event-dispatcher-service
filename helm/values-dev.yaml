@@ -32,7 +32,7 @@ microservice-chart:
     envSecret: {}
   image:
     repository: pagopadcommonacr.azurecr.io/pagopaecommerceeventdispatcherservice
-    tag: "1.40.1"
+    tag: "1.41.0"
     pullPolicy: Always
   livenessProbe:
     handlerType: httpGet
@@ -161,7 +161,8 @@ microservice-chart:
     NPG_MYBANK_PSP_LIST: "BCITITMM,UNCRITMM"
     NPG_BANCOMATPAY_PSP_LIST: "BCITITMM"
     NPG_SATISPAY_PSP_LIST: "SATYLUL1"
-    NPG_APPLEPAY_PSP_LIST: "SIGPITM1XXX"
+    NPG_APPLEPAY_PSP_LIST: "SIGPITM1XXX,CIPBITMM"
+    NPG_GOOGLE_PAY_PSP_LIST: "CIPBITMM"
     REDIS_STREAM_EVENT_CONTROLLER_STREAM_KEY: "event-dispatcher-commands"
     EVENT_CONTROLLER_STATUS_POLLING_CHRON: "*/10 * * * * *"
     NODE_FORWARDER_URL: "https://api.uat.platform.pagopa.it/pagopa-node-forwarder/api/v1"
@@ -196,6 +197,7 @@ microservice-chart:
     NPG_MYBANK_PSP_KEYS: npg-mybank-psp-keys
     NPG_SATISPAY_PSP_KEYS: npg-satispay-psp-keys
     NPG_APPLEPAY_PSP_KEYS: npg-apple-pay-psp-keys
+    NPG_GOOGLE_PAY_PSP_KEYS: npg-google-pay-psp-keys
   keyvault:
     name: "pagopa-d-ecommerce-kv"
     tenantId: "7788edaf-0346-4068-9d79-c868aed15b3d"
