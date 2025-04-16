@@ -96,7 +96,8 @@ class TransactionNotificationsQueueConsumer(
             }
             .map {
               finalStatusTracing.addSpan(
-                  FinalStatusTracing::class.simpleName.toString(), extractSpanAttributesFromTransaction(it))
+                FinalStatusTracing::class.simpleName.toString(),
+                extractSpanAttributesFromTransaction(it))
               it
             }
             .flatMap {

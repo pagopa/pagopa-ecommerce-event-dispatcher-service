@@ -4,7 +4,6 @@ import io.opentelemetry.api.OpenTelemetry
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.trace.Span
 import io.opentelemetry.api.trace.Tracer
-import io.opentelemetry.context.Context
 import org.springframework.stereotype.Component
 
 @Component
@@ -19,8 +18,7 @@ class FinalStatusTracing(private val openTelemetry: OpenTelemetry, private val t
   }
 
   fun addSpan(spanName: String, attributes: Attributes) {
-    val span: Span =
-      tracer.spanBuilder(spanName).setParent(Context.current().with(Span.current())).startSpan()
+    val span: Span = tracer.spanBuilder(spanName).startSpan()
     span.setAllAttributes(attributes)
     span.end()
   }

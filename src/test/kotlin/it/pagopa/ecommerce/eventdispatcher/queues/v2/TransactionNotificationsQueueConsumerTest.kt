@@ -323,6 +323,7 @@ class TransactionNotificationsQueueConsumerTest {
         .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
       verify(transactionUserReceiptRepository, times(1)).save(any())
       verify(userReceiptMailBuilder, times(1)).buildNotificationEmailRequestDto(baseTransaction)
+      verify(finalStatusTracing, times(1)).addSpan(any(), any())
       assertEquals(TransactionStatusDto.NOTIFIED_OK, transactionViewRepositoryCaptor.value.status)
       val savedEvent = transactionUserReceiptCaptor.value
       assertEquals(
