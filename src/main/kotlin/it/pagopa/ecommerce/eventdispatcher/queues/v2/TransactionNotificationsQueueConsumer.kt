@@ -1,11 +1,14 @@
 package it.pagopa.ecommerce.eventdispatcher.queues.v2
 
 import com.azure.spring.messaging.checkpoint.Checkpointer
+import io.opentelemetry.api.common.AttributeKey
+import io.opentelemetry.api.common.Attributes
 import it.pagopa.ecommerce.commons.client.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v2.BaseTransactionRefundedData
 import it.pagopa.ecommerce.commons.documents.v2.TransactionUserReceiptData
 import it.pagopa.ecommerce.commons.documents.v2.TransactionUserReceiptRequestedEvent
 import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
+import it.pagopa.ecommerce.commons.domain.v2.TransactionWithUserReceiptError
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithRequestedUserReceipt
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
@@ -18,6 +21,7 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewReposito
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.NotificationRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
+import it.pagopa.ecommerce.eventdispatcher.utils.FinalStatusTracing
 import it.pagopa.ecommerce.eventdispatcher.utils.v2.UserReceiptMailBuilder
 import java.time.Duration
 import kotlinx.coroutines.reactor.mono
@@ -48,6 +52,7 @@ class TransactionNotificationsQueueConsumer(
   @Autowired private val npgService: NpgService,
   @Value("\${azurestorage.queues.transientQueues.ttlSeconds}")
   private val transientQueueTTLSeconds: Int,
+  @Autowired private val finalStatusTracing: FinalStatusTracing
 ) {
   var logger: Logger = LoggerFactory.getLogger(TransactionNotificationsQueueConsumer::class.java)
 
@@ -90,6 +95,10 @@ class TransactionNotificationsQueueConsumer(
                 tx, transactionsViewRepository, transactionUserReceiptRepository)
             }
             .flatMap {
+              finalStatusTracing.addSpan(FinalStatusTracing::class.toString(), extractSpanAttributesFromTransaction(tx));
+              Mono.just(tx)
+            }
+            .flatMap {
               notificationRefundTransactionPipeline(
                 it,
                 transactionsRefundedEventStoreRepository,
@@ -124,5 +133,18 @@ class TransactionNotificationsQueueConsumer(
       tracingUtils,
       this::class.simpleName!!,
       strictSerializerProviderV2)
+  }
+
+  private fun extractSpanAttributesFromTransaction(tx: BaseTransactionWithRequestedUserReceipt): Attributes {
+    return Attributes.of(
+      AttributeKey.stringKey(FinalStatusTracing.TRANSACTIONID),
+      tx.transactionId.toString(),
+      AttributeKey.stringKey(FinalStatusTracing.CLIENTID),
+      tx.clientId.toString(),
+      AttributeKey.stringKey(FinalStatusTracing.PSPID),
+      tx.transactionAuthorizationRequestData.pspId,
+      AttributeKey.stringKey(FinalStatusTracing.PAYMENTMETHOD),
+      tx.transactionAuthorizationRequestData.paymentMethodName
+    )
   }
 }

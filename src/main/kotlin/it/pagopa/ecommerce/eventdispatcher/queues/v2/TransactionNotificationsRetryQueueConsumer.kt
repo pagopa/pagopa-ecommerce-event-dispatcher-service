@@ -2,6 +2,8 @@ package it.pagopa.ecommerce.eventdispatcher.queues.v2
 
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
+import io.opentelemetry.api.common.AttributeKey
+import io.opentelemetry.api.common.Attributes
 import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.client.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v2.*
@@ -15,12 +17,12 @@ import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.client.NotificationsServiceClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
-import it.pagopa.ecommerce.eventdispatcher.mdcutilities.MdcTransactionHelper
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.NotificationRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
+import it.pagopa.ecommerce.eventdispatcher.utils.FinalStatusTracing
 import it.pagopa.ecommerce.eventdispatcher.utils.v2.UserReceiptMailBuilder
 import java.time.Duration
 import java.util.*
@@ -52,7 +54,7 @@ class TransactionNotificationsRetryQueueConsumer(
   @Autowired private val npgService: NpgService,
   @Value("\${azurestorage.queues.transientQueues.ttlSeconds}")
   private val transientQueueTTLSeconds: Int,
-  @Autowired private val mdcTransactionHelper: MdcTransactionHelper
+  @Autowired private val finalStatusTracing: FinalStatusTracing
 ) {
   var logger: Logger =
     LoggerFactory.getLogger(TransactionNotificationsRetryQueueConsumer::class.java)
@@ -106,6 +108,10 @@ class TransactionNotificationsRetryQueueConsumer(
               updateNotifiedTransactionStatus(
                   tx, transactionsViewRepository, transactionUserReceiptRepository)
                 .flatMap {
+                  finalStatusTracing.addSpan(FinalStatusTracing::class.toString(), extractSpanAttributesFromTransaction(tx));
+                  Mono.just(tx)
+                }
+                .flatMap {
                   notificationRefundTransactionPipeline(
                     it,
                     transactionsRefundedEventStoreRepository,
@@ -155,19 +161,26 @@ class TransactionNotificationsRetryQueueConsumer(
             }
         }
 
-    // Add transaction ID to context before running the traced pipeline
-    val notificationResendPipelineWithMdc = mdcTransactionHelper.addTransactionIdToContext(
-      transactionId,
-      notificationResendPipeline
-    )
-
     return runTracedPipelineWithDeadLetterQueue(
       checkPointer,
-      notificationResendPipelineWithMdc,
+      notificationResendPipeline,
       queueEvent,
       deadLetterTracedQueueAsyncClient,
       tracingUtils,
       this::class.simpleName!!,
       strictSerializerProviderV2)
+  }
+
+  private fun extractSpanAttributesFromTransaction(tx: TransactionWithUserReceiptError): Attributes {
+    return Attributes.of(
+      AttributeKey.stringKey(FinalStatusTracing.TRANSACTIONID),
+      tx.transactionId.toString(),
+      AttributeKey.stringKey(FinalStatusTracing.CLIENTID),
+      tx.clientId.toString(),
+      AttributeKey.stringKey(FinalStatusTracing.PSPID),
+      tx.transactionAuthorizationRequestData.pspId,
+      AttributeKey.stringKey(FinalStatusTracing.PAYMENTMETHOD),
+      tx.transactionAuthorizationRequestData.paymentMethodName
+    )
   }
 }
