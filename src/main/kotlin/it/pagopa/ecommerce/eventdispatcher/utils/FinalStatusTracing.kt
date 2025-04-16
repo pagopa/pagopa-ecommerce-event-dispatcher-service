@@ -10,12 +10,12 @@ import org.springframework.stereotype.Component
 @Component
 class FinalStatusTracing(private val openTelemetry: OpenTelemetry, private val tracer: Tracer) {
   companion object {
-    const val TRANSACTIONID: String = "transactionId"
-    const val TRANSACTIONEVENT: String = "transactionEvent"
-    const val TRANSACTIONSTATUS: String = "transactionStatus"
-    const val PSPID: String = "pspId"
-    const val CLIENTID: String = "clientId"
-    const val PAYMENTMETHOD: String = "paymentMethod"
+    const val TRANSACTIONID: String = "eCommerce.transactionId"
+    const val TRANSACTIONEVENT: String = "eCommerce.transactionEvent"
+    const val TRANSACTIONSTATUS: String = "eCommerce.transactionStatus"
+    const val PSPID: String = "eCommerce.pspId"
+    const val CLIENTID: String = "eCommerce.clientId"
+    const val PAYMENTMETHOD: String = "eCommerce.paymentMethod"
   }
 
   fun addSpan(spanName: String, attributes: Attributes) {
