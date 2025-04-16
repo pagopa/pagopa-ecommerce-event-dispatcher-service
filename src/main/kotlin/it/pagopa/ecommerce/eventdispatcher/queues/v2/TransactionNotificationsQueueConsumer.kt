@@ -93,13 +93,12 @@ class TransactionNotificationsQueueConsumer(
             .flatMap { notificationsServiceClient.sendNotificationEmail(it) }
             .flatMap {
               updateNotifiedTransactionStatus(
-                tx, transactionsViewRepository, transactionUserReceiptRepository)
-            }
-            .map {
-              openTelemetryUtils.addSpanWithAttributes(
-                TransactionTracing::class.simpleName.toString(),
-                extractSpanAttributesFromTransaction(it))
-              it
+                  tx, transactionsViewRepository, transactionUserReceiptRepository)
+                .doOnSuccess {
+                  openTelemetryUtils.addSpanWithAttributes(
+                    TransactionTracing::class.simpleName.toString(),
+                    extractSpanAttributesFromTransaction(it))
+                }
             }
             .flatMap {
               notificationRefundTransactionPipeline(

@@ -109,10 +109,9 @@ class TransactionNotificationsRetryQueueConsumer(
             .flatMap {
               updateNotifiedTransactionStatus(
                   tx, transactionsViewRepository, transactionUserReceiptRepository)
-                .map {
+                .doOnSuccess {
                   openTelemetryUtils.addSpanWithAttributes(
                     TransactionTracing::class.toString(), extractSpanAttributesFromTransaction(it))
-                  it
                 }
                 .flatMap {
                   notificationRefundTransactionPipeline(
