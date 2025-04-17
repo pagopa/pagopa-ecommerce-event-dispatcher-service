@@ -206,9 +206,7 @@ class TransactionNotificationsQueueConsumer(
           .put(
             AttributeKey.stringKey(TransactionTracing.PAYMENTMETHOD),
             tx.transactionAuthorizationRequestData.paymentMethodName)
-          .put(
-            AttributeKey.longKey(TransactionTracing.TRANSACTIONTOTALTIME),
-            totalDuration)
+          .put(AttributeKey.longKey(TransactionTracing.TRANSACTIONTOTALTIME), totalDuration)
           .put(
             AttributeKey.longKey(TransactionTracing.TRANSACTIONAUTHORIZATIONTIME),
             authorizationDuration)
