@@ -207,18 +207,18 @@ class TransactionNotificationsQueueConsumer(
             AttributeKey.stringKey(TransactionTracing.PAYMENTMETHOD),
             tx.transactionAuthorizationRequestData.paymentMethodName)
           .put(
-            AttributeKey.stringKey(TransactionTracing.TRANSACTIONTOTALTIME),
-            totalDuration.toString())
+            AttributeKey.longKey(TransactionTracing.TRANSACTIONTOTALTIME),
+            totalDuration)
           .put(
-            AttributeKey.stringKey(TransactionTracing.TRANSACTIONAUTHORIZATIONTIME),
-            authorizationDuration.toString())
+            AttributeKey.longKey(TransactionTracing.TRANSACTIONAUTHORIZATIONTIME),
+            authorizationDuration)
           .put(
-            AttributeKey.stringKey(TransactionTracing.TRANSACTIONCLOSEPAYMENTTOUSERRECEIPTTIME),
-            closePaymentToAddUserReceiptRequestedDuration.toString())
+            AttributeKey.longKey(TransactionTracing.TRANSACTIONCLOSEPAYMENTTOUSERRECEIPTTIME),
+            closePaymentToAddUserReceiptRequestedDuration)
           .build()
       }
       .doOnSuccess { attributes ->
-        openTelemetryUtils.addSpanWithAttributes(TransactionTracing::class.toString(), attributes)
+        openTelemetryUtils.addSpanWithAttributes(TransactionTracing::class.simpleName, attributes)
       }
       .doOnError { error ->
         logger.warn("Failed to extract span attributes: ${error.message}", error)
