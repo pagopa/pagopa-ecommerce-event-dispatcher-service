@@ -9,6 +9,7 @@ import it.pagopa.ecommerce.commons.client.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.domain.TransactionId
 import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
+import it.pagopa.ecommerce.commons.domain.v2.TransactionEventCode
 import it.pagopa.ecommerce.commons.domain.v2.TransactionWithUserReceiptError
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithUserReceipt
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
@@ -27,6 +28,7 @@ import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClien
 import it.pagopa.ecommerce.eventdispatcher.utils.TransactionTracing
 import it.pagopa.ecommerce.eventdispatcher.utils.v2.UserReceiptMailBuilder
 import java.time.Duration
+import java.time.ZonedDateTime
 import java.util.*
 import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
@@ -34,6 +36,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
+import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
 @Service("TransactionNotificationsRetryQueueConsumerV2")
@@ -82,11 +85,17 @@ class TransactionNotificationsRetryQueueConsumer(
   ): Mono<Unit> {
     val event = parsedEvent.bimap({ it.event }, { it.event })
     val tracingInfo = parsedEvent.fold({ it.tracingInfo }, { it.tracingInfo })
+
     val queueEvent = parsedEvent.fold({ it }, { it })
     val transactionId = getTransactionIdFromPayload(event)
     val retryCount = getRetryCountFromPayload(event)
-    val baseTransaction =
-      reduceEvents(mono { transactionId }, transactionsEventStoreRepository, EmptyTransaction())
+
+    val events =
+      transactionsEventStoreRepository
+        .findByTransactionIdOrderByCreationDateAsc(transactionId)
+        .map { it as TransactionEvent<Any> }
+    val baseTransaction = reduceEvents(events, EmptyTransaction())
+
     val notificationResendPipeline =
       baseTransaction
         .flatMap {
@@ -109,10 +118,7 @@ class TransactionNotificationsRetryQueueConsumer(
             .flatMap {
               updateNotifiedTransactionStatus(
                   tx, transactionsViewRepository, transactionUserReceiptRepository)
-                .doOnSuccess {
-                  openTelemetryUtils.addSpanWithAttributes(
-                    TransactionTracing::class.toString(), extractSpanAttributesFromTransaction(it))
-                }
+                .doOnSuccess { addSpanAttributesFromTransaction(it, events, openTelemetryUtils) }
                 .flatMap {
                   notificationRefundTransactionPipeline(
                     it,
@@ -173,19 +179,88 @@ class TransactionNotificationsRetryQueueConsumer(
       strictSerializerProviderV2)
   }
 
-  private fun extractSpanAttributesFromTransaction(tx: BaseTransactionWithUserReceipt): Attributes {
-    return Attributes.of(
-      AttributeKey.stringKey(TransactionTracing.TRANSACTIONID),
-      tx.transactionId.toString(),
-      AttributeKey.stringKey(TransactionTracing.TRANSACTIONEVENT),
-      tx.transactionUserReceiptAddedEvent.eventCode,
-      AttributeKey.stringKey(TransactionTracing.TRANSACTIONSTATUS),
-      tx.status.value,
-      AttributeKey.stringKey(TransactionTracing.CLIENTID),
-      tx.clientId.toString(),
-      AttributeKey.stringKey(TransactionTracing.PSPID),
-      tx.transactionAuthorizationRequestData.pspId,
-      AttributeKey.stringKey(TransactionTracing.PAYMENTMETHOD),
-      tx.transactionAuthorizationRequestData.paymentMethodName)
+  private fun addSpanAttributesFromTransaction(
+    tx: BaseTransactionWithUserReceipt,
+    events: Flux<TransactionEvent<Any>>,
+    openTelemetryUtils: OpenTelemetryUtils
+  ) {
+    events
+      .collectMap({ event -> event.eventCode }, { event -> event.creationDate })
+      .map { eventDateMap ->
+        // Calculate durations in milliseconds
+        val authorizationDuration =
+          calculateDurationMs(
+            eventDateMap[TransactionEventCode.TRANSACTION_AUTHORIZATION_REQUESTED_EVENT.toString()],
+            eventDateMap[TransactionEventCode.TRANSACTION_AUTHORIZATION_COMPLETED_EVENT.toString()])
+
+        val closePaymentToAddUserReceiptRequestedDuration =
+          calculateDurationMs(
+            eventDateMap[TransactionEventCode.TRANSACTION_CLOSURE_REQUESTED_EVENT.toString()],
+            eventDateMap[TransactionEventCode.TRANSACTION_USER_RECEIPT_REQUESTED_EVENT.toString()])
+
+        val totalDuration =
+          calculateDurationMs(
+            eventDateMap[TransactionEventCode.TRANSACTION_ACTIVATED_EVENT.toString()],
+            eventDateMap[TransactionEventCode.TRANSACTION_USER_RECEIPT_ADDED_EVENT.toString()])
+
+        Attributes.builder()
+          .put(AttributeKey.stringKey(TransactionTracing.TRANSACTIONID), tx.transactionId.value())
+          .put(AttributeKey.stringKey(TransactionTracing.TRANSACTIONSTATUS), tx.status.value)
+          .put(AttributeKey.stringKey(TransactionTracing.CLIENTID), tx.clientId.toString())
+          .put(
+            AttributeKey.stringKey(TransactionTracing.PSPID),
+            tx.transactionAuthorizationRequestData.pspId)
+          .put(
+            AttributeKey.stringKey(TransactionTracing.PAYMENTMETHOD),
+            tx.transactionAuthorizationRequestData.paymentMethodName)
+          .put(
+            AttributeKey.stringKey(TransactionTracing.TRANSACTIONTOTALTIME),
+            totalDuration.toString())
+          .put(
+            AttributeKey.stringKey(TransactionTracing.TRANSACTIONAUTHORIZATIONTIME),
+            authorizationDuration.toString())
+          .put(
+            AttributeKey.stringKey(TransactionTracing.TRANSACTIONCLOSEPAYMENTTOUSERRECEIPTTIME),
+            closePaymentToAddUserReceiptRequestedDuration.toString())
+          .build()
+      }
+      .doOnSuccess { attributes ->
+        openTelemetryUtils.addSpanWithAttributes(TransactionTracing::class.toString(), attributes)
+      }
+      .doOnError { error ->
+        logger.warn("Failed to extract span attributes: ${error.message}", error)
+      }
+      .subscribe(
+        {}, { error -> logger.warn("Unhandled error in span attributes extraction", error) })
+  }
+
+  /**
+   * Calculates the duration in milliseconds between two date strings.
+   *
+   * @param startDateString The start date as a string in ISO-8601 format, can be null
+   * @param endDateString The end date as a string in ISO-8601 format, can be null
+   * @return Duration in milliseconds, or 0 if either date is invalid or null
+   */
+  private fun calculateDurationMs(startDateString: String?, endDateString: String?): Long {
+    val startDate = parseDate(startDateString)
+    val endDate = parseDate(endDateString)
+
+    if (startDate == null || endDate == null) return 0
+    return Duration.between(startDate, endDate).toMillis()
+  }
+
+  /**
+   * Helper method to parse a date string to ZonedDateTime.
+   *
+   * @param dateString The date string in ISO-8601 format
+   * @return Parsed ZonedDateTime or null if the string is null, empty, or invalid
+   */
+  private fun parseDate(dateString: String?): ZonedDateTime? {
+    if (dateString.isNullOrEmpty()) return null
+    return try {
+      ZonedDateTime.parse(dateString)
+    } catch (e: Exception) {
+      null
+    }
   }
 }
