@@ -20,6 +20,7 @@ import it.pagopa.ecommerce.eventdispatcher.services.RefundService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
+import it.pagopa.ecommerce.eventdispatcher.utils.TransactionTracing
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -45,6 +46,7 @@ class TransactionsRefundQueueConsumer(
   @Autowired private val tracingUtils: TracingUtils,
   @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider,
   @Autowired private val npgService: NpgService,
+  @Autowired private val transactionTracing: TransactionTracing
 ) {
 
   var logger: Logger = LoggerFactory.getLogger(TransactionsRefundQueueConsumer::class.java)
@@ -64,9 +66,12 @@ class TransactionsRefundQueueConsumer(
     val event = parsedEvent.bimap({ it.event }, { it.event })
     val tracingInfo = parsedEvent.fold({ it.tracingInfo }, { it.tracingInfo })
     val transactionId = getTransactionIdFromPayload(event)
+
+    val events =
+      transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(transactionId)
+
     val refundPipeline =
-      transactionsEventStoreRepository
-        .findByTransactionIdOrderByCreationDateAsc(transactionId)
+      events
         .reduce(EmptyTransaction(), Transaction::applyEvent)
         .cast(BaseTransaction::class.java)
         .filter { it.status == TransactionStatusDto.REFUND_REQUESTED }
@@ -89,6 +94,7 @@ class TransactionsRefundQueueConsumer(
             tracingInfo,
           )
         }
+        .doOnSuccess { transactionTracing.addSpanAttributesRefundedFlowFromTransaction(it, events) }
     val e = event.fold({ QueueEvent(it, tracingInfo) }, { QueueEvent(it, tracingInfo) })
     return runTracedPipelineWithDeadLetterQueue(
       checkPointer,

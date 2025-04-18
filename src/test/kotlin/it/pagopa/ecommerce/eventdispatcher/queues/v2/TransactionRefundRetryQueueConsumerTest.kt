@@ -27,6 +27,7 @@ import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetrySer
 import it.pagopa.ecommerce.eventdispatcher.services.v2.AuthorizationStateRetrieverService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
+import it.pagopa.ecommerce.eventdispatcher.utils.TransactionTracing
 import it.pagopa.ecommerce.eventdispatcher.utils.npgAuthorizedOrderResponse
 import java.time.ZonedDateTime
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -37,6 +38,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.ArgumentCaptor
 import org.mockito.Captor
+import org.mockito.Mockito
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.*
 import reactor.core.publisher.Flux
@@ -62,6 +64,7 @@ class TransactionRefundRetryQueueConsumerTest {
   private val authorizationStateRetrieverService: AuthorizationStateRetrieverService = mock()
 
   private val tracingUtils = TracingUtilsTests.getMock()
+  private val transactionTracing = getTransactionTracingMock()
 
   @Captor private lateinit var transactionViewRepositoryCaptor: ArgumentCaptor<Transaction>
 
@@ -92,7 +95,7 @@ class TransactionRefundRetryQueueConsumerTest {
           authorizationStateRetrieverService,
           refundDelayFromAuthRequestMinutes,
           eventProcessingDelaySeconds),
-    )
+      transactionTracing = transactionTracing)
 
   @Test
   fun `messageReceiver consume event correctly with OK outcome from gateway`() = runTest {
@@ -678,4 +681,18 @@ class TransactionRefundRetryQueueConsumerTest {
                 DeadLetterTracedQueueAsyncClient.ErrorCategory.RETRY_EVENT_NO_ATTEMPTS_LEFT)),
         )
     }
+
+  fun getTransactionTracingMock(): TransactionTracing {
+    val finalTransactionTracingMock: TransactionTracing =
+      Mockito.mock(TransactionTracing::class.java)
+
+    /*Mockito.doNothing()
+    .`when`(finalTransactionTracingMock)
+    .addSpanAttributesNotificationsFlowFromTransaction(any(), any())*/
+    doNothing()
+      .`when`(finalTransactionTracingMock)
+      .addSpanAttributesRefundedFlowFromTransaction(any(), any())
+
+    return finalTransactionTracingMock
+  }
 }

@@ -105,6 +105,8 @@ class TransactionExpirationQueueConsumerTests {
 
   private val tracingUtils = TracingUtilsTests.getMock()
 
+  private val transactionTracing = getTransactionTracingMock()
+
   private val strictJsonSerializerProviderV2 = QueuesConsumerConfig().strictSerializerProviderV2()
 
   private val jsonSerializerV2 = strictJsonSerializerProviderV2.createInstance()
@@ -132,7 +134,7 @@ class TransactionExpirationQueueConsumerTests {
           authorizationStateRetrieverService,
           refundDelayFromAuthRequestMinutes,
           eventProcessingDelaySeconds),
-    )
+      transactionTracing = transactionTracing)
 
   @Test
   fun `messageReceiver receives activated messages successfully`() {
@@ -3124,7 +3126,7 @@ class TransactionExpirationQueueConsumerTests {
             authorizationStateRetrieverService,
             npgTimeToWaitForRefundFromAuthRequest,
             eventProcessingDelaySeconds),
-      )
+        transactionTracing = transactionTracing)
     val events =
       listOf(
         transactionActivateEvent(npgTransactionGatewayActivationData()),
@@ -3675,5 +3677,20 @@ class TransactionExpirationQueueConsumerTests {
                   .paymentEndToEndId(UUID.randomUUID().toString())
                   .operationTime(ZonedDateTime.now().toString()))))
         .map { Arguments.of(it) }
+  }
+
+  fun getTransactionTracingMock(): TransactionTracing {
+    val finalTransactionTracingMock: TransactionTracing =
+      Mockito.mock(TransactionTracing::class.java)
+
+    /*Mockito.doNothing()
+    .`when`(finalTransactionTracingMock)
+    .addSpanAttributesNotificationsFlowFromTransaction(any(), any())*/
+
+    doNothing()
+      .`when`(finalTransactionTracingMock)
+      .addSpanAttributesNotificationsFlowFromTransaction(any(), any())
+
+    return finalTransactionTracingMock
   }
 }

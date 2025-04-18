@@ -26,6 +26,7 @@ import it.pagopa.ecommerce.eventdispatcher.services.v2.AuthorizationStateRetriev
 import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.ecommerce.eventdispatcher.utils.TRANSIENT_QUEUE_TTL_SECONDS
+import it.pagopa.ecommerce.eventdispatcher.utils.TransactionTracing
 import it.pagopa.ecommerce.eventdispatcher.utils.queueSuccessfulResponse
 import it.pagopa.ecommerce.eventdispatcher.utils.v2.UserReceiptMailBuilder
 import it.pagopa.generated.notifications.v1.dto.NotificationEmailRequestDto
@@ -41,6 +42,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.ArgumentCaptor
 import org.mockito.Captor
 import org.mockito.Mockito
+import org.mockito.Mockito.`when`
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.*
 import reactor.core.publisher.Flux
@@ -78,7 +80,9 @@ class TransactionNotificationsRetryQueueConsumerTest {
 
   private val tracingUtils = TracingUtilsTests.getMock()
 
-  private val openTelemetryUtils = getFinalStatusTracingMock()
+  private val transactionTracing = getTransactionTracingMock()
+
+  // private val openTelemetryUtils = getFinalStatusTracingMock()
 
   @Captor private lateinit var transactionViewRepositoryCaptor: ArgumentCaptor<Transaction>
 
@@ -117,7 +121,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
           authorizationStateRetrieverService,
           refundDelayFromAuthRequestMinutes,
           eventProcessingDelaySeconds),
-      openTelemetryUtils = openTelemetryUtils,
+      transactionTracing = transactionTracing,
       transientQueueTTLSeconds = TRANSIENT_QUEUE_TTL_SECONDS)
 
   @Test
@@ -1152,5 +1156,17 @@ class TransactionNotificationsRetryQueueConsumerTest {
     Mockito.doNothing().`when`(finalStatusTracingMock).addSpanWithAttributes(any(), any())
 
     return finalStatusTracingMock
+  }
+
+  fun getTransactionTracingMock(): TransactionTracing {
+    val finalTransactionTracingMock: TransactionTracing =
+      Mockito.mock(TransactionTracing::class.java)
+
+    // For methods returning Mono<Void>, use when().thenReturn(Mono.empty())
+    `when`(
+        finalTransactionTracingMock.addSpanAttributesNotificationsFlowFromTransaction(any(), any()))
+      .thenReturn(Mono.empty())
+
+    return finalTransactionTracingMock
   }
 }

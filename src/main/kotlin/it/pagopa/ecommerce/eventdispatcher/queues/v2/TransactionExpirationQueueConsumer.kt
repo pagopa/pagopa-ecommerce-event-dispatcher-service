@@ -15,6 +15,7 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRe
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
+import it.pagopa.ecommerce.eventdispatcher.utils.TransactionTracing
 import java.time.Duration
 import java.util.*
 import org.slf4j.Logger
@@ -54,6 +55,7 @@ class TransactionExpirationQueueConsumer(
   @Autowired private val tracingUtils: TracingUtils,
   @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider,
   @Autowired private val npgService: NpgService,
+  @Autowired private val transactionTracing: TransactionTracing
 ) {
 
   val logger: Logger = LoggerFactory.getLogger(TransactionExpirationQueueConsumer::class.java)
@@ -125,7 +127,10 @@ class TransactionExpirationQueueConsumer(
           logger.info("Transaction ${tx.transactionId.value()} is expired: $isTransactionExpired")
           if (!isTransactionExpired) {
             updateTransactionToExpired(
-              tx, transactionsExpiredEventStoreRepository, transactionsViewRepository)
+                tx, transactionsExpiredEventStoreRepository, transactionsViewRepository)
+              .doOnSuccess { it ->
+                transactionTracing.addSpanAttributesExpiredFlowFromTransaction(it, events)
+              }
           } else {
             Mono.just(tx)
           }

@@ -73,6 +73,8 @@ class TransactionNotificationsQueueConsumerTest {
 
   private val tracingUtils = TracingUtilsTests.getMock()
 
+  private val transactionTracing = getTransactionTracingMock()
+
   private val openTelemetryUtils = getFinalStatusTracingMock()
 
   @Captor private lateinit var transactionViewRepositoryCaptor: ArgumentCaptor<Transaction>
@@ -114,7 +116,7 @@ class TransactionNotificationsQueueConsumerTest {
           authorizationStateRetrieverService,
           refundDelayFromAuthRequestMinutes,
           eventProcessingDelaySeconds),
-      openTelemetryUtils = openTelemetryUtils,
+      transactionTracing = transactionTracing,
       transientQueueTTLSeconds = TRANSIENT_QUEUE_TTL_SECONDS,
     )
 
@@ -874,5 +876,20 @@ class TransactionNotificationsQueueConsumerTest {
     Mockito.doNothing().`when`(finalStatusTracingMock).addSpanWithAttributes(any(), any())
 
     return finalStatusTracingMock
+  }
+
+  fun getTransactionTracingMock(): TransactionTracing {
+    val finalTransactionTracingMock: TransactionTracing =
+      Mockito.mock(TransactionTracing::class.java)
+
+    /*Mockito.doNothing()
+    .`when`(finalTransactionTracingMock)
+    .addSpanAttributesNotificationsFlowFromTransaction(any(), any())*/
+
+    doNothing()
+      .`when`(finalTransactionTracingMock)
+      .addSpanAttributesNotificationsFlowFromTransaction(any(), any())
+
+    return finalTransactionTracingMock
   }
 }

@@ -28,6 +28,7 @@ import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetrySer
 import it.pagopa.ecommerce.eventdispatcher.services.v2.AuthorizationStateRetrieverService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
+import it.pagopa.ecommerce.eventdispatcher.utils.TransactionTracing
 import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundOutcomeDto
 import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundResponseDto as RedirectRefundResponseDto
 import java.math.BigDecimal
@@ -92,6 +93,8 @@ class TransactionsRefundEventsConsumerTests {
 
   private val transactionsViewRepository: TransactionsViewRepository = mock()
 
+  private val transactionTracing = getTransactionTracingMock()
+
   private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient = mock()
   private val strictJsonSerializerProviderV2 = QueuesConsumerConfig().strictSerializerProviderV2()
 
@@ -107,6 +110,7 @@ class TransactionsRefundEventsConsumerTests {
       tracingUtils = tracingUtils,
       strictSerializerProviderV2 = strictJsonSerializerProviderV2,
       npgService = npgService,
+      transactionTracing = transactionTracing,
     )
 
   private val jsonSerializerV2 = strictJsonSerializerProviderV2.createInstance()
@@ -667,7 +671,7 @@ class TransactionsRefundEventsConsumerTests {
   @ParameterizedTest
   @MethodSource("redirectClientsMappingMethodSource")
   fun `consumer processes refund request event correctly with for redirect transaction`(
-    touchPoint: Transaction.ClientId,
+    touchPoint: ClientId,
     expectedMappedTouchPoint: String
   ) = runTest {
     val activationEvent =
@@ -826,5 +830,16 @@ class TransactionsRefundEventsConsumerTests {
       TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT,
       TransactionEventCode.valueOf(storedEvent.eventCode))
     assertEquals(TransactionStatusDto.REFUND_REQUESTED, storedEvent.data.statusBeforeRefunded)
+  }
+
+  fun getTransactionTracingMock(): TransactionTracing {
+    val finalTransactionTracingMock: TransactionTracing =
+      Mockito.mock(TransactionTracing::class.java)
+
+    doNothing()
+      .`when`(finalTransactionTracingMock)
+      .addSpanAttributesRefundedFlowFromTransaction(any(), any())
+
+    return finalTransactionTracingMock
   }
 }
