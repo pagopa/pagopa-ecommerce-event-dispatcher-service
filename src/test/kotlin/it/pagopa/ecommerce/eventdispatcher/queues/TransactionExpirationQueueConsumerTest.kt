@@ -45,7 +45,7 @@ class TransactionExpirationQueueConsumerTest {
   private val transactionClosePaymentQueueConsumer =
     spy(
       TransactionExpirationQueueConsumer(
-          queueConsumerV2 = queueConsumerV2,
+        queueConsumerV2 = queueConsumerV2,
         deadLetterTracedQueueAsyncClient = deadLetterTracedQueueAsyncClient,
         strictSerializerProviderV1 = strictSerializerProviderV1,
         strictSerializerProviderV2 = strictSerializerProviderV2))
