@@ -38,7 +38,6 @@ class WarmupRequestsTest {
 
   private val transactionRefundedRetryEventsConsumer =
     TransactionRefundRetryQueueConsumer(
-      queueConsumerV1 = mock(),
       queueConsumerV2 = mock(),
       deadLetterTracedQueueAsyncClient = deadLetterTracedQueueAsyncClient,
       strictSerializerProviderV1 = strictSerializerProviderV1,
