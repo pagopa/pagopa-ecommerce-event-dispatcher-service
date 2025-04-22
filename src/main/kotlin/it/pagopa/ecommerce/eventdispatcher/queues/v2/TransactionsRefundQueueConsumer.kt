@@ -94,7 +94,11 @@ class TransactionsRefundQueueConsumer(
             tracingInfo,
           )
         }
-        .doOnSuccess { transactionTracing.addSpanAttributesRefundedFlowFromTransaction(it, events) }
+        .doOnSuccess {
+          if (it != null) {
+            transactionTracing.addSpanAttributesRefundedFlowFromTransaction(it, events)
+          }
+        }
     val e = event.fold({ QueueEvent(it, tracingInfo) }, { QueueEvent(it, tracingInfo) })
     return runTracedPipelineWithDeadLetterQueue(
       checkPointer,

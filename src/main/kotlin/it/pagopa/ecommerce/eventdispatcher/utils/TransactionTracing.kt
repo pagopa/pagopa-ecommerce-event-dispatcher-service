@@ -17,7 +17,6 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 import reactor.core.publisher.Flux
-import reactor.core.publisher.Mono
 
 @Component
 class TransactionTracing(@Autowired private val openTelemetryUtils: OpenTelemetryUtils) {
@@ -27,10 +26,13 @@ class TransactionTracing(@Autowired private val openTelemetryUtils: OpenTelemetr
     const val PSPID: String = "eCommerce.pspId"
     const val CLIENTID: String = "eCommerce.clientId"
     const val PAYMENTMETHOD: String = "eCommerce.paymentMethod"
+
     // From activated datetime to the final status datetime, in milliseconds
     const val TRANSACTIONTOTALTIME: String = "eCommerce.transactionLifecycleTime"
+
     // From authorization requested datetime to authorization completed, in milliseconds
     const val TRANSACTIONAUTHORIZATIONTIME: String = "eCommerce.transactionAuthorizationProcessTime"
+
     // From close payment request to add user receipt response, in milliseconds
     const val TRANSACTIONCLOSEPAYMENTTOUSERRECEIPTTIME: String =
       "eCommerce.transactionClosePaymentToUserReceiptTime"
@@ -41,8 +43,8 @@ class TransactionTracing(@Autowired private val openTelemetryUtils: OpenTelemetr
   fun addSpanAttributesNotificationsFlowFromTransaction(
     tx: BaseTransactionWithUserReceipt,
     events: Flux<TransactionEvent<Any>>,
-  ): Mono<Void> {
-    return events
+  ) {
+    events
       .collectMap({ event -> event.eventCode }, { event -> event.creationDate })
       .map { eventDateMap ->
         // Calculate durations in milliseconds
@@ -71,44 +73,46 @@ class TransactionTracing(@Autowired private val openTelemetryUtils: OpenTelemetr
               AttributeKey.stringKey(PAYMENTMETHOD),
               tx.transactionAuthorizationRequestData.paymentMethodName)
 
-        // Only add duration attributes if they have valid values (greater than 0)
-        if (totalDuration > 0) {
+        // Only add duration attributes if they have valid values
+        if (totalDuration != null) {
           builder.put(AttributeKey.longKey(TRANSACTIONTOTALTIME), totalDuration)
         }
 
-        if (authorizationDuration > 0) {
+        if (authorizationDuration != null) {
           builder.put(AttributeKey.longKey(TRANSACTIONAUTHORIZATIONTIME), authorizationDuration)
         }
 
-        if (closePaymentToAddUserReceiptRequestedDuration > 0) {
+        if (closePaymentToAddUserReceiptRequestedDuration != null) {
           builder.put(
             AttributeKey.longKey(TRANSACTIONCLOSEPAYMENTTOUSERRECEIPTTIME),
             closePaymentToAddUserReceiptRequestedDuration)
         }
         builder.build()
       }
-      .flatMap { attributes -> addTelemetrySpan(openTelemetryUtils, attributes) }
-      .onErrorResume { error ->
-        logger.warn("Failed to extract span attributes: ${error.message}", error)
-        Mono.empty()
+      .doOnSuccess { attributes ->
+        openTelemetryUtils.addSpanWithAttributes(TransactionTracing::class.simpleName, attributes)
       }
-      .then()
+      .doOnError { error ->
+        logger.warn("Failed to extract span attributes: ${error.message}", error)
+      }
+      // Fire and forget
+      .subscribe(
+        {}, { error -> logger.warn("Unhandled error in span attributes extraction", error) })
   }
 
   fun addSpanAttributesExpiredFlowFromTransaction(
     tx: BaseTransaction,
     events: Flux<TransactionEvent<Any>>,
-  ): Mono<Void> {
+  ) {
     val isFinalStatus =
       tx.status == TransactionStatusDto.EXPIRED_NOT_AUTHORIZED ||
         tx.status == TransactionStatusDto.CANCELLATION_EXPIRED
 
     if (!isFinalStatus) {
-      return Mono.empty()
+      return
     }
 
-    // Only final expired case are handled here
-    return events
+    events
       .collectMap({ event -> event.eventCode }, { event -> event.creationDate })
       .map { eventDateMap ->
         // Calculate durations in milliseconds
@@ -132,11 +136,6 @@ class TransactionTracing(@Autowired private val openTelemetryUtils: OpenTelemetr
             .put(AttributeKey.stringKey(TRANSACTIONID), tx.transactionId.value())
             .put(AttributeKey.stringKey(TRANSACTIONSTATUS), tx.status.value)
             .put(AttributeKey.stringKey(CLIENTID), tx.clientId.toString())
-            .put(AttributeKey.longKey(TRANSACTIONTOTALTIME), totalDuration)
-            .put(AttributeKey.longKey(TRANSACTIONAUTHORIZATIONTIME), authorizationDuration)
-            .put(
-              AttributeKey.longKey(TRANSACTIONCLOSEPAYMENTTOUSERRECEIPTTIME),
-              closePaymentToAddUserReceiptRequestedDuration)
 
         if (tx is BaseTransactionWithRequestedAuthorization) {
           builder
@@ -145,25 +144,40 @@ class TransactionTracing(@Autowired private val openTelemetryUtils: OpenTelemetr
               AttributeKey.stringKey(PAYMENTMETHOD),
               tx.transactionAuthorizationRequestData.paymentMethodName)
         }
+
+        if (totalDuration != null) {
+          builder.put(AttributeKey.longKey(TRANSACTIONTOTALTIME), totalDuration)
+        }
+        if (authorizationDuration != null) {
+          builder.put(AttributeKey.longKey(TRANSACTIONAUTHORIZATIONTIME), authorizationDuration)
+        }
+        if (closePaymentToAddUserReceiptRequestedDuration != null) {
+          builder.put(
+            AttributeKey.longKey(TRANSACTIONCLOSEPAYMENTTOUSERRECEIPTTIME),
+            closePaymentToAddUserReceiptRequestedDuration)
+        }
+
         builder.build()
       }
-      .flatMap { attributes -> addTelemetrySpan(openTelemetryUtils, attributes) }
-      .onErrorResume { error ->
-        logger.warn("Failed to extract span attributes: ${error.message}", error)
-        Mono.empty()
+      .doOnSuccess { attributes ->
+        openTelemetryUtils.addSpanWithAttributes(TransactionTracing::class.simpleName, attributes)
       }
-      .then()
+      .doOnError { error ->
+        logger.warn("Failed to extract span attributes: ${error.message}", error)
+      }
+      .subscribe(
+        {}, { error -> logger.warn("Unhandled error in span attributes extraction", error) })
   }
 
   fun addSpanAttributesRefundedFlowFromTransaction(
     tx: BaseTransaction,
     events: Flux<BaseTransactionEvent<Any>>
-  ): Mono<Void> {
+  ) {
     if (tx.status != TransactionStatusDto.REFUNDED) {
-      return Mono.empty()
+      return
     }
-    // Only final expired case are handled here
-    return events
+
+    events
       .collectMap({ event -> event.eventCode }, { event -> event.creationDate })
       .map { eventDateMap ->
         // Calculate durations in milliseconds
@@ -187,11 +201,6 @@ class TransactionTracing(@Autowired private val openTelemetryUtils: OpenTelemetr
             .put(AttributeKey.stringKey(TRANSACTIONID), tx.transactionId.value())
             .put(AttributeKey.stringKey(TRANSACTIONSTATUS), tx.status.value)
             .put(AttributeKey.stringKey(CLIENTID), tx.clientId.toString())
-            .put(AttributeKey.longKey(TRANSACTIONTOTALTIME), totalDuration)
-            .put(AttributeKey.longKey(TRANSACTIONAUTHORIZATIONTIME), authorizationDuration)
-            .put(
-              AttributeKey.longKey(TRANSACTIONCLOSEPAYMENTTOUSERRECEIPTTIME),
-              closePaymentToAddUserReceiptRequestedDuration)
 
         if (tx is BaseTransactionRefunded) {
           builder
@@ -200,24 +209,112 @@ class TransactionTracing(@Autowired private val openTelemetryUtils: OpenTelemetr
               AttributeKey.stringKey(PAYMENTMETHOD),
               tx.transactionAuthorizationRequestData.paymentMethodName)
         }
-        builder.build()
+
+        if (totalDuration != null) {
+          builder.put(AttributeKey.longKey(TRANSACTIONTOTALTIME), totalDuration)
+        }
+
+        if (authorizationDuration != null) {
+          builder.put(AttributeKey.longKey(TRANSACTIONAUTHORIZATIONTIME), authorizationDuration)
+        }
+
+        if (closePaymentToAddUserReceiptRequestedDuration != null) {
+          builder.put(
+            AttributeKey.longKey(TRANSACTIONCLOSEPAYMENTTOUSERRECEIPTTIME),
+            closePaymentToAddUserReceiptRequestedDuration)
+        }
+
+        val attributes = builder.build()
+
+        println("OpenTelemetry Attributes:")
+        attributes.forEach { key, value ->
+          println("Key: ${key.key}, Type: ${key.type}, Value: $value")
+        }
+
+        attributes
       }
-      .flatMap { attributes -> addTelemetrySpan(openTelemetryUtils, attributes) }
-      .onErrorResume { error ->
+      .doOnSuccess { attributes ->
+        openTelemetryUtils.addSpanWithAttributes(TransactionTracing::class.simpleName, attributes)
+      }
+      .doOnError { error ->
         logger.warn("Failed to extract span attributes: ${error.message}", error)
-        Mono.empty()
       }
-      .then()
+      .subscribe(
+        {}, { error -> logger.warn("Unhandled error in span attributes extraction", error) })
   }
 
-  private fun addTelemetrySpan(
-    openTelemetryUtils: OpenTelemetryUtils,
-    attributes: Attributes
-  ): Mono<Void> {
-    return Mono.fromRunnable<Void> {
-        openTelemetryUtils.addSpanWithAttributes(TransactionTracing::class.toString(), attributes)
+  fun addSpanAttributesCanceledFlowFromTransaction(
+    tx: BaseTransaction,
+    events: Flux<TransactionEvent<Any>>
+  ) {
+    if (tx.status != TransactionStatusDto.CANCELED) {
+      return
+    }
+
+    events
+      .collectMap({ event -> event.eventCode }, { event -> event.creationDate })
+      .map { eventDateMap ->
+        // Calculate durations in milliseconds
+        val authorizationDuration =
+          calculateDurationMs(
+            eventDateMap[TransactionEventCode.TRANSACTION_AUTHORIZATION_REQUESTED_EVENT.toString()],
+            eventDateMap[TransactionEventCode.TRANSACTION_AUTHORIZATION_COMPLETED_EVENT.toString()])
+
+        val closePaymentToAddUserReceiptRequestedDuration =
+          calculateDurationMs(
+            eventDateMap[TransactionEventCode.TRANSACTION_CLOSURE_REQUESTED_EVENT.toString()],
+            eventDateMap[TransactionEventCode.TRANSACTION_USER_RECEIPT_REQUESTED_EVENT.toString()])
+
+        val totalDuration =
+          calculateDurationMs(
+            eventDateMap[TransactionEventCode.TRANSACTION_ACTIVATED_EVENT.toString()],
+            eventDateMap[TransactionEventCode.TRANSACTION_USER_RECEIPT_ADDED_EVENT.toString()])
+
+        val builder =
+          Attributes.builder()
+            .put(AttributeKey.stringKey(TRANSACTIONID), tx.transactionId.value())
+            .put(AttributeKey.stringKey(TRANSACTIONSTATUS), tx.status.value)
+            .put(AttributeKey.stringKey(CLIENTID), tx.clientId.toString())
+
+        if (tx is BaseTransactionRefunded) {
+          builder
+            .put(AttributeKey.stringKey(PSPID), tx.transactionAuthorizationRequestData.pspId)
+            .put(
+              AttributeKey.stringKey(PAYMENTMETHOD),
+              tx.transactionAuthorizationRequestData.paymentMethodName)
+        }
+
+        if (totalDuration != null) {
+          builder.put(AttributeKey.longKey(TRANSACTIONTOTALTIME), totalDuration)
+        }
+
+        if (authorizationDuration != null) {
+          builder.put(AttributeKey.longKey(TRANSACTIONAUTHORIZATIONTIME), authorizationDuration)
+        }
+
+        if (closePaymentToAddUserReceiptRequestedDuration != null) {
+          builder.put(
+            AttributeKey.longKey(TRANSACTIONCLOSEPAYMENTTOUSERRECEIPTTIME),
+            closePaymentToAddUserReceiptRequestedDuration)
+        }
+
+        val attributes = builder.build()
+
+        println("OpenTelemetry Attributes:")
+        attributes.forEach { key, value ->
+          println("Key: ${key.key}, Type: ${key.type}, Value: $value")
+        }
+
+        attributes
       }
-      .then()
+      .doOnSuccess { attributes ->
+        openTelemetryUtils.addSpanWithAttributes(TransactionTracing::class.simpleName, attributes)
+      }
+      .doOnError { error ->
+        logger.warn("Failed to extract span attributes: ${error.message}", error)
+      }
+      .subscribe(
+        {}, { error -> logger.warn("Unhandled error in span attributes extraction", error) })
   }
 
   /**
@@ -227,11 +324,11 @@ class TransactionTracing(@Autowired private val openTelemetryUtils: OpenTelemetr
    * @param endDateString The end date as a string in ISO-8601 format, can be null
    * @return Duration in milliseconds, or 0 if either date is invalid or null
    */
-  private fun calculateDurationMs(startDateString: String?, endDateString: String?): Long {
+  private fun calculateDurationMs(startDateString: String?, endDateString: String?): Long? {
     val startDate = parseDate(startDateString)
     val endDate = parseDate(endDateString)
 
-    if (startDate == null || endDate == null) return 0
+    if (startDate == null || endDate == null) return null
     return Duration.between(startDate, endDate).toMillis()
   }
 

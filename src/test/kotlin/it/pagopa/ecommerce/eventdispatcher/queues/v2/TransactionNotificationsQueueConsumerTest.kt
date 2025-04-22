@@ -3,6 +3,9 @@ package it.pagopa.ecommerce.eventdispatcher.queues.v2
 import com.azure.core.util.BinaryData
 import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.checkpoint.Checkpointer
+import io.opentelemetry.api.common.AttributeKey
+import io.opentelemetry.api.common.Attributes
+import it.pagopa.ecommerce.commons.client.NpgClient
 import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.domain.Email
@@ -37,7 +40,6 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.ArgumentCaptor
 import org.mockito.Captor
-import org.mockito.Mockito
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.*
 import reactor.core.publisher.Flux
@@ -75,7 +77,7 @@ class TransactionNotificationsQueueConsumerTest {
 
   private val transactionTracing = getTransactionTracingMock()
 
-  private val openTelemetryUtils = getFinalStatusTracingMock()
+  private lateinit var mockOpenTelemetryUtils: OpenTelemetryUtils
 
   @Captor private lateinit var transactionViewRepositoryCaptor: ArgumentCaptor<Transaction>
 
@@ -181,6 +183,10 @@ class TransactionNotificationsQueueConsumerTest {
       TransactionEventCode.TRANSACTION_USER_RECEIPT_ADDED_EVENT,
       TransactionEventCode.valueOf(savedEvent.eventCode))
     assertEquals(transactionUserReceiptData, savedEvent.data)
+    verify(transactionTracing, times(1))
+      .addSpanAttributesNotificationsFlowFromTransaction(any(), any())
+    verify(mockOpenTelemetryUtils, times(1))
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
   }
 
   @Test
@@ -268,6 +274,10 @@ class TransactionNotificationsQueueConsumerTest {
       expectedStatuses.forEachIndexed { index, transactionStatus ->
         assertEquals(transactionStatus, transactionViewRepositoryCaptor.allValues[index].status)
       }
+      verify(transactionTracing, times(1))
+        .addSpanAttributesNotificationsFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, times(1))
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -326,13 +336,16 @@ class TransactionNotificationsQueueConsumerTest {
         .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
       verify(transactionUserReceiptRepository, times(1)).save(any())
       verify(userReceiptMailBuilder, times(1)).buildNotificationEmailRequestDto(baseTransaction)
-      verify(openTelemetryUtils, times(1)).addSpanWithAttributes(any(), any())
       assertEquals(TransactionStatusDto.NOTIFIED_OK, transactionViewRepositoryCaptor.value.status)
       val savedEvent = transactionUserReceiptCaptor.value
       assertEquals(
         TransactionEventCode.TRANSACTION_USER_RECEIPT_ADDED_EVENT,
         TransactionEventCode.valueOf(savedEvent.eventCode))
       assertEquals(transactionUserReceiptData, savedEvent.data)
+      verify(transactionTracing, times(1))
+        .addSpanAttributesNotificationsFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, times(1))
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -420,6 +433,10 @@ class TransactionNotificationsQueueConsumerTest {
       expectedStatuses.forEachIndexed { index, transactionStatus ->
         assertEquals(transactionStatus, transactionViewRepositoryCaptor.allValues[index].status)
       }
+      verify(transactionTracing, times(1))
+        .addSpanAttributesNotificationsFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, times(1))
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -490,6 +507,10 @@ class TransactionNotificationsQueueConsumerTest {
       assertEquals(transactionUserReceiptData, transactionUserReceiptCaptor.value.data)
       assertEquals(
         TransactionStatusDto.NOTIFICATION_ERROR, transactionViewRepositoryCaptor.value.status)
+      verify(transactionTracing, times(0))
+        .addSpanAttributesNotificationsFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, times(0))
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -565,6 +586,10 @@ class TransactionNotificationsQueueConsumerTest {
       expectedStatuses.forEachIndexed { index, transactionStatus ->
         assertEquals(transactionStatus, transactionViewRepositoryCaptor.allValues[index].status)
       }
+      verify(transactionTracing, times(0))
+        .addSpanAttributesNotificationsFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, times(0))
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -661,6 +686,10 @@ class TransactionNotificationsQueueConsumerTest {
               transactionEventCode =
                 TransactionEventCode.TRANSACTION_USER_RECEIPT_REQUESTED_EVENT.toString(),
               errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)))
+      verify(transactionTracing, times(0))
+        .addSpanAttributesNotificationsFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, times(0))
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -711,6 +740,10 @@ class TransactionNotificationsQueueConsumerTest {
             transactionEventCode =
               TransactionEventCode.TRANSACTION_USER_RECEIPT_REQUESTED_EVENT.toString(),
             errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)))
+    verify(transactionTracing, times(0))
+      .addSpanAttributesNotificationsFlowFromTransaction(any(), any())
+    verify(mockOpenTelemetryUtils, times(0))
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
   }
 
   @Test
@@ -755,6 +788,10 @@ class TransactionNotificationsQueueConsumerTest {
           .filter { i -> i.payee != null }[0]
           .payee
           .name)
+      verify(transactionTracing, times(0))
+        .addSpanAttributesNotificationsFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, times(0))
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -798,6 +835,10 @@ class TransactionNotificationsQueueConsumerTest {
           .filter { i -> i.payee != null }[0]
           .payee
           .name)
+      verify(transactionTracing, times(0))
+        .addSpanAttributesNotificationsFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, times(0))
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -868,28 +909,218 @@ class TransactionNotificationsQueueConsumerTest {
       assertEquals(transactionUserReceiptData, transactionUserReceiptCaptor.value.data)
       assertEquals(
         TransactionStatusDto.NOTIFICATION_ERROR, transactionViewRepositoryCaptor.value.status)
+      verify(transactionTracing, times(0))
+        .addSpanAttributesNotificationsFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, times(0))
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
-  fun getFinalStatusTracingMock(): OpenTelemetryUtils {
-    val finalStatusTracingMock: OpenTelemetryUtils = Mockito.mock(OpenTelemetryUtils::class.java)
+  @Test
+  fun `Should add a custom opentelemetry span with the final state NOTIFIED_OK`() = runTest {
+    val transactionUserReceiptData =
+      transactionUserReceiptData(TransactionUserReceiptData.Outcome.OK)
+    val notificationRequested = transactionUserReceiptRequestedEvent(transactionUserReceiptData)
+    val transactionAuthorizationRequestedEvt = transactionAuthorizationRequestedEvent()
+    val transactionActivateEvt = transactionActivateEvent()
+    val transactionAuthorizationCompletedEvt =
+      transactionAuthorizationCompletedEvent(
+        NpgTransactionGatewayAuthorizationData(
+          OperationResultDto.EXECUTED, "operationId", "paymentEnd2EndId", null, null))
+    val transactionClosureRequestedEvt = transactionClosureRequestedEvent()
+    val transactionClosedEvt = transactionClosedEvent(TransactionClosureData.Outcome.OK)
 
-    Mockito.doNothing().`when`(finalStatusTracingMock).addSpanWithAttributes(any(), any())
+    transactionActivateEvt.creationDate = createDateForSecondsFromNow(10 * 60)
+    transactionAuthorizationRequestedEvt.creationDate = createDateForSecondsFromNow(8 * 60)
+    transactionAuthorizationCompletedEvt.creationDate = createDateForSecondsFromNow(6 * 60)
+    transactionClosureRequestedEvt.creationDate = createDateForSecondsFromNow(4 * 60)
+    transactionClosedEvt.creationDate = createDateForSecondsFromNow(2 * 60)
 
-    return finalStatusTracingMock
+    val events =
+      listOf(
+        transactionActivateEvt,
+        transactionAuthorizationRequestedEvt,
+        transactionAuthorizationCompletedEvt,
+        transactionClosureRequestedEvt,
+        transactionClosedEvt,
+        notificationRequested)
+        as List<TransactionEvent<Any>>
+    val baseTransaction =
+      reduceEvents(*events.toTypedArray()) as BaseTransactionWithRequestedUserReceipt
+    val transactionId = TRANSACTION_ID
+    val document =
+      transactionDocument(TransactionStatusDto.NOTIFICATION_REQUESTED, ZonedDateTime.now())
+    Hooks.onOperatorDebug()
+    given(checkpointer.success()).willReturn(Mono.empty())
+    given(transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(transactionId))
+      .willReturn(Flux.fromIterable(events))
+    given(userReceiptMailBuilder.buildNotificationEmailRequestDto(baseTransaction))
+      .willReturn(NotificationEmailRequestDto())
+    given(notificationsServiceClient.sendNotificationEmail(any()))
+      .willReturn(Mono.just(NotificationEmailResponseDto().apply { outcome = "OK" }))
+    given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+      .willReturn(Mono.just(document))
+    given(transactionsViewRepository.save(capture(transactionViewRepositoryCaptor))).willAnswer {
+      Mono.just(it.arguments[0])
+    }
+    given(transactionUserReceiptRepository.save(capture(transactionUserReceiptCaptor))).willAnswer {
+      Mono.just(it.arguments[0])
+    }
+
+    StepVerifier.create(
+        transactionNotificationsRetryQueueConsumer.messageReceiver(
+          QueueEvent(notificationRequested, MOCK_TRACING_INFO), checkpointer))
+      .expectNext(Unit)
+      .verifyComplete()
+
+    verify(transactionTracing, times(1))
+      .addSpanAttributesNotificationsFlowFromTransaction(any(), any())
+    val attributesCaptor = ArgumentCaptor.forClass(Attributes::class.java)
+    verify(mockOpenTelemetryUtils, times(1))
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), capture(attributesCaptor))
+    val capturedAttributes = attributesCaptor.value
+
+    assertEquals(TransactionStatusDto.NOTIFIED_OK, transactionViewRepositoryCaptor.value.status)
+    val savedEvent = transactionUserReceiptCaptor.value
+    assertEquals(
+      TransactionEventCode.TRANSACTION_USER_RECEIPT_ADDED_EVENT,
+      TransactionEventCode.valueOf(savedEvent.eventCode))
+    assertEquals(transactionUserReceiptData, savedEvent.data)
+
+    assertEquals(
+      Transaction.ClientId.CHECKOUT.toString(),
+      capturedAttributes.get(AttributeKey.stringKey(TransactionTracing.CLIENTID)))
+    assertEquals(
+      NpgClient.PaymentMethod.CARDS.toString(),
+      capturedAttributes.get(AttributeKey.stringKey(TransactionTracing.PAYMENTMETHOD)))
+    assertEquals("pspId", capturedAttributes.get(AttributeKey.stringKey(TransactionTracing.PSPID)))
+    assertEquals(
+      120000,
+      capturedAttributes.get(AttributeKey.longKey(TransactionTracing.TRANSACTIONAUTHORIZATIONTIME)))
+    assertEquals(
+      TransactionStatusDto.NOTIFIED_OK.toString(),
+      capturedAttributes.get(AttributeKey.stringKey(TransactionTracing.TRANSACTIONSTATUS)))
+    assertEquals(
+      transactionId,
+      capturedAttributes.get(AttributeKey.stringKey(TransactionTracing.TRANSACTIONID)))
   }
 
-  fun getTransactionTracingMock(): TransactionTracing {
-    val finalTransactionTracingMock: TransactionTracing =
-      Mockito.mock(TransactionTracing::class.java)
+  @Test
+  fun `Should add a custom opentelemetry span with the final state NOTIFIED_KO`() = runTest {
+    val transactionUserReceiptData =
+      transactionUserReceiptData(TransactionUserReceiptData.Outcome.KO)
+    val notificationRequested = transactionUserReceiptRequestedEvent(transactionUserReceiptData)
+    val transactionAuthorizationRequestedEvt = transactionAuthorizationRequestedEvent()
+    transactionAuthorizationRequestedEvt.data.pspId = "notifiedKoPspId"
+    val transactionActivateEvt = transactionActivateEvent()
+    val transactionAuthorizationCompletedEvt =
+      transactionAuthorizationCompletedEvent(
+        NpgTransactionGatewayAuthorizationData(
+          OperationResultDto.EXECUTED, "operationId", "paymentEnd2EndId", null, null))
+    val transactionClosureRequestedEvt = transactionClosureRequestedEvent()
+    val transactionClosedEvt = transactionClosedEvent(TransactionClosureData.Outcome.OK)
 
-    /*Mockito.doNothing()
-    .`when`(finalTransactionTracingMock)
-    .addSpanAttributesNotificationsFlowFromTransaction(any(), any())*/
+    transactionActivateEvt.creationDate = createDateForSecondsFromNow(10 * 60)
+    transactionAuthorizationRequestedEvt.creationDate = createDateForSecondsFromNow(8 * 60)
+    transactionAuthorizationCompletedEvt.creationDate = createDateForSecondsFromNow(5 * 60)
+    transactionClosureRequestedEvt.creationDate = createDateForSecondsFromNow(4 * 60)
+    transactionClosedEvt.creationDate = createDateForSecondsFromNow(2 * 60)
 
-    doNothing()
-      .`when`(finalTransactionTracingMock)
+    val events =
+      listOf(
+        transactionActivateEvt,
+        transactionAuthorizationRequestedEvt,
+        transactionAuthorizationCompletedEvt,
+        transactionClosureRequestedEvt,
+        transactionClosedEvt,
+        notificationRequested)
+        as List<TransactionEvent<Any>>
+    val baseTransaction =
+      reduceEvents(*events.toTypedArray()) as BaseTransactionWithRequestedUserReceipt
+    val transactionId = TRANSACTION_ID
+    val document =
+      transactionDocument(TransactionStatusDto.NOTIFICATION_REQUESTED, ZonedDateTime.now())
+    Hooks.onOperatorDebug()
+    given(checkpointer.success()).willReturn(Mono.empty())
+    given(transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(transactionId))
+      .willReturn(Flux.fromIterable(events))
+    given(userReceiptMailBuilder.buildNotificationEmailRequestDto(baseTransaction))
+      .willReturn(NotificationEmailRequestDto())
+    given(notificationsServiceClient.sendNotificationEmail(any()))
+      .willReturn(Mono.just(NotificationEmailResponseDto().apply { outcome = "OK" }))
+    given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+      .willReturn(Mono.just(document))
+    given(transactionsViewRepository.save(capture(transactionViewRepositoryCaptor))).willAnswer {
+      Mono.just(it.arguments[0])
+    }
+    given(transactionUserReceiptRepository.save(capture(transactionUserReceiptCaptor))).willAnswer {
+      Mono.just(it.arguments[0])
+    }
+    given(transactionRefundRepository.save(capture(transactionRefundEventStoreCaptor))).willAnswer {
+      Mono.just(it.arguments[0])
+    }
+    given(refundRequestedAsyncClient.sendMessageWithResponse(any<QueueEvent<*>>(), any(), any()))
+      .willReturn(queueSuccessfulResponse())
+    given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+      .willReturnConsecutively(
+        listOf(
+          Mono.just(
+            transactionDocument(TransactionStatusDto.NOTIFICATION_ERROR, ZonedDateTime.now())),
+          Mono.just(transactionDocument(TransactionStatusDto.EXPIRED, ZonedDateTime.now())),
+          Mono.just(
+            transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now()))))
+
+    StepVerifier.create(
+        transactionNotificationsRetryQueueConsumer.messageReceiver(
+          QueueEvent(notificationRequested, MOCK_TRACING_INFO), checkpointer))
+      .expectNext(Unit)
+      .verifyComplete()
+
+    verify(transactionTracing, times(1))
       .addSpanAttributesNotificationsFlowFromTransaction(any(), any())
+    val attributesCaptor = ArgumentCaptor.forClass(Attributes::class.java)
+    verify(mockOpenTelemetryUtils, times(1))
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), capture(attributesCaptor))
+    val capturedAttributes = attributesCaptor.value
 
-    return finalTransactionTracingMock
+    assertEquals(
+      TransactionStatusDto.REFUND_REQUESTED, transactionViewRepositoryCaptor.value.status)
+    val savedEvent = transactionUserReceiptCaptor.value
+    assertEquals(
+      TransactionEventCode.TRANSACTION_USER_RECEIPT_ADDED_EVENT,
+      TransactionEventCode.valueOf(savedEvent.eventCode))
+    assertEquals(transactionUserReceiptData, savedEvent.data)
+
+    assertEquals(
+      Transaction.ClientId.CHECKOUT.toString(),
+      capturedAttributes.get(AttributeKey.stringKey(TransactionTracing.CLIENTID)))
+    assertEquals(
+      NpgClient.PaymentMethod.CARDS.toString(),
+      capturedAttributes.get(AttributeKey.stringKey(TransactionTracing.PAYMENTMETHOD)))
+    assertEquals(
+      "notifiedKoPspId", capturedAttributes.get(AttributeKey.stringKey(TransactionTracing.PSPID)))
+    assertEquals(
+      180000,
+      capturedAttributes.get(AttributeKey.longKey(TransactionTracing.TRANSACTIONAUTHORIZATIONTIME)))
+    assertEquals(
+      TransactionStatusDto.NOTIFIED_KO.toString(),
+      capturedAttributes.get(AttributeKey.stringKey(TransactionTracing.TRANSACTIONSTATUS)))
+    assertEquals(
+      transactionId,
+      capturedAttributes.get(AttributeKey.stringKey(TransactionTracing.TRANSACTIONID)))
+  }
+
+  private fun getTransactionTracingMock(): TransactionTracing {
+    // Create a mock of OpenTelemetryUtils
+    val mockOpenTelemetryUtils: OpenTelemetryUtils = mock()
+
+    // Create a real TransactionTracing instance with the mock OpenTelemetryUtils
+    val transactionTracing = TransactionTracing(mockOpenTelemetryUtils)
+
+    val transactionTracingSpy = spy(transactionTracing)
+
+    // Store the mockOpenTelemetryUtils for later verification
+    this.mockOpenTelemetryUtils = mockOpenTelemetryUtils
+
+    return transactionTracingSpy
   }
 }

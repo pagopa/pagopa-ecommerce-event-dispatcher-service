@@ -96,10 +96,10 @@ class TransactionNotificationsQueueConsumer(
             .flatMap { notificationsServiceClient.sendNotificationEmail(it) }
             .flatMap {
               updateNotifiedTransactionStatus(
-                  tx, transactionsViewRepository, transactionUserReceiptRepository)
-                .doOnSuccess {
-                  transactionTracing.addSpanAttributesNotificationsFlowFromTransaction(it, events)
-                }
+                tx, transactionsViewRepository, transactionUserReceiptRepository)
+            }
+            .doOnSuccess {
+              transactionTracing.addSpanAttributesNotificationsFlowFromTransaction(it, events)
             }
             .flatMap {
               notificationRefundTransactionPipeline(

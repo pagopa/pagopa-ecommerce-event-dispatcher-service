@@ -14,6 +14,7 @@ import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.TracingInfoTest.MOCK_TRACING_INFO
 import it.pagopa.ecommerce.commons.queues.TracingUtilsTests
+import it.pagopa.ecommerce.commons.utils.OpenTelemetryUtils
 import it.pagopa.ecommerce.commons.utils.v2.TransactionUtils
 import it.pagopa.ecommerce.commons.v2.TransactionTestUtils.*
 import it.pagopa.ecommerce.eventdispatcher.config.QueuesConsumerConfig
@@ -107,6 +108,8 @@ class TransactionExpirationQueueConsumerTests {
 
   private val transactionTracing = getTransactionTracingMock()
 
+  private lateinit var mockOpenTelemetryUtils: OpenTelemetryUtils
+
   private val strictJsonSerializerProviderV2 = QueuesConsumerConfig().strictSerializerProviderV2()
 
   private val jsonSerializerV2 = strictJsonSerializerProviderV2.createInstance()
@@ -170,6 +173,9 @@ class TransactionExpirationQueueConsumerTests {
 
     /* Asserts */
     verify(checkpointer, Mockito.times(1)).success()
+    verify(transactionTracing, times(1)).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+    verify(mockOpenTelemetryUtils, times(1))
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
   }
 
   @Test
@@ -204,6 +210,9 @@ class TransactionExpirationQueueConsumerTests {
 
     /* Asserts */
     verify(checkpointer, Mockito.times(1)).success()
+    verify(transactionTracing, times(1)).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+    verify(mockOpenTelemetryUtils, times(1))
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
   }
 
   @Test
@@ -243,6 +252,9 @@ class TransactionExpirationQueueConsumerTests {
 
     /* Asserts */
     verify(checkpointer, Mockito.times(1)).success()
+    verify(transactionTracing, never()).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+    verify(mockOpenTelemetryUtils, never())
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
   }
 
   @Test
@@ -294,6 +306,9 @@ class TransactionExpirationQueueConsumerTests {
     verify(checkpointer, times(1)).success()
     verify(refundRequestedAsyncClient, times(1))
       .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
+    verify(transactionTracing, times(1)).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+    verify(mockOpenTelemetryUtils, never())
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
   }
 
   @Test
@@ -330,6 +345,9 @@ class TransactionExpirationQueueConsumerTests {
     verify(checkpointer, times(1)).success()
     verify(refundRequestedAsyncClient, times(0))
       .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
+    verify(transactionTracing, times(1)).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+    verify(mockOpenTelemetryUtils, times(1))
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
   }
 
   @Test
@@ -389,6 +407,9 @@ class TransactionExpirationQueueConsumerTests {
             transactionId = TransactionId(TRANSACTION_ID),
             transactionEventCode = TransactionEventCode.TRANSACTION_ACTIVATED_EVENT.toString(),
             errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)))
+    verify(transactionTracing, never()).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+    verify(mockOpenTelemetryUtils, never())
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
   }
 
   @Test
@@ -448,6 +469,9 @@ class TransactionExpirationQueueConsumerTests {
             transactionId = TransactionId(TRANSACTION_ID),
             transactionEventCode = TransactionEventCode.TRANSACTION_ACTIVATED_EVENT.toString(),
             errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)))
+    verify(transactionTracing, never()).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+    verify(mockOpenTelemetryUtils, never())
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
   }
 
   @Test
@@ -506,6 +530,9 @@ class TransactionExpirationQueueConsumerTests {
         TransactionStatusDto.EXPIRED_NOT_AUTHORIZED,
         transactionViewRepositoryCaptor.value.status,
       )
+      verify(transactionTracing, times(1)).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, times(1))
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -559,6 +586,9 @@ class TransactionExpirationQueueConsumerTests {
       verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
       verify(transactionsViewRepository, times(0)).save(any())
       verify(transactionsExpiredEventStoreRepository, times(0)).save(any())
+      verify(transactionTracing, never()).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -639,6 +669,10 @@ class TransactionExpirationQueueConsumerTests {
           TransactionEventCode.valueOf(transactionRefundEventStoreCaptor.allValues[idx].eventCode),
           "Unexpected event code on idx: $idx")
       }
+
+      verify(transactionTracing, never()).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -739,6 +773,10 @@ class TransactionExpirationQueueConsumerTests {
         TransactionEventCode.valueOf(transactionRefundEventStoreCaptor.allValues[idx].eventCode),
         "Unexpected event code on idx: $idx")
     }
+
+    verify(transactionTracing, never()).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+    verify(mockOpenTelemetryUtils, never())
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
   }
 
   @Test
@@ -848,6 +886,9 @@ class TransactionExpirationQueueConsumerTests {
         TransactionEventCode.valueOf(expiredEvent.eventCode))
       assertEquals(
         TransactionStatusDto.NOTIFICATION_ERROR, expiredEvent.data.statusBeforeExpiration)
+      verify(transactionTracing, times(1)).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -935,6 +976,9 @@ class TransactionExpirationQueueConsumerTests {
         TransactionEventCode.valueOf(expiredEvent.eventCode))
       assertEquals(
         TransactionStatusDto.NOTIFICATION_ERROR, expiredEvent.data.statusBeforeExpiration)
+      verify(transactionTracing, times(1)).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -1047,6 +1091,9 @@ class TransactionExpirationQueueConsumerTests {
           TransactionEventCode.valueOf(transactionRefundEventStoreCaptor.allValues[idx].eventCode),
           "Unexpected event code on idx: $idx")
       }
+      verify(transactionTracing, never()).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -1133,6 +1180,9 @@ class TransactionExpirationQueueConsumerTests {
         .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
       verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
       verify(transactionsViewRepository, times(0)).save(any())
+      verify(transactionTracing, never()).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -1207,6 +1257,9 @@ class TransactionExpirationQueueConsumerTests {
       .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
     verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
     verify(transactionsViewRepository, times(0)).save(any())
+    verify(transactionTracing, never()).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+    verify(mockOpenTelemetryUtils, never())
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
   }
 
   @Test
@@ -1294,6 +1347,9 @@ class TransactionExpirationQueueConsumerTests {
       .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
     verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
     verify(transactionsViewRepository, times(0)).save(any())
+    verify(transactionTracing, never()).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+    verify(mockOpenTelemetryUtils, never())
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
   }
 
   @Test
@@ -1354,6 +1410,9 @@ class TransactionExpirationQueueConsumerTests {
         TransactionStatusDto.CANCELLATION_EXPIRED,
         transactionViewRepositoryCaptor.value.status,
       )
+      verify(transactionTracing, times(1)).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, times(1))
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -1416,6 +1475,9 @@ class TransactionExpirationQueueConsumerTests {
         TransactionStatusDto.CANCELLATION_EXPIRED,
         transactionViewRepositoryCaptor.value.status,
       )
+      verify(transactionTracing, times(1)).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, times(1))
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -1471,6 +1533,9 @@ class TransactionExpirationQueueConsumerTests {
       verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
       verify(transactionsViewRepository, times(0)).save(any())
       verify(transactionsExpiredEventStoreRepository, times(0)).save(any())
+      verify(transactionTracing, never()).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -1577,6 +1642,9 @@ class TransactionExpirationQueueConsumerTests {
               transactionEventCode = TransactionEventCode.TRANSACTION_ACTIVATED_EVENT.toString(),
               errorCategory =
                 DeadLetterTracedQueueAsyncClient.ErrorCategory.REFUND_MANUAL_CHECK_REQUIRED)))
+      verify(transactionTracing, times(1)).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -1672,6 +1740,9 @@ class TransactionExpirationQueueConsumerTests {
               transactionEventCode = TransactionEventCode.TRANSACTION_ACTIVATED_EVENT.toString(),
               errorCategory =
                 DeadLetterTracedQueueAsyncClient.ErrorCategory.REFUND_MANUAL_CHECK_REQUIRED)))
+      verify(transactionTracing, never()).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -1745,6 +1816,9 @@ class TransactionExpirationQueueConsumerTests {
         TransactionEventCode.TRANSACTION_EXPIRED_EVENT,
         TransactionEventCode.valueOf(expiredEvent.eventCode))
       assertEquals(TransactionStatusDto.CLOSURE_ERROR, expiredEvent.data.statusBeforeExpiration)
+      verify(transactionTracing, times(1)).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, times(1))
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -1827,6 +1901,9 @@ class TransactionExpirationQueueConsumerTests {
         TransactionEventCode.TRANSACTION_EXPIRED_EVENT,
         TransactionEventCode.valueOf(expiredEvent.eventCode))
       assertEquals(TransactionStatusDto.CLOSURE_ERROR, expiredEvent.data.statusBeforeExpiration)
+      verify(transactionTracing, times(1)).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -1901,6 +1978,9 @@ class TransactionExpirationQueueConsumerTests {
         .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
       verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
       verify(transactionsViewRepository, times(0)).save(any())
+      verify(transactionTracing, never()).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -1978,6 +2058,9 @@ class TransactionExpirationQueueConsumerTests {
         TransactionEventCode.valueOf(expiredEvent.eventCode))
       assertEquals(
         TransactionStatusDto.AUTHORIZATION_COMPLETED, expiredEvent.data.statusBeforeExpiration)
+      verify(transactionTracing, times(1)).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -2045,6 +2128,10 @@ class TransactionExpirationQueueConsumerTests {
         .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
       verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
       verify(transactionsViewRepository, times(0)).save(any())
+
+      verify(transactionTracing, never()).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -2092,6 +2179,10 @@ class TransactionExpirationQueueConsumerTests {
               transactionId = TransactionId(TRANSACTION_ID),
               transactionEventCode = TransactionEventCode.TRANSACTION_ACTIVATED_EVENT.toString(),
               errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)))
+
+      verify(transactionTracing, never()).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -2139,6 +2230,9 @@ class TransactionExpirationQueueConsumerTests {
               transactionId = TransactionId(TRANSACTION_ID),
               transactionEventCode = TransactionEventCode.TRANSACTION_ACTIVATED_EVENT.toString(),
               errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)))
+      verify(transactionTracing, never()).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -2241,6 +2335,10 @@ class TransactionExpirationQueueConsumerTests {
         TransactionEventCode.valueOf(expiredEvent.eventCode))
       assertEquals(
         TransactionStatusDto.AUTHORIZATION_COMPLETED, expiredEvent.data.statusBeforeExpiration)
+
+      verify(transactionTracing, times(1)).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -2326,6 +2424,9 @@ class TransactionExpirationQueueConsumerTests {
         .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
       verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
       verify(transactionsViewRepository, times(0)).save(any())
+      verify(transactionTracing, never()).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -2417,6 +2518,10 @@ class TransactionExpirationQueueConsumerTests {
         TransactionEventCode.TRANSACTION_EXPIRED_EVENT,
         TransactionEventCode.valueOf(expiredEvent.eventCode))
       assertEquals(TransactionStatusDto.CLOSED, expiredEvent.data.statusBeforeExpiration)
+
+      verify(transactionTracing, times(1)).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -2510,6 +2615,10 @@ class TransactionExpirationQueueConsumerTests {
           TransactionEventCode.valueOf(transactionRefundEventStoreCaptor.allValues[idx].eventCode),
           "Unexpected event code on idx: $idx")
       }
+
+      verify(transactionTracing, never()).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -2609,6 +2718,10 @@ class TransactionExpirationQueueConsumerTests {
         TransactionEventCode.TRANSACTION_EXPIRED_EVENT,
         TransactionEventCode.valueOf(expiredEvent.eventCode))
       assertEquals(TransactionStatusDto.CLOSED, expiredEvent.data.statusBeforeExpiration)
+
+      verify(transactionTracing, times(1)).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -2679,6 +2792,10 @@ class TransactionExpirationQueueConsumerTests {
         .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
       verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
       verify(transactionsViewRepository, times(0)).save(any())
+
+      verify(transactionTracing, never()).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -2748,6 +2865,10 @@ class TransactionExpirationQueueConsumerTests {
             expectedRetryEventVisibilityTimeout.toSeconds() - this.toSeconds() <= 1
           },
           eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_SECONDS.toLong())))
+
+      verify(transactionTracing, never()).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -2852,6 +2973,10 @@ class TransactionExpirationQueueConsumerTests {
         TransactionEventCode.TRANSACTION_EXPIRED_EVENT,
         TransactionEventCode.valueOf(expiredEvent.eventCode))
       assertEquals(TransactionStatusDto.CLOSED, expiredEvent.data.statusBeforeExpiration)
+
+      verify(transactionTracing, times(1)).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -2957,6 +3082,10 @@ class TransactionExpirationQueueConsumerTests {
               transactionEventCode = TransactionEventCode.TRANSACTION_ACTIVATED_EVENT.toString(),
               errorCategory =
                 DeadLetterTracedQueueAsyncClient.ErrorCategory.REFUND_MANUAL_CHECK_REQUIRED)))
+
+      verify(transactionTracing, times(1)).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -3051,6 +3180,10 @@ class TransactionExpirationQueueConsumerTests {
               transactionEventCode = TransactionEventCode.TRANSACTION_ACTIVATED_EVENT.toString(),
               errorCategory =
                 DeadLetterTracedQueueAsyncClient.ErrorCategory.REFUND_MANUAL_CHECK_REQUIRED)))
+
+      verify(transactionTracing, never()).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -3098,6 +3231,10 @@ class TransactionExpirationQueueConsumerTests {
     assetTransactionStatusEquals(
       listOf(TransactionStatusDto.EXPIRED_NOT_AUTHORIZED),
       transactionViewRepositoryCaptor.allValues)
+
+    verify(transactionTracing, times(1)).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+    verify(mockOpenTelemetryUtils, times(1))
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
   }
 
   @Test
@@ -3186,6 +3323,10 @@ class TransactionExpirationQueueConsumerTests {
     assertTrue(
       durationDifference.abs() <=
         Duration.ofSeconds(eventProcessingDelaySeconds) + Duration.ofSeconds(2))
+
+    verify(transactionTracing, times(1)).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+    verify(mockOpenTelemetryUtils, never())
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
   }
 
   @Nested
@@ -3259,6 +3400,10 @@ class TransactionExpirationQueueConsumerTests {
         .sendAndTraceDeadLetterQueueEvent(any(), any())
       verify(refundRequestedAsyncClient, times(1))
         .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
+
+      verify(transactionTracing, times(1)).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
     @Test
@@ -3321,6 +3466,10 @@ class TransactionExpirationQueueConsumerTests {
       assertEquals(authorizationData.operationId, operationId)
       assertEquals(authorizationData.paymentEndToEndId, paymentEndToEndId)
       assertEquals(gatewayAuthorizationData.operationId, operationId)
+
+      verify(transactionTracing, never()).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
     @Test
@@ -3376,6 +3525,10 @@ class TransactionExpirationQueueConsumerTests {
         .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
       verify(deadLetterTracedQueueAsyncClient, times(0))
         .sendAndTraceDeadLetterQueueEvent(any(), any())
+
+      verify(transactionTracing, times(1)).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
     @ParameterizedTest
@@ -3433,6 +3586,10 @@ class TransactionExpirationQueueConsumerTests {
       assertEquals(
         DeadLetterTracedQueueAsyncClient.ErrorCategory.REFUND_MANUAL_CHECK_REQUIRED,
         errorContextCaptor.firstValue.errorCategory)
+
+      verify(transactionTracing, times(1)).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
   }
 
@@ -3496,6 +3653,10 @@ class TransactionExpirationQueueConsumerTests {
       .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
     verify(deadLetterTracedQueueAsyncClient, times(0))
       .sendAndTraceDeadLetterQueueEvent(any(), any())
+
+    verify(transactionTracing, times(1)).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+    verify(mockOpenTelemetryUtils, never())
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
   }
 
   @ParameterizedTest
@@ -3564,6 +3725,10 @@ class TransactionExpirationQueueConsumerTests {
     assertEquals(
       DeadLetterTracedQueueAsyncClient.ErrorCategory.REFUND_MANUAL_CHECK_REQUIRED,
       errorContextCaptor.firstValue.errorCategory)
+
+    verify(transactionTracing, times(1)).addSpanAttributesExpiredFlowFromTransaction(any(), any())
+    verify(mockOpenTelemetryUtils, never())
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
   }
 
   private fun setupTransactionStorageMock(events: List<TransactionEvent<*>>) {
@@ -3679,18 +3844,18 @@ class TransactionExpirationQueueConsumerTests {
         .map { Arguments.of(it) }
   }
 
-  fun getTransactionTracingMock(): TransactionTracing {
-    val finalTransactionTracingMock: TransactionTracing =
-      Mockito.mock(TransactionTracing::class.java)
+  private fun getTransactionTracingMock(): TransactionTracing {
+    // Create a mock of OpenTelemetryUtils
+    val mockOpenTelemetryUtils: OpenTelemetryUtils = mock()
 
-    /*Mockito.doNothing()
-    .`when`(finalTransactionTracingMock)
-    .addSpanAttributesNotificationsFlowFromTransaction(any(), any())*/
+    // Create a real TransactionTracing instance with the mock OpenTelemetryUtils
+    val transactionTracing = TransactionTracing(mockOpenTelemetryUtils)
 
-    doNothing()
-      .`when`(finalTransactionTracingMock)
-      .addSpanAttributesNotificationsFlowFromTransaction(any(), any())
+    val transactionTracingSpy = spy(transactionTracing)
 
-    return finalTransactionTracingMock
+    // Store the mockOpenTelemetryUtils for later verification
+    this.mockOpenTelemetryUtils = mockOpenTelemetryUtils
+
+    return transactionTracingSpy
   }
 }

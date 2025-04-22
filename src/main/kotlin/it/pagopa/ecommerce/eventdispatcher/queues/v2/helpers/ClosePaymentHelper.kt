@@ -34,6 +34,7 @@ import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.ClosureRetrySe
 import it.pagopa.ecommerce.eventdispatcher.services.v2.NodeService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
+import it.pagopa.ecommerce.eventdispatcher.utils.TransactionTracing
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
 import java.time.Duration
 import java.util.*
@@ -43,6 +44,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
+import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Schedulers
 
@@ -145,7 +147,8 @@ class ClosePaymentHelper(
   @Autowired private val refundQueueAsyncClient: QueueAsyncClient,
   @Value("\${azurestorage.queues.transientQueues.ttlSeconds}")
   private val transientQueueTTLSeconds: Int,
-  @Autowired private val updateTransactionStatusTracerUtils: UpdateTransactionStatusTracerUtils
+  @Autowired private val updateTransactionStatusTracerUtils: UpdateTransactionStatusTracerUtils,
+  @Autowired private val transactionTracing: TransactionTracing
 ) {
   val logger: Logger = LoggerFactory.getLogger(ClosePaymentHelper::class.java)
 
@@ -163,10 +166,14 @@ class ClosePaymentHelper(
     val tracingInfo = getTracingInfo(queueEvent)
     val transactionId = getTransactionId(queueEvent)
     val retryCount = getRetryCount(queueEvent)
-    val baseTransaction =
-      Mono.defer {
-        reduceEvents(mono { transactionId }, transactionsEventStoreRepository, emptyTransaction)
-      }
+
+    val events =
+      transactionsEventStoreRepository
+        .findByTransactionIdOrderByCreationDateAsc(transactionId)
+        .map { it as TransactionEvent<Any> }
+
+    val baseTransaction = reduceEvents(events, emptyTransaction)
+
     val closurePipeline =
       baseTransaction
         .flatMap {
@@ -213,7 +220,8 @@ class ClosePaymentHelper(
               updateTransactionStatus(
                 transaction = tx,
                 closePaymentResponseDto = closePaymentResponse,
-                closePaymentTransactionData = closePaymentTransactionData)
+                closePaymentTransactionData = closePaymentTransactionData,
+                events = events)
             }
             /*
              * The refund process is started only iff the previous transaction was authorized
@@ -377,7 +385,8 @@ class ClosePaymentHelper(
   private fun updateTransactionStatus(
     transaction: BaseTransaction,
     closePaymentTransactionData: ClosePaymentTransactionData,
-    closePaymentResponseDto: ClosePaymentResponseDto
+    closePaymentResponseDto: ClosePaymentResponseDto,
+    events: Flux<TransactionEvent<Any>>
   ): Mono<Either<TransactionClosureFailedEvent, TransactionClosedEvent>> {
     val outcome =
       when (closePaymentResponseDto.outcome!!) {
@@ -461,7 +470,7 @@ class ClosePaymentHelper(
       .fold<Mono<Either<TransactionClosureFailedEvent, TransactionClosedEvent>>>(
         { it.map { closureFailed -> Either.left(closureFailed) } },
         { it.map { closed -> Either.right(closed) } })
-      .doOnSuccess {
+      .doOnSuccess { result ->
         traceClosePaymentUpdateStatus(
           baseTransaction = transaction,
           closePaymentTransactionData = closePaymentTransactionData,
@@ -469,6 +478,21 @@ class ClosePaymentHelper(
             UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
               outcome.toString(), Optional.empty()),
           updateTransactionStatusOutcome = UpdateTransactionStatusOutcome.OK)
+
+        if (newStatus == TransactionStatusDto.CANCELED) {
+          val updatedTransaction =
+            result.fold(
+              { closureFailedEvent ->
+                (transaction as it.pagopa.ecommerce.commons.domain.v2.Transaction).applyEvent(
+                  closureFailedEvent) as BaseTransaction
+              },
+              { closedEvent ->
+                (transaction as it.pagopa.ecommerce.commons.domain.v2.Transaction).applyEvent(
+                  closedEvent) as BaseTransaction
+              })
+          transactionTracing.addSpanAttributesCanceledFlowFromTransaction(
+            updatedTransaction, events)
+        }
       }
   }
 
