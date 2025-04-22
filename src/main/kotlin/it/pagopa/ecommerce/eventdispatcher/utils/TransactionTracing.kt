@@ -56,7 +56,7 @@ class TransactionTracing(private val openTelemetryUtils: OpenTelemetryUtils) {
         TransactionStatusDto.REFUNDED to
           Pair(
             TransactionEventCode.TRANSACTION_ACTIVATED_EVENT.toString(),
-            TransactionEventCode.TRANSACTION_USER_RECEIPT_ADDED_EVENT.toString()),
+            TransactionEventCode.TRANSACTION_REFUNDED_EVENT.toString()),
         TransactionStatusDto.CANCELED to
           Pair(
             TransactionEventCode.TRANSACTION_ACTIVATED_EVENT.toString(),
