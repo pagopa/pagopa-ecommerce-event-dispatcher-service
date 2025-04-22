@@ -491,7 +491,7 @@ class ClosePaymentHelper(
                 (transaction as it.pagopa.ecommerce.commons.domain.v2.Transaction).applyEvent(
                   closedEvent) as BaseTransaction
               })
-          transactionTracing.addSpanAttributesCanceledFlowFromTransaction(
+          transactionTracing.addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction(
             updatedTransaction, events)
         }
       }

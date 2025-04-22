@@ -490,6 +490,232 @@ class TransactionTracingTest {
   }
 
   @Test
+  fun `addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction should add span for canceled transaction`() {
+    // Given
+    val transactionId = TransactionId(UUID.randomUUID())
+    val clientId = Transaction.ClientId.CHECKOUT
+    val pspId = "test-psp-id"
+    val paymentMethodName = "test-payment-method"
+
+    // Create TransactionAuthorizationRequestData
+    val authRequestData = mock(TransactionAuthorizationRequestData::class.java)
+    `when`(authRequestData.pspId).thenReturn(pspId)
+    `when`(authRequestData.paymentMethodName).thenReturn(paymentMethodName)
+
+    val transaction = mock(BaseTransactionWithRequestedAuthorization::class.java)
+    `when`(transaction.transactionId).thenReturn(transactionId)
+    `when`(transaction.status).thenReturn(TransactionStatusDto.CANCELED)
+    `when`(transaction.clientId).thenReturn(clientId)
+    `when`(transaction.transactionAuthorizationRequestData).thenReturn(authRequestData)
+
+    val transactionAuthorizationRequestedEvt = transactionAuthorizationRequestedEvent()
+    transactionAuthorizationRequestedEvt.data.pspId = "canceledPspId"
+    val transactionActivateEvt = transactionActivateEvent()
+    val transactionAuthorizationCompletedEvt =
+      transactionAuthorizationCompletedEvent(
+        NpgTransactionGatewayAuthorizationData(
+          OperationResultDto.EXECUTED, "operationId", "paymentEnd2EndId", null, null))
+    val transactionClosureRequestedEvt = transactionClosureRequestedEvent()
+
+    transactionActivateEvt.creationDate = createDateForSecondsFromNow(10 * 60)
+    transactionAuthorizationRequestedEvt.creationDate = createDateForSecondsFromNow(25 * 60)
+    transactionAuthorizationCompletedEvt.creationDate = createDateForSecondsFromNow(20 * 60)
+    transactionClosureRequestedEvt.creationDate = createDateForSecondsFromNow(15 * 60)
+
+    val events =
+      Flux.just(
+        transactionActivateEvt,
+        transactionAuthorizationRequestedEvt,
+        transactionAuthorizationCompletedEvt,
+        transactionClosureRequestedEvt) as Flux<TransactionEvent<Any>>
+
+    // When
+    transactionTracing.addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction(
+      transaction, events)
+
+    // Then
+    verify(openTelemetryUtils, timeout(1000))
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), capture(attributesCaptor))
+
+    val attributes = attributesCaptor.value
+
+    // Verify all required attributes are present
+    assert(
+      attributes.get(AttributeKey.stringKey(TransactionTracing.TRANSACTIONID)) ==
+        transactionId.value())
+    assert(
+      attributes.get(AttributeKey.stringKey(TransactionTracing.TRANSACTIONSTATUS)) ==
+        transaction.status.value)
+    assert(
+      attributes.get(AttributeKey.stringKey(TransactionTracing.CLIENTID)) == clientId.toString())
+    assert(attributes.get(AttributeKey.stringKey(TransactionTracing.PSPID)) == pspId)
+    assert(
+      attributes.get(AttributeKey.stringKey(TransactionTracing.PAYMENTMETHOD)) == paymentMethodName)
+
+    // Verify duration metrics
+    attributes.get(AttributeKey.longKey(TransactionTracing.TRANSACTIONTOTALTIME))?.let {
+      assert(it > 0)
+    }
+    attributes.get(AttributeKey.longKey(TransactionTracing.TRANSACTIONAUTHORIZATIONTIME))?.let {
+      assert(it > 0)
+    }
+  }
+
+  @Test
+  fun `addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction should add span for unauthorized transaction`() {
+    // Given
+    val transactionId = TransactionId(UUID.randomUUID())
+    val clientId = Transaction.ClientId.CHECKOUT
+    val pspId = "test-psp-id"
+    val paymentMethodName = "test-payment-method"
+
+    // Create TransactionAuthorizationRequestData
+    val authRequestData = mock(TransactionAuthorizationRequestData::class.java)
+    `when`(authRequestData.pspId).thenReturn(pspId)
+    `when`(authRequestData.paymentMethodName).thenReturn(paymentMethodName)
+
+    val transaction = mock(BaseTransactionWithRequestedAuthorization::class.java)
+    `when`(transaction.transactionId).thenReturn(transactionId)
+    `when`(transaction.status).thenReturn(TransactionStatusDto.UNAUTHORIZED)
+    `when`(transaction.clientId).thenReturn(clientId)
+    `when`(transaction.transactionAuthorizationRequestData).thenReturn(authRequestData)
+
+    val transactionAuthorizationRequestedEvt = transactionAuthorizationRequestedEvent()
+    transactionAuthorizationRequestedEvt.data.pspId = "unauthorizedPspId"
+    val transactionActivateEvt = transactionActivateEvent()
+    val transactionAuthorizationCompletedEvt =
+      transactionAuthorizationCompletedEvent(
+        NpgTransactionGatewayAuthorizationData(
+          OperationResultDto.EXECUTED, "operationId", "paymentEnd2EndId", null, null))
+    val transactionClosureRequestedEvt = transactionClosureRequestedEvent()
+
+    transactionActivateEvt.creationDate = createDateForSecondsFromNow(10 * 60)
+    transactionAuthorizationRequestedEvt.creationDate = createDateForSecondsFromNow(25 * 60)
+    transactionAuthorizationCompletedEvt.creationDate = createDateForSecondsFromNow(20 * 60)
+    transactionClosureRequestedEvt.creationDate = createDateForSecondsFromNow(15 * 60)
+
+    val events =
+      Flux.just(
+        transactionActivateEvt,
+        transactionAuthorizationRequestedEvt,
+        transactionAuthorizationCompletedEvt,
+        transactionClosureRequestedEvt) as Flux<TransactionEvent<Any>>
+
+    // When
+    transactionTracing.addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction(
+      transaction, events)
+
+    // Then
+    verify(openTelemetryUtils, timeout(1000))
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), capture(attributesCaptor))
+
+    val attributes = attributesCaptor.value
+
+    // Verify all required attributes are present
+    assert(
+      attributes.get(AttributeKey.stringKey(TransactionTracing.TRANSACTIONID)) ==
+        transactionId.value())
+    assert(
+      attributes.get(AttributeKey.stringKey(TransactionTracing.TRANSACTIONSTATUS)) ==
+        transaction.status.value)
+    assert(
+      attributes.get(AttributeKey.stringKey(TransactionTracing.CLIENTID)) == clientId.toString())
+    assert(attributes.get(AttributeKey.stringKey(TransactionTracing.PSPID)) == pspId)
+    assert(
+      attributes.get(AttributeKey.stringKey(TransactionTracing.PAYMENTMETHOD)) == paymentMethodName)
+
+    // Verify duration metrics
+    attributes.get(AttributeKey.longKey(TransactionTracing.TRANSACTIONTOTALTIME))?.let {
+      assert(it > 0)
+    }
+    attributes.get(AttributeKey.longKey(TransactionTracing.TRANSACTIONAUTHORIZATIONTIME))?.let {
+      assert(it > 0)
+    }
+  }
+
+  @Test
+  fun `addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction should not add span for non-canceled or non-unauthorized transaction`() {
+    // Given
+    val transaction = mock(BaseTransaction::class.java)
+    `when`(transaction.status).thenReturn(TransactionStatusDto.CLOSED)
+
+    val events = Flux.empty<TransactionEvent<Any>>()
+
+    // When
+    transactionTracing.addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction(
+      transaction, events)
+
+    // Then - verify no span is added
+    verify(openTelemetryUtils, after(1000).never()).addSpanWithAttributes(any(), any())
+  }
+
+  @Test
+  fun `addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction should handle transaction without authorization data`() {
+    // Given
+    val transactionId = TransactionId(UUID.randomUUID())
+    val clientId = Transaction.ClientId.CHECKOUT
+
+    val transaction = mock(BaseTransaction::class.java)
+    `when`(transaction.transactionId).thenReturn(transactionId)
+    `when`(transaction.status).thenReturn(TransactionStatusDto.CANCELED)
+    `when`(transaction.clientId).thenReturn(clientId)
+
+    // Create events with timestamps
+    val activatedEvent = transactionActivateEvent()
+    activatedEvent.creationDate = createDateForSecondsFromNow(30 * 60)
+
+    val closedEvent = transactionClosureRequestedEvent()
+    closedEvent.creationDate = createDateForSecondsFromNow(5 * 60)
+
+    val events = Flux.just(activatedEvent, closedEvent) as Flux<TransactionEvent<Any>>
+
+    // When
+    transactionTracing.addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction(
+      transaction, events)
+
+    // Then
+    verify(openTelemetryUtils, timeout(1000))
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), capture(attributesCaptor))
+
+    val attributes = attributesCaptor.value
+
+    // Verify basic attributes are present
+    assert(
+      attributes.get(AttributeKey.stringKey(TransactionTracing.TRANSACTIONID)) ==
+        transactionId.value())
+    assert(
+      attributes.get(AttributeKey.stringKey(TransactionTracing.TRANSACTIONSTATUS)) ==
+        transaction.status.value)
+    assert(
+      attributes.get(AttributeKey.stringKey(TransactionTracing.CLIENTID)) == clientId.toString())
+
+    // Verify attributes not present
+    assert(attributes.get(AttributeKey.stringKey(TransactionTracing.PSPID)) == null)
+    assert(attributes.get(AttributeKey.stringKey(TransactionTracing.PAYMENTMETHOD)) == null)
+
+    // Verify total duration is present
+    attributes.get(AttributeKey.longKey(TransactionTracing.TRANSACTIONTOTALTIME))?.let {
+      assert(it > 0)
+    }
+  }
+
+  @Test
+  fun `addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction should handle error in events flux`() {
+    // Given
+    val transaction = mock(BaseTransaction::class.java)
+    `when`(transaction.status).thenReturn(TransactionStatusDto.CANCELED)
+
+    val events = Flux.error<TransactionEvent<Any>>(RuntimeException("Test error"))
+
+    // When
+    transactionTracing.addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction(
+      transaction, events)
+
+    // Then - verify no span is added
+    verify(openTelemetryUtils, after(1000).never()).addSpanWithAttributes(any(), any())
+  }
+
+  @Test
   fun `calculateDurationMs should return correct duration between two valid dates`() {
     // Given
     val startDate = ZonedDateTime.now().minusMinutes(5)
