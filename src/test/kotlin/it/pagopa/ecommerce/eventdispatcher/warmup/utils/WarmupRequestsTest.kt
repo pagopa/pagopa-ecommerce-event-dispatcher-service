@@ -68,7 +68,6 @@ class WarmupRequestsTest {
 
   private val transactionExpirationQueueConsumer =
     TransactionExpirationQueueConsumer(
-      queueConsumerV1 = mock(),
       queueConsumerV2 = mock(),
       deadLetterTracedQueueAsyncClient = deadLetterTracedQueueAsyncClient,
       strictSerializerProviderV1 = strictSerializerProviderV1,
