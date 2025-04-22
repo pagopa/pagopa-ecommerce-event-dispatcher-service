@@ -44,6 +44,10 @@ class TransactionTracing(@Autowired private val openTelemetryUtils: OpenTelemetr
     tx: BaseTransactionWithUserReceipt,
     events: Flux<TransactionEvent<Any>>,
   ) {
+    if (tx.status != TransactionStatusDto.NOTIFIED_OK) {
+      return
+    }
+
     events
       .collectMap({ event -> event.eventCode }, { event -> event.creationDate })
       .map { eventDateMap ->
@@ -129,7 +133,7 @@ class TransactionTracing(@Autowired private val openTelemetryUtils: OpenTelemetr
         val totalDuration =
           calculateDurationMs(
             eventDateMap[TransactionEventCode.TRANSACTION_ACTIVATED_EVENT.toString()],
-            eventDateMap[TransactionEventCode.TRANSACTION_USER_RECEIPT_ADDED_EVENT.toString()])
+            eventDateMap[TransactionEventCode.TRANSACTION_EXPIRED_EVENT.toString()])
 
         val builder =
           Attributes.builder()
@@ -224,14 +228,7 @@ class TransactionTracing(@Autowired private val openTelemetryUtils: OpenTelemetr
             closePaymentToAddUserReceiptRequestedDuration)
         }
 
-        val attributes = builder.build()
-
-        println("OpenTelemetry Attributes:")
-        attributes.forEach { key, value ->
-          println("Key: ${key.key}, Type: ${key.type}, Value: $value")
-        }
-
-        attributes
+        builder.build()
       }
       .doOnSuccess { attributes ->
         openTelemetryUtils.addSpanWithAttributes(TransactionTracing::class.simpleName, attributes)
@@ -247,7 +244,8 @@ class TransactionTracing(@Autowired private val openTelemetryUtils: OpenTelemetr
     tx: BaseTransaction,
     events: Flux<TransactionEvent<Any>>
   ) {
-    if (tx.status != TransactionStatusDto.CANCELED) {
+    if (tx.status != TransactionStatusDto.CANCELED &&
+      tx.status != TransactionStatusDto.UNAUTHORIZED) {
       return
     }
 
@@ -268,7 +266,7 @@ class TransactionTracing(@Autowired private val openTelemetryUtils: OpenTelemetr
         val totalDuration =
           calculateDurationMs(
             eventDateMap[TransactionEventCode.TRANSACTION_ACTIVATED_EVENT.toString()],
-            eventDateMap[TransactionEventCode.TRANSACTION_USER_RECEIPT_ADDED_EVENT.toString()])
+            eventDateMap[TransactionEventCode.TRANSACTION_CLOSED_EVENT.toString()])
 
         val builder =
           Attributes.builder()
@@ -298,14 +296,7 @@ class TransactionTracing(@Autowired private val openTelemetryUtils: OpenTelemetr
             closePaymentToAddUserReceiptRequestedDuration)
         }
 
-        val attributes = builder.build()
-
-        println("OpenTelemetry Attributes:")
-        attributes.forEach { key, value ->
-          println("Key: ${key.key}, Type: ${key.type}, Value: $value")
-        }
-
-        attributes
+        builder.build()
       }
       .doOnSuccess { attributes ->
         openTelemetryUtils.addSpanWithAttributes(TransactionTracing::class.simpleName, attributes)

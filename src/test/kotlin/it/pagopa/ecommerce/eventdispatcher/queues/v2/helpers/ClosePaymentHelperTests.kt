@@ -499,8 +499,9 @@ class ClosePaymentHelperTests {
             UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
               ClosePaymentOutcome.KO.toString(), Optional.empty())))
       assertNull(viewArgumentCaptor.value.closureErrorData)
-      verify(transactionTracing, never()).addSpanAttributesCanceledFlowFromTransaction(any(), any())
-      verify(mockOpenTelemetryUtils, never())
+      verify(transactionTracing, times(1))
+        .addSpanAttributesCanceledFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, times(1))
         .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
@@ -2088,8 +2089,9 @@ class ClosePaymentHelperTests {
             false,
             UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
               ClosePaymentOutcome.KO.toString(), Optional.empty())))
-      verify(transactionTracing, never()).addSpanAttributesCanceledFlowFromTransaction(any(), any())
-      verify(mockOpenTelemetryUtils, never())
+      verify(transactionTracing, times(1))
+        .addSpanAttributesCanceledFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, times(1))
         .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 

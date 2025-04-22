@@ -51,7 +51,7 @@ class TransactionRefundRetryQueueConsumer(
 
   fun messageReceiver(
     parsedEvent: QueueEvent<TransactionRefundRetriedEvent>,
-    checkPointer: Checkpointer,
+    checkPointer: Checkpointer
   ): Mono<Unit> {
     val event = parsedEvent.event
     val tracingInfo = parsedEvent.tracingInfo

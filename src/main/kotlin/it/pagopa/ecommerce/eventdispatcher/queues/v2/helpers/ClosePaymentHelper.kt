@@ -479,7 +479,8 @@ class ClosePaymentHelper(
               outcome.toString(), Optional.empty()),
           updateTransactionStatusOutcome = UpdateTransactionStatusOutcome.OK)
 
-        if (newStatus == TransactionStatusDto.CANCELED) {
+        if (newStatus == TransactionStatusDto.CANCELED ||
+          newStatus == TransactionStatusDto.UNAUTHORIZED) {
           val updatedTransaction =
             result.fold(
               { closureFailedEvent ->

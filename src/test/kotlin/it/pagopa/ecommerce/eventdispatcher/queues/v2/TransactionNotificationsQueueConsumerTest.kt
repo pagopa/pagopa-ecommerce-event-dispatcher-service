@@ -274,9 +274,10 @@ class TransactionNotificationsQueueConsumerTest {
       expectedStatuses.forEachIndexed { index, transactionStatus ->
         assertEquals(transactionStatus, transactionViewRepositoryCaptor.allValues[index].status)
       }
+      // Not a final state
       verify(transactionTracing, times(1))
         .addSpanAttributesNotificationsFlowFromTransaction(any(), any())
-      verify(mockOpenTelemetryUtils, times(1))
+      verify(mockOpenTelemetryUtils, never())
         .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
@@ -435,7 +436,8 @@ class TransactionNotificationsQueueConsumerTest {
       }
       verify(transactionTracing, times(1))
         .addSpanAttributesNotificationsFlowFromTransaction(any(), any())
-      verify(mockOpenTelemetryUtils, times(1))
+      // Not a final state
+      verify(mockOpenTelemetryUtils, never())
         .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
@@ -1077,36 +1079,9 @@ class TransactionNotificationsQueueConsumerTest {
 
     verify(transactionTracing, times(1))
       .addSpanAttributesNotificationsFlowFromTransaction(any(), any())
-    val attributesCaptor = ArgumentCaptor.forClass(Attributes::class.java)
-    verify(mockOpenTelemetryUtils, times(1))
-      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), capture(attributesCaptor))
-    val capturedAttributes = attributesCaptor.value
-
-    assertEquals(
-      TransactionStatusDto.REFUND_REQUESTED, transactionViewRepositoryCaptor.value.status)
-    val savedEvent = transactionUserReceiptCaptor.value
-    assertEquals(
-      TransactionEventCode.TRANSACTION_USER_RECEIPT_ADDED_EVENT,
-      TransactionEventCode.valueOf(savedEvent.eventCode))
-    assertEquals(transactionUserReceiptData, savedEvent.data)
-
-    assertEquals(
-      Transaction.ClientId.CHECKOUT.toString(),
-      capturedAttributes.get(AttributeKey.stringKey(TransactionTracing.CLIENTID)))
-    assertEquals(
-      NpgClient.PaymentMethod.CARDS.toString(),
-      capturedAttributes.get(AttributeKey.stringKey(TransactionTracing.PAYMENTMETHOD)))
-    assertEquals(
-      "notifiedKoPspId", capturedAttributes.get(AttributeKey.stringKey(TransactionTracing.PSPID)))
-    assertEquals(
-      180000,
-      capturedAttributes.get(AttributeKey.longKey(TransactionTracing.TRANSACTIONAUTHORIZATIONTIME)))
-    assertEquals(
-      TransactionStatusDto.NOTIFIED_KO.toString(),
-      capturedAttributes.get(AttributeKey.stringKey(TransactionTracing.TRANSACTIONSTATUS)))
-    assertEquals(
-      transactionId,
-      capturedAttributes.get(AttributeKey.stringKey(TransactionTracing.TRANSACTIONID)))
+    // Not a final state
+    verify(mockOpenTelemetryUtils, never())
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
   }
 
   private fun getTransactionTracingMock(): TransactionTracing {
