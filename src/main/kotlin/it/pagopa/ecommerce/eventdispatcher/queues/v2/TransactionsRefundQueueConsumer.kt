@@ -85,19 +85,19 @@ class TransactionsRefundQueueConsumer(
         .cast(BaseTransactionWithRefundRequested::class.java)
         .flatMap { tx ->
           refundTransaction(
-            tx,
-            transactionsRefundedEventStoreRepository,
-            transactionsViewRepository,
-            refundService,
-            refundRetryService,
-            npgService,
-            tracingInfo,
-          )
-        }
-        .doOnSuccess {
-          if (it != null) {
-            transactionTracing.addSpanAttributesRefundedFlowFromTransaction(it, events)
-          }
+              tx,
+              transactionsRefundedEventStoreRepository,
+              transactionsViewRepository,
+              refundService,
+              refundRetryService,
+              npgService,
+              tracingInfo,
+            )
+            .doOnSuccess {
+              if (it != null) {
+                transactionTracing.addSpanAttributesRefundedFlowFromTransaction(it, events)
+              }
+            }
         }
     val e = event.fold({ QueueEvent(it, tracingInfo) }, { QueueEvent(it, tracingInfo) })
     return runTracedPipelineWithDeadLetterQueue(
