@@ -3,6 +3,7 @@ package it.pagopa.ecommerce.eventdispatcher.queues.v2
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import it.pagopa.ecommerce.commons.client.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v2.BaseTransactionRefundedData
+import it.pagopa.ecommerce.commons.documents.v2.TransactionEvent
 import it.pagopa.ecommerce.commons.documents.v2.TransactionUserReceiptData
 import it.pagopa.ecommerce.commons.documents.v2.TransactionUserReceiptRequestedEvent
 import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
@@ -18,6 +19,7 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewReposito
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.NotificationRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
+import it.pagopa.ecommerce.eventdispatcher.utils.TransactionTracing
 import it.pagopa.ecommerce.eventdispatcher.utils.v2.UserReceiptMailBuilder
 import java.time.Duration
 import kotlinx.coroutines.reactor.mono
@@ -48,6 +50,7 @@ class TransactionNotificationsQueueConsumer(
   @Autowired private val npgService: NpgService,
   @Value("\${azurestorage.queues.transientQueues.ttlSeconds}")
   private val transientQueueTTLSeconds: Int,
+  @Autowired private val transactionTracing: TransactionTracing
 ) {
   var logger: Logger = LoggerFactory.getLogger(TransactionNotificationsQueueConsumer::class.java)
 
@@ -64,8 +67,14 @@ class TransactionNotificationsQueueConsumer(
     val event = parsedEvent.event
     val tracingInfo = parsedEvent.tracingInfo
     val transactionId = event.transactionId
-    val baseTransaction =
-      reduceEvents(mono { transactionId }, transactionsEventStoreRepository, emptyTransaction)
+
+    val events =
+      transactionsEventStoreRepository
+        .findByTransactionIdOrderByCreationDateAsc(transactionId)
+        .map { it as TransactionEvent<Any> }
+
+    val baseTransaction = reduceEvents(events, EmptyTransaction())
+
     val notificationResendPipeline =
       baseTransaction
         .flatMap {
@@ -88,6 +97,9 @@ class TransactionNotificationsQueueConsumer(
             .flatMap {
               updateNotifiedTransactionStatus(
                 tx, transactionsViewRepository, transactionUserReceiptRepository)
+            }
+            .doOnSuccess {
+              transactionTracing.addSpanAttributesNotificationsFlowFromTransaction(it, events)
             }
             .flatMap {
               notificationRefundTransactionPipeline(
