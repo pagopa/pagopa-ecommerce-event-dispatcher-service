@@ -31,12 +31,12 @@ class TransactionTracing(private val openTelemetryUtils: OpenTelemetryUtils) {
 
     // Duration metrics
     // From activated datetime to the final status datetime, in milliseconds
-    const val TRANSACTIONTOTALTIME = "eCommerce.transactionLifecycleTime"
+    const val TRANSACTIONTOTALTIME = "eCommerce.transactionLifecycleTimeMs"
     // From authorization requested datetime to authorization completed, in milliseconds
-    const val TRANSACTIONAUTHORIZATIONTIME = "eCommerce.transactionAuthorizationProcessTime"
+    const val TRANSACTIONAUTHORIZATIONTIME = "eCommerce.transactionAuthorizationProcessTimeMs"
     // From close payment request to add user receipt response, in milliseconds
     const val TRANSACTIONCLOSEPAYMENTTOUSERRECEIPTTIME =
-      "eCommerce.transactionClosePaymentToUserReceiptTime"
+      "eCommerce.transactionClosePaymentToUserReceiptTimeMs"
 
     // Event code pairs for duration calculation
     private val TOTAL_DURATION_EVENTS =
