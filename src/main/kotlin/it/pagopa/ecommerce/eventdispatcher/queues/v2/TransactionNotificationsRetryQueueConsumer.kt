@@ -20,6 +20,7 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewReposito
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.NotificationRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
+import it.pagopa.ecommerce.eventdispatcher.utils.TransactionTracing
 import it.pagopa.ecommerce.eventdispatcher.utils.v2.UserReceiptMailBuilder
 import java.time.Duration
 import java.util.*
@@ -51,6 +52,7 @@ class TransactionNotificationsRetryQueueConsumer(
   @Autowired private val npgService: NpgService,
   @Value("\${azurestorage.queues.transientQueues.ttlSeconds}")
   private val transientQueueTTLSeconds: Int,
+  @Autowired private val transactionTracing: TransactionTracing
 ) {
   var logger: Logger =
     LoggerFactory.getLogger(TransactionNotificationsRetryQueueConsumer::class.java)
@@ -76,11 +78,17 @@ class TransactionNotificationsRetryQueueConsumer(
   ): Mono<Unit> {
     val event = parsedEvent.bimap({ it.event }, { it.event })
     val tracingInfo = parsedEvent.fold({ it.tracingInfo }, { it.tracingInfo })
+
     val queueEvent = parsedEvent.fold({ it }, { it })
     val transactionId = getTransactionIdFromPayload(event)
     val retryCount = getRetryCountFromPayload(event)
-    val baseTransaction =
-      reduceEvents(mono { transactionId }, transactionsEventStoreRepository, EmptyTransaction())
+
+    val events =
+      transactionsEventStoreRepository
+        .findByTransactionIdOrderByCreationDateAsc(transactionId)
+        .map { it as TransactionEvent<Any> }
+    val baseTransaction = reduceEvents(events, EmptyTransaction())
+
     val notificationResendPipeline =
       baseTransaction
         .flatMap {
@@ -103,6 +111,9 @@ class TransactionNotificationsRetryQueueConsumer(
             .flatMap {
               updateNotifiedTransactionStatus(
                   tx, transactionsViewRepository, transactionUserReceiptRepository)
+                .doOnSuccess {
+                  transactionTracing.addSpanAttributesNotificationsFlowFromTransaction(it, events)
+                }
                 .flatMap {
                   notificationRefundTransactionPipeline(
                     it,

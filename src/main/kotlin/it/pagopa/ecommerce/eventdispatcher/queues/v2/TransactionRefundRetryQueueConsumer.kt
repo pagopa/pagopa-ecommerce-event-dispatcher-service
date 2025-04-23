@@ -19,6 +19,7 @@ import it.pagopa.ecommerce.eventdispatcher.services.RefundService
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
+import it.pagopa.ecommerce.eventdispatcher.utils.TransactionTracing
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -43,6 +44,7 @@ class TransactionRefundRetryQueueConsumer(
   @Autowired private val tracingUtils: TracingUtils,
   @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider,
   @Autowired private val ngpService: NpgService,
+  @Autowired private val transactionTracing: TransactionTracing
 ) {
 
   var logger: Logger = LoggerFactory.getLogger(TransactionRefundRetryQueueConsumer::class.java)
@@ -53,11 +55,13 @@ class TransactionRefundRetryQueueConsumer(
   ): Mono<Unit> {
     val event = parsedEvent.event
     val tracingInfo = parsedEvent.tracingInfo
+
+    val events =
+      transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+        event.transactionId)
+
     val baseTransaction =
-      transactionsEventStoreRepository
-        .findByTransactionIdOrderByCreationDateAsc(event.transactionId)
-        .reduce(EmptyTransaction(), Transaction::applyEvent)
-        .cast(BaseTransaction::class.java)
+      events.reduce(EmptyTransaction(), Transaction::applyEvent).cast(BaseTransaction::class.java)
     val refundPipeline =
       baseTransaction
         .flatMap {
@@ -76,15 +80,18 @@ class TransactionRefundRetryQueueConsumer(
         .cast(BaseTransactionWithRefundRequested::class.java)
         .flatMap { tx ->
           refundTransaction(
-            tx,
-            transactionsRefundedEventStoreRepository,
-            transactionsViewRepository,
-            refundService,
-            refundRetryService,
-            ngpService,
-            tracingInfo,
-            event.data.retryCount,
-          )
+              tx,
+              transactionsRefundedEventStoreRepository,
+              transactionsViewRepository,
+              refundService,
+              refundRetryService,
+              ngpService,
+              tracingInfo,
+              event.data.retryCount,
+            )
+            .doOnSuccess {
+              transactionTracing.addSpanAttributesRefundedFlowFromTransaction(it, events)
+            }
         }
     return runTracedPipelineWithDeadLetterQueue(
       checkPointer,
