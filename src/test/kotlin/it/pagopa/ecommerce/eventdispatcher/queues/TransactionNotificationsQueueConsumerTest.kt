@@ -4,7 +4,6 @@ import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import it.pagopa.ecommerce.commons.documents.BaseTransactionEvent
 import it.pagopa.ecommerce.commons.queues.QueueEvent
-import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.commons.queues.TracingInfoTest
 import it.pagopa.ecommerce.eventdispatcher.config.QueuesConsumerConfig
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
@@ -26,24 +25,10 @@ import reactor.test.StepVerifier
 @OptIn(ExperimentalCoroutinesApi::class)
 class TransactionNotificationsQueueConsumerTest {
 
-  private val queueConsumerV1:
-    it.pagopa.ecommerce.eventdispatcher.queues.v1.TransactionNotificationsQueueConsumer =
-    mock()
-
   private val queueConsumerV2:
     it.pagopa.ecommerce.eventdispatcher.queues.v2.TransactionNotificationsQueueConsumer =
     mock()
   private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient = mock()
-
-  private val queueConsumerV1Captor:
-    KArgumentCaptor<
-      Pair<
-        it.pagopa.ecommerce.commons.documents.v1.TransactionUserReceiptRequestedEvent,
-        TracingInfo?>> =
-    argumentCaptor<
-      Pair<
-        it.pagopa.ecommerce.commons.documents.v1.TransactionUserReceiptRequestedEvent,
-        TracingInfo?>>()
 
   private val queueConsumerV2Captor:
     KArgumentCaptor<
@@ -56,7 +41,6 @@ class TransactionNotificationsQueueConsumerTest {
   private val transactionClosePaymentQueueConsumer =
     spy(
       TransactionNotificationsQueueConsumer(
-        queueConsumerV1 = queueConsumerV1,
         queueConsumerV2 = queueConsumerV2,
         deadLetterTracedQueueAsyncClient = deadLetterTracedQueueAsyncClient,
         strictSerializerProviderV1 = strictSerializerProviderV1,
@@ -68,37 +52,10 @@ class TransactionNotificationsQueueConsumerTest {
     val strictSerializerProviderV1 = queuesConsumerConfig.strictSerializerProviderV1()
 
     val strictSerializerProviderV2 = queuesConsumerConfig.strictSerializerProviderV2()
-    private val userReceiptRequestedV1 =
-      it.pagopa.ecommerce.commons.v1.TransactionTestUtils.transactionUserReceiptRequestedEvent(
-        it.pagopa.ecommerce.commons.documents.v1.TransactionUserReceiptData())
     private val userReceiptRequestedV2 =
       it.pagopa.ecommerce.commons.v2.TransactionTestUtils.transactionUserReceiptRequestedEvent(
         it.pagopa.ecommerce.commons.documents.v2.TransactionUserReceiptData())
     private val tracingInfo = TracingInfoTest.MOCK_TRACING_INFO
-
-    @JvmStatic
-    fun eventToHandleTestV1(): Stream<Arguments> {
-
-      return Stream.of(
-        Arguments.of(
-          String(
-            BinaryData.fromObject(
-                userReceiptRequestedV1, strictSerializerProviderV1.createInstance())
-              .toBytes(),
-            StandardCharsets.UTF_8),
-          userReceiptRequestedV1,
-          false),
-        Arguments.of(
-          String(
-            BinaryData.fromObject(
-                QueueEvent(userReceiptRequestedV1, tracingInfo),
-                strictSerializerProviderV1.createInstance())
-              .toBytes(),
-            StandardCharsets.UTF_8),
-          userReceiptRequestedV1,
-          true),
-      )
-    }
 
     @JvmStatic
     fun eventToHandleTestV2(): Stream<Arguments> {
@@ -113,37 +70,6 @@ class TransactionNotificationsQueueConsumerTest {
             StandardCharsets.UTF_8),
           userReceiptRequestedV2),
       )
-    }
-  }
-
-  @ParameterizedTest
-  @MethodSource("eventToHandleTestV1")
-  fun `Should dispatch TransactionV1 events`(
-    serializedEvent: String,
-    originalEvent: BaseTransactionEvent<*>,
-    withTracingInfo: Boolean
-  ) = runTest {
-    // pre-condition
-    println("Serialized event: $serializedEvent")
-    given(queueConsumerV1.messageReceiver(queueConsumerV1Captor.capture(), any()))
-      .willReturn(Mono.empty())
-    // test
-    Hooks.onOperatorDebug()
-    StepVerifier.create(
-        transactionClosePaymentQueueConsumer.messageReceiver(
-          serializedEvent.toByteArray(StandardCharsets.UTF_8), checkpointer))
-      .verifyComplete()
-    // assertions
-    verify(queueConsumerV1, times(1)).messageReceiver(any(), any())
-    verify(queueConsumerV2, times(0)).messageReceiver(any(), any())
-    verify(deadLetterTracedQueueAsyncClient, times(0))
-      .sendAndTraceDeadLetterQueueEvent(any<BinaryData>(), any())
-    val (parsedEvent, tracingInfo) = queueConsumerV1Captor.firstValue
-    assertEquals(originalEvent, parsedEvent)
-    if (withTracingInfo) {
-      assertNotNull(tracingInfo)
-    } else {
-      assertNull(tracingInfo)
     }
   }
 
@@ -164,7 +90,6 @@ class TransactionNotificationsQueueConsumerTest {
           serializedEvent.toByteArray(StandardCharsets.UTF_8), checkpointer))
       .verifyComplete()
     // assertions
-    verify(queueConsumerV1, times(0)).messageReceiver(any(), any())
     verify(queueConsumerV2, times(1)).messageReceiver(any(), any())
     verify(deadLetterTracedQueueAsyncClient, times(0))
       .sendAndTraceDeadLetterQueueEvent(any<BinaryData>(), any())
@@ -192,7 +117,6 @@ class TransactionNotificationsQueueConsumerTest {
       .expectNext(Unit)
       .verifyComplete()
     // assertions
-    verify(queueConsumerV1, times(0)).messageReceiver(any(), any())
     verify(queueConsumerV2, times(0)).messageReceiver(any(), any())
     verify(deadLetterTracedQueueAsyncClient, times(1))
       .sendAndTraceDeadLetterQueueEvent(
@@ -225,7 +149,6 @@ class TransactionNotificationsQueueConsumerTest {
         .expectError(java.lang.RuntimeException::class.java)
         .verify()
       // assertions
-      verify(queueConsumerV1, times(0)).messageReceiver(any(), any())
       verify(queueConsumerV2, times(0)).messageReceiver(any(), any())
       verify(deadLetterTracedQueueAsyncClient, times(1))
         .sendAndTraceDeadLetterQueueEvent(
@@ -257,7 +180,6 @@ class TransactionNotificationsQueueConsumerTest {
       .expectError(java.lang.RuntimeException::class.java)
       .verify()
     // assertions
-    verify(queueConsumerV1, times(0)).messageReceiver(any(), any())
     verify(queueConsumerV2, times(0)).messageReceiver(any(), any())
     verify(deadLetterTracedQueueAsyncClient, times(1))
       .sendAndTraceDeadLetterQueueEvent(
@@ -289,7 +211,6 @@ class TransactionNotificationsQueueConsumerTest {
       .expectNext(Unit)
       .verifyComplete()
     // assertions
-    verify(queueConsumerV1, times(0)).messageReceiver(any(), any())
     verify(queueConsumerV2, times(0)).messageReceiver(any(), any())
     verify(deadLetterTracedQueueAsyncClient, times(1))
       .sendAndTraceDeadLetterQueueEvent(

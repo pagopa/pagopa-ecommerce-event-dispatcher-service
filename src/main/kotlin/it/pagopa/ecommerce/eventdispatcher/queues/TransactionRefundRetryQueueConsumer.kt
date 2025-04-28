@@ -15,7 +15,6 @@ import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClien
 import it.pagopa.ecommerce.eventdispatcher.warmup.annotations.WarmupFunction
 import it.pagopa.ecommerce.payment.requests.warmup.utils.DummyCheckpointer
 import it.pagopa.ecommerce.payment.requests.warmup.utils.WarmupRequests.getTransactionRefundRetriedEvent
-import java.util.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -31,9 +30,6 @@ import reactor.core.publisher.Mono
  */
 @Service("TransactionRefundRetryQueueConsumer")
 class TransactionRefundRetryQueueConsumer(
-  @Autowired
-  private val queueConsumerV1:
-    it.pagopa.ecommerce.eventdispatcher.queues.v1.TransactionRefundRetryQueueConsumer,
   @Autowired
   private val queueConsumerV2:
     it.pagopa.ecommerce.eventdispatcher.queues.v2.TransactionRefundRetryQueueConsumer,
@@ -95,10 +91,6 @@ class TransactionRefundRetryQueueConsumer(
     return eventWithTracingInfo
       .flatMap { (e, tracingInfo) ->
         when (e) {
-          is TransactionRefundRetriedEventV1 -> {
-            logger.debug("Event {} with tracing info {} dispatched to V1 handler", e, tracingInfo)
-            queueConsumerV1.messageReceiver(e to tracingInfo, checkPointer)
-          }
           is TransactionRefundRetriedEventV2 -> {
             logger.debug("Event {} with tracing info {} dispatched to V2 handler", e, tracingInfo)
             queueConsumerV2.messageReceiver(QueueEvent(e, tracingInfo), checkPointer)

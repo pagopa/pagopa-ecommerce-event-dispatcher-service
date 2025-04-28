@@ -31,7 +31,6 @@ class WarmupRequestsTest {
 
   private val transactionRefundedEventsConsumer =
     TransactionsRefundQueueConsumer(
-      queueConsumerV1 = mock(),
       queueConsumerV2 = mock(),
       deadLetterTracedQueueAsyncClient = deadLetterTracedQueueAsyncClient,
       strictSerializerProviderV1 = strictSerializerProviderV1,
@@ -39,7 +38,6 @@ class WarmupRequestsTest {
 
   private val transactionRefundedRetryEventsConsumer =
     TransactionRefundRetryQueueConsumer(
-      queueConsumerV1 = mock(),
       queueConsumerV2 = mock(),
       deadLetterTracedQueueAsyncClient = deadLetterTracedQueueAsyncClient,
       strictSerializerProviderV1 = strictSerializerProviderV1,
@@ -47,7 +45,6 @@ class WarmupRequestsTest {
 
   private val transactionNotificationsRetryQueueConsumer =
     TransactionNotificationsRetryQueueConsumer(
-      queueConsumerV1 = mock(),
       queueConsumerV2 = mock(),
       deadLetterTracedQueueAsyncClient = deadLetterTracedQueueAsyncClient,
       strictSerializerProviderV1 = strictSerializerProviderV1,
@@ -55,7 +52,6 @@ class WarmupRequestsTest {
 
   private val transactionClosePaymentRetryQueueConsumer =
     TransactionClosePaymentRetryQueueConsumer(
-      queueConsumerV1 = mock(),
       queueConsumerV2 = mock(),
       deadLetterTracedQueueAsyncClient = deadLetterTracedQueueAsyncClient,
       strictSerializerProviderV1 = strictSerializerProviderV1,
@@ -63,7 +59,6 @@ class WarmupRequestsTest {
 
   private val transactionClosePaymentQueueConsumer =
     TransactionClosePaymentQueueConsumer(
-      queueConsumerV1 = mock(),
       queueConsumerV2 = mock(),
       deadLetterTracedQueueAsyncClient = deadLetterTracedQueueAsyncClient,
       strictSerializerProviderV1 = strictSerializerProviderV1,
@@ -71,7 +66,6 @@ class WarmupRequestsTest {
 
   private val transactionExpirationQueueConsumer =
     TransactionExpirationQueueConsumer(
-      queueConsumerV1 = mock(),
       queueConsumerV2 = mock(),
       deadLetterTracedQueueAsyncClient = deadLetterTracedQueueAsyncClient,
       strictSerializerProviderV1 = strictSerializerProviderV1,

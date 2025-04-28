@@ -14,7 +14,6 @@ import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.eventdispatcher.exceptions.InvalidEventException
-import it.pagopa.ecommerce.eventdispatcher.queues.v1.TransactionExpirationQueueConsumer as TransactionExpirationQueueConsumerV1
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.TransactionExpirationQueueConsumer as TransactionExpirationQueueConsumerV2
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.ecommerce.eventdispatcher.warmup.annotations.WarmupFunction
@@ -39,9 +38,6 @@ import reactor.core.publisher.Mono
  */
 @Service
 class TransactionExpirationQueueConsumer(
-  @Autowired
-  @Qualifier("TransactionExpirationQueueConsumerV1")
-  private val queueConsumerV1: TransactionExpirationQueueConsumerV1,
   @Autowired
   @Qualifier("TransactionExpirationQueueConsumerV2")
   private val queueConsumerV2: TransactionExpirationQueueConsumerV2,
@@ -135,16 +131,6 @@ class TransactionExpirationQueueConsumer(
     return eventWithTracingInfo
       .flatMap { (e, tracingInfo) ->
         when (e) {
-          is TransactionActivatedEventV1 -> {
-            logger.debug("Event {} with tracing info {} dispatched to V1 handler", e, tracingInfo)
-            queueConsumerV1.messageReceiver(
-              Pair(Either.left(e), tracingInfo), checkPointer, headers)
-          }
-          is TransactionExpiredEventV1 -> {
-            logger.debug("Event {} with tracing info {} dispatched to V1 handler", e, tracingInfo)
-            queueConsumerV1.messageReceiver(
-              Pair(Either.right(e), tracingInfo), checkPointer, headers)
-          }
           is TransactionActivatedEventV2 -> {
             logger.debug("Event {} with tracing info {} dispatched to V2 handler", e, tracingInfo)
             queueConsumerV2.messageReceiver(
