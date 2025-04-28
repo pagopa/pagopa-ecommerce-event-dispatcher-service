@@ -92,6 +92,7 @@ runs:
             owner: context.repo.owner,
             repo: context.repo.repo
           });
+          
           for (const comment of comments.data) {
             if (comment.body.includes('Pull request label validation error!')) {
               github.rest.issues.deleteComment({
