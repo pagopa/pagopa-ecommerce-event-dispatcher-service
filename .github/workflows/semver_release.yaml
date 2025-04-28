@@ -51,8 +51,23 @@ jobs:
       - name: Get New App Version
         id: get_new_ver
         run: |
-          version=$(mvn -f pom.xml help:evaluate -Dexpression=project.version -q -DforceStdout)
+          RELEASE_APP_SEMVER=${{ needs.semver_labels.outputs.semver_app }}
+          MAVEN_BUMP_OPTS=""
+          if [[ $RELEASE_APP_SEMVER = "patch" ]]
+          then
+          MAVEN_BUMP_OPTS='-DnewVersion=${parsedVersion.majorVersion}.${parsedVersion.minorVersion}.${parsedVersion.nextIncrementalVersion}'
+          elif [[ $RELEASE_APP_SEMVER = "minor" ]]
+          then
+          MAVEN_BUMP_OPTS='-DnewVersion=${parsedVersion.majorVersion}.${parsedVersion.nextMinorVersion}.0'
+          elif [[ $RELEASE_APP_SEMVER = "major" ]]
+          then
+          MAVEN_BUMP_OPTS='-DnewVersion=${parsedVersion.nextMajorVersion}.0.0'
+          else
+          MAVEN_BUMP_OPTS='-DnewVersion=${parsedVersion.majorVersion}.${parsedVersion.minorVersion}.${parsedVersion.incrementalVersion}-${parsedVersion.nextBuildNumber}'
+          fi
+          mvn -f pom.xml build-helper:parse-version versions:set "$MAVEN_BUMP_OPTS"
           git add pom.xml
+          version=$(mvn -f pom.xml help:evaluate -Dexpression=project.version -q -DforceStdout)
           echo $version
           echo "version=$version" >> $GITHUB_OUTPUT
       - name: Update Helm Version Values
