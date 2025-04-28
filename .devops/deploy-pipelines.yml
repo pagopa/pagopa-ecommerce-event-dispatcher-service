@@ -207,7 +207,7 @@ stages:
 
   - stage: "tag_docker_release"
     displayName: 'Tag Docker image to be release'
-    dependsOn: get_version
+    dependsOn: Get_Release_Version
     condition:
       and(
       succeeded(),
