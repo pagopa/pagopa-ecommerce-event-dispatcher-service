@@ -17,6 +17,7 @@ import it.pagopa.generated.transactionauthrequests.v2.dto.PaymentInfoDto
 import it.pagopa.generated.transactionauthrequests.v2.dto.TransactionInfoDto
 import it.pagopa.generated.transactionauthrequests.v2.dto.TransactionStatusDto
 import java.time.OffsetDateTime
+import java.time.ZonedDateTime
 import java.util.*
 import org.junit.jupiter.api.Assertions
 import reactor.core.publisher.Mono
@@ -95,4 +96,10 @@ fun assetTransactionStatusEquals(
   actual: List<Transaction>
 ) {
   Assertions.assertIterableEquals(expectedStatus, actual.map { it.status })
+}
+
+fun createDateForSecondsFromNow(seconds: Int): String {
+  val nSecondsAgo = ZonedDateTime.now().minusSeconds(seconds.toLong())
+  // Either use the default toString() which includes timezone
+  return nSecondsAgo.withNano(0).toString()
 }
