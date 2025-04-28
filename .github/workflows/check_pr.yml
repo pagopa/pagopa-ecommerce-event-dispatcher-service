@@ -25,7 +25,6 @@ jobs:
     runs-on: ubuntu-latest
     name: Check Size
     steps:
-
       - name: Check PR Size
         uses: pagopa/github-actions-template/check-pr-size@3fae741d94bcb9873f2447e95cc4ddea6f77be4d
         with:
