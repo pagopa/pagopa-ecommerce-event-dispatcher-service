@@ -22,6 +22,7 @@ import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.TracingInfoTest.MOCK_TRACING_INFO
 import it.pagopa.ecommerce.commons.queues.TracingUtilsTests
 import it.pagopa.ecommerce.commons.redis.templatewrappers.PaymentRequestInfoRedisTemplateWrapper
+import it.pagopa.ecommerce.commons.utils.OpenTelemetryUtils
 import it.pagopa.ecommerce.commons.utils.UpdateTransactionStatusTracerUtils
 import it.pagopa.ecommerce.commons.utils.UpdateTransactionStatusTracerUtils.ClosePaymentNodoStatusUpdate
 import it.pagopa.ecommerce.commons.utils.UpdateTransactionStatusTracerUtils.UserCancelClosePaymentNodoStatusUpdate
@@ -37,6 +38,7 @@ import it.pagopa.ecommerce.eventdispatcher.services.v2.NodeService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.ecommerce.eventdispatcher.utils.TRANSIENT_QUEUE_TTL_SECONDS
+import it.pagopa.ecommerce.eventdispatcher.utils.TransactionTracing
 import it.pagopa.ecommerce.eventdispatcher.utils.queueSuccessfulResponse
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ErrorDto
@@ -99,6 +101,10 @@ class ClosePaymentHelperTests {
 
   private val refundQueueAsyncClient: QueueAsyncClient = mock()
 
+  private val transactionTracing = getTransactionTracingMock()
+
+  private lateinit var mockOpenTelemetryUtils: OpenTelemetryUtils
+
   @Captor private lateinit var viewArgumentCaptor: ArgumentCaptor<Transaction>
 
   @Captor
@@ -140,7 +146,8 @@ class ClosePaymentHelperTests {
           eventProcessingDelaySeconds),
       refundQueueAsyncClient = refundQueueAsyncClient,
       transientQueueTTLSeconds = TRANSIENT_QUEUE_TTL_SECONDS,
-      updateTransactionStatusTracerUtils = updateTransactionStatusTracerUtils)
+      updateTransactionStatusTracerUtils = updateTransactionStatusTracerUtils,
+      transactionTracing = transactionTracing)
 
   @Test
   fun `consumer throw exception when the transaction authorization is performed via pgs`() =
@@ -221,6 +228,10 @@ class ClosePaymentHelperTests {
                 TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT.toString(),
               errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)),
         )
+      verify(transactionTracing, never())
+        .addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -296,6 +307,10 @@ class ClosePaymentHelperTests {
             transactionEventCode = TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT.toString(),
             errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)),
       )
+    verify(transactionTracing, never())
+      .addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction(any(), any())
+    verify(mockOpenTelemetryUtils, never())
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
   }
 
   @Test
@@ -388,6 +403,10 @@ class ClosePaymentHelperTests {
             false,
             UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
               ClosePaymentOutcome.OK.toString(), Optional.empty())))
+      verify(transactionTracing, never())
+        .addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -483,6 +502,10 @@ class ClosePaymentHelperTests {
             UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
               ClosePaymentOutcome.KO.toString(), Optional.empty())))
       assertNull(viewArgumentCaptor.value.closureErrorData)
+      verify(transactionTracing, times(1))
+        .addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, times(1))
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -573,6 +596,10 @@ class ClosePaymentHelperTests {
               errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)),
         )
       verify(updateTransactionStatusTracerUtils, times(0)).traceStatusUpdateOperation(any())
+      verify(transactionTracing, never())
+        .addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -639,6 +666,10 @@ class ClosePaymentHelperTests {
               errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)),
         )
       verify(updateTransactionStatusTracerUtils, times(0)).traceStatusUpdateOperation(any())
+      verify(transactionTracing, never())
+        .addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -725,6 +756,10 @@ class ClosePaymentHelperTests {
           UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
             ClosePaymentOutcome.OK.toString(), Optional.empty())))
     assertNull(viewArgumentCaptor.allValues[0].closureErrorData)
+    verify(transactionTracing, never())
+      .addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction(any(), any())
+    verify(mockOpenTelemetryUtils, never())
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
   }
 
   @Test
@@ -792,6 +827,10 @@ class ClosePaymentHelperTests {
             errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)),
       )
     verify(updateTransactionStatusTracerUtils, times(0)).traceStatusUpdateOperation(any())
+    verify(transactionTracing, never())
+      .addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction(any(), any())
+    verify(mockOpenTelemetryUtils, never())
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
   }
 
   @Test
@@ -912,6 +951,10 @@ class ClosePaymentHelperTests {
             false,
             UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
               ClosePaymentOutcome.KO.toString(), Optional.empty())))
+      verify(transactionTracing, never())
+        .addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -1014,6 +1057,10 @@ class ClosePaymentHelperTests {
                 TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT.toString(),
               errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)),
         )
+      verify(transactionTracing, never())
+        .addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -1130,6 +1177,10 @@ class ClosePaymentHelperTests {
         assertNull(it.closureErrorData!!.httpErrorCode)
         assertEquals(ErrorType.COMMUNICATION_ERROR, it.closureErrorData!!.errorType)
       }
+      verify(transactionTracing, never())
+        .addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -1247,6 +1298,11 @@ class ClosePaymentHelperTests {
           false,
           UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
             ClosePaymentOutcome.KO.toString(), Optional.of("HTTP code:[N/A] - descr:[N/A]"))))
+
+    verify(transactionTracing, never())
+      .addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction(any(), any())
+    verify(mockOpenTelemetryUtils, never())
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
   }
 
   @Test
@@ -1355,6 +1411,10 @@ class ClosePaymentHelperTests {
         assertNull(it.closureErrorData!!.httpErrorCode)
         assertEquals(ErrorType.COMMUNICATION_ERROR, it.closureErrorData!!.errorType)
       }
+    verify(transactionTracing, never())
+      .addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction(any(), any())
+    verify(mockOpenTelemetryUtils, never())
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
   }
 
   @Test
@@ -1470,6 +1530,11 @@ class ClosePaymentHelperTests {
         assertNull(it.closureErrorData!!.httpErrorCode)
         assertEquals(ErrorType.COMMUNICATION_ERROR, it.closureErrorData!!.errorType)
       }
+
+      verify(transactionTracing, never())
+        .addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -1544,6 +1609,10 @@ class ClosePaymentHelperTests {
           Transaction.ClientId.CHECKOUT,
           UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
             ClosePaymentOutcome.OK.toString(), Optional.empty())))
+    verify(transactionTracing, times(1))
+      .addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction(any(), any())
+    verify(mockOpenTelemetryUtils, times(1))
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
   }
 
   @Test
@@ -1615,6 +1684,10 @@ class ClosePaymentHelperTests {
           Transaction.ClientId.CHECKOUT,
           UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
             ClosePaymentOutcome.KO.toString(), Optional.empty())))
+    verify(transactionTracing, times(1))
+      .addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction(any(), any())
+    verify(mockOpenTelemetryUtils, times(1))
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
   }
 
   @Test
@@ -1688,6 +1761,10 @@ class ClosePaymentHelperTests {
           Transaction.ClientId.CHECKOUT,
           UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
             ClosePaymentOutcome.KO.toString(), Optional.of("HTTP code:[N/A] - descr:[N/A]"))))
+    verify(transactionTracing, never())
+      .addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction(any(), any())
+    verify(mockOpenTelemetryUtils, never())
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
   }
 
   @Test
@@ -1765,6 +1842,10 @@ class ClosePaymentHelperTests {
             Transaction.ClientId.CHECKOUT,
             UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
               ClosePaymentOutcome.KO.toString(), Optional.of("HTTP code:[400] - descr:[N/A]"))))
+      verify(transactionTracing, never())
+        .addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -1838,6 +1919,10 @@ class ClosePaymentHelperTests {
             Transaction.ClientId.CHECKOUT,
             UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
               ClosePaymentOutcome.KO.toString(), Optional.of("HTTP code:[400] - descr:[N/A]"))))
+      verify(transactionTracing, never())
+        .addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -1929,6 +2014,10 @@ class ClosePaymentHelperTests {
             false,
             UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
               ClosePaymentOutcome.OK.toString(), Optional.empty())))
+      verify(transactionTracing, never())
+        .addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -2019,6 +2108,10 @@ class ClosePaymentHelperTests {
             false,
             UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
               ClosePaymentOutcome.KO.toString(), Optional.empty())))
+      verify(transactionTracing, times(1))
+        .addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, times(1))
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -2141,6 +2234,10 @@ class ClosePaymentHelperTests {
           assertEquals(HttpStatus.UNPROCESSABLE_ENTITY, it.closureErrorData!!.httpErrorCode)
           assertEquals(ErrorType.KO_RESPONSE_RECEIVED, it.closureErrorData!!.errorType)
         }
+      verify(transactionTracing, never())
+        .addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @ParameterizedTest
@@ -2240,6 +2337,10 @@ class ClosePaymentHelperTests {
         assertEquals(HttpStatus.valueOf(422), it.closureErrorData!!.httpErrorCode)
         assertEquals(ErrorType.KO_RESPONSE_RECEIVED, it.closureErrorData!!.errorType)
       }
+    verify(transactionTracing, never())
+      .addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction(any(), any())
+    verify(mockOpenTelemetryUtils, never())
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
   }
 
   @ParameterizedTest
@@ -2340,6 +2441,10 @@ class ClosePaymentHelperTests {
           UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
             ClosePaymentOutcome.KO.toString(),
             Optional.of("HTTP code:[422] - descr:[${nodeErrorDescription ?: "N/A"}]"))))
+    verify(transactionTracing, never())
+      .addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction(any(), any())
+    verify(mockOpenTelemetryUtils, never())
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
   }
 
   @ParameterizedTest
@@ -2462,6 +2567,10 @@ class ClosePaymentHelperTests {
         assertEquals(HttpStatus.valueOf(nodeHttpErrorCode), it.closureErrorData!!.httpErrorCode)
         assertEquals(ErrorType.KO_RESPONSE_RECEIVED, it.closureErrorData!!.errorType)
       }
+    verify(transactionTracing, never())
+      .addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction(any(), any())
+    verify(mockOpenTelemetryUtils, never())
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
   }
 
   companion object {
@@ -2578,6 +2687,10 @@ class ClosePaymentHelperTests {
     viewArgumentCaptor.allValues.last().let {
       assertEquals(expectedClosureErrorData, it.closureErrorData)
     }
+    verify(transactionTracing, never())
+      .addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction(any(), any())
+    verify(mockOpenTelemetryUtils, never())
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
   }
 
   @Test
@@ -2703,6 +2816,10 @@ class ClosePaymentHelperTests {
             UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
               ClosePaymentOutcome.KO.toString(),
               Optional.of("HTTP code:[422] - descr:[Node did not receive RPT yet]"))))
+      verify(transactionTracing, never())
+        .addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -2803,6 +2920,10 @@ class ClosePaymentHelperTests {
             UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
               ClosePaymentOutcome.KO.toString(),
               Optional.of("HTTP code:[422] - descr:[unknown error]"))))
+      verify(transactionTracing, never())
+        .addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -2901,6 +3022,10 @@ class ClosePaymentHelperTests {
             false,
             UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
               ClosePaymentOutcome.KO.toString(), Optional.of("HTTP code:[422] - descr:[N/A]"))))
+      verify(transactionTracing, never())
+        .addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @ParameterizedTest
@@ -3023,6 +3148,10 @@ class ClosePaymentHelperTests {
     assertEquals(
       TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT.name,
       closureErrorEventStoreRepositoryCaptor.value.eventCode)
+    verify(transactionTracing, never())
+      .addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction(any(), any())
+    verify(mockOpenTelemetryUtils, never())
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
   }
 
   @ParameterizedTest
@@ -3122,6 +3251,10 @@ class ClosePaymentHelperTests {
           UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
             ClosePaymentOutcome.KO.toString(),
             Optional.of("HTTP code:[$expectedHttpErrorCode] - descr:[$expectedErrorDescription]"))))
+    verify(transactionTracing, never())
+      .addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction(any(), any())
+    verify(mockOpenTelemetryUtils, never())
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
   }
 
   @Test
@@ -3242,6 +3375,10 @@ class ClosePaymentHelperTests {
             false,
             UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
               ClosePaymentOutcome.KO.toString(), Optional.empty())))
+      verify(transactionTracing, never())
+        .addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -3367,6 +3504,10 @@ class ClosePaymentHelperTests {
         TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT,
         TransactionEventCode.valueOf(closureErrorEventStoreRepositoryCaptor.value.eventCode))
       verify(updateTransactionStatusTracerUtils, times(0)).traceStatusUpdateOperation(any())
+      verify(transactionTracing, never())
+        .addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -3460,6 +3601,10 @@ class ClosePaymentHelperTests {
             true,
             UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
               ClosePaymentOutcome.OK.toString(), Optional.empty())))
+      verify(transactionTracing, never())
+        .addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @ParameterizedTest
@@ -3553,5 +3698,24 @@ class ClosePaymentHelperTests {
           false,
           UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
             ClosePaymentOutcome.OK.toString(), Optional.empty())))
+    verify(transactionTracing, never())
+      .addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction(any(), any())
+    verify(mockOpenTelemetryUtils, never())
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
+  }
+
+  private fun getTransactionTracingMock(): TransactionTracing {
+    // Create a mock of OpenTelemetryUtils
+    val mockOpenTelemetryUtils: OpenTelemetryUtils = mock()
+
+    // Create a real TransactionTracing instance with the mock OpenTelemetryUtils
+    val transactionTracing = TransactionTracing(mockOpenTelemetryUtils)
+
+    val transactionTracingSpy = spy(transactionTracing)
+
+    // Store the mockOpenTelemetryUtils for later verification
+    this.mockOpenTelemetryUtils = mockOpenTelemetryUtils
+
+    return transactionTracingSpy
   }
 }

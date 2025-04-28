@@ -2,6 +2,8 @@ package it.pagopa.ecommerce.eventdispatcher.queues.v2
 
 import com.azure.core.util.BinaryData
 import com.azure.spring.messaging.checkpoint.Checkpointer
+import io.opentelemetry.api.common.AttributeKey
+import io.opentelemetry.api.common.Attributes
 import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.client.NpgClient
 import it.pagopa.ecommerce.commons.documents.v2.*
@@ -17,6 +19,8 @@ import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.TracingInfoTest.MOCK_TRACING_INFO
 import it.pagopa.ecommerce.commons.queues.TracingUtilsTests
+import it.pagopa.ecommerce.commons.utils.OpenTelemetryUtils
+import it.pagopa.ecommerce.commons.v2.TransactionTestUtils
 import it.pagopa.ecommerce.commons.v2.TransactionTestUtils.*
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.config.QueuesConsumerConfig
@@ -28,6 +32,7 @@ import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetrySer
 import it.pagopa.ecommerce.eventdispatcher.services.v2.AuthorizationStateRetrieverService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
+import it.pagopa.ecommerce.eventdispatcher.utils.TransactionTracing
 import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundOutcomeDto
 import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundResponseDto as RedirectRefundResponseDto
 import java.math.BigDecimal
@@ -84,6 +89,8 @@ class TransactionsRefundEventsConsumerTests {
 
   private val tracingUtils = TracingUtilsTests.getMock()
 
+  private lateinit var mockOpenTelemetryUtils: OpenTelemetryUtils
+
   @Captor
   private lateinit var refundEventStoreCaptor:
     ArgumentCaptor<TransactionEvent<BaseTransactionRefundedData>>
@@ -91,6 +98,8 @@ class TransactionsRefundEventsConsumerTests {
   @Captor private lateinit var queueArgumentCaptor: ArgumentCaptor<BinaryData>
 
   private val transactionsViewRepository: TransactionsViewRepository = mock()
+
+  private val transactionTracing = getTransactionTracingMock()
 
   private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient = mock()
   private val strictJsonSerializerProviderV2 = QueuesConsumerConfig().strictSerializerProviderV2()
@@ -107,6 +116,7 @@ class TransactionsRefundEventsConsumerTests {
       tracingUtils = tracingUtils,
       strictSerializerProviderV2 = strictJsonSerializerProviderV2,
       npgService = npgService,
+      transactionTracing = transactionTracing,
     )
 
   private val jsonSerializerV2 = strictJsonSerializerProviderV2.createInstance()
@@ -176,6 +186,9 @@ class TransactionsRefundEventsConsumerTests {
       verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).save(any())
       verify(refundRetryService, times(0))
         .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
+      verify(transactionTracing, never()).addSpanAttributesRefundedFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -265,6 +278,9 @@ class TransactionsRefundEventsConsumerTests {
       assertEquals(
         TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT.toString(), storedEvent.eventCode)
       assertEquals(TransactionStatusDto.REFUND_REQUESTED, storedEvent.data.statusBeforeRefunded)
+      verify(transactionTracing, never()).addSpanAttributesRefundedFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -360,6 +376,9 @@ class TransactionsRefundEventsConsumerTests {
     val storedEvent = refundEventStoreCaptor.value
     assertEquals(TransactionEventCode.TRANSACTION_REFUNDED_EVENT.toString(), storedEvent.eventCode)
     assertEquals(TransactionStatusDto.REFUND_REQUESTED, storedEvent.data.statusBeforeRefunded)
+    verify(transactionTracing, times(1)).addSpanAttributesRefundedFlowFromTransaction(any(), any())
+    verify(mockOpenTelemetryUtils, times(1))
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
   }
 
   @Test
@@ -478,6 +497,9 @@ class TransactionsRefundEventsConsumerTests {
       assertEquals(
         TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT.toString(), storedEvent.eventCode)
       assertEquals(TransactionStatusDto.REFUND_REQUESTED, storedEvent.data.statusBeforeRefunded)
+      verify(transactionTracing, never()).addSpanAttributesRefundedFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -516,6 +538,9 @@ class TransactionsRefundEventsConsumerTests {
     assertEquals(
       getAuthorizationCompletedData(transaction, npgService).block(),
       transactionGatewayAuthorizationData)
+    verify(transactionTracing, never()).addSpanAttributesRefundedFlowFromTransaction(any(), any())
+    verify(mockOpenTelemetryUtils, never())
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
   }
 
   @Test
@@ -542,6 +567,9 @@ class TransactionsRefundEventsConsumerTests {
       assertEquals(
         getAuthorizationCompletedData(transaction, npgService).block(),
         transactionGatewayAuthorizationData)
+      verify(transactionTracing, never()).addSpanAttributesRefundedFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -574,6 +602,9 @@ class TransactionsRefundEventsConsumerTests {
     assertEquals(
       getAuthorizationCompletedData(transaction, npgService).block(),
       transactionGatewayAuthorizationData)
+    verify(transactionTracing, never()).addSpanAttributesRefundedFlowFromTransaction(any(), any())
+    verify(mockOpenTelemetryUtils, never())
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
   }
 
   @Test
@@ -604,6 +635,9 @@ class TransactionsRefundEventsConsumerTests {
     assertEquals(
       getAuthorizationCompletedData(transaction, npgService).block(),
       transactionGatewayAuthorizationData)
+    verify(transactionTracing, never()).addSpanAttributesRefundedFlowFromTransaction(any(), any())
+    verify(mockOpenTelemetryUtils, never())
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
   }
 
   @Test
@@ -621,6 +655,9 @@ class TransactionsRefundEventsConsumerTests {
         reduceEvents(*events.toTypedArray()) as BaseTransactionWithRequestedAuthorization
 
       assertNull(getAuthorizationCompletedData(transaction, npgService).block())
+      verify(transactionTracing, never()).addSpanAttributesRefundedFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
 
   @Test
@@ -662,12 +699,15 @@ class TransactionsRefundEventsConsumerTests {
     verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).save(any())
     verify(refundRetryService, times(0))
       .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
+    verify(transactionTracing, never()).addSpanAttributesRefundedFlowFromTransaction(any(), any())
+    verify(mockOpenTelemetryUtils, never())
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
   }
 
   @ParameterizedTest
   @MethodSource("redirectClientsMappingMethodSource")
   fun `consumer processes refund request event correctly with for redirect transaction`(
-    touchPoint: Transaction.ClientId,
+    touchPoint: ClientId,
     expectedMappedTouchPoint: String
   ) = runTest {
     val activationEvent =
@@ -750,6 +790,9 @@ class TransactionsRefundEventsConsumerTests {
     val storedEvent = refundEventStoreCaptor.value
     assertEquals(TransactionEventCode.TRANSACTION_REFUNDED_EVENT.toString(), storedEvent.eventCode)
     assertEquals(TransactionStatusDto.REFUND_REQUESTED, storedEvent.data.statusBeforeRefunded)
+    verify(transactionTracing, times(1)).addSpanAttributesRefundedFlowFromTransaction(any(), any())
+    verify(mockOpenTelemetryUtils, times(1))
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
   }
 
   @Test
@@ -826,5 +869,114 @@ class TransactionsRefundEventsConsumerTests {
       TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT,
       TransactionEventCode.valueOf(storedEvent.eventCode))
     assertEquals(TransactionStatusDto.REFUND_REQUESTED, storedEvent.data.statusBeforeRefunded)
+    verify(transactionTracing, times(1)).addSpanAttributesRefundedFlowFromTransaction(any(), any())
+    verify(mockOpenTelemetryUtils, never())
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
+  }
+
+  ////
+
+  @Test
+  fun `consumer processes refund request event correctly with npg refund ue`() = runTest {
+    val correlationId = UUID.randomUUID().toString()
+    val activationEvent =
+      transactionActivateEvent(NpgTransactionGatewayActivationData("orderId", correlationId))
+        as TransactionEvent<Any>
+    val authorizationRequestEvent =
+      transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
+    (authorizationRequestEvent.data as TransactionAuthorizationRequestData).paymentGateway =
+      TransactionAuthorizationRequestData.PaymentGateway.NPG
+
+    val authorizationCompleteEvent =
+      transactionAuthorizationCompletedEvent(
+        npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED))
+        as TransactionEvent<Any>
+    val closureRequestedEvent = transactionClosureRequestedEvent() as TransactionEvent<Any>
+    val closedEvent =
+      transactionClosedEvent(TransactionClosureData.Outcome.KO) as TransactionEvent<Any>
+    val refundRequestedEvent =
+      TransactionRefundRequestedEvent(
+        TRANSACTION_ID, TransactionRefundRequestedData(null, TransactionStatusDto.REFUND_REQUESTED))
+        as TransactionEvent<Any>
+
+    val refundServiceNpgResponse =
+      RefundResponseDto().apply {
+        operationId = "operationId"
+        operationTime = "operationTime"
+      }
+
+    val events =
+      listOf(
+        activationEvent,
+        authorizationRequestEvent,
+        authorizationCompleteEvent,
+        closureRequestedEvent,
+        closedEvent,
+        refundRequestedEvent)
+
+    val transaction =
+      reduceEvents(*events.toTypedArray()) as BaseTransactionWithRequestedAuthorization
+
+    /* preconditions */
+    given(checkpointer.success()).willReturn(Mono.empty())
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
+      .willReturn(events.toFlux())
+    given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
+    given(transactionsRefundedEventStoreRepository.save(refundEventStoreCaptor.capture()))
+      .willAnswer { Mono.just(it.arguments[0]) }
+    given(refundService.requestNpgRefund(any(), any(), any(), any(), any(), any()))
+      .willReturn(Mono.just(refundServiceNpgResponse))
+    given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+      .willReturn(
+        mono { transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now()) })
+
+    /* test */
+    StepVerifier.create(
+        transactionRefundedEventsConsumer.messageReceiver(
+          Either.right(
+            QueueEvent(refundRequestedEvent as TransactionRefundRequestedEvent, MOCK_TRACING_INFO)),
+          checkpointer))
+      .expectNext(Unit)
+      .verifyComplete()
+
+    /* Asserts */
+    verify(transactionTracing, times(1)).addSpanAttributesRefundedFlowFromTransaction(any(), any())
+    val attributesCaptor = ArgumentCaptor.forClass(Attributes::class.java)
+    verify(mockOpenTelemetryUtils, times(1))
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), capture(attributesCaptor))
+    val capturedAttributes = attributesCaptor.value
+
+    assertEquals(
+      Transaction.ClientId.CHECKOUT.toString(),
+      capturedAttributes.get(AttributeKey.stringKey(TransactionTracing.CLIENTID)))
+    assertEquals(
+      NpgClient.PaymentMethod.CARDS.toString(),
+      capturedAttributes.get(AttributeKey.stringKey(TransactionTracing.PAYMENTMETHOD)))
+    assertEquals("pspId", capturedAttributes.get(AttributeKey.stringKey(TransactionTracing.PSPID)))
+    /*assertEquals(
+    0,
+    capturedAttributes.get(AttributeKey.longKey(TransactionTracing.TRANSACTIONAUTHORIZATIONTIME)))*/
+    assertEquals(
+      TransactionStatusDto.REFUNDED.toString(),
+      capturedAttributes.get(AttributeKey.stringKey(TransactionTracing.TRANSACTIONSTATUS)))
+    assertEquals(
+      TransactionTestUtils.TRANSACTION_ID,
+      capturedAttributes.get(AttributeKey.stringKey(TransactionTracing.TRANSACTIONID)))
+  }
+
+  private fun getTransactionTracingMock(): TransactionTracing {
+    // Create a mock of OpenTelemetryUtils
+    val mockOpenTelemetryUtils: OpenTelemetryUtils = mock()
+
+    // Create a real TransactionTracing instance with the mock OpenTelemetryUtils
+    val transactionTracing = TransactionTracing(mockOpenTelemetryUtils)
+
+    val transactionTracingSpy = spy(transactionTracing)
+
+    // Store the mockOpenTelemetryUtils for later verification
+    this.mockOpenTelemetryUtils = mockOpenTelemetryUtils
+
+    return transactionTracingSpy
   }
 }
