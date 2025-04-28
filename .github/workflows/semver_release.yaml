@@ -102,6 +102,7 @@ jobs:
         with:
           persist-credentials: false
           token: ${{ secrets.BOT_GITHUB_TOKEN }}
+          ref: 'main'
       - name: Set Up Github Release
         id: setup_github_release
         run: |
