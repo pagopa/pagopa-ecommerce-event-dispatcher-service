@@ -1,7 +1,7 @@
 package it.pagopa.ecommerce.eventdispatcher.utils
 
 import it.pagopa.ecommerce.commons.documents.v2.Transaction
-import it.pagopa.ecommerce.commons.domain.PaymentNotice
+import it.pagopa.ecommerce.commons.domain.v2.PaymentNotice
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithRequestedUserReceipt
 
 object WispDeprecation {

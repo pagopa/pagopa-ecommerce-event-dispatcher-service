@@ -2,7 +2,7 @@ package it.pagopa.ecommerce.eventdispatcher.utils.v2
 
 import it.pagopa.ecommerce.commons.documents.v2.TransactionUserReceiptData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationData
-import it.pagopa.ecommerce.commons.domain.PaymentNotice
+import it.pagopa.ecommerce.commons.domain.v2.PaymentNotice
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithRequestedUserReceipt
 import it.pagopa.ecommerce.eventdispatcher.client.NotificationsServiceClient
 import it.pagopa.ecommerce.eventdispatcher.utils.ConfidentialDataUtils

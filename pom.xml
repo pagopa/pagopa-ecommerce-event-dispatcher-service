@@ -596,8 +596,8 @@
 				<configuration>
 					<skipCheckoutIfExists>false</skipCheckoutIfExists>
 					<connectionUrl>scm:git:https://github.com/pagopa/pagopa-ecommerce-commons.git</connectionUrl>
-					<scmVersionType>tag</scmVersionType>
-					<scmVersion>${pagopa-ecommerce-commons.version}</scmVersion>
+					<scmVersionType>branch</scmVersionType>
+					<scmVersion>CHK-4088-versioning-domain-object</scmVersion>
 					<goals>install -DskipTests</goals>
 				</configuration>
 				<executions>
