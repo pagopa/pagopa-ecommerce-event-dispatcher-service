@@ -9,7 +9,7 @@ import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationRequestedData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.WalletInfo
-import it.pagopa.ecommerce.commons.domain.TransactionId
+import it.pagopa.ecommerce.commons.domain.v2.TransactionId
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationDto
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.StateResponseDto

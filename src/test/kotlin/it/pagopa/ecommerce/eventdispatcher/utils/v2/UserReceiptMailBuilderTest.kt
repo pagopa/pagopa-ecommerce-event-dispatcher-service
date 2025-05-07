@@ -8,7 +8,7 @@ import it.pagopa.ecommerce.commons.documents.v2.activation.EmptyTransactionGatew
 import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationRequestedData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.RedirectTransactionGatewayAuthorizationData
-import it.pagopa.ecommerce.commons.domain.Email
+import it.pagopa.ecommerce.commons.domain.v2.Email
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithRequestedUserReceipt
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
 import it.pagopa.ecommerce.commons.v2.TransactionTestUtils

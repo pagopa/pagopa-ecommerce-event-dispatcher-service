@@ -1,6 +1,6 @@
 package it.pagopa.ecommerce.eventdispatcher.client
 
-import it.pagopa.ecommerce.commons.domain.TransactionId
+import it.pagopa.ecommerce.commons.domain.v2.TransactionId
 import it.pagopa.ecommerce.eventdispatcher.exceptions.*
 import it.pagopa.generated.transactionauthrequests.v2.api.TransactionsApi
 import it.pagopa.generated.transactionauthrequests.v2.dto.UpdateAuthorizationRequestDto

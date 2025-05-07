@@ -6,7 +6,7 @@ import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.trace.Span
 import io.opentelemetry.api.trace.SpanBuilder
 import io.opentelemetry.api.trace.Tracer
-import it.pagopa.ecommerce.commons.domain.TransactionId
+import it.pagopa.ecommerce.commons.domain.v2.TransactionId
 import java.time.Duration
 import java.util.*
 import java.util.stream.Stream

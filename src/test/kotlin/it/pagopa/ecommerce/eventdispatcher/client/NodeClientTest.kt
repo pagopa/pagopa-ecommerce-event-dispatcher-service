@@ -1,7 +1,7 @@
 package it.pagopa.ecommerce.eventdispatcher.client
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import it.pagopa.ecommerce.commons.domain.TransactionId
+import it.pagopa.ecommerce.commons.domain.v2.TransactionId
 import it.pagopa.ecommerce.commons.v1.TransactionTestUtils
 import it.pagopa.ecommerce.eventdispatcher.config.WebClientConfig
 import it.pagopa.ecommerce.eventdispatcher.exceptions.ClosePaymentErrorResponseException

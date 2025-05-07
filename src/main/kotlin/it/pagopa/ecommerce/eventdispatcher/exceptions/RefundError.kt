@@ -1,7 +1,7 @@
 package it.pagopa.ecommerce.eventdispatcher.exceptions
 
 import it.pagopa.ecommerce.commons.documents.v2.authorization.TransactionGatewayAuthorizationData
-import it.pagopa.ecommerce.commons.domain.TransactionId
+import it.pagopa.ecommerce.commons.domain.v2.TransactionId
 
 sealed class RefundError(cause: Throwable?) : Exception(cause) {
   data class UnexpectedPaymentGatewayResponse(

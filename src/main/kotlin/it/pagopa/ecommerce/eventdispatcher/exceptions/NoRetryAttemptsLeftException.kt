@@ -1,6 +1,6 @@
 package it.pagopa.ecommerce.eventdispatcher.exceptions
 
-import it.pagopa.ecommerce.commons.domain.TransactionId
+import it.pagopa.ecommerce.commons.domain.v2.TransactionId
 
 open class NoRetryAttemptsLeftException(message: String) : RuntimeException(message) {
   constructor(

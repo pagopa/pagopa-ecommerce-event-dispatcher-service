@@ -4,7 +4,7 @@ import com.azure.core.util.BinaryData
 import com.azure.storage.queue.QueueAsyncClient
 import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.trace.Tracer
-import it.pagopa.ecommerce.commons.domain.TransactionId
+import it.pagopa.ecommerce.commons.domain.v2.TransactionId
 import java.time.Duration
 import kotlinx.coroutines.reactor.mono
 import org.slf4j.LoggerFactory

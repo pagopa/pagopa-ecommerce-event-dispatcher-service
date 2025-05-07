@@ -5,9 +5,9 @@ import it.pagopa.ecommerce.commons.client.NpgClient
 import it.pagopa.ecommerce.commons.documents.v2.authorization.*
 import it.pagopa.ecommerce.commons.documents.v2.authorization.WalletInfo.CardWalletDetails
 import it.pagopa.ecommerce.commons.documents.v2.authorization.WalletInfo.PaypalWalletDetails
-import it.pagopa.ecommerce.commons.domain.Email
-import it.pagopa.ecommerce.commons.domain.TransactionId
+import it.pagopa.ecommerce.commons.domain.v2.Email
 import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
+import it.pagopa.ecommerce.commons.domain.v2.TransactionId
 import it.pagopa.ecommerce.commons.domain.v2.TransactionWithClosureError
 import it.pagopa.ecommerce.commons.domain.v2.TransactionWithClosureRequested
 import it.pagopa.ecommerce.commons.domain.v2.pojos.*
