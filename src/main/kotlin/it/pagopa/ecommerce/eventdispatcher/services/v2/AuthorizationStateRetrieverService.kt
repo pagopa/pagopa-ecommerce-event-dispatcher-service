@@ -4,7 +4,7 @@ import it.pagopa.ecommerce.commons.client.NpgClient
 import it.pagopa.ecommerce.commons.client.NpgClient.PaymentMethod
 import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationRequestData
 import it.pagopa.ecommerce.commons.documents.v2.activation.NpgTransactionGatewayActivationData
-import it.pagopa.ecommerce.commons.domain.TransactionId
+import it.pagopa.ecommerce.commons.domain.v2.TransactionId
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithRequestedAuthorization
 import it.pagopa.ecommerce.commons.exceptions.NpgResponseException
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OrderResponseDto

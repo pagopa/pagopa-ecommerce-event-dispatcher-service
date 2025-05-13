@@ -17,7 +17,6 @@ import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClien
 import it.pagopa.ecommerce.eventdispatcher.warmup.annotations.WarmupFunction
 import it.pagopa.ecommerce.payment.requests.warmup.utils.DummyCheckpointer
 import it.pagopa.ecommerce.payment.requests.warmup.utils.WarmupRequests.getTransactionClosureRequestedEvent
-import java.util.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -29,9 +28,6 @@ import reactor.core.publisher.Mono
 
 @Service("TransactionClosePaymentQueueConsumer")
 class TransactionClosePaymentQueueConsumer(
-  @Autowired
-  private val queueConsumerV1:
-    it.pagopa.ecommerce.eventdispatcher.queues.v1.TransactionClosePaymentQueueConsumer,
   @Autowired
   private val queueConsumerV2:
     it.pagopa.ecommerce.eventdispatcher.queues.v2.TransactionClosePaymentQueueConsumer,
@@ -98,10 +94,6 @@ class TransactionClosePaymentQueueConsumer(
     return parsedEvents
       .flatMap { (e, tracingInfo) ->
         when (e) {
-          is TransactionUserCanceledEventV1 -> {
-            logger.debug("Event {} with tracing info {} dispatched to V1 handler", e, tracingInfo)
-            queueConsumerV1.messageReceiver(e to tracingInfo, checkPointer)
-          }
           is TransactionUserCanceledEventV2 -> {
             logger.debug("Event {} with tracing info {} dispatched to V2 handler", e, tracingInfo)
             queueConsumerV2.messageReceiver(Either.left(QueueEvent(e, tracingInfo)), checkPointer)

@@ -30,9 +30,6 @@ import reactor.core.publisher.Mono
 @Service("TransactionNotificationsRetryQueueConsumer")
 class TransactionNotificationsRetryQueueConsumer(
   @Autowired
-  private val queueConsumerV1:
-    it.pagopa.ecommerce.eventdispatcher.queues.v1.TransactionNotificationsRetryQueueConsumer,
-  @Autowired
   private val queueConsumerV2:
     it.pagopa.ecommerce.eventdispatcher.queues.v2.TransactionNotificationsRetryQueueConsumer,
   @Autowired private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient,
@@ -129,14 +126,6 @@ class TransactionNotificationsRetryQueueConsumer(
     return eventWithTracingInfo
       .flatMap { (e, tracingInfo) ->
         when (e) {
-          is TransactionUserReceiptAddErrorEventV1 -> {
-            logger.debug("Event {} with tracing info {} dispatched to V1 handler", e, tracingInfo)
-            queueConsumerV1.messageReceiver(Pair(Either.left(e), tracingInfo), checkPointer)
-          }
-          is TransactionUserReceiptAddRetriedEventV1 -> {
-            logger.debug("Event {} with tracing info {} dispatched to V1 handler", e, tracingInfo)
-            queueConsumerV1.messageReceiver(Pair(Either.right(e), tracingInfo), checkPointer)
-          }
           is TransactionUserReceiptAddErrorEventV2 -> {
             logger.debug("Event {} with tracing info {} dispatched to V2 handler", e, tracingInfo)
             queueConsumerV2.messageReceiver(Either.left(QueueEvent(e, tracingInfo)), checkPointer)

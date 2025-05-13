@@ -8,7 +8,6 @@ import it.pagopa.ecommerce.commons.documents.BaseTransactionEvent
 import it.pagopa.ecommerce.commons.documents.v1.*
 import it.pagopa.ecommerce.commons.documents.v1.TransactionUserReceiptRequestedEvent as TransactionUserReceiptRequestedEventV1
 import it.pagopa.ecommerce.commons.documents.v2.TransactionUserReceiptRequestedEvent as TransactionUserReceiptRequestedEventV2
-import it.pagopa.ecommerce.commons.domain.v1.pojos.*
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingInfo
@@ -17,8 +16,6 @@ import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClien
 import it.pagopa.ecommerce.eventdispatcher.warmup.annotations.WarmupFunction
 import it.pagopa.ecommerce.payment.requests.warmup.utils.DummyCheckpointer
 import it.pagopa.ecommerce.payment.requests.warmup.utils.WarmupRequests.getTransactionUserReceiptRequestedEvent
-import it.pagopa.generated.notifications.templates.success.*
-import java.util.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -30,9 +27,6 @@ import reactor.core.publisher.Mono
 
 @Service("TransactionNotificationsQueueConsumer")
 class TransactionNotificationsQueueConsumer(
-  @Autowired
-  private val queueConsumerV1:
-    it.pagopa.ecommerce.eventdispatcher.queues.v1.TransactionNotificationsQueueConsumer,
   @Autowired
   private val queueConsumerV2:
     it.pagopa.ecommerce.eventdispatcher.queues.v2.TransactionNotificationsQueueConsumer,
@@ -91,10 +85,6 @@ class TransactionNotificationsQueueConsumer(
     return parsedEvents
       .flatMap { (e, tracingInfo) ->
         when (e) {
-          is TransactionUserReceiptRequestedEventV1 -> {
-            logger.debug("Event {} with tracing info {} dispatched to V1 handler", e, tracingInfo)
-            queueConsumerV1.messageReceiver(e to tracingInfo, checkPointer)
-          }
           is TransactionUserReceiptRequestedEventV2 -> {
             logger.debug("Event {} with tracing info {} dispatched to V2 handler", e, tracingInfo)
             queueConsumerV2.messageReceiver(QueueEvent(e, tracingInfo), checkPointer)

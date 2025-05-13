@@ -8,7 +8,7 @@ import io.opentelemetry.api.trace.SpanBuilder
 import io.opentelemetry.api.trace.Tracer
 import it.pagopa.ecommerce.commons.client.NodeForwarderClient
 import it.pagopa.ecommerce.commons.client.NpgClient
-import it.pagopa.ecommerce.commons.domain.TransactionId
+import it.pagopa.ecommerce.commons.domain.v2.TransactionId
 import it.pagopa.ecommerce.commons.exceptions.NodeForwarderClientException
 import it.pagopa.ecommerce.commons.exceptions.NpgApiKeyConfigurationException
 import it.pagopa.ecommerce.commons.exceptions.NpgResponseException

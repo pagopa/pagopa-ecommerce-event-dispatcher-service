@@ -35,9 +35,6 @@ import reactor.core.publisher.Mono
 @Service("TransactionsRefundQueueConsumer")
 class TransactionsRefundQueueConsumer(
   @Autowired
-  private val queueConsumerV1:
-    it.pagopa.ecommerce.eventdispatcher.queues.v1.TransactionsRefundQueueConsumer,
-  @Autowired
   private val queueConsumerV2:
     it.pagopa.ecommerce.eventdispatcher.queues.v2.TransactionsRefundQueueConsumer,
   @Autowired private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient,
@@ -135,14 +132,6 @@ class TransactionsRefundQueueConsumer(
     return eventWithTracingInfo
       .flatMap { (e, tracingInfo) ->
         when (e) {
-          is TransactionRefundRequestedEventV1 -> {
-            logger.debug("Event {} with tracing info {} dispatched to V1 handler", e, tracingInfo)
-            queueConsumerV1.messageReceiver(Pair(Either.right(e), tracingInfo), checkPointer)
-          }
-          is TransactionRefundRetriedEventV1 -> {
-            logger.debug("Event {} with tracing info {} dispatched to V1 handler", e, tracingInfo)
-            queueConsumerV1.messageReceiver(Pair(Either.left(e), tracingInfo), checkPointer)
-          }
           is TransactionRefundRequestedEventV2 -> {
             logger.debug("Event {} with tracing info {} dispatched to V2 handler", e, tracingInfo)
             queueConsumerV2.messageReceiver(Either.right(QueueEvent(e, tracingInfo)), checkPointer)

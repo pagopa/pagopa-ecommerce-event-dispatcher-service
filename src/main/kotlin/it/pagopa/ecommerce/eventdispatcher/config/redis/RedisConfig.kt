@@ -1,8 +1,8 @@
 package it.pagopa.ecommerce.eventdispatcher.config.redis
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import it.pagopa.ecommerce.commons.redis.templatewrappers.PaymentRequestInfoRedisTemplateWrapper
-import it.pagopa.ecommerce.commons.redis.templatewrappers.RedisTemplateWrapperBuilder
+import it.pagopa.ecommerce.commons.redis.templatewrappers.v2.PaymentRequestInfoRedisTemplateWrapper
+import it.pagopa.ecommerce.commons.redis.templatewrappers.v2.RedisTemplateWrapperBuilder
 import it.pagopa.ecommerce.eventdispatcher.config.redis.bean.ReceiversStatus
 import it.pagopa.ecommerce.eventdispatcher.redis.streams.commands.EventDispatcherReceiverCommand
 import java.time.Duration
