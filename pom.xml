@@ -15,9 +15,9 @@
 		send user email, refund based on transaction status</description>
 	<properties>
 		<java.version>17</java.version>
-		<kotlin.version>1.6.21</kotlin.version>
-		<kotlinx-coroutines.version>1.6.2</kotlinx-coroutines.version>
-		<spring-cloud-azure.version>4.0.0</spring-cloud-azure.version>
+		<kotlin.version>1.9.24</kotlin.version>
+		<kotlinx-coroutines.version>1.6.4</kotlinx-coroutines.version>
+		<spring-cloud-azure.version>5.22.0</spring-cloud-azure.version>
 		<jacoco.version>0.8.8</jacoco.version>
 		<pagopa-ecommerce-commons.version>1.36.0</pagopa-ecommerce-commons.version>
 		<sonar.coverage.exclusions> <!-- the members of the following list should be in the same line -->
@@ -26,7 +26,7 @@
 		</sonar.coverage.exclusions>
 		<spotless.version>2.28.0</spotless.version>
 		<mock-web-server.version>4.11.0</mock-web-server.version>
-		<ecs-logging-version>1.5.0</ecs-logging-version>
+		<ecs-logging-version>1.7.0</ecs-logging-version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -49,6 +49,11 @@
 			<groupId>com.azure.spring</groupId>
 			<artifactId>spring-cloud-azure-starter-data-cosmos</artifactId>
 		</dependency>
+		<dependency>
+			<groupId>com.azure.spring</groupId>
+			<artifactId>spring-cloud-azure-starter-storage-queue</artifactId>
+		</dependency>
+
 		<dependency>
 			<groupId>com.fasterxml.jackson.module</groupId>
 			<artifactId>jackson-module-kotlin</artifactId>
@@ -112,12 +117,12 @@
 		<dependency>
 			<groupId>org.slf4j</groupId>
 			<artifactId>slf4j-api</artifactId>
-			<version>1.7.30</version>
+			<version>2.0.17</version>
 		</dependency>
 		<dependency>
 			<groupId>ch.qos.logback</groupId>
 			<artifactId>logback-classic</artifactId>
-			<version>1.2.3</version>
+			<version>1.5.18</version>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.integration</groupId>
@@ -184,6 +189,7 @@
 		<dependency>
 			<groupId>org.projectlombok</groupId>
 			<artifactId>lombok</artifactId>
+			<version>1.18.38</version>
 		</dependency>
 		<dependency>
 			<groupId>it.pagopa</groupId>
@@ -308,7 +314,7 @@
 					<dependency>
 						<groupId>org.projectlombok</groupId>
 						<artifactId>lombok</artifactId>
-						<version>1.18.20</version>
+						<version>1.18.38</version>
 						<scope>compile</scope>
 					</dependency>
 				</dependencies>
@@ -347,7 +353,7 @@
 			<plugin>
 				<groupId>org.openapitools</groupId>
 				<artifactId>openapi-generator-maven-plugin</artifactId>
-				<version>7.1.0</version>
+				<version>7.13.0</version>
 				<executions>
 					<execution>
 						<id>node-api</id>
@@ -564,6 +570,7 @@
 					</execution>
 				</executions>
 				<configuration>
+					<proc>none</proc>
 					<source>17</source>
 					<target>17</target>
 					<compilerArgs>--enable-preview</compilerArgs>
