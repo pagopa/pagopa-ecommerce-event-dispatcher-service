@@ -19,7 +19,7 @@ import java.util.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.http.HttpStatus
+import org.springframework.http.HttpStatusCode
 import org.springframework.stereotype.Component
 import org.springframework.web.reactive.function.client.WebClientResponseException
 import reactor.core.publisher.Mono
@@ -114,7 +114,7 @@ class RefundService(
               RedirectRefundResponseDto::class.java)
             .onErrorMap(NodeForwarderClientException::class.java) { exception ->
               val errorCause = exception.cause
-              val httpErrorCode: Optional<HttpStatus> =
+              val httpErrorCode: Optional<HttpStatusCode> =
                 Optional.ofNullable(errorCause).map {
                   if (it is WebClientResponseException) {
                     it.statusCode

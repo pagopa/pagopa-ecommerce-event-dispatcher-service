@@ -22,7 +22,7 @@ class QueuesConsumerConfig {
   @InboundChannelAdapter(
     channel = "transactionclosureschannel",
     autoStartup = "false",
-    poller = [Poller(fixedDelay = "1000", maxMessagesPerPoll = "10")])
+    poller = Poller(fixedDelay = "1000", maxMessagesPerPoll = "10"))
   @EndpointId("storageQueueClosuresMessageSourceEndpoint")
   fun storageQueueClosuresMessageSource(
     storageQueueTemplate: StorageQueueTemplate,
@@ -35,7 +35,7 @@ class QueuesConsumerConfig {
   @InboundChannelAdapter(
     channel = "transactionretryclosureschannel",
     autoStartup = "false",
-    poller = [Poller(fixedDelay = "1000", maxMessagesPerPoll = "10")])
+    poller = Poller(fixedDelay = "1000", maxMessagesPerPoll = "10"))
   @EndpointId("storageQueueRetryClosuresMessageSourceEndpoint")
   fun storageQueueRetryClosuresMessageSource(
     storageQueueTemplate: StorageQueueTemplate,
@@ -49,7 +49,7 @@ class QueuesConsumerConfig {
   @InboundChannelAdapter(
     channel = "transactionexpiredchannel",
     autoStartup = "false",
-    poller = [Poller(fixedDelay = "1000", maxMessagesPerPoll = "10")])
+    poller = Poller(fixedDelay = "1000", maxMessagesPerPoll = "10"))
   @EndpointId("storageQueueExpirationsMessageSourceEndpoint")
   fun storageQueueExpirationsMessageSource(
     storageQueueTemplate: StorageQueueTemplate,
@@ -62,7 +62,7 @@ class QueuesConsumerConfig {
   @InboundChannelAdapter(
     channel = "transactionrefundretrychannel",
     autoStartup = "false",
-    poller = [Poller(fixedDelay = "1000", maxMessagesPerPoll = "10")])
+    poller = Poller(fixedDelay = "1000", maxMessagesPerPoll = "10"))
   @EndpointId("storageQueueRefundRetryMessageSourceEndpoint")
   fun storageQueueRefundRetryMessageSource(
     storageQueueTemplate: StorageQueueTemplate,
@@ -75,7 +75,7 @@ class QueuesConsumerConfig {
   @InboundChannelAdapter(
     channel = "transactionsrefundchannel",
     autoStartup = "false",
-    poller = [Poller(fixedDelay = "1000", maxMessagesPerPoll = "10")])
+    poller = Poller(fixedDelay = "1000", maxMessagesPerPoll = "10"))
   @EndpointId("storageQueueRefundMessageSourceEndpoint")
   fun storageQueueRefundMessageSource(
     storageQueueTemplate: StorageQueueTemplate,
@@ -88,7 +88,7 @@ class QueuesConsumerConfig {
   @InboundChannelAdapter(
     channel = "transactionretrynotificationschannel",
     autoStartup = "false",
-    poller = [Poller(fixedDelay = "1000", maxMessagesPerPoll = "10")])
+    poller = Poller(fixedDelay = "1000", maxMessagesPerPoll = "10"))
   @EndpointId("storageQueueRetryNotificationsMessageSourceEndpoint")
   fun storageQueueRetryNotificationsMessageSource(
     storageQueueTemplate: StorageQueueTemplate,
@@ -103,7 +103,7 @@ class QueuesConsumerConfig {
   @InboundChannelAdapter(
     channel = "transactionnotificationschannel",
     autoStartup = "false",
-    poller = [Poller(fixedDelay = "1000", maxMessagesPerPoll = "10")])
+    poller = Poller(fixedDelay = "1000", maxMessagesPerPoll = "10"))
   @EndpointId("storageQueueNotificationsMessageSourceEndpoint")
   fun storageQueueNotificationsMessageSource(
     storageQueueTemplate: StorageQueueTemplate,
@@ -116,7 +116,7 @@ class QueuesConsumerConfig {
   @InboundChannelAdapter(
     channel = "transactionsauthorizationrequestedchannel",
     autoStartup = "false",
-    poller = [Poller(fixedDelay = "1000", maxMessagesPerPoll = "10")])
+    poller = Poller(fixedDelay = "1000", maxMessagesPerPoll = "10"))
   @EndpointId("storageQueueAuthorizationRequestedMessageSourceEndpoint")
   fun storageQueueAuthorizationRequestedMessageSource(
     storageQueueTemplate: StorageQueueTemplate,
@@ -130,7 +130,7 @@ class QueuesConsumerConfig {
   @InboundChannelAdapter(
     channel = "transactionsauthorizationoutcomewaitingchannel",
     autoStartup = "false",
-    poller = [Poller(fixedDelay = "1000", maxMessagesPerPoll = "10")])
+    poller = Poller(fixedDelay = "1000", maxMessagesPerPoll = "10"))
   @EndpointId("storageQueueAuthorizationOutcomeWaitingMessageSourceEndpoint")
   fun storageQueueAuthorizationOutcomeWaitingMessageSource(
     storageQueueTemplate: StorageQueueTemplate,

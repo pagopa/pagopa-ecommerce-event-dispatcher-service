@@ -2,8 +2,8 @@ package it.pagopa.ecommerce.eventdispatcher.controller.exceptionhandler
 
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoEventReceiverStatusFound
 import it.pagopa.generated.eventdispatcher.server.model.ProblemJsonDto
+import jakarta.validation.ConstraintViolationException
 import jakarta.xml.bind.ValidationException
-import javax.validation.ConstraintViolationException
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus

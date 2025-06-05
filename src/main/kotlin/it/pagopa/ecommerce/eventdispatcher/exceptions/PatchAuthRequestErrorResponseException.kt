@@ -2,12 +2,13 @@ package it.pagopa.ecommerce.eventdispatcher.exceptions
 
 import it.pagopa.ecommerce.commons.domain.v2.TransactionId
 import org.springframework.http.HttpStatus
+import org.springframework.http.HttpStatusCode
 import org.springframework.web.bind.annotation.ResponseStatus
 
 @ResponseStatus(value = HttpStatus.BAD_REQUEST)
 class PatchAuthRequestErrorResponseException(
   val transactionId: TransactionId,
-  val statusCode: HttpStatus,
+  val statusCode: HttpStatusCode,
   val errorMessage: String?
 ) :
   RuntimeException(

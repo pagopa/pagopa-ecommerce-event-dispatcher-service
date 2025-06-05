@@ -1,6 +1,9 @@
 package it.pagopa.ecommerce.eventdispatcher.controller
 
+import it.pagopa.ecommerce.eventdispatcher.config.QueuesConsumerConfig
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoEventReceiverStatusFound
+import it.pagopa.ecommerce.eventdispatcher.queues.TransactionAuthorizationOutcomeWaitingQueueConsumer
+import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.AuthorizationRequestedHelper
 import it.pagopa.ecommerce.eventdispatcher.services.EventReceiverService
 import it.pagopa.ecommerce.eventdispatcher.validation.BeanValidationConfiguration
 import it.pagopa.generated.eventdispatcher.server.model.*
@@ -11,13 +14,27 @@ import org.mockito.kotlin.given
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest
 import org.springframework.boot.test.mock.mockito.MockBean
+import org.springframework.context.annotation.ComponentScan
+import org.springframework.context.annotation.FilterType
 import org.springframework.context.annotation.Import
 import org.springframework.http.MediaType
 import org.springframework.test.context.TestPropertySource
 import org.springframework.test.web.reactive.server.WebTestClient
 
 @OptIn(ExperimentalCoroutinesApi::class)
-@WebFluxTest(EventReceiversApiController::class)
+@WebFluxTest(controllers = [EventReceiversApiController::class])
+@ComponentScan(
+  basePackages = ["it.pagopa.ecommerce.eventdispatcher.controller"],
+  // escludi i consumer / helper che non servono al test
+  excludeFilters =
+    [
+      ComponentScan.Filter(
+        type = FilterType.ASSIGNABLE_TYPE,
+        classes =
+          [
+            QueuesConsumerConfig::class,
+            TransactionAuthorizationOutcomeWaitingQueueConsumer::class,
+            AuthorizationRequestedHelper::class])])
 @Import(BeanValidationConfiguration::class)
 @TestPropertySource(locations = ["classpath:application.test.properties"])
 class EventReceiversApiControllerTest {
