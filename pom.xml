@@ -132,6 +132,7 @@
 		<dependency>
 			<groupId>org.mockito</groupId>
 			<artifactId>mockito-inline</artifactId>
+			<version>5.2.0</version>
 			<scope>test</scope>
 		</dependency>
 		<dependency>
@@ -368,6 +369,8 @@
 							<modelNameSuffix>dto</modelNameSuffix>
 							<configOptions>
 								<interfaceOnly>true</interfaceOnly>
+								<useJakartaEe>true</useJakartaEe>
+								<useSpringBoot3>true</useSpringBoot3>
 							</configOptions>
 						</configuration>
 					</execution>
@@ -387,6 +390,8 @@
 							<configOptions>
 								<swaggerAnnotations>false</swaggerAnnotations>
 								<openApiNullable>false</openApiNullable>
+								<useJakartaEe>true</useJakartaEe>
+								<useSpringBoot3>true</useSpringBoot3>
 							</configOptions>
 							<modelPackage>it.pagopa.generated.notifications.v1.dto</modelPackage>
 							<apiPackage>it.pagopa.generated.notifications.v1.api</apiPackage>
@@ -410,6 +415,8 @@
 								<swaggerAnnotations>false</swaggerAnnotations>
 								<openApiNullable>false</openApiNullable>
 								<useOneOfInterfaces>true</useOneOfInterfaces>
+								<useJakartaEe>true</useJakartaEe>
+								<useSpringBoot3>true</useSpringBoot3>
 							</configOptions>
 							<modelPackage>it.pagopa.generated.transactionauthrequests.v2.dto</modelPackage>
 							<apiPackage>it.pagopa.generated.transactionauthrequests.v2.api</apiPackage>
@@ -439,6 +446,8 @@
 								<useSwaggerUI>false</useSwaggerUI>
 								<reactive>true</reactive>
 								<enumPropertyNaming>UPPERCASE</enumPropertyNaming>
+								<useJakartaEe>true</useJakartaEe>
+								<useSpringBoot3>true</useSpringBoot3>
 							</configOptions>
 						</configuration>
 					</execution>
@@ -458,6 +467,8 @@
 							<configOptions>
 								<swaggerAnnotations>false</swaggerAnnotations>
 								<openApiNullable>false</openApiNullable>
+								<useJakartaEe>true</useJakartaEe>
+								<useSpringBoot3>true</useSpringBoot3>
 							</configOptions>
 							<modelPackage>it.pagopa.generated.ecommerce.redirect.v1.dto</modelPackage>
 							<apiPackage>it.pagopa.generated.ecommerce.redirect.v1.api</apiPackage>
@@ -482,6 +493,8 @@
 								<openApiNullable>false</openApiNullable>
 								<useOneOfInterfaces>true</useOneOfInterfaces>
 								<legacyDiscriminatorBehavior>true</legacyDiscriminatorBehavior>
+								<useJakartaEe>true</useJakartaEe>
+								<useSpringBoot3>true</useSpringBoot3>
 							</configOptions>
 							<modelPackage>it.pagopa.generated.ecommerce.userstats.dto</modelPackage>
 							<apiPackage>it.pagopa.generated.ecommerce.userstats.api</apiPackage>
@@ -597,7 +610,7 @@
 					<skipCheckoutIfExists>false</skipCheckoutIfExists>
 					<connectionUrl>scm:git:https://github.com/pagopa/pagopa-ecommerce-commons.git</connectionUrl>
 					<scmVersionType>tag</scmVersionType>
-					<scmVersion>${pagopa-ecommerce-commons.version}</scmVersion>
+					<scmVersion>PIDM-559-565-upgrade-springboot3-ecommerce-commons</scmVersion>
 					<goals>install -DskipTests</goals>
 				</configuration>
 				<executions>
