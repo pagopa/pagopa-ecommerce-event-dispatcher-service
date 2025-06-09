@@ -2220,7 +2220,7 @@ class NodeServiceTests {
     given(confidentialDataUtils.eCommerceDecrypt(eq(activatedEvent.data.email), any()))
       .willReturn(Mono.just(Email(EMAIL_STRING)))
 
-    given(nodeClient.closePayment(capture(satispayClosePaymentRequestCaptor)))
+    given(nodeClient.closePayment(capture(applepayClosePaymentRequestCaptor)))
       .willReturn(Mono.just(closePaymentResponse))
 
     val fee = authEvent.data.fee
@@ -2304,7 +2304,7 @@ class NodeServiceTests {
           }
       }
 
-    assertEquals(expected, satispayClosePaymentRequestCaptor.value)
+    assertEquals(expected, applepayClosePaymentRequestCaptor.value)
   }
 
   @ParameterizedTest
@@ -2365,7 +2365,7 @@ class NodeServiceTests {
     given(confidentialDataUtils.eCommerceDecrypt(eq(activatedEvent.data.email), any()))
       .willReturn(Mono.just(Email(EMAIL_STRING)))
 
-    given(nodeClient.closePayment(capture(satispayClosePaymentRequestCaptor)))
+    given(nodeClient.closePayment(capture(applepayClosePaymentRequestCaptor)))
       .willReturn(Mono.just(closePaymentResponse))
 
     val fee = authEvent.data.fee
@@ -2450,7 +2450,7 @@ class NodeServiceTests {
           }
       }
 
-    assertEquals(expected, satispayClosePaymentRequestCaptor.value)
+    assertEquals(expected, applepayClosePaymentRequestCaptor.value)
   }
 
   @Test
@@ -4142,7 +4142,7 @@ class NodeServiceTests {
             TRANSACTION_ID))
         .willReturn(events.toFlux())
 
-      given(nodeClient.closePayment(capture(bancomatPayClosePaymentRequestCaptor)))
+      given(nodeClient.closePayment(capture(myBankClosePaymentRequestCaptor)))
         .willReturn(Mono.just(closePaymentResponse))
 
       val fee = authEvent.data.fee
@@ -4209,7 +4209,7 @@ class NodeServiceTests {
           additionalPaymentInformations = null
         }
 
-      assertEquals(expected, bancomatPayClosePaymentRequestCaptor.value)
+      assertEquals(expected, myBankClosePaymentRequestCaptor.value)
     }
 
   @Test
@@ -4264,7 +4264,7 @@ class NodeServiceTests {
             TRANSACTION_ID))
         .willReturn(events.toFlux())
 
-      given(nodeClient.closePayment(capture(bancomatPayClosePaymentRequestCaptor)))
+      given(nodeClient.closePayment(capture(myBankClosePaymentRequestCaptor)))
         .willReturn(Mono.just(closePaymentResponse))
 
       val fee = authEvent.data.fee
@@ -4331,7 +4331,7 @@ class NodeServiceTests {
           additionalPaymentInformations = null
         }
 
-      assertEquals(expected, bancomatPayClosePaymentRequestCaptor.value)
+      assertEquals(expected, myBankClosePaymentRequestCaptor.value)
     }
 
   @ParameterizedTest
@@ -6482,7 +6482,7 @@ class NodeServiceTests {
             TRANSACTION_ID))
         .willReturn(events.toFlux())
 
-      given(nodeClient.closePayment(capture(bancomatPayClosePaymentRequestCaptor)))
+      given(nodeClient.closePayment(capture(myBankClosePaymentRequestCaptor)))
         .willReturn(Mono.just(closePaymentResponse))
 
       val fee = authEvent.data.fee
@@ -6549,7 +6549,7 @@ class NodeServiceTests {
           additionalPaymentInformations = null
         }
 
-      assertEquals(expected, bancomatPayClosePaymentRequestCaptor.value)
+      assertEquals(expected, myBankClosePaymentRequestCaptor.value)
     }
 
   @Test
@@ -6605,7 +6605,7 @@ class NodeServiceTests {
             TRANSACTION_ID))
         .willReturn(events.toFlux())
 
-      given(nodeClient.closePayment(capture(bancomatPayClosePaymentRequestCaptor)))
+      given(nodeClient.closePayment(capture(myBankClosePaymentRequestCaptor)))
         .willReturn(Mono.just(closePaymentResponse))
 
       val fee = authEvent.data.fee
@@ -6672,7 +6672,7 @@ class NodeServiceTests {
           additionalPaymentInformations = null
         }
 
-      assertEquals(expected, bancomatPayClosePaymentRequestCaptor.value)
+      assertEquals(expected, myBankClosePaymentRequestCaptor.value)
     }
 
   @ParameterizedTest

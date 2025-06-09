@@ -13,3 +13,6 @@ sealed class EventDispatcherGenericCommand(
     RECEIVER_COMMAND
   }
 }
+
+class FakeUnmanagedCommand :
+  EventDispatcherGenericCommand(type = EventDispatcherGenericCommand.CommandType.RECEIVER_COMMAND)

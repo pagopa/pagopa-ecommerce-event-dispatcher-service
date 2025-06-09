@@ -7,7 +7,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.beans.factory.annotation.Value
-import org.springframework.http.HttpStatus
+import org.springframework.http.HttpStatusCode
 import org.springframework.stereotype.Component
 import org.springframework.web.reactive.function.client.ClientResponse
 import org.springframework.web.reactive.function.client.WebClient
@@ -60,7 +60,7 @@ class NodeClient(
       .body(Mono.just(closePaymentRequest), ClosePaymentRequestV2Dto::class.java)
       .retrieve()
       .onStatus(
-        { obj: HttpStatus -> obj.isError },
+        { obj: HttpStatusCode -> obj.isError },
         { clientResponse: ClientResponse ->
           clientResponse.bodyToMono(String::class.java).switchIfEmpty(Mono.just("N/A")).flatMap {
             errorResponseBodyAsString: String ->
@@ -82,7 +82,7 @@ class NodeClient(
           exception)
         if (exception is ResponseStatusException) {
           ClosePaymentErrorResponseException(
-            exception.status,
+            exception.statusCode,
             runCatching { objectMapper.readValue(exception.reason, ErrorDto::class.java) }
               .onFailure {
                 logger.error("Error parsing Nodo close payment error response body", it)
