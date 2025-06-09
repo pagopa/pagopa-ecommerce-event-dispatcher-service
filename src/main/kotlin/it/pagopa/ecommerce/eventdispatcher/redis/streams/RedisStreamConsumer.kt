@@ -80,9 +80,7 @@ class RedisStreamConsumer(
   fun processStreamEvent(event: EventDispatcherGenericCommand) {
     when (event) {
       is EventDispatcherReceiverCommand -> handleEventReceiverCommand(event)
-      else -> {
-        logger.error("IS NOT EventDispatcherReceiverCommand")
-      }
+      else -> logger.error("NOT IS EventDispatcherReceiverCommand")
     }
   }
 
