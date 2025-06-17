@@ -724,7 +724,14 @@ fun handleRedirectRefundResponse(
         transaction, transactionsEventStoreRepository, transactionsViewRepository)
     RefundOutcomeDto.KO ->
       updateTransactionToRefundError(
-        transaction, transactionsEventStoreRepository, transactionsViewRepository)
+          transaction, transactionsEventStoreRepository, transactionsViewRepository)
+        .flatMap {
+          Mono.error(
+            RefundNotAllowedException(
+              transactionID = transaction.transactionId,
+              errorMessage =
+                "Error processing refund for psp: [${transactionAuthorizationRequestData.pspId}] with id: [${transaction.transactionId.value()}]. Received outcome: [${refundOutcome}]"))
+        }
   }
 }
 
