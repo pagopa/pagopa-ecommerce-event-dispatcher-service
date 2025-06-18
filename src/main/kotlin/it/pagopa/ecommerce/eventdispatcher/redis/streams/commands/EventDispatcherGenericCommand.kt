@@ -6,13 +6,11 @@ import java.util.*
 /** Event dispatcher generic command event class */
 @JsonTypeInfo(use = JsonTypeInfo.Id.CLASS, property = "_class", visible = false)
 sealed class EventDispatcherGenericCommand(
-  val commandId: UUID = UUID.randomUUID(),
-  val type: CommandType
+    val commandId: UUID = UUID.randomUUID(),
+    val type: CommandType
 ) {
-  enum class CommandType {
-    RECEIVER_COMMAND
-  }
+    enum class CommandType {
+        RECEIVER_COMMAND
+    }
 }
 
-class FakeUnmanagedCommand :
-  EventDispatcherGenericCommand(type = EventDispatcherGenericCommand.CommandType.RECEIVER_COMMAND)

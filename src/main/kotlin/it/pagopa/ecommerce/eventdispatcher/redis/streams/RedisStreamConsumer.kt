@@ -8,7 +8,6 @@ import it.pagopa.ecommerce.eventdispatcher.redis.streams.commands.EventDispatche
 import it.pagopa.ecommerce.eventdispatcher.redis.streams.commands.EventDispatcherReceiverCommand
 import it.pagopa.ecommerce.eventdispatcher.services.InboundChannelAdapterLifecycleHandlerService
 import it.pagopa.generated.eventdispatcher.server.model.DeploymentVersionDto
-import java.time.Duration
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
@@ -24,6 +23,7 @@ import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Schedulers
 import reactor.util.retry.Retry
+import java.time.Duration
 
 /**
  * Redis Stream event consumer. This class handles all Redis Stream events performing requested
@@ -31,81 +31,84 @@ import reactor.util.retry.Retry
  */
 @Service
 class RedisStreamConsumer(
-  @Autowired
-  private val redisStreamReceiver:
+    @Autowired
+    private val redisStreamReceiver:
     StreamReceiver<String, ObjectRecord<String, LinkedHashMap<*, *>>>,
-  @Autowired private val redisStreamConf: RedisStreamEventControllerConfigs,
-  @Autowired
-  private val inboundChannelAdapterLifecycleHandlerService:
+    @Autowired private val redisStreamConf: RedisStreamEventControllerConfigs,
+    @Autowired
+    private val inboundChannelAdapterLifecycleHandlerService:
     InboundChannelAdapterLifecycleHandlerService,
-  @Value("\${eventController.deploymentVersion}")
-  private val deploymentVersion: DeploymentVersionDto,
+    @Value("\${eventController.deploymentVersion}")
+    private val deploymentVersion: DeploymentVersionDto,
 ) : ApplicationListener<ApplicationReadyEvent> {
 
-  private val objectMapper: ObjectMapper =
-    jacksonObjectMapper().apply {
-      addMixIn(EventDispatcherGenericCommand::class.java, EventDispatcherCommandMixin::class.java)
-    }
-
-  private val logger = LoggerFactory.getLogger(javaClass)
-
-  override fun onApplicationEvent(event: ApplicationReadyEvent) {
-    logger.info("Starting Redis stream receiver")
-
-    eventStreamPipelineWithRetry()
-      .subscribeOn(Schedulers.parallel())
-      .subscribe(
-        { record ->
-          runCatching {
-              val event =
-                objectMapper.convertValue(record.value, EventDispatcherGenericCommand::class.java)
-              processStreamEvent(event)
-            }
-            .onFailure { ex -> logger.error("Error processing redis stream event", ex) }
-        },
-        { error -> logger.error("Error in Redis stream pipeline", error) })
-  }
-
-  fun eventStreamPipelineWithRetry(): Flux<ObjectRecord<String, LinkedHashMap<*, *>>> =
-    Mono.just(1)
-      .flatMapMany {
-        redisStreamReceiver.receive(
-          StreamOffset.create(redisStreamConf.streamKey, ReadOffset.from(RecordId.of(0, 0))))
-      }
-      .retryWhen(
-        Retry.fixedDelay(Long.MAX_VALUE, Duration.ofSeconds(1)).doBeforeRetry {
-          logger.warn("Detected error in redis stream connection, reconnecting", it.failure())
-        })
-
-  fun processStreamEvent(event: EventDispatcherGenericCommand) {
-    when (event) {
-      is EventDispatcherReceiverCommand -> handleEventReceiverCommand(event)
-      else -> logger.error("NOT IS EventDispatcherReceiverCommand")
-    }
-  }
-
-  fun handleEventReceiverCommand(command: EventDispatcherReceiverCommand) {
-    val currentDeploymentVersion = deploymentVersion
-    val commandTargetVersion = command.version
-
-    val isTargetedByCommand =
-      commandTargetVersion == null || currentDeploymentVersion == commandTargetVersion
-    logger.info(
-      "Event dispatcher receiver command event received. Current deployment version: [{}], command deployment version: [{}] -> targeted: [{}]",
-      currentDeploymentVersion,
-      commandTargetVersion ?: "ALL",
-      isTargetedByCommand)
-
-    if (isTargetedByCommand) {
-      val commandToSend =
-        when (command.receiverCommand) {
-          EventDispatcherReceiverCommand.ReceiverCommand.START -> "start"
-          EventDispatcherReceiverCommand.ReceiverCommand.STOP -> "stop"
+    private val objectMapper: ObjectMapper =
+        jacksonObjectMapper().apply {
+            addMixIn(EventDispatcherGenericCommand::class.java, EventDispatcherCommandMixin::class.java)
         }
-      inboundChannelAdapterLifecycleHandlerService.invokeCommandForAllEndpoints(commandToSend)
-    } else {
-      logger.info(
-        "Current deployment version not targeted by command, command will not be processed")
+
+    private val logger = LoggerFactory.getLogger(javaClass)
+
+    override fun onApplicationEvent(event: ApplicationReadyEvent) {
+        logger.info("Starting Redis stream receiver")
+
+        eventStreamPipelineWithRetry()
+            .subscribeOn(Schedulers.parallel())
+            .subscribe(
+                { record ->
+                    runCatching {
+                        val event =
+                            objectMapper.convertValue(record.value, EventDispatcherGenericCommand::class.java)
+                        processStreamEvent(event)
+                    }
+                        .onFailure { ex -> logger.error("Error processing redis stream event", ex) }
+                },
+                { error -> logger.error("Error in Redis stream pipeline", error) })
     }
-  }
+
+    fun eventStreamPipelineWithRetry(): Flux<ObjectRecord<String, LinkedHashMap<*, *>>> =
+        Mono.just(1)
+            .flatMapMany {
+                redisStreamReceiver.receive(
+                    StreamOffset.create(redisStreamConf.streamKey, ReadOffset.from(RecordId.of(0, 0)))
+                )
+            }
+            .retryWhen(
+                Retry.fixedDelay(Long.MAX_VALUE, Duration.ofSeconds(1)).doBeforeRetry {
+                    logger.warn("Detected error in redis stream connection, reconnecting", it.failure())
+                })
+
+    fun processStreamEvent(event: EventDispatcherGenericCommand) {
+        when (event) {
+            is EventDispatcherReceiverCommand -> handleEventReceiverCommand(event)
+            else -> throw RuntimeException("Unhandled event of type: [${event.javaClass}]")
+        }
+    }
+
+    fun handleEventReceiverCommand(command: EventDispatcherReceiverCommand) {
+        val currentDeploymentVersion = deploymentVersion
+        val commandTargetVersion = command.version
+
+        val isTargetedByCommand =
+            commandTargetVersion == null || currentDeploymentVersion == commandTargetVersion
+        logger.info(
+            "Event dispatcher receiver command event received. Current deployment version: [{}], command deployment version: [{}] -> targeted: [{}]",
+            currentDeploymentVersion,
+            commandTargetVersion ?: "ALL",
+            isTargetedByCommand
+        )
+
+        if (isTargetedByCommand) {
+            val commandToSend =
+                when (command.receiverCommand) {
+                    EventDispatcherReceiverCommand.ReceiverCommand.START -> "start"
+                    EventDispatcherReceiverCommand.ReceiverCommand.STOP -> "stop"
+                }
+            inboundChannelAdapterLifecycleHandlerService.invokeCommandForAllEndpoints(commandToSend)
+        } else {
+            logger.info(
+                "Current deployment version not targeted by command, command will not be processed"
+            )
+        }
+    }
 }
