@@ -19,7 +19,7 @@
 		<kotlinx-coroutines.version>1.10.2</kotlinx-coroutines.version>
 		<spring-cloud-azure.version>5.22.0</spring-cloud-azure.version>
 		<jacoco.version>0.8.8</jacoco.version>
-		<pagopa-ecommerce-commons.version>1.36.0</pagopa-ecommerce-commons.version>
+		<pagopa-ecommerce-commons.version>1.37.3</pagopa-ecommerce-commons.version>
 		<sonar.coverage.exclusions> <!-- the members of the following list should be in the same line -->
 			**/it/pagopa/transactions/**,
 			**/it/pagopa/ecommerce/eventdispatcher/validation/**
@@ -140,11 +140,6 @@
 			<artifactId>kotlinx-coroutines-test</artifactId>
 			<version>${kotlinx-coroutines.version}</version>
 			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>org.springdoc</groupId>
-			<artifactId>springdoc-openapi-starter-webflux-ui</artifactId>
-			<version>2.8.8</version>
 		</dependency>
 
 		<dependency>
