@@ -28,11 +28,11 @@ microservice-chart:
       NODO_ECOMMERCE_CLIENT_ID: ecomm-blue
       OTEL_RESOURCE_ATTRIBUTES: "service.name=pagopa-ecommerce-event-dispatcher-service-blue,deployment.environment=dev"
       ECS_SERVICE_NAME: pagopa-ecommerce-event-dispatcher-service-blue
-      NODO_URI: https://api.dev.platform.pagopa.it/nodo/nodo-per-pm/v2
+      NODO_URI: https://api.dev.platform.pagopa.it/nodo-auth/node-for-ecommerce/v2
     envSecret: {}
   image:
     repository: pagopadcommonacr.azurecr.io/pagopaecommerceeventdispatcherservice
-    tag: "1.45.1"
+    tag: "1.46.1"
     pullPolicy: Always
   livenessProbe:
     handlerType: httpGet
@@ -111,7 +111,7 @@ microservice-chart:
     TRANSACTIONS_SERVICE_URI: https://api.dev.platform.pagopa.it/ecommerce/transaction-auth-requests-service/v2
     TRANSACTIONS_SERVICE_READ_TIMEOUT: "10000"
     TRANSACTIONS_SERVICE_CONNECTION_TIMEOUT: "10000"
-    NODO_URI: https://api.uat.platform.pagopa.it/nodo/nodo-per-pm/v2
+    NODO_URI: https://api.uat.platform.pagopa.it/nodo-auth/node-for-ecommerce/v2
     NODO_READ_TIMEOUT: "14000"
     NODO_CONNECTION_TIMEOUT: "14000"
     NODO_CONNECTION_STRING: "{\"idPSP\":\"AGID_01\",\"idChannel\":\"97735020584_09\",\"idBrokerPSP\":\"97735020584\"}"
