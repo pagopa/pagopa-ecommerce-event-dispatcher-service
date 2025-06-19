@@ -591,13 +591,6 @@
 				<configuration>
 					<source>17</source>
 					<target>17</target>
-					<annotationProcessorPaths>
-						<path>
-							<groupId>it.pagopa</groupId>
-							<artifactId>pagopa-ecommerce-commons</artifactId>
-							<version>${pagopa-ecommerce-commons.version}</version>
-						</path>
-					</annotationProcessorPaths>
 					<compilerArgs>--enable-preview</compilerArgs>
 				</configuration>
 			</plugin>
