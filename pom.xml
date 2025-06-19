@@ -643,7 +643,7 @@
 				</configuration>
 				<executions>
 					<execution>
-						<phase>none</phase>
+						<phase>validate</phase>
 						<goals>
 							<goal>bootstrap</goal>
 						</goals>
