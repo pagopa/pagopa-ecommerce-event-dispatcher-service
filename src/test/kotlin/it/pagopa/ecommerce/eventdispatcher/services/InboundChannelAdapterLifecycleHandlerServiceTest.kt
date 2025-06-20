@@ -3,7 +3,6 @@ package it.pagopa.ecommerce.eventdispatcher.services
 import com.azure.spring.integration.storage.queue.inbound.StorageQueueMessageSource
 import it.pagopa.ecommerce.eventdispatcher.config.redis.bean.ReceiverStatus
 import it.pagopa.ecommerce.eventdispatcher.config.redis.bean.Status
-import it.pagopa.ecommerce.eventdispatcher.redis.streams.RedisStreamConsumer
 import java.util.stream.Stream
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -25,7 +24,6 @@ class InboundChannelAdapterLifecycleHandlerServiceTest {
   private val applicationContext: ApplicationContext = mock()
   private val controlBusInput: DirectChannel = mock()
   private val controlBusOutput: QueueChannel = mock()
-  private val redisStreamConsumer: RedisStreamConsumer = mock()
   private val storageMessageQueueMock: StorageQueueMessageSource = mock()
 
   private val messageArgumentMatcher: KArgumentCaptor<Message<Any>> = argumentCaptor()

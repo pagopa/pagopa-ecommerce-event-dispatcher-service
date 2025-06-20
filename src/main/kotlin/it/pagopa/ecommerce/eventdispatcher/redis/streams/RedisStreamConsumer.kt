@@ -80,6 +80,7 @@ class RedisStreamConsumer(
   fun processStreamEvent(event: EventDispatcherGenericCommand) {
     when (event) {
       is EventDispatcherReceiverCommand -> handleEventReceiverCommand(event)
+      else -> throw RuntimeException("Unhandled event of type: [${event.javaClass}]")
     }
   }
 
