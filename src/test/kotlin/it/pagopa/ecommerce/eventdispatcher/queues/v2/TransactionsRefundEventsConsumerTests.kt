@@ -965,6 +965,114 @@ class TransactionsRefundEventsConsumerTests {
       capturedAttributes.get(AttributeKey.stringKey(TransactionTracing.TRANSACTIONID)))
   }
 
+  @Test
+  fun `consumer handles redirect refund KO response outcome writing to DLQ`() = runTest {
+    val activationEvent =
+      transactionActivateEvent().apply { this.data.clientId = ClientId.CHECKOUT }
+        as TransactionEvent<Any>
+    val authorizationRequestEvent =
+      transactionAuthorizationRequestedEvent(
+        TransactionAuthorizationRequestData.PaymentGateway.REDIRECT,
+        redirectTransactionGatewayAuthorizationRequestedData())
+        as TransactionEvent<Any>
+
+    val authorizationCompleteEvent =
+      transactionAuthorizationCompletedEvent(
+        redirectTransactionGatewayAuthorizationData(
+          RedirectTransactionGatewayAuthorizationData.Outcome.OK, null))
+        as TransactionEvent<Any>
+    val closureRequestedEvent = transactionClosureRequestedEvent() as TransactionEvent<Any>
+    val closedEvent =
+      transactionClosedEvent(TransactionClosureData.Outcome.KO) as TransactionEvent<Any>
+    val refundRequestedEvent =
+      TransactionRefundRequestedEvent(
+        TRANSACTION_ID, TransactionRefundRequestedData(null, TransactionStatusDto.REFUND_REQUESTED))
+        as TransactionEvent<Any>
+
+    val refundRedirectResponse =
+      RedirectRefundResponseDto().apply {
+        idTransaction = TRANSACTION_ID
+        outcome = RefundOutcomeDto.KO
+      }
+
+    val events =
+      listOf(
+        activationEvent,
+        authorizationRequestEvent,
+        authorizationCompleteEvent,
+        closureRequestedEvent,
+        closedEvent,
+        refundRequestedEvent)
+
+    /* preconditions */
+    given(checkpointer.success()).willReturn(Mono.empty())
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
+      .willReturn(events.toFlux())
+    given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
+    given(transactionsRefundedEventStoreRepository.save(refundEventStoreCaptor.capture()))
+      .willAnswer { Mono.just(it.arguments[0]) }
+    given(refundService.requestRedirectRefund(any(), any(), any(), any(), any()))
+      .willReturn(Mono.just(refundRedirectResponse))
+    given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+      .willReturn(
+        mono { transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now()) })
+    given(
+        deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(
+          capture(queueArgumentCaptor), any()))
+      .willReturn(mono {})
+
+    /* test */
+    StepVerifier.create(
+        transactionRefundedEventsConsumer.messageReceiver(
+          Either.right(
+            QueueEvent(refundRequestedEvent as TransactionRefundRequestedEvent, MOCK_TRACING_INFO)),
+          checkpointer))
+      .expectNext(Unit)
+      .verifyComplete()
+
+    /* Asserts */
+    val expectedTransactionId = TRANSACTION_ID
+    val expectedPspTransactionId = AUTHORIZATION_REQUEST_ID
+    val expectedPaymentTypeCode =
+      (authorizationRequestEvent as TransactionAuthorizationRequestedEvent).data.paymentTypeCode
+    val expectedPspId =
+      (authorizationRequestEvent as TransactionAuthorizationRequestedEvent).data.pspId
+    verify(checkpointer, Mockito.times(1)).success()
+    verify(refundService, Mockito.times(1))
+      .requestRedirectRefund(
+        transactionId = TransactionId(expectedTransactionId),
+        touchpoint = ClientId.CHECKOUT.toString(),
+        pspTransactionId = expectedPspTransactionId,
+        paymentTypeCode = expectedPaymentTypeCode,
+        pspId = expectedPspId)
+    verify(transactionsRefundedEventStoreRepository, Mockito.times(2)).save(any())
+    verify(refundRetryService, times(0))
+      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
+    val storedEvent = refundEventStoreCaptor.value
+    assertEquals(
+      TransactionEventCode.TRANSACTION_REFUND_ERROR_EVENT.toString(), storedEvent.eventCode)
+    assertEquals(TransactionStatusDto.REFUND_REQUESTED, storedEvent.data.statusBeforeRefunded)
+    verify(transactionTracing, times(0)).addSpanAttributesRefundedFlowFromTransaction(any(), any())
+    verify(mockOpenTelemetryUtils, times(0))
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
+    verify(deadLetterTracedQueueAsyncClient, times(1))
+      .sendAndTraceDeadLetterQueueEvent(
+        any<BinaryData>(),
+        eq(
+          DeadLetterTracedQueueAsyncClient.ErrorContext(
+            transactionId = TransactionId(TRANSACTION_ID),
+            transactionEventCode =
+              TransactionEventCode.TRANSACTION_REFUND_REQUESTED_EVENT.toString(),
+            errorCategory = DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR)))
+    assertEquals(
+      String(
+        jsonSerializerV2.serializeToBytes(
+          QueueEvent(refundRequestedEvent as TransactionRefundRequestedEvent, MOCK_TRACING_INFO)),
+        StandardCharsets.UTF_8),
+      String(queueArgumentCaptor.value.toBytes(), StandardCharsets.UTF_8))
+  }
+
   private fun getTransactionTracingMock(): TransactionTracing {
     // Create a mock of OpenTelemetryUtils
     val mockOpenTelemetryUtils: OpenTelemetryUtils = mock()
