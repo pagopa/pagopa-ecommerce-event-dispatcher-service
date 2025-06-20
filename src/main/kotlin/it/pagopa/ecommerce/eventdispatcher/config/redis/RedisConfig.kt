@@ -47,8 +47,8 @@ class RedisConfig {
   fun eventDispatcherReceiverStatusTemplateWrapper(
     redisConnectionFactory: RedisConnectionFactory
   ): EventDispatcherReceiverStatusTemplateWrapper {
-    val jacksonSerializer = Jackson2JsonRedisSerializer(ReceiversStatus::class.java)
-    jacksonSerializer.setObjectMapper(jacksonObjectMapper())
+    val jacksonSerializer =
+      Jackson2JsonRedisSerializer(jacksonObjectMapper(), ReceiversStatus::class.java)
     val redisTemplate = RedisTemplate<String, ReceiversStatus>()
     redisTemplate.setConnectionFactory(redisConnectionFactory)
     redisTemplate.keySerializer = StringRedisSerializer()
