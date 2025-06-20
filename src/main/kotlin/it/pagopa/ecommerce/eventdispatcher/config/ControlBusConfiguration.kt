@@ -6,7 +6,7 @@ import org.springframework.context.annotation.Configuration
 import org.springframework.integration.annotation.ServiceActivator
 import org.springframework.integration.channel.DirectChannel
 import org.springframework.integration.channel.QueueChannel
-import org.springframework.integration.config.ExpressionControlBusFactoryBean
+import org.springframework.integration.config.ControlBusFactoryBean
 
 /**
  * ControlBus specific configurations. This class takes into account configurations for I/O channels
@@ -27,8 +27,8 @@ class ControlBusConfiguration {
   /** Control bus handler that maps I/O channels to SpEL expression handler */
   @Bean
   @ServiceActivator(inputChannel = "controlBusInputChannel")
-  fun controlBus(): ExpressionControlBusFactoryBean {
-    val controlBusFactoryBean = ExpressionControlBusFactoryBean()
+  fun controlBus(): ControlBusFactoryBean {
+    val controlBusFactoryBean = ControlBusFactoryBean()
     controlBusFactoryBean.setOutputChannel(controlBusOutputChannel())
     return controlBusFactoryBean
   }
