@@ -31,7 +31,7 @@ microservice-chart:
     envSecret: {}
   image:
     repository: pagopapcommonacr.azurecr.io/pagopaecommerceeventdispatcherservice
-    tag: "1.46.0"
+    tag: "2.1.1"
     pullPolicy: Always
   livenessProbe:
     handlerType: httpGet
@@ -129,6 +129,7 @@ microservice-chart:
     MONGO_SERVER_SELECTION_TIMEOUT_MS: "30000"
     MONGO_WAITING_QUEUE_MS: "30000" # must be greater than or equal to server selection timeout
     MONGO_HEARTBEAT_FREQUENCY_MS: "5000"
+    MONGO_REPLICA_SET_OPTION: "&replicaSet=globaldb"
     REDIS_PORT: "6380"
     REDIS_SSL_ENABLED: "true"
     ECOMMERCE_STORAGE_TRANSIENT_QUEUE_ACCOUNT_NAME: pagopapweuecommercetrsa
