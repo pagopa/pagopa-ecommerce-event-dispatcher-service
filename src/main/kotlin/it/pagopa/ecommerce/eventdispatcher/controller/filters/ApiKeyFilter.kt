@@ -38,7 +38,7 @@ class ApiKeyFilter(
   @SuppressWarnings("kotlin:S6508")
   override fun filter(exchange: ServerWebExchange, chain: WebFilterChain): Mono<Void> {
     val requestPath = exchange.request.path.toString()
-    if (securedPaths.stream().anyMatch { prefix: String? -> requestPath.startsWith(prefix!!) }) {
+    if (securedPaths.any { requestPath.startsWith(it) }) {
       val requestApiKey = getRequestApiKey(exchange)
       val isAuthorized =
         if (requestApiKey != null) {
