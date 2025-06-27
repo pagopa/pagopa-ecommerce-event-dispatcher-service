@@ -27,106 +27,96 @@ class EventReceiversApiControllerTest {
   @MockitoBean lateinit var eventReceiverService: EventReceiverService
 
   @Test
-  fun `Should handle command creation successfully`() {
-    runTest {
-      val request = EventReceiverCommandRequestDto(EventReceiverCommandRequestDto.Command.START)
-      given(eventReceiverService.handleCommand(request)).willReturn(Unit)
-      webClient
-        .post()
-        .uri("/event-dispatcher/event-receivers/commands")
-        .contentType(MediaType.APPLICATION_JSON)
-        .bodyValue(request)
-        .exchange()
-        .expectStatus()
-        .isAccepted
-    }
+  fun `Should handle command creation successfully`() = runTest {
+    val request = EventReceiverCommandRequestDto(EventReceiverCommandRequestDto.Command.START)
+    given(eventReceiverService.handleCommand(request)).willReturn(Unit)
+    webClient
+      .post()
+      .uri("/event-dispatcher/event-receivers/commands")
+      .contentType(MediaType.APPLICATION_JSON)
+      .bodyValue(request)
+      .exchange()
+      .expectStatus()
+      .isAccepted
   }
 
   @Test
-  fun `Should return 400 bad request for invalid command request`() {
-    runTest {
-      val expectedProblemJsonDto =
-        ProblemJsonDto(title = "Bad request", status = 400, detail = "Input request is invalid.")
-      webClient
-        .post()
-        .uri("/event-dispatcher/event-receivers/commands")
-        .contentType(MediaType.APPLICATION_JSON)
-        .bodyValue(
-          """
+  fun `Should return 400 bad request for invalid command request`() = runTest {
+    val expectedProblemJsonDto =
+      ProblemJsonDto(title = "Bad request", status = 400, detail = "Input request is invalid.")
+    webClient
+      .post()
+      .uri("/event-dispatcher/event-receivers/commands")
+      .contentType(MediaType.APPLICATION_JSON)
+      .bodyValue(
+        """
                 {
                   "command": "FAKE"
                 }
             """.trimIndent())
-        .exchange()
-        .expectStatus()
-        .isBadRequest
-        .expectBody(ProblemJsonDto::class.java)
-        .isEqualTo(expectedProblemJsonDto)
-    }
+      .exchange()
+      .expectStatus()
+      .isBadRequest
+      .expectBody(ProblemJsonDto::class.java)
+      .isEqualTo(expectedProblemJsonDto)
   }
 
   @Test
-  fun `Should return 500 Internal Server Error for uncaught exception`() {
-    runTest {
-      val expectedProblemJsonDto =
-        ProblemJsonDto(
-          title = "Internal Server Error",
-          status = 500,
-          detail = "An unexpected error occurred processing the request")
-      val request = EventReceiverCommandRequestDto(EventReceiverCommandRequestDto.Command.START)
-      given(eventReceiverService.handleCommand(request))
-        .willThrow(RuntimeException("Uncaught exception"))
-      webClient
-        .post()
-        .uri("/event-dispatcher/event-receivers/commands")
-        .contentType(MediaType.APPLICATION_JSON)
-        .bodyValue(request)
-        .exchange()
-        .expectStatus()
-        .isEqualTo(500)
-        .expectBody(ProblemJsonDto::class.java)
-        .isEqualTo(expectedProblemJsonDto)
-    }
+  fun `Should return 500 Internal Server Error for uncaught exception`() = runTest {
+    val expectedProblemJsonDto =
+      ProblemJsonDto(
+        title = "Internal Server Error",
+        status = 500,
+        detail = "An unexpected error occurred processing the request")
+    val request = EventReceiverCommandRequestDto(EventReceiverCommandRequestDto.Command.START)
+    given(eventReceiverService.handleCommand(request))
+      .willThrow(RuntimeException("Uncaught exception"))
+    webClient
+      .post()
+      .uri("/event-dispatcher/event-receivers/commands")
+      .contentType(MediaType.APPLICATION_JSON)
+      .bodyValue(request)
+      .exchange()
+      .expectStatus()
+      .isEqualTo(500)
+      .expectBody(ProblemJsonDto::class.java)
+      .isEqualTo(expectedProblemJsonDto)
   }
 
   @Test
-  fun `Should return receiver statuses successfully`() {
-    runTest {
-      val response =
-        EventReceiverStatusResponseDto(
-          listOf(
-            EventReceiverStatusDto(
-              instanceId = "instanceId",
-              deploymentVersion = DeploymentVersionDto.PROD,
-              receiverStatuses =
-                listOf(ReceiverStatusDto(status = ReceiverStatusDto.Status.DOWN, name = "name")))))
-      given(eventReceiverService.getReceiversStatus(null)).willReturn(response)
-      webClient
-        .get()
-        .uri("/event-dispatcher/event-receivers/status")
-        .exchange()
-        .expectStatus()
-        .isOk
-        .expectBody(EventReceiverStatusResponseDto::class.java)
-        .isEqualTo(response)
-    }
+  fun `Should return receiver statuses successfully`() = runTest {
+    val response =
+      EventReceiverStatusResponseDto(
+        listOf(
+          EventReceiverStatusDto(
+            instanceId = "instanceId",
+            deploymentVersion = DeploymentVersionDto.PROD,
+            receiverStatuses =
+              listOf(ReceiverStatusDto(status = ReceiverStatusDto.Status.DOWN, name = "name")))))
+    given(eventReceiverService.getReceiversStatus(null)).willReturn(response)
+    webClient
+      .get()
+      .uri("/event-dispatcher/event-receivers/status")
+      .exchange()
+      .expectStatus()
+      .isOk
+      .expectBody(EventReceiverStatusResponseDto::class.java)
+      .isEqualTo(response)
   }
 
   @Test
-  fun `Should return 404 for no receiver information found successfully`() {
-    runTest {
-      val expectedProblemJsonDto =
-        ProblemJsonDto(
-          title = "Not found", status = 404, detail = "No data found for receiver statuses")
-      given(eventReceiverService.getReceiversStatus(null)).willThrow(NoEventReceiverStatusFound())
-      webClient
-        .get()
-        .uri("/event-dispatcher/event-receivers/status")
-        .exchange()
-        .expectStatus()
-        .isNotFound
-        .expectBody(ProblemJsonDto::class.java)
-        .isEqualTo(expectedProblemJsonDto)
-    }
+  fun `Should return 404 for no receiver information found successfully`() = runTest {
+    val expectedProblemJsonDto =
+      ProblemJsonDto(
+        title = "Not found", status = 404, detail = "No data found for receiver statuses")
+    given(eventReceiverService.getReceiversStatus(null)).willThrow(NoEventReceiverStatusFound())
+    webClient
+      .get()
+      .uri("/event-dispatcher/event-receivers/status")
+      .exchange()
+      .expectStatus()
+      .isNotFound
+      .expectBody(ProblemJsonDto::class.java)
+      .isEqualTo(expectedProblemJsonDto)
   }
 }
