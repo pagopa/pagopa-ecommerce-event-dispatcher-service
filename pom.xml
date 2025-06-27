@@ -576,10 +576,10 @@
 				<artifactId>maven-compiler-plugin</artifactId>
 				<version>3.13.0</version>
 				<configuration>
-					<release>21</release>
+					<release>${java.version}</release>
 					<parameters>true</parameters>
-					<source>21</source>
-					<target>21</target>
+					<source>${java.version}</source>
+					<target>${java.version}</target>
 				</configuration>
 				<executions>
 					<execution>
