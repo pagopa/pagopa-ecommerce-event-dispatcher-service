@@ -80,6 +80,9 @@ class RedisStreamConsumer(
   fun processStreamEvent(event: EventDispatcherGenericCommand) {
     when (event) {
       is EventDispatcherReceiverCommand -> handleEventReceiverCommand(event)
+      else -> {
+        logger.warn("Unhandled command: ${event::class}")
+      }
     }
   }
 

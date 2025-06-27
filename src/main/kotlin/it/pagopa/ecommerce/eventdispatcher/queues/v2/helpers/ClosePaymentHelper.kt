@@ -43,6 +43,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -82,7 +83,7 @@ data class ClosePaymentEvent(
     fun exceptionToClosureErrorData(exception: Throwable): ClosureErrorData =
       if (exception is ClosePaymentErrorResponseException) {
         ClosureErrorData(
-          exception.statusCode,
+          exception.statusCode as HttpStatus?,
           exception.errorResponse?.description,
           if (exception.statusCode != null) {
             ClosureErrorData.ErrorType.KO_RESPONSE_RECEIVED
