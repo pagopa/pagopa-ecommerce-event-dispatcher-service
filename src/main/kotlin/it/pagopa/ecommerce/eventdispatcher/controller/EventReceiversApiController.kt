@@ -7,10 +7,12 @@ import it.pagopa.generated.eventdispatcher.server.model.EventReceiverCommandRequ
 import it.pagopa.generated.eventdispatcher.server.model.EventReceiverStatusResponseDto
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.ResponseEntity
+import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
 /** Event receivers commands api controller implementation */
 @RestController
+@RequestMapping("/event-dispatcher")
 class EventReceiversApiController(
   @Autowired private val eventReceiverService: EventReceiverService,
 ) : EventReceiversApi {
