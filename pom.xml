@@ -9,14 +9,14 @@
 	</parent>
 	<groupId>it.pagopa.ecommerce</groupId>
 	<artifactId>pagopa-ecommerce-event-dispatcher-service</artifactId>
-	<version>1.46.0</version>
+	<version>2.1.2</version>
 	<name>pagopa-ecommerce-event-dispatcher-service</name>
 	<description>pagoPA ecommerce microservice to handle transaction events and perform async operations such as
 		send user email, refund based on transaction status</description>
 	<properties>
 		<java.version>21</java.version>
-		<kotlin.version>2.1.20</kotlin.version>
-		<kotlinx-coroutines.version>1.8.0</kotlinx-coroutines.version>
+		<kotlin.version>2.1.21</kotlin.version>
+		<kotlinx-coroutines.version>1.10.2</kotlinx-coroutines.version>
 		<spring-cloud-azure.version>5.18.0</spring-cloud-azure.version>
 		<jacoco.version>0.8.11</jacoco.version>
 		<pagopa-ecommerce-commons.version>2.1.0-SNAPSHOT</pagopa-ecommerce-commons.version>
@@ -25,7 +25,7 @@
 			**/it/pagopa/ecommerce/eventdispatcher/validation/**
 		</sonar.coverage.exclusions>
 		<spotless.version>2.28.0</spotless.version>
-		<mock-web-server.version>4.11.0</mock-web-server.version>
+		<mock-web-server.version>4.12.0</mock-web-server.version>
 		<ecs-logging-version>1.5.0</ecs-logging-version>
 	</properties>
 	<dependencies>
@@ -76,8 +76,14 @@
 			<version>${kotlinx-coroutines.version}</version>
 		</dependency>
 		<dependency>
+			<groupId>org.jetbrains.kotlinx</groupId>
+			<artifactId>kotlinx-coroutines-reactive</artifactId>
+			<version>${kotlinx-coroutines.version}</version>
+		</dependency>
+		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-actuator</artifactId>
+			<version>3.0.13</version>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -87,12 +93,12 @@
 		<dependency>
 			<groupId>com.azure.spring</groupId>
 			<artifactId>spring-cloud-azure-starter-integration-storage-queue</artifactId>
-			<!--<version>4.3.0</version>-->
+			<version>4.3.0</version>
 		</dependency>
 		<dependency>
 			<groupId>com.azure</groupId>
 			<artifactId>azure-storage-queue</artifactId>
-			<version>12.21.1</version>
+			<version>12.13.0</version>
 		</dependency>
 		<dependency>
 			<groupId>org.jetbrains.kotlin</groupId>
@@ -139,24 +145,28 @@
 			<version>${kotlinx-coroutines.version}</version>
 			<scope>test</scope>
 		</dependency>
-		<dependency>
-			<groupId>io.springfox</groupId>
-			<artifactId>springfox-swagger2</artifactId>
-			<version>3.0.0</version>
-		</dependency>
+
 		<dependency>
 			<groupId>org.openapitools</groupId>
 			<artifactId>jackson-databind-nullable</artifactId>
-			<version>0.1.0</version>
+			<version>0.2.6</version>
 		</dependency>
 		<dependency>
 			<groupId>com.fasterxml.jackson.datatype</groupId>
 			<artifactId>jackson-datatype-jsr310</artifactId>
 		</dependency>
 		<dependency>
+			<groupId>com.fasterxml.jackson.datatype</groupId>
+			<artifactId>jackson-datatype-jdk8</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>com.fasterxml.jackson.dataformat</groupId>
+			<artifactId>jackson-dataformat-xml</artifactId>
+		</dependency>
+		<dependency>
 			<groupId>jakarta.xml.bind</groupId>
 			<artifactId>jakarta.xml.bind-api</artifactId>
-			<version>4.0.0</version>
+			<version>4.0.2</version>
 		</dependency>
 		<dependency>
 			<groupId>io.swagger.core.v3</groupId>
@@ -187,6 +197,12 @@
 			<groupId>it.pagopa</groupId>
 			<artifactId>pagopa-ecommerce-commons</artifactId>
 			<version>${pagopa-ecommerce-commons.version}</version>
+			<exclusions>
+				<exclusion>
+					<groupId>io.springfox</groupId>
+					<artifactId>springfox-swagger2</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 		<dependency>
 			<groupId>it.pagopa</groupId>
@@ -194,6 +210,12 @@
 			<version>${pagopa-ecommerce-commons.version}</version>
 			<type>test-jar</type>
 			<scope>test</scope>
+			<exclusions>
+				<exclusion>
+					<groupId>io.springfox</groupId>
+					<artifactId>springfox-swagger2</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 		<dependency>
 			<groupId>com.squareup.okhttp3</groupId>
@@ -235,6 +257,12 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-validation</artifactId>
 		</dependency>
+		<dependency>
+			<groupId>org.jetbrains.kotlin</groupId>
+			<artifactId>kotlin-maven-allopen</artifactId>
+			<version>2.1.21</version> <!-- Usa la stessa versione del kotlin-maven-plugin -->
+		</dependency>
+
 	</dependencies>
 	<dependencyManagement>
 		<dependencies>
@@ -283,6 +311,7 @@
 			<plugin>
 				<groupId>org.jetbrains.kotlin</groupId>
 				<artifactId>kotlin-maven-plugin</artifactId>
+				<version>2.1.21</version>
 				<configuration>
 					<args>
 						<arg>-Xjsr305=strict</arg>

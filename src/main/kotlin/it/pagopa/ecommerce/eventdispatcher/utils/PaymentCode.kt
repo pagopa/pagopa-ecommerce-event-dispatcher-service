@@ -12,5 +12,6 @@ enum class PaymentCode {
   RPIC,
   RICO,
   APPL,
-  SATY
+  SATY,
+  KLRN
 }

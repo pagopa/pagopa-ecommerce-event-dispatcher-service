@@ -593,6 +593,7 @@ class UserReceiptMailBuilderTest {
         createRedirectTemplateFieldsMethodSource(PaymentCode.RBPS.name),
         createRedirectTemplateFieldsMethodSource(PaymentCode.RPIC.name),
         createRedirectTemplateFieldsMethodSource(PaymentCode.RICO.name),
+        createRedirectTemplateFieldsMethodSource(PaymentCode.KLRN.name),
         Arguments.of(
           PaymentCode.SATY.name,
           "-",

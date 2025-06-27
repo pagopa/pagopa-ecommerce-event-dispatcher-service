@@ -82,8 +82,10 @@ data class ClosePaymentEvent(
 
     fun exceptionToClosureErrorData(exception: Throwable): ClosureErrorData =
       if (exception is ClosePaymentErrorResponseException) {
+        val httpStatus: HttpStatus? = exception.statusCode?.let { HttpStatus.valueOf(it.value()) }
+
         ClosureErrorData(
-          exception.statusCode as HttpStatus?,
+          httpStatus,
           exception.errorResponse?.description,
           if (exception.statusCode != null) {
             ClosureErrorData.ErrorType.KO_RESPONSE_RECEIVED

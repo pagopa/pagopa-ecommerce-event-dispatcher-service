@@ -2,26 +2,18 @@ package it.pagopa.ecommerce.eventdispatcher.redis.streams
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import it.pagopa.ecommerce.eventdispatcher.config.RedisStreamEventControllerConfigs
+import it.pagopa.ecommerce.eventdispatcher.redis.streams.commands.EventDispatcherCommandMixin
 import it.pagopa.ecommerce.eventdispatcher.redis.streams.commands.EventDispatcherGenericCommand
 import it.pagopa.ecommerce.eventdispatcher.redis.streams.commands.EventDispatcherGenericCommand.CommandType
 import it.pagopa.ecommerce.eventdispatcher.redis.streams.commands.EventDispatcherReceiverCommand
 import it.pagopa.ecommerce.eventdispatcher.services.InboundChannelAdapterLifecycleHandlerService
 import it.pagopa.generated.eventdispatcher.server.model.DeploymentVersionDto
-import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
-import org.mockito.kotlin.any
-import org.mockito.kotlin.doReturn
-import org.mockito.kotlin.doThrow
-import org.mockito.kotlin.eq
-import org.mockito.kotlin.mock
-import org.mockito.kotlin.never
-import org.mockito.kotlin.spy
-import org.mockito.kotlin.times
-import org.mockito.kotlin.verify
-import org.mockito.kotlin.whenever
+import org.mockito.kotlin.*
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.data.redis.connection.stream.ObjectRecord
 import org.springframework.data.redis.stream.StreamReceiver
@@ -77,14 +69,10 @@ class RedisStreamConsumerTest {
   @Test
   fun `Should throw exception for unmanaged event`() {
     // pre-requisite
-    val unknownEvent: EventDispatcherGenericCommand = mock()
-    whenever(unknownEvent.type).thenReturn(CommandType.RECEIVER_COMMAND)
-    val isReceiverCommand = unknownEvent is EventDispatcherReceiverCommand
-    assertFalse(
-      isReceiverCommand, "Mock should not be recognized as EventDispatcherReceiverCommand")
-
+    val invalidEvent: EventDispatcherCommandMixin = mock()
+    whenever(invalidEvent.type).thenReturn(CommandType.RECEIVER_COMMAND)
     // test
-    redisStreamConsumer.processStreamEvent(unknownEvent)
+    assertThrows<RuntimeException> { redisStreamConsumer.processStreamEvent(invalidEvent) }
 
     // assertions
     verify(inboundChannelAdapterLifecycleHandlerService, times(0))
