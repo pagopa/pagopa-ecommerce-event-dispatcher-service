@@ -19,6 +19,9 @@ parameters:
     values:
       - PROD
       - STAGING
+  # service api key to be used in command requests
+  - name: SERVICE_API_KEY
+    type: string
 
 steps:
   - task: Bash@3
@@ -46,5 +49,6 @@ steps:
         echo "Performing POST $commandUrl with body $body"
         curl --location $commandUrl \
         --header 'Content-Type: application/json' \
+        --header 'x-api-key: ${{ parameters.SERVICE_API_KEY }}' \
         --data "$body"
       failOnStderr: false

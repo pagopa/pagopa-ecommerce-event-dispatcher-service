@@ -13,6 +13,9 @@ parameters:
     values:
       - PROD
       - STAGING
+  # service api key to be used in command requests
+  - name: SERVICE_API_KEY
+    type: string
 
 steps:
   - template: receivers-commands/send-receiver-command.yml
@@ -20,8 +23,10 @@ steps:
       ENV: ${{ parameters.ENV }}
       COMMAND: START
       TARGET_DEPLOYMENT_VERSION: ${{ parameters.TARGET_DEPLOYMENT_VERSION }}
+      SERVICE_API_KEY: ${{ parameters.SERVICE_API_KEY }}
   - template: receivers-commands/polling-receivers-status.yml
     parameters:
       ENV: ${{ parameters.ENV }}
       WANTED_STATUS: UP
       TARGET_DEPLOYMENT_VERSION: ${{ parameters.TARGET_DEPLOYMENT_VERSION }}
+      SERVICE_API_KEY: ${{ parameters.SERVICE_API_KEY }}

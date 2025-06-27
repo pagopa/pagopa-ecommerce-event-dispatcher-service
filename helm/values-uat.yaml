@@ -173,6 +173,7 @@ microservice-chart:
     USER_STATS_READ_TIMEOUT: "10000"
     USER_STATS_CONNECTION_TIMEOUT: "10000"
     NPG_REFUND_EVENT_PROCESSING_DELAY_SECONDS: "10"
+    SECURITY_API_KEYS_SECURED_PATHS: "/event-dispatcher"
   envSecret:
     ECOMMERCE_STORAGE_TRANSIENT_QUEUE_KEY: ecommerce-storage-transient-account-key
     NODO_NODEFORECOMMERCE_API_KEY: node-for-ecommerce-api-v2-key
@@ -197,6 +198,8 @@ microservice-chart:
     NPG_SATISPAY_PSP_KEYS: npg-satispay-psp-keys
     NPG_APPLEPAY_PSP_KEYS: npg-apple-pay-psp-keys
     NPG_GOOGLE_PAY_PSP_KEYS: npg-google-pay-psp-keys
+    SECURITY_API_KEYS_PRIMARY: ecommerce-event-dispatcher-service-primary-api-key
+    SECURITY_API_KEYS_SECONDARY: ecommerce-event-dispatcher-service-secondary-api-key
   keyvault:
     name: "pagopa-u-ecommerce-kv"
     tenantId: "7788edaf-0346-4068-9d79-c868aed15b3d"

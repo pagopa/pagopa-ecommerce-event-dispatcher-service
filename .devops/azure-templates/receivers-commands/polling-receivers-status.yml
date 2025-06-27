@@ -27,6 +27,9 @@ parameters:
   - name: INTERVAL
     type: number
     default: 2
+  # service api key to be used in command requests
+  - name: SERVICE_API_KEY
+    type: string
 
 steps:
   - task: Bash@3
@@ -54,7 +57,9 @@ steps:
         while [ $continuePolling = true ];
         do
             echo "Checking receiver status... [$iteration/$maxIterations]"
-            response=$(curl $commandUrl)
+            response=$(curl $commandUrl \
+              --header 'x-api-key: ${{ parameters.SERVICE_API_KEY }}' \
+            )
             echo "Receiver status response: $response"
             #filtering received status searching for all receiver that are not in the wanted status
             filteredResponse=$(echo $response | yq '.status[] | select( .receiverStatuses[].status != "${{ parameters.WANTED_STATUS }}" )')

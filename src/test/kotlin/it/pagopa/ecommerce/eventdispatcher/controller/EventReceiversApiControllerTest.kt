@@ -7,6 +7,9 @@ import it.pagopa.generated.eventdispatcher.server.model.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.NullSource
+import org.junit.jupiter.params.provider.ValueSource
 import org.mockito.kotlin.given
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest
@@ -33,6 +36,7 @@ class EventReceiversApiControllerTest {
     webClient
       .post()
       .uri("/event-dispatcher/event-receivers/commands")
+      .header("x-api-key", "primary-key")
       .contentType(MediaType.APPLICATION_JSON)
       .bodyValue(request)
       .exchange()
@@ -47,6 +51,7 @@ class EventReceiversApiControllerTest {
     webClient
       .post()
       .uri("/event-dispatcher/event-receivers/commands")
+      .header("x-api-key", "primary-key")
       .contentType(MediaType.APPLICATION_JSON)
       .bodyValue(
         """
@@ -74,6 +79,7 @@ class EventReceiversApiControllerTest {
     webClient
       .post()
       .uri("/event-dispatcher/event-receivers/commands")
+      .header("x-api-key", "primary-key")
       .contentType(MediaType.APPLICATION_JSON)
       .bodyValue(request)
       .exchange()
@@ -97,6 +103,7 @@ class EventReceiversApiControllerTest {
     webClient
       .get()
       .uri("/event-dispatcher/event-receivers/status")
+      .header("x-api-key", "primary-key")
       .exchange()
       .expectStatus()
       .isOk
@@ -113,10 +120,26 @@ class EventReceiversApiControllerTest {
     webClient
       .get()
       .uri("/event-dispatcher/event-receivers/status")
+      .header("x-api-key", "primary-key")
       .exchange()
       .expectStatus()
       .isNotFound
       .expectBody(ProblemJsonDto::class.java)
       .isEqualTo(expectedProblemJsonDto)
   }
+
+  @ParameterizedTest
+  @ValueSource(strings = ["invalid-api-key"])
+  @NullSource
+  fun `Should return 401 unauthorized for missing or invalid api key header`(apiKey: String?) =
+    runTest {
+      given(eventReceiverService.getReceiversStatus(null)).willThrow(NoEventReceiverStatusFound())
+      webClient
+        .get()
+        .uri("/event-dispatcher/event-receivers/status")
+        .header("x-api-key", apiKey)
+        .exchange()
+        .expectStatus()
+        .isUnauthorized
+    }
 }
