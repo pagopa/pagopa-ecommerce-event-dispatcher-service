@@ -86,49 +86,11 @@ stages:
               echo "##[debug] Change placeholder for ecommerce-event-dispatcher-service set branch: $(BRANCH_NAME)"
               sed -i "s/^ECOMMERCE_EVENT_DISPATCHER_COMMIT_SHA=.*$/ECOMMERCE_EVENT_DISPATCHER_COMMIT_SHA=$(BRANCH_NAME)/" .env
             displayName: 'Change dispatcher branch name ecommerce-local .env'
+          - script: docker compose up pagopa-ecommerce-transactions-service pagopa-ecommerce-payment-methods-service pagopa-ecommerce-event-dispatcher-service mongo redis storage pagopa-pdv-mock pagopa-gec-mock pagopa-npg-mock pagopa-node-mock traefik azurite-init pagopa-psp-mock pagopa-notifications-service pagopa-jwt-issuer-mock -d
+            displayName: 'Run app with docker-compose'
           - script: |
-              echo "Starting infrastructure services with health checks..."
-              docker compose up mongo redis storage azurite-init -d
-
-              echo "Waiting for infrastructure services to be healthy..."
-              timeout 120 bash -c 'while true; do
-                REDIS_STATUS=$(docker compose ps redis --format "{{.Status}}")
-                MONGO_STATUS=$(docker compose ps mongo --format "{{.Status}}")
-
-                echo "Redis status: $REDIS_STATUS"
-                echo "Mongo status: $MONGO_STATUS"
-
-                if [[ "$REDIS_STATUS" == *"healthy"* ]] && [[ "$MONGO_STATUS" == *"healthy"* ]]; then
-                  echo "Infrastructure services are healthy!"
-                  break
-                fi
-
-                sleep 5
-              done'
-
-              echo "Starting application services..."
-              docker compose up pagopa-ecommerce-transactions-service pagopa-ecommerce-payment-methods-service pagopa-ecommerce-event-dispatcher-service pagopa-pdv-mock pagopa-gec-mock pagopa-npg-mock pagopa-node-mock traefik pagopa-psp-mock pagopa-notifications-service pagopa-jwt-issuer-mock -d
-            displayName: 'Start services with proper health checks'
-
-          - script: |
-              echo "Waiting for event-dispatcher to be ready..."
-              timeout 300 bash -c 'while [[ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:${ECOMMERCE_EVENT_DISPATCHER_PORT}/actuator/health)" != "200" ]]; do 
-                echo "Event-dispatcher not ready yet..."
-                sleep 10
-              done' || (
-                echo "=== DEBUGGING INFORMATION ==="
-                echo "=== Event Dispatcher Logs ==="
-                docker compose logs --tail=50 pagopa-ecommerce-event-dispatcher-service
-                echo "=== Redis Connection Test ==="
-                docker compose exec pagopa-ecommerce-event-dispatcher-service sh -c "nc -zv pagopa-ecommerce-redis 6379" || echo "Redis connection failed"
-                echo "=== Network Information ==="
-                docker network ls
-                docker compose ps
-                exit 1
-              )
-
-              echo "All services are ready!"
-            displayName: 'Health check with detailed debugging'
+              timeout 180 bash -c 'while [[ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:8080/actuator/health/liveness)" != "200" ]]; do sleep 5; done' || exit 1
+            displayName: 'Health check'
           - script: yarn global add newman
             displayName: 'newman installation'
           - script: newman run api-tests/transaction-service/npg/transaction-service_ecommerce_local.postman_collection.json --environment=api-tests/transaction-service/npg/transaction-service_ecommerce_local.postman_environment.json --reporters cli,junit --reporter-junit-export Results/NPG-api-TEST.xml
