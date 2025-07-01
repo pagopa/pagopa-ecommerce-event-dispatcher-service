@@ -16,6 +16,8 @@ externalDocs:
   description: Design review
 servers:
   - url: https://api.platform.pagopa.it/event-dispatcher
+security:
+  - ApiKeyAuth: [ ]
 paths:
   /event-receivers/commands:
     post:
@@ -209,3 +211,9 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/EventReceiverStatusResponse"
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+      description: api key authentication
