@@ -11,6 +11,18 @@ microservice-chart:
       headerName: deployment
       headerValue: blue
       weightPercent: 0
+    autoscaling:
+      enable: true
+      minReplica: 7
+      maxReplica: 10
+    deployment:
+      create: true
+      replicas: 7
+    strategy:
+      type: "RollingUpdate"
+      rollingUpdate:
+        maxSurge: "100%"
+        maxUnavailable: "100%"
     image:
       repository: pagopaucommonacr.azurecr.io/pagopaecommerceeventdispatcherservice
       tag: "latest"
@@ -84,18 +96,8 @@ microservice-chart:
     limits:
       memory: "512Mi"
       cpu: "900m"
-  deployment:
-    create: true
-    replicas: 7
-    strategy:
-      type: "RollingUpdate"
-      rollingUpdate:
-        maxSurge: "100%"
-        maxUnavailable: "100%"
   autoscaling:
     enable: true
-    minReplica: 7
-    maxReplica: 10
     pollingInterval: 30 # seconds
     cooldownPeriod: 30 # seconds
     triggers:
