@@ -28,7 +28,15 @@ microservice-chart:
       NODO_ECOMMERCE_CLIENT_ID: ecomm-blue
       OTEL_RESOURCE_ATTRIBUTES: "service.name=pagopa-ecommerce-event-dispatcher-service-blue,deployment.environment=uat"
       ECS_SERVICE_NAME: pagopa-ecommerce-event-dispatcher-service-blue
-    envSecret: {}
+      NODO_URI: "https://api.uat.platform.pagopa.it/ecommerce/mock/nodoPerPM/v1"
+      PERSONAL_DATA_VAULT_API_BASE_PATH: "https://api.uat.platform.pagopa.it/ecommerce/mock/pdv/v1"
+      NPG_URI: "https://api.uat.platform.pagopa.it/ecommerce/mock/npg/v1"
+      NODE_FORWARDER_URL: "https://api.uat.platform.pagopa.it/ecommerce/mock/node-forwader/v1"
+      USER_STATS_URL: "https://weuuat.ecommerce.internal.uat.platform.pagopa.it/pagopa-ecommerce-user-stats-service/"
+    envSecret:
+      ECOMMERCE_PERSONAL_DATA_VAULT_API_KEY: ecommerce-load-test-subscription-key
+      WALLET_SESSION_PERSONAL_DATA_VAULT_API_KEY: ecommerce-load-test-subscription-key
+      NODE_FORWARDER_API_KEY: ecommerce-load-test-subscription-key
   image:
     repository: pagopaucommonacr.azurecr.io/pagopaecommerceeventdispatcherservice
     tag: "2.2.0"
@@ -76,10 +84,18 @@ microservice-chart:
     limits:
       memory: "512Mi"
       cpu: "900m"
+  deployment:
+    create: true
+    replicas: 7
+    strategy:
+      type: "RollingUpdate"
+      rollingUpdate:
+        maxSurge: "100%"
+        maxUnavailable: "100%"
   autoscaling:
     enable: true
-    minReplica: 1
-    maxReplica: 2
+    minReplica: 7
+    maxReplica: 10
     pollingInterval: 30 # seconds
     cooldownPeriod: 30 # seconds
     triggers:
