@@ -131,7 +131,7 @@ class TransactionsRefundEventsConsumerTests {
   }
 
   @Test
-  fun `consumer processes refund request event for a transaction without refund requested`() =
+  fun `consumer processes refund request event for a transaction without refund requested`() {
     runTest {
       val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
       val authorizationRequestEvent =
@@ -190,9 +190,10 @@ class TransactionsRefundEventsConsumerTests {
       verify(mockOpenTelemetryUtils, never())
         .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
+  }
 
   @Test
-  fun `consumer doesn't process refund request event correctly with unknown payment gateway`() =
+  fun `consumer doesn't process refund request event correctly with unknown payment gateway`() {
     runTest {
       val paymentMethodName = "CARDS"
       val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
@@ -282,107 +283,115 @@ class TransactionsRefundEventsConsumerTests {
       verify(mockOpenTelemetryUtils, never())
         .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
-
-  @Test
-  fun `consumer processes refund request event correctly with npg refund`() = runTest {
-    val correlationId = UUID.randomUUID().toString()
-    val activationEvent =
-      transactionActivateEvent(NpgTransactionGatewayActivationData("orderId", correlationId))
-        as TransactionEvent<Any>
-    val authorizationRequestEvent =
-      transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
-    (authorizationRequestEvent.data as TransactionAuthorizationRequestData).paymentGateway =
-      TransactionAuthorizationRequestData.PaymentGateway.NPG
-
-    val authorizationCompleteEvent =
-      transactionAuthorizationCompletedEvent(
-        npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED))
-        as TransactionEvent<Any>
-    val closureRequestedEvent = transactionClosureRequestedEvent() as TransactionEvent<Any>
-    val closedEvent =
-      transactionClosedEvent(TransactionClosureData.Outcome.KO) as TransactionEvent<Any>
-    val refundRequestedEvent =
-      TransactionRefundRequestedEvent(
-        TRANSACTION_ID, TransactionRefundRequestedData(null, TransactionStatusDto.REFUND_REQUESTED))
-        as TransactionEvent<Any>
-
-    val refundServiceNpgResponse =
-      RefundResponseDto().apply {
-        operationId = "operationId"
-        operationTime = "operationTime"
-      }
-
-    val events =
-      listOf(
-        activationEvent,
-        authorizationRequestEvent,
-        authorizationCompleteEvent,
-        closureRequestedEvent,
-        closedEvent,
-        refundRequestedEvent)
-
-    val transaction =
-      reduceEvents(*events.toTypedArray()) as BaseTransactionWithRequestedAuthorization
-
-    /* preconditions */
-    given(checkpointer.success()).willReturn(Mono.empty())
-    given(
-        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
-      .willReturn(events.toFlux())
-    given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
-    given(transactionsRefundedEventStoreRepository.save(refundEventStoreCaptor.capture()))
-      .willAnswer { Mono.just(it.arguments[0]) }
-    given(refundService.requestNpgRefund(any(), any(), any(), any(), any(), any()))
-      .willReturn(Mono.just(refundServiceNpgResponse))
-    given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
-      .willReturn(
-        mono { transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now()) })
-
-    /* test */
-    StepVerifier.create(
-        transactionRefundedEventsConsumer.messageReceiver(
-          Either.right(
-            QueueEvent(refundRequestedEvent as TransactionRefundRequestedEvent, MOCK_TRACING_INFO)),
-          checkpointer))
-      .expectNext(Unit)
-      .verifyComplete()
-
-    /* Asserts */
-    val expectedOperationId = NPG_OPERATION_ID
-    val expectedIdempotencyKey = TransactionId(TRANSACTION_ID).uuid
-    val expectedAmount =
-      BigDecimal.valueOf(
-        (activationEvent as TransactionActivatedEvent)
-          .data
-          .paymentNotices
-          .sumOf { it.amount }
-          .toLong() +
-          (authorizationRequestEvent as TransactionAuthorizationRequestedEvent).data.fee)
-    val expectedPspId =
-      (authorizationRequestEvent as TransactionAuthorizationRequestedEvent).data.pspId
-    verify(checkpointer, Mockito.times(1)).success()
-    verify(refundService, Mockito.times(1))
-      .requestNpgRefund(
-        operationId = expectedOperationId,
-        idempotenceKey = expectedIdempotencyKey,
-        amount = expectedAmount,
-        pspId = expectedPspId,
-        correlationId = correlationId,
-        paymentMethod =
-          NpgClient.PaymentMethod.valueOf(authorizationRequestEvent.data.paymentMethodName))
-    verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
-    verify(refundRetryService, times(0))
-      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
-    val storedEvent = refundEventStoreCaptor.value
-    assertEquals(TransactionEventCode.TRANSACTION_REFUNDED_EVENT.toString(), storedEvent.eventCode)
-    assertEquals(TransactionStatusDto.REFUND_REQUESTED, storedEvent.data.statusBeforeRefunded)
-    verify(transactionTracing, times(1)).addSpanAttributesRefundedFlowFromTransaction(any(), any())
-    verify(mockOpenTelemetryUtils, times(1))
-      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
   }
 
   @Test
-  fun `consumer does not enqueue refund retry event for RefundNotAllowedException response from NPG`() =
+  fun `consumer processes refund request event correctly with npg refund`() {
+    runTest {
+      val correlationId = UUID.randomUUID().toString()
+      val activationEvent =
+        transactionActivateEvent(NpgTransactionGatewayActivationData("orderId", correlationId))
+          as TransactionEvent<Any>
+      val authorizationRequestEvent =
+        transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
+      (authorizationRequestEvent.data as TransactionAuthorizationRequestData).paymentGateway =
+        TransactionAuthorizationRequestData.PaymentGateway.NPG
+
+      val authorizationCompleteEvent =
+        transactionAuthorizationCompletedEvent(
+          npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED))
+          as TransactionEvent<Any>
+      val closureRequestedEvent = transactionClosureRequestedEvent() as TransactionEvent<Any>
+      val closedEvent =
+        transactionClosedEvent(TransactionClosureData.Outcome.KO) as TransactionEvent<Any>
+      val refundRequestedEvent =
+        TransactionRefundRequestedEvent(
+          TRANSACTION_ID,
+          TransactionRefundRequestedData(null, TransactionStatusDto.REFUND_REQUESTED))
+          as TransactionEvent<Any>
+
+      val refundServiceNpgResponse =
+        RefundResponseDto().apply {
+          operationId = "operationId"
+          operationTime = "operationTime"
+        }
+
+      val events =
+        listOf(
+          activationEvent,
+          authorizationRequestEvent,
+          authorizationCompleteEvent,
+          closureRequestedEvent,
+          closedEvent,
+          refundRequestedEvent)
+
+      val transaction =
+        reduceEvents(*events.toTypedArray()) as BaseTransactionWithRequestedAuthorization
+
+      /* preconditions */
+      given(checkpointer.success()).willReturn(Mono.empty())
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
+        .willReturn(events.toFlux())
+      given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
+      given(transactionsRefundedEventStoreRepository.save(refundEventStoreCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
+      given(refundService.requestNpgRefund(any(), any(), any(), any(), any(), any()))
+        .willReturn(Mono.just(refundServiceNpgResponse))
+      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturn(
+          mono { transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now()) })
+
+      /* test */
+      StepVerifier.create(
+          transactionRefundedEventsConsumer.messageReceiver(
+            Either.right(
+              QueueEvent(
+                refundRequestedEvent as TransactionRefundRequestedEvent, MOCK_TRACING_INFO)),
+            checkpointer))
+        .expectNext(Unit)
+        .verifyComplete()
+
+      /* Asserts */
+      val expectedOperationId = NPG_OPERATION_ID
+      val expectedIdempotencyKey = TransactionId(TRANSACTION_ID).uuid
+      val expectedAmount =
+        BigDecimal.valueOf(
+          (activationEvent as TransactionActivatedEvent)
+            .data
+            .paymentNotices
+            .sumOf { it.amount }
+            .toLong() +
+            (authorizationRequestEvent as TransactionAuthorizationRequestedEvent).data.fee)
+      val expectedPspId =
+        (authorizationRequestEvent as TransactionAuthorizationRequestedEvent).data.pspId
+      verify(checkpointer, Mockito.times(1)).success()
+      verify(refundService, Mockito.times(1))
+        .requestNpgRefund(
+          operationId = expectedOperationId,
+          idempotenceKey = expectedIdempotencyKey,
+          amount = expectedAmount,
+          pspId = expectedPspId,
+          correlationId = correlationId,
+          paymentMethod =
+            NpgClient.PaymentMethod.valueOf(authorizationRequestEvent.data.paymentMethodName))
+      verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
+      verify(refundRetryService, times(0))
+        .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
+      val storedEvent = refundEventStoreCaptor.value
+      assertEquals(
+        TransactionEventCode.TRANSACTION_REFUNDED_EVENT.toString(), storedEvent.eventCode)
+      assertEquals(TransactionStatusDto.REFUND_REQUESTED, storedEvent.data.statusBeforeRefunded)
+      verify(transactionTracing, times(1))
+        .addSpanAttributesRefundedFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, times(1))
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
+    }
+  }
+
+  @Test
+  fun `consumer does not enqueue refund retry event for RefundNotAllowedException response from NPG`() {
     runTest {
       val correlationId = UUID.randomUUID().toString()
       val activationEvent =
@@ -501,50 +510,54 @@ class TransactionsRefundEventsConsumerTests {
       verify(mockOpenTelemetryUtils, never())
         .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
-
-  @Test
-  fun `test getAuthorizationCompletedData with BaseTransactionWithRefundRequested`() = runTest {
-    val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
-    val authorizationRequestEvent =
-      transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
-    (authorizationRequestEvent.data as TransactionAuthorizationRequestData).paymentGateway =
-      TransactionAuthorizationRequestData.PaymentGateway.NPG
-
-    val transactionGatewayAuthorizationData =
-      npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)
-
-    val authorizationCompleteEvent =
-      transactionAuthorizationCompletedEvent(transactionGatewayAuthorizationData)
-        as TransactionEvent<Any>
-    val closureRequestedEvent = transactionClosureRequestedEvent() as TransactionEvent<Any>
-    val closedEvent =
-      transactionClosedEvent(TransactionClosureData.Outcome.KO) as TransactionEvent<Any>
-    val refundRequestedEvent =
-      TransactionRefundRequestedEvent(
-        TRANSACTION_ID, TransactionRefundRequestedData(null, TransactionStatusDto.REFUND_REQUESTED))
-        as TransactionEvent<Any>
-
-    val events =
-      listOf(
-        activationEvent,
-        authorizationRequestEvent,
-        authorizationCompleteEvent,
-        closureRequestedEvent,
-        closedEvent,
-        refundRequestedEvent)
-
-    val transaction = reduceEvents(*events.toTypedArray()) as BaseTransactionWithRefundRequested
-
-    assertEquals(
-      getAuthorizationCompletedData(transaction, npgService).block(),
-      transactionGatewayAuthorizationData)
-    verify(transactionTracing, never()).addSpanAttributesRefundedFlowFromTransaction(any(), any())
-    verify(mockOpenTelemetryUtils, never())
-      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
   }
 
   @Test
-  fun `test getAuthorizationCompletedData with BaseTransactionWithCompletedAuthorization`() =
+  fun `test getAuthorizationCompletedData with BaseTransactionWithRefundRequested`() {
+    runTest {
+      val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
+      val authorizationRequestEvent =
+        transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
+      (authorizationRequestEvent.data as TransactionAuthorizationRequestData).paymentGateway =
+        TransactionAuthorizationRequestData.PaymentGateway.NPG
+
+      val transactionGatewayAuthorizationData =
+        npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)
+
+      val authorizationCompleteEvent =
+        transactionAuthorizationCompletedEvent(transactionGatewayAuthorizationData)
+          as TransactionEvent<Any>
+      val closureRequestedEvent = transactionClosureRequestedEvent() as TransactionEvent<Any>
+      val closedEvent =
+        transactionClosedEvent(TransactionClosureData.Outcome.KO) as TransactionEvent<Any>
+      val refundRequestedEvent =
+        TransactionRefundRequestedEvent(
+          TRANSACTION_ID,
+          TransactionRefundRequestedData(null, TransactionStatusDto.REFUND_REQUESTED))
+          as TransactionEvent<Any>
+
+      val events =
+        listOf(
+          activationEvent,
+          authorizationRequestEvent,
+          authorizationCompleteEvent,
+          closureRequestedEvent,
+          closedEvent,
+          refundRequestedEvent)
+
+      val transaction = reduceEvents(*events.toTypedArray()) as BaseTransactionWithRefundRequested
+
+      assertEquals(
+        getAuthorizationCompletedData(transaction, npgService).block(),
+        transactionGatewayAuthorizationData)
+      verify(transactionTracing, never()).addSpanAttributesRefundedFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
+    }
+  }
+
+  @Test
+  fun `test getAuthorizationCompletedData with BaseTransactionWithCompletedAuthorization`() {
     runTest {
       val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
       val authorizationRequestEvent =
@@ -571,77 +584,82 @@ class TransactionsRefundEventsConsumerTests {
       verify(mockOpenTelemetryUtils, never())
         .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
-
-  @Test
-  fun `test getAuthorizationCompletedData with BaseTransactionWithClosureError`() = runTest {
-    val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
-    val authorizationRequestEvent =
-      transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
-    (authorizationRequestEvent.data as TransactionAuthorizationRequestData).paymentGateway =
-      TransactionAuthorizationRequestData.PaymentGateway.NPG
-
-    val transactionGatewayAuthorizationData =
-      npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)
-
-    val authorizationCompleteEvent =
-      transactionAuthorizationCompletedEvent(transactionGatewayAuthorizationData)
-        as TransactionEvent<Any>
-    val closureRequestedEvent = transactionClosureRequestedEvent()
-    val closureError = transactionClosureErrorEvent() as TransactionEvent<Any>
-
-    val events =
-      listOf(
-        activationEvent,
-        authorizationRequestEvent,
-        authorizationCompleteEvent,
-        closureRequestedEvent,
-        closureError)
-
-    val transaction = reduceEvents(*events.toTypedArray()) as BaseTransactionWithClosureError
-
-    assertEquals(
-      getAuthorizationCompletedData(transaction, npgService).block(),
-      transactionGatewayAuthorizationData)
-    verify(transactionTracing, never()).addSpanAttributesRefundedFlowFromTransaction(any(), any())
-    verify(mockOpenTelemetryUtils, never())
-      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
   }
 
   @Test
-  fun `test getAuthorizationCompletedData with BaseTransactionExpired`() = runTest {
-    val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
-    val authorizationRequestEvent =
-      transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
-    (authorizationRequestEvent.data as TransactionAuthorizationRequestData).paymentGateway =
-      TransactionAuthorizationRequestData.PaymentGateway.NPG
+  fun `test getAuthorizationCompletedData with BaseTransactionWithClosureError`() {
+    runTest {
+      val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
+      val authorizationRequestEvent =
+        transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
+      (authorizationRequestEvent.data as TransactionAuthorizationRequestData).paymentGateway =
+        TransactionAuthorizationRequestData.PaymentGateway.NPG
 
-    val transactionGatewayAuthorizationData =
-      npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)
+      val transactionGatewayAuthorizationData =
+        npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)
 
-    val authorizationCompleteEvent =
-      transactionAuthorizationCompletedEvent(transactionGatewayAuthorizationData)
-        as TransactionEvent<Any>
+      val authorizationCompleteEvent =
+        transactionAuthorizationCompletedEvent(transactionGatewayAuthorizationData)
+          as TransactionEvent<Any>
+      val closureRequestedEvent = transactionClosureRequestedEvent()
+      val closureError = transactionClosureErrorEvent() as TransactionEvent<Any>
 
-    val events: MutableList<TransactionEvent<Any>> =
-      mutableListOf(activationEvent, authorizationRequestEvent, authorizationCompleteEvent)
+      val events =
+        listOf(
+          activationEvent,
+          authorizationRequestEvent,
+          authorizationCompleteEvent,
+          closureRequestedEvent,
+          closureError)
 
-    val expiredEvent =
-      transactionExpiredEvent(reduceEvents(*events.toTypedArray())) as TransactionEvent<Any>
+      val transaction = reduceEvents(*events.toTypedArray()) as BaseTransactionWithClosureError
 
-    events.add(expiredEvent)
-
-    val transaction = reduceEvents(*events.toTypedArray()) as BaseTransactionExpired
-
-    assertEquals(
-      getAuthorizationCompletedData(transaction, npgService).block(),
-      transactionGatewayAuthorizationData)
-    verify(transactionTracing, never()).addSpanAttributesRefundedFlowFromTransaction(any(), any())
-    verify(mockOpenTelemetryUtils, never())
-      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
+      assertEquals(
+        getAuthorizationCompletedData(transaction, npgService).block(),
+        transactionGatewayAuthorizationData)
+      verify(transactionTracing, never()).addSpanAttributesRefundedFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
+    }
   }
 
   @Test
-  fun `test getAuthorizationCompletedData with BaseTransactionWithRequestedAuthorization`() =
+  fun `test getAuthorizationCompletedData with BaseTransactionExpired`() {
+    runTest {
+      val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
+      val authorizationRequestEvent =
+        transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
+      (authorizationRequestEvent.data as TransactionAuthorizationRequestData).paymentGateway =
+        TransactionAuthorizationRequestData.PaymentGateway.NPG
+
+      val transactionGatewayAuthorizationData =
+        npgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED)
+
+      val authorizationCompleteEvent =
+        transactionAuthorizationCompletedEvent(transactionGatewayAuthorizationData)
+          as TransactionEvent<Any>
+
+      val events: MutableList<TransactionEvent<Any>> =
+        mutableListOf(activationEvent, authorizationRequestEvent, authorizationCompleteEvent)
+
+      val expiredEvent =
+        transactionExpiredEvent(reduceEvents(*events.toTypedArray())) as TransactionEvent<Any>
+
+      events.add(expiredEvent)
+
+      val transaction = reduceEvents(*events.toTypedArray()) as BaseTransactionExpired
+
+      assertEquals(
+        getAuthorizationCompletedData(transaction, npgService).block(),
+        transactionGatewayAuthorizationData)
+      verify(transactionTracing, never()).addSpanAttributesRefundedFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
+    }
+  }
+
+  @Test
+  fun `test getAuthorizationCompletedData with BaseTransactionWithRequestedAuthorization`() {
     runTest {
       val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
       val authorizationRequestEvent =
@@ -659,6 +677,7 @@ class TransactionsRefundEventsConsumerTests {
       verify(mockOpenTelemetryUtils, never())
         .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
     }
+  }
 
   @Test
   fun `consumer does not call refund if authorization was not requested`() {

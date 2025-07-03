@@ -14,12 +14,12 @@
 	<description>pagoPA ecommerce microservice to handle transaction events and perform async operations such as
 		send user email, refund based on transaction status</description>
 	<properties>
-		<java.version>17</java.version>
+		<java.version>21</java.version>
 		<kotlin.version>2.1.21</kotlin.version>
 		<kotlinx-coroutines.version>1.10.2</kotlinx-coroutines.version>
-		<spring-cloud-azure.version>5.22.0</spring-cloud-azure.version>
-		<jacoco.version>0.8.8</jacoco.version>
-		<pagopa-ecommerce-commons.version>2.0.1</pagopa-ecommerce-commons.version>
+		<spring-cloud-azure.version>5.18.0</spring-cloud-azure.version>
+		<jacoco.version>0.8.11</jacoco.version>
+		<pagopa-ecommerce-commons.version>3.0.0</pagopa-ecommerce-commons.version>
 		<sonar.coverage.exclusions> <!-- the members of the following list should be in the same line -->
 			**/it/pagopa/transactions/**,
 			**/it/pagopa/ecommerce/eventdispatcher/validation/**
@@ -83,7 +83,6 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-actuator</artifactId>
-			<version>3.0.13</version>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -103,7 +102,7 @@
 		<dependency>
 			<groupId>org.jetbrains.kotlin</groupId>
 			<artifactId>kotlin-maven-lombok</artifactId>
-			<version>1.7.10</version>
+			<version>${kotlin.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>io.projectreactor</groupId>
@@ -116,8 +115,12 @@
 			<version>0.10.4</version>
 		</dependency>
 		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter</artifactId>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-api</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>ch.qos.logback</groupId>
+			<artifactId>logback-classic</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.integration</groupId>
@@ -126,7 +129,7 @@
 		<dependency>
 			<groupId>org.mockito.kotlin</groupId>
 			<artifactId>mockito-kotlin</artifactId>
-			<version>4.0.0</version>
+			<version>5.2.1</version>
 			<scope>test</scope>
 		</dependency>
 		<dependency>
@@ -167,7 +170,7 @@
 		<dependency>
 			<groupId>io.swagger.core.v3</groupId>
 			<artifactId>swagger-annotations</artifactId>
-			<version>2.2.19</version>
+			<version>2.2.30</version>
 		</dependency>
 		<dependency>
 			<groupId>com.google.code.findbugs</groupId>
@@ -250,6 +253,10 @@
 			<version>1.27.0-alpha</version>
 		</dependency>
 		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-validation</artifactId>
+		</dependency>
+		<dependency>
 			<groupId>org.jetbrains.kotlin</groupId>
 			<artifactId>kotlin-maven-allopen</artifactId>
 			<version>2.1.21</version> <!-- Usa la stessa versione del kotlin-maven-plugin -->
@@ -277,14 +284,9 @@
 
 	<build>
 		<plugins>
-
-
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
-				<configuration>
-					<jvmArguments>--enable-preview</jvmArguments>
-				</configuration>
 			</plugin>
 			<plugin>
 				<groupId>org.codehaus.mojo</groupId>
@@ -333,7 +335,7 @@
 					<dependency>
 						<groupId>org.projectlombok</groupId>
 						<artifactId>lombok</artifactId>
-						<version>1.18.20</version>
+						<version>1.18.30</version>
 						<scope>compile</scope>
 					</dependency>
 				</dependencies>
@@ -372,7 +374,7 @@
 			<plugin>
 				<groupId>org.openapitools</groupId>
 				<artifactId>openapi-generator-maven-plugin</artifactId>
-				<version>7.1.0</version>
+				<version>7.13.0</version>
 				<executions>
 					<execution>
 						<id>node-api</id>
@@ -470,9 +472,9 @@
 								<skipDefaultInterface>true</skipDefaultInterface>
 								<useSwaggerUI>false</useSwaggerUI>
 								<reactive>true</reactive>
-								<enumPropertyNaming>UPPERCASE</enumPropertyNaming><useJakartaEe>true</useJakartaEe>
+								<enumPropertyNaming>UPPERCASE</enumPropertyNaming>
+								<useJakartaEe>true</useJakartaEe>
 								<useSpringBoot3>true</useSpringBoot3>
-
 							</configOptions>
 						</configuration>
 					</execution>
@@ -572,6 +574,13 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
+				<version>3.13.0</version>
+				<configuration>
+					<release>${java.version}</release>
+					<parameters>true</parameters>
+					<source>${java.version}</source>
+					<target>${java.version}</target>
+				</configuration>
 				<executions>
 					<execution>
 						<id>compile</id>
@@ -588,11 +597,6 @@
 						</goals>
 					</execution>
 				</executions>
-				<configuration>
-					<source>17</source>
-					<target>17</target>
-					<compilerArgs>--enable-preview</compilerArgs>
-				</configuration>
 			</plugin>
 			<plugin>
 				<groupId>org.jacoco</groupId>
@@ -622,9 +626,9 @@
 			</plugin>
 			<plugin>
 				<artifactId>maven-surefire-plugin</artifactId>
-				<version>2.22.1</version>
+				<version>3.2.5</version>
 				<configuration>
-					<argLine>${argLine} --enable-preview</argLine>
+					<argLine>@{argLine} -Xmx1024m</argLine>
 				</configuration>
 			</plugin>
 			<plugin>
