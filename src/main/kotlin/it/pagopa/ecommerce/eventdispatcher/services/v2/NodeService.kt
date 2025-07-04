@@ -367,6 +367,15 @@ class NodeService(
                 feeEuro,
                 closePaymentTransactionDetails)
               .cast(ClosePaymentRequestV2Dto::class.java)
+          PaymentCode.GOOG.name ->
+            buildAuthorizationCompletedGooglePayClosePaymentRequest(
+                authCompleted,
+                transactionOutcome,
+                transactionId,
+                totalAmountEuro,
+                feeEuro,
+                closePaymentTransactionDetails)
+              .cast(ClosePaymentRequestV2Dto::class.java)
           else ->
             throw IllegalArgumentException(
               "Unhandled or invalid payment type code: '%s'".format(
@@ -707,6 +716,78 @@ class NodeService(
         paymentTokens =
           authCompleted.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken.value }
         outcome = ApplePayClosePaymentRequestV2Dto.OutcomeEnum.valueOf(transactionOutcome.name)
+        this.transactionId = transactionId.value()
+
+        if (transactionOutcome == ClosePaymentOutcome.OK) {
+          timestampOperation =
+            OffsetDateTime.parse(
+              authCompleted.transactionAuthorizationCompletedData.timestampOperation)
+          this.totalAmount = totalAmountEuro
+          this.fee = feeEuro
+          this.timestampOperation =
+            OffsetDateTime.parse(
+              authCompleted.transactionAuthorizationCompletedData.timestampOperation,
+              DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+          idPSP = authCompleted.transactionAuthorizationRequestData.pspId
+          paymentMethod = authCompleted.transactionAuthorizationRequestData.paymentTypeCode
+          idBrokerPSP = authCompleted.transactionAuthorizationRequestData.brokerName
+          idChannel = authCompleted.transactionAuthorizationRequestData.pspChannelCode
+          idBundle = authCompleted.transactionAuthorizationRequestData.idBundle
+        }
+
+        this.additionalPaymentInformations = it.orElse(null)
+        transactionDetails = closePaymentTransactionDetails
+      }
+    }
+  }
+
+  private fun buildAuthorizationCompletedGooglePayClosePaymentRequest(
+    authCompleted: BaseTransactionWithCompletedAuthorization,
+    transactionOutcome: ClosePaymentOutcome,
+    transactionId: TransactionId,
+    totalAmountEuro: BigDecimal,
+    feeEuro: BigDecimal,
+    closePaymentTransactionDetails: TransactionDetailsDto
+  ): Mono<GooglePayClosePaymentRequestV2Dto> {
+    val email =
+      Mono.defer {
+        confidentialDataUtils
+          .eCommerceDecrypt(authCompleted.transactionActivatedData.email) { Email(it) }
+          .map { it.value }
+      }
+
+    val additionalPaymentInformations =
+      Mono.just(0)
+        .filter { transactionOutcome == ClosePaymentOutcome.OK }
+        .flatMap { email }
+        .map {
+          GooglePayAdditionalPaymentInformationsDto().apply {
+            this.authorizationRequestId =
+              authCompleted.transactionAuthorizationRequestData.authorizationRequestId
+            this.rrn = authCompleted.transactionAuthorizationCompletedData.rrn
+            this.totalAmount = totalAmountEuro.toString()
+            this.fee = feeEuro.toString()
+            this.timestampOperation =
+              OffsetDateTime.parse(
+                  authCompleted.transactionAuthorizationCompletedData.timestampOperation,
+                  DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                .atZoneSameInstant(closePaymentZoneId)
+                .truncatedTo(ChronoUnit.SECONDS)
+                .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                .toString()
+            this.authorizationCode =
+              authCompleted.transactionAuthorizationCompletedData.authorizationCode
+            this.email = it
+          }
+        }
+        .map { Optional.of(it) }
+        .defaultIfEmpty(Optional.empty())
+
+    return additionalPaymentInformations.map {
+      GooglePayClosePaymentRequestV2Dto().apply {
+        paymentTokens =
+          authCompleted.paymentNotices.map { paymentNotice -> paymentNotice.paymentToken.value }
+        outcome = GooglePayClosePaymentRequestV2Dto.OutcomeEnum.valueOf(transactionOutcome.name)
         this.transactionId = transactionId.value()
 
         if (transactionOutcome == ClosePaymentOutcome.OK) {
