@@ -99,6 +99,7 @@ class UserReceiptMailBuilder(@Autowired private val confidentialDataUtils: Confi
         when (transactionAuthorizationRequestData.paymentTypeCode) {
           PaymentCode.PPAL.name,
           PaymentCode.SATY.name,
+          PaymentCode.GOOG.name,
           PaymentCode.MYBK.name ->
             createSuccessTemplate(
               baseTransactionWithRequestedUserReceipt = baseTransactionWithRequestedUserReceipt,
