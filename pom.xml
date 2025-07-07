@@ -381,7 +381,7 @@
 						</goals>
 						<configuration>
 							<inputSpec>
-								https://raw.githubusercontent.com/pagopa/pagopa-infra/PIDM-753-googlepay-closepayment-missing/src/core/api/nodopagamenti_api/nodoPerPM/v2/_openapi.json.tpl
+								https://raw.githubusercontent.com/pagopa/pagopa-infra/v1.600.1/src/core/api/nodopagamenti_api/nodoPerPM/v2/_openapi.json.tpl
 							</inputSpec>
 							<generatorName>spring</generatorName>
 							<library>spring-cloud</library>
