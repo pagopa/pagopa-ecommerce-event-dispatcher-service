@@ -119,13 +119,30 @@ stages:
               export $(grep -v '^#' .env.example | xargs)
             workingDirectory: pagopa-ecommerce-tests/integration_tests
             displayName: "Set environment variables"
-          - script: |
-              ./mvnw validate -PinstallCommons
+          - task: Maven@4
             workingDirectory: pagopa-ecommerce-tests/integration_tests
+            inputs:
+              mavenPomFile: 'pom.xml'
+              mavenOptions: '-Xmx3072m $(MAVEN_OPTS)'
+              javaHomeOption: 'JDKVersion'
+              jdkVersionOption: '21'
+              jdkArchitectureOption: 'x64'
+              publishJUnitResults: false
+              testResultsFiles: '**/surefire-reports/TEST-*.xml'
+              goals: 'validate -PinstallCommons'
+              sonarQubeRunAnalysis: false
             displayName: "Install commons library"
-          - script: |
-              ./mvnw test -PcodeReviewTests
-            workingDirectory: pagopa-ecommerce-tests/integration_tests
+          - task: Maven@4
+            inputs:
+              mavenPomFile: 'pom.xml'
+              mavenOptions: '-Xmx3072m $(MAVEN_OPTS)'
+              javaHomeOption: 'JDKVersion'
+              jdkVersionOption: '21'
+              jdkArchitectureOption: 'x64'
+              publishJUnitResults: false
+              testResultsFiles: '**/surefire-reports/TEST-*.xml'
+              goals: 'test -PcodeReviewTests'
+              sonarQubeRunAnalysis: true
             displayName: "Execute pending transaction code review tests"
           - task: PublishTestResults@2
             inputs:
