@@ -131,6 +131,7 @@ stages:
               testResultsFormat: 'JUnit'
               testResultsFiles: '**/TEST-*.xml'
               searchFolder: '$(System.DefaultWorkingDirectory)'
+              testRunTitle: "DEV integration tests"
   # --- START Deploy UAT --- #
   - stage: "Build_release_candidate"
     displayName: 'Build release candidate'
@@ -300,4 +301,5 @@ stages:
               testResultsFormat: 'JUnit'
               testResultsFiles: '**/TEST-*.xml'
               searchFolder: '$(System.DefaultWorkingDirectory)'
+              testRunTitle: "UAT integration tests"
   # --- END Deploy UAT --- #
