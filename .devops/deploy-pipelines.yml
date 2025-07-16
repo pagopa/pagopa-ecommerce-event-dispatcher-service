@@ -106,7 +106,7 @@ stages:
       - job: execute_integration_tests
         steps:
           - checkout: pagopaEcommerceTests
-            path: $(Pipeline.Workspace)/s/pagopa-ecommerce-tests
+            path: ./s/pagopa-ecommerce-tests
           - task: JavaToolInstaller@0
             displayName: 'Installing JDK 21'
             inputs:
@@ -116,7 +116,7 @@ stages:
           - script: |
               ./mvnw validate -PinstallCommons
             displayName: "Install commons library"
-            workingDirectory:  $(Pipeline.Workspace)/s/pagopa-ecommerce-tests/integration_tests
+            workingDirectory: ./s/pagopa-ecommerce-tests/integration_tests
           - script: |
               cp .env.dev .env
               ESCAPED_CONNECTION_STRING=$(echo "$(DEV_TRANSIENT_STORAGE_CONNECTION_STRING)" | sed -e 's/[\/&]/\\&/g')
@@ -126,7 +126,7 @@ stages:
               export $(grep -v '^#' .env | xargs)
               ./mvnw test -PintegrationTests
             displayName: "Execute pending transaction code review tests"
-            workingDirectory:  $(Pipeline.Workspace)/s/pagopa-ecommerce-tests/integration_tests
+            workingDirectory: ./s/pagopa-ecommerce-tests/integration_tests
           - task: PublishTestResults@2
             inputs:
               testResultsFormat: 'JUnit'
@@ -284,11 +284,11 @@ stages:
       - job: execute_integration_tests
         steps:
           - checkout: pagopaEcommerceTests
-            path: $(Pipeline.Workspace)/s/pagopa-ecommerce-tests
+            path: ./s/pagopa-ecommerce-tests
           - script: |
               docker build -t maven_test_runner .
             displayName: "Build docker test image runner"
-            workingDirectory: $(Pipeline.Workspace)/s/pagopa-ecommerce-tests/integration_tests
+            workingDirectory: ./s/pagopa-ecommerce-tests/integration_tests
           - script: |
               cp .env.uat .env
               ESCAPED_CONNECTION_STRING=$(echo "$(UAT_TRANSIENT_STORAGE_CONNECTION_STRING)" | sed -e 's/[\/&]/\\&/g')
@@ -297,7 +297,7 @@ stages:
               sed -i "s/^MONGO_PASSWORD=.*$/MONGO_PASSWORD=$ESCAPED_PASSWORD/" .env
               docker run --mount type=bind,src=$PWD,dst=/workspace/app maven_test_runner integration
             displayName: "Execute pending transaction code review tests"
-            workingDirectory: $(Pipeline.Workspace)/s/pagopa-ecommerce-tests/integration_tests
+            workingDirectory: ./s/pagopa-ecommerce-tests/integration_tests
           - task: PublishTestResults@2
             inputs:
               testResultsFormat: 'JUnit'
