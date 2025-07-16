@@ -109,7 +109,7 @@ stages:
             path: ./pagopa-ecommerce-tests
           - task: CopyFiles@2
             inputs:
-              SourceFolder: $(Pipeline.Workspace)/s/pagopa-ecommerce-tests
+              SourceFolder: $(Pipeline.Workspace)/pagopa-ecommerce-tests
               Contents: '**'
               TargetFolder: $(Agent.TempDirectory)/pagopa-ecommerce-tests
           - task: JavaToolInstaller@0
@@ -292,7 +292,7 @@ stages:
             path: ./pagopa-ecommerce-tests
           - task: CopyFiles@2
             inputs:
-              SourceFolder: $(Pipeline.Workspace)/s/pagopa-ecommerce-tests
+              SourceFolder: $(Pipeline.Workspace)/pagopa-ecommerce-tests
               Contents: '**'
               TargetFolder: $(Agent.TempDirectory)/pagopa-ecommerce-tests
           - script: |
