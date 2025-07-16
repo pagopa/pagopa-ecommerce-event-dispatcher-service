@@ -282,16 +282,17 @@ stages:
     jobs:
       - job: clean
         steps:
-          - script: 'rm -rf "$(Agent.BuildDirectory)"'
+          - script: 'rm -rf "/agent/_work/2/s/integration_tests"'
             workingDirectory: '$(Agent.HomeDirectory)'
             displayName: 'PowerShell Script'
       - job: execute_integration_tests
         steps:
           - checkout: pagopaEcommerceTests
+            path: $(Agent.TempDirectory)/pagopa-ecommerce-tests
           - script: |
               docker build -t maven_test_runner .
             displayName: "Build docker test image runner"
-            workingDirectory: ./integration_tests
+            workingDirectory: $(Agent.TempDirectory)/pagopa-ecommerce-tests/integration_tests
           - script: |
               cp .env.uat .env
               ESCAPED_CONNECTION_STRING=$(echo "$(UAT_TRANSIENT_STORAGE_CONNECTION_STRING)" | sed -e 's/[\/&]/\\&/g')
@@ -300,7 +301,7 @@ stages:
               sed -i "s/^MONGO_PASSWORD=.*$/MONGO_PASSWORD=$ESCAPED_PASSWORD/" .env
               docker run --mount type=bind,src=$PWD,dst=/workspace/app maven_test_runner integration
             displayName: "Execute pending transaction code review tests"
-            workingDirectory: ./integration_tests
+            workingDirectory: $(Agent.TempDirectory)/pagopa-ecommerce-tests/integration_tests
           - task: PublishTestResults@2
             inputs:
               testResultsFormat: 'JUnit'
