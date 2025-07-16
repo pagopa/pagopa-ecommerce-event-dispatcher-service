@@ -101,7 +101,7 @@ stages:
     dependsOn:
       - Deploy_for_DEV
     condition: |
-      in(dependencies.Deploy_for_DEV.result, 'Succeeded', 'Skipped')
+      eq(dependencies.Deploy_for_DEV.result, 'Succeeded')
     jobs:
       - job: execute_integration_tests
         steps:
@@ -273,7 +273,7 @@ stages:
     dependsOn:
       - Deploy_UAT_Green
     condition: |
-      in(dependencies.Deploy_UAT_Green.result, 'Succeeded', 'Skipped')
+      eq(dependencies.Deploy_UAT_Green.result, 'Succeeded')
     pool:
       name: pagopa-uat-linux
     jobs:
