@@ -280,6 +280,11 @@ stages:
     pool:
       name: pagopa-uat-linux
     jobs:
+      - job: clean
+        steps:
+          - powershell: 'Remove-Item -LiteralPath "$(Agent.BuildDirectory)" -Force -Recurse'
+            workingDirectory: '$(Agent.HomeDirectory)'
+            displayName: 'PowerShell Script'
       - job: execute_integration_tests
         steps:
           - checkout: pagopaEcommerceTests
