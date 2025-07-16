@@ -282,12 +282,6 @@ stages:
       - job: execute_integration_tests
         steps:
           - checkout: pagopaEcommerceTests
-          - task: JavaToolInstaller@0
-            displayName: 'Installing JDK 21'
-            inputs:
-              versionSpec: "21"
-              jdkArchitectureOption: x64
-              jdkSourceOption: 'AzureStorage'
           - script: |
               docker build -t maven_test_runner .
             displayName: "Build docker test image runner"
