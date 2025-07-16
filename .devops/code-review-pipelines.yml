@@ -14,6 +14,11 @@ resources:
       name: pagopa/pagopa-ecommerce-local
       ref: main
       endpoint: 'io-azure-devops-github-ro'
+    - repository: pagopaEcommerceTests
+      type: github
+      name: pagopa/pagopa-ecommerce-tests
+      ref: CHK-4329-event-dispatcher-integration-tests
+      endpoint: 'io-azure-devops-github-ro'
 
 stages:
   - stage: BuildEndUnitTest
@@ -86,20 +91,24 @@ stages:
               echo "##[debug] Change placeholder for ecommerce-event-dispatcher-service set branch: $(BRANCH_NAME)"
               sed -i "s/^ECOMMERCE_EVENT_DISPATCHER_COMMIT_SHA=.*$/ECOMMERCE_EVENT_DISPATCHER_COMMIT_SHA=$(BRANCH_NAME)/" .env
             displayName: 'Change dispatcher branch name ecommerce-local .env'
-          - script: docker compose up pagopa-ecommerce-transactions-service pagopa-ecommerce-payment-methods-service pagopa-ecommerce-event-dispatcher-service mongo redis storage pagopa-pdv-mock pagopa-gec-mock pagopa-npg-mock pagopa-node-mock traefik azurite-init pagopa-psp-mock pagopa-notifications-service pagopa-jwt-issuer-mock -d
+          - script: docker compose up pagopa-ecommerce-transactions-service pagopa-ecommerce-payment-methods-service pagopa-ecommerce-event-dispatcher-service mongo redis storage pagopa-pdv-mock pagopa-gec-mock pagopa-npg-mock pagopa-node-mock traefik azurite-init pagopa-psp-mock pagopa-notifications-service pagopa-jwt-issuer-mock pagopa-ecommerce-transactions-scheduler-service -d
             displayName: 'Run app with docker-compose'
           - script: |
               timeout 180 bash -c 'while [[ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:8080/actuator/health/liveness)" != "200" ]]; do sleep 5; done' || exit 1
             displayName: 'Health check'
           - script: yarn global add newman
             displayName: 'newman installation'
-          - script: newman run api-tests/transaction-service/npg/transaction-service_ecommerce_local.postman_collection.json --environment=api-tests/transaction-service/npg/transaction-service_ecommerce_local.postman_environment.json --reporters cli,junit --reporter-junit-export Results/NPG-api-TEST.xml
+          - script: newman run api-tests/transaction-service/npg/transaction-service_ecommerce_local.postman_collection.json --environment=api-tests/transaction-service/npg/transaction-service_ecommerce_local.postman_environment.json --reporters cli,junit --reporter-junit-export Results/TEST-NPG-api.xml
             displayName: 'Run api test for NPG integration'
-          - script: newman run api-tests/transaction-service/redirect/transaction-service_ecommerce_local.postman_collection.json --environment=api-tests/transaction-service/redirect/transaction-service_ecommerce_local.postman_environment.json --reporters cli,junit --reporter-junit-export Results/REDIRECT-api-TEST.xml
+          - script: newman run api-tests/transaction-service/redirect/transaction-service_ecommerce_local.postman_collection.json --environment=api-tests/transaction-service/redirect/transaction-service_ecommerce_local.postman_environment.json --reporters cli,junit --reporter-junit-export Results/TEST-REDIRECT-api.xml
             displayName: 'Run api test for REDIRECT integration'
-          - script: newman run api-tests/event-dispatcher-service/ecommerce-event-dispatcher_tests.postman_collection.json --environment=api-tests/event-dispatcher-service/ecommerce-event-dispatcher_tests.postman_environment.json --reporters cli,junit --reporter-junit-export Results/event-dispatcher-api-TEST.xml
+          - script: newman run api-tests/event-dispatcher-service/ecommerce-event-dispatcher_tests.postman_collection.json --environment=api-tests/event-dispatcher-service/ecommerce-event-dispatcher_tests.postman_environment.json --reporters cli,junit --reporter-junit-export Results/TEST-event-dispatcher-api.xml
             displayName: 'Run api test for event-dispatcher'
             continueOnError: false
+          - checkout: pagopaEcommerceTests
+          - script: |
+              export $(grep -v '^#' .env.example | xargs) && ./mvnw test -PcodeReviewTests
+            displayName: "Execute local tests"
           - task: PublishTestResults@2
             inputs:
               testResultsFormat: 'JUnit'
