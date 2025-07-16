@@ -113,9 +113,9 @@ stages:
               jdkArchitectureOption: x64
               jdkSourceOption: 'PreInstalled'
           - script: |
-              ls
               ./mvnw validate -PinstallCommons
             displayName: "Install commons library"
+            workingDirectory: ./integration_tests
           - script: |
               cp .env.dev .env
               sed -i "s/^QUEUE_TRANSIENT_CONNECTION_STRING=.*$/QUEUE_TRANSIENT_CONNECTION_STRING=$(DEV_TRANSIENT_STORAGE_CONNECTION_STRING)/" .env
@@ -123,6 +123,7 @@ stages:
               export $(grep -v '^#' .env | xargs)
               ./mvnw test -PintegrationTests
             displayName: "Execute pending transaction code review tests"
+            workingDirectory: ./integration_tests
           - task: PublishTestResults@2
             inputs:
               testResultsFormat: 'JUnit'
@@ -288,6 +289,7 @@ stages:
           - script: |
               ./mvnw validate -PinstallCommons
             displayName: "Install commons library"
+            workingDirectory: ./integration_tests
           - script: |
               cp .env.uat .env
               sed -i "s/^QUEUE_TRANSIENT_CONNECTION_STRING=.*$/QUEUE_TRANSIENT_CONNECTION_STRING=$(UAT_TRANSIENT_STORAGE_CONNECTION_STRING)/" .env
@@ -295,6 +297,7 @@ stages:
               export $(grep -v '^#' .env | xargs)
               ./mvnw test -PintegrationTests
             displayName: "Execute pending transaction code review tests"
+            workingDirectory: ./integration_tests
           - task: PublishTestResults@2
             inputs:
               testResultsFormat: 'JUnit'
