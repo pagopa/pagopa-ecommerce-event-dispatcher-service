@@ -282,7 +282,7 @@ stages:
     jobs:
       - job: clean
         steps:
-          - powershell: 'Remove-Item -LiteralPath "$(Agent.BuildDirectory)" -Force -Recurse'
+          - script: 'rm -rf "$(Agent.BuildDirectory)"'
             workingDirectory: '$(Agent.HomeDirectory)'
             displayName: 'PowerShell Script'
       - job: execute_integration_tests
