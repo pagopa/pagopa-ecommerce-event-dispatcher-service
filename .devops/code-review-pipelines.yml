@@ -87,7 +87,6 @@ stages:
       - job: make_integration_test
         steps:
           - checkout: pagopaEcommerceLocal
-            path: "pagopa-ecommerce-local"
           - script: |
               echo "##[debug] Change placeholder for ecommerce-event-dispatcher-service set branch: $(BRANCH_NAME)"
               sed -i "s/^ECOMMERCE_EVENT_DISPATCHER_COMMIT_SHA=.*$/ECOMMERCE_EVENT_DISPATCHER_COMMIT_SHA=$(BRANCH_NAME)/" .env
@@ -113,7 +112,6 @@ stages:
             workingDirectory: pagopa-ecommerce-local
             continueOnError: false
           - checkout: pagopaEcommerceTests
-            path: pagopa-ecommerce-tests
           - script: |
               export $(grep -v '^#' .env.example | xargs) && ./mvnw test -PcodeReviewTests
             displayName: "Execute local tests"
