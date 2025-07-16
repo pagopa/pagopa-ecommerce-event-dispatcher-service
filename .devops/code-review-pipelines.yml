@@ -115,9 +115,18 @@ stages:
 #            continueOnError: false
           - checkout: pagopaEcommerceTests
           - script: |
-              export $(grep -v '^#' .env.example | xargs) && ./mvnw test -PcodeReviewTests
-            displayName: "Execute local tests"
+              cp .env.example .env
+              export $(grep -v '^#' .env.example | xargs)
             workingDirectory: pagopa-ecommerce-tests/integration_tests
+            displayName: "Set environment variables"
+          - script: |
+              ./mvnw validate -PinstallCommons
+            workingDirectory: pagopa-ecommerce-tests/integration_tests
+            displayName: "Install commons library"
+          - script: |
+              ./mvnw test -PcodeReviewTests
+            workingDirectory: pagopa-ecommerce-tests/integration_tests
+            displayName: "Execute pending transaction code review tests"
           - task: PublishTestResults@2
             inputs:
               testResultsFormat: 'JUnit'
