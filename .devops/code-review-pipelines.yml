@@ -120,9 +120,8 @@ stages:
             workingDirectory: pagopa-ecommerce-tests/integration_tests
             displayName: "Set environment variables"
           - task: Maven@4
-            workingDirectory: pagopa-ecommerce-tests/integration_tests
             inputs:
-              mavenPomFile: 'pom.xml'
+              mavenPomFile: 'pagopa-ecommerce-tests/integration_tests/pom.xml'
               mavenOptions: '-Xmx3072m $(MAVEN_OPTS)'
               javaHomeOption: 'JDKVersion'
               jdkVersionOption: '21'
@@ -134,7 +133,7 @@ stages:
             displayName: "Install commons library"
           - task: Maven@4
             inputs:
-              mavenPomFile: 'pom.xml'
+              mavenPomFile: 'pagopa-ecommerce-tests/integration_tests/pom.xml'
               mavenOptions: '-Xmx3072m $(MAVEN_OPTS)'
               javaHomeOption: 'JDKVersion'
               jdkVersionOption: '21'
