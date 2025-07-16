@@ -114,34 +114,24 @@ stages:
 #            workingDirectory: pagopa-ecommerce-local
 #            continueOnError: false
           - checkout: pagopaEcommerceTests
+          - task: JavaToolInstaller@0
+            displayName: 'Installing JDK 21'
+            inputs:
+              versionSpec: "21"
+              jdkArchitectureOption: x64
+              jdkSourceOption: 'PreInstalled'
           - script: |
               cp .env.example .env
-              export $(grep -v '^#' .env.example | xargs)
             workingDirectory: pagopa-ecommerce-tests/integration_tests
             displayName: "Set environment variables"
-          - task: Maven@4
-            inputs:
-              mavenPomFile: 'pagopa-ecommerce-tests/integration_tests/pom.xml'
-              mavenOptions: '-Xmx3072m $(MAVEN_OPTS)'
-              javaHomeOption: 'JDKVersion'
-              jdkVersionOption: '21'
-              jdkArchitectureOption: 'x64'
-              publishJUnitResults: false
-              testResultsFiles: '**/surefire-reports/TEST-*.xml'
-              goals: 'validate -PinstallCommons'
-              sonarQubeRunAnalysis: false
+          - script: |
+              ./mvnw validate -PinstallCommons
+            workingDirectory: pagopa-ecommerce-tests/integration_tests
             displayName: "Install commons library"
-          - task: Maven@4
-            inputs:
-              mavenPomFile: 'pagopa-ecommerce-tests/integration_tests/pom.xml'
-              mavenOptions: '-Xmx3072m $(MAVEN_OPTS)'
-              javaHomeOption: 'JDKVersion'
-              jdkVersionOption: '21'
-              jdkArchitectureOption: 'x64'
-              publishJUnitResults: false
-              testResultsFiles: '**/surefire-reports/TEST-*.xml'
-              goals: 'test -PcodeReviewTests'
-              sonarQubeRunAnalysis: true
+          - script: |
+              export $(grep -v '^#' .env.example | xargs)
+              ./mvnw test -PcodeReviewTests
+            workingDirectory: pagopa-ecommerce-tests/integration_tests
             displayName: "Execute pending transaction code review tests"
           - task: PublishTestResults@2
             inputs:
