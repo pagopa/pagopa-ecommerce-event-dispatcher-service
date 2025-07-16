@@ -121,10 +121,6 @@ stages:
               jdkArchitectureOption: x64
               jdkSourceOption: 'PreInstalled'
           - script: |
-              cp .env.example .env
-            workingDirectory: pagopa-ecommerce-tests/integration_tests
-            displayName: "Set environment variables"
-          - script: |
               ./mvnw validate -PinstallCommons
             workingDirectory: pagopa-ecommerce-tests/integration_tests
             displayName: "Install commons library"

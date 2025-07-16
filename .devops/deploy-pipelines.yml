@@ -54,6 +54,11 @@ resources:
       name: pagopa/azure-pipeline-templates
       ref: refs/tags/v2.10.1
       endpoint: 'io-azure-devops-github-ro'
+    - repository: pagopaEcommerceTests
+      type: github
+      name: pagopa/pagopa-ecommerce-tests
+      ref: CHK-4329-event-dispatcher-integration-tests
+      endpoint: 'io-azure-devops-github-ro'
 
 pool:
   vmImage: ubuntu-latest
@@ -108,6 +113,36 @@ stages:
                     VALUE_FILE: "helm/values-dev.yaml"
                     GREEN_VERSION: $(Build.SourceVersion)
                     BLUE_VERSION: $(Build.SourceVersion)
+  - stage: IntegrationTestDev
+    dependsOn:
+      - Deploy_for_DEV
+    jobs:
+      - job: make_integration_test
+        steps:
+          - checkout: pagopaEcommerceTests
+          - task: JavaToolInstaller@0
+            displayName: 'Installing JDK 21'
+            inputs:
+              versionSpec: "21"
+              jdkArchitectureOption: x64
+              jdkSourceOption: 'PreInstalled'
+          - script: |
+              ./mvnw validate -PinstallCommons
+            workingDirectory: pagopa-ecommerce-tests/integration_tests
+            displayName: "Install commons library"
+          - script: |
+              cp .env.dev .env
+              sed -i "s/^QUEUE_TRANSIENT_CONNECTION_STRING=.*$/QUEUE_TRANSIENT_CONNECTION_STRING=$(DEV_TRANSIENT_STORAGE_CONNECTION_STRING)/" .env
+              sed -i "s/^MONGO_PASSWORD=.*$/MONGO_PASSWORD=$(DEV_MONGO_ECOMMERCE_PASSWORD)/" .env
+              export $(grep -v '^#' .env | xargs)
+              ./mvnw test -PintegrationTests
+            workingDirectory: pagopa-ecommerce-tests/integration_tests
+            displayName: "Execute pending transaction code review tests"
+          - task: PublishTestResults@2
+            inputs:
+              testResultsFormat: 'JUnit'
+              testResultsFiles: '**/TEST-*.xml'
+              searchFolder: '$(System.DefaultWorkingDirectory)'
   # --- START Deploy UAT --- #
   - stage: "Build_release_candidate"
     displayName: 'Build release candidate'
@@ -280,6 +315,39 @@ stages:
                     APP_NAME: $(K8S_IMAGE_REPOSITORY_NAME)
                     VALUE_FILE: "helm/values-uat.yaml"
                     GREEN_VERSION: $(app_version)
+
+  - stage: IntegrationTestUat
+    dependsOn:
+      - Deploy_UAT_Green
+    pool:
+      name: pagopa-uat-linux
+    jobs:
+      - job: make_integration_test
+        steps:
+          - checkout: pagopaEcommerceTests
+          - task: JavaToolInstaller@0
+            displayName: 'Installing JDK 21'
+            inputs:
+              versionSpec: "21"
+              jdkArchitectureOption: x64
+              jdkSourceOption: 'PreInstalled'
+          - script: |
+              ./mvnw validate -PinstallCommons
+            workingDirectory: pagopa-ecommerce-tests/integration_tests
+            displayName: "Install commons library"
+          - script: |
+              cp .env.uat .env
+              sed -i "s/^QUEUE_TRANSIENT_CONNECTION_STRING=.*$/QUEUE_TRANSIENT_CONNECTION_STRING=$(UAT_TRANSIENT_STORAGE_CONNECTION_STRING)/" .env
+              sed -i "s/^MONGO_PASSWORD=.*$/MONGO_PASSWORD=$(UAT_MONGO_ECOMMERCE_PASSWORD)/" .env
+              export $(grep -v '^#' .env | xargs)
+              ./mvnw test -PintegrationTests
+            workingDirectory: pagopa-ecommerce-tests/integration_tests
+            displayName: "Execute pending transaction code review tests"
+          - task: PublishTestResults@2
+            inputs:
+              testResultsFormat: 'JUnit'
+              testResultsFiles: '**/TEST-*.xml'
+              searchFolder: '$(System.DefaultWorkingDirectory)'
   # --- END Deploy UAT --- #
 
   # --- START Deploy PROD --- #
