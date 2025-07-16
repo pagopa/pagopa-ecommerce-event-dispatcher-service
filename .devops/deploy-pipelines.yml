@@ -106,6 +106,7 @@ stages:
       - job: execute_integration_tests
         steps:
           - checkout: pagopaEcommerceTests
+            path: $(Agent.TempDirectory)/pagopa-ecommerce-tests
           - task: JavaToolInstaller@0
             displayName: 'Installing JDK 21'
             inputs:
@@ -115,7 +116,7 @@ stages:
           - script: |
               ./mvnw validate -PinstallCommons
             displayName: "Install commons library"
-            workingDirectory: ./integration_tests
+            workingDirectory:  $(Agent.TempDirectory)/pagopa-ecommerce-tests/integration_tests
           - script: |
               cp .env.dev .env
               ESCAPED_CONNECTION_STRING=$(echo "$(DEV_TRANSIENT_STORAGE_CONNECTION_STRING)" | sed -e 's/[\/&]/\\&/g')
@@ -125,7 +126,7 @@ stages:
               export $(grep -v '^#' .env | xargs)
               ./mvnw test -PintegrationTests
             displayName: "Execute pending transaction code review tests"
-            workingDirectory: ./integration_tests
+            workingDirectory:  $(Agent.TempDirectory)/pagopa-ecommerce-tests/integration_tests
           - task: PublishTestResults@2
             inputs:
               testResultsFormat: 'JUnit'
@@ -280,11 +281,6 @@ stages:
     pool:
       name: pagopa-uat-linux
     jobs:
-      - job: clean
-        steps:
-          - script: 'rm -rf "/agent/_work/2/s/integration_tests"'
-            workingDirectory: '$(Agent.HomeDirectory)'
-            displayName: 'PowerShell Script'
       - job: execute_integration_tests
         steps:
           - checkout: pagopaEcommerceTests
