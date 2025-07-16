@@ -87,38 +87,37 @@ stages:
       - job: make_integration_test
         steps:
           - checkout: pagopaEcommerceLocal
-            path: "./pagopa-ecommerce-local"
+            path: $(Pipeline.Workspace)/pagopa-ecommerce-local
           - script: |
-              cd pagopa-ecommerce-local
               echo "##[debug] Change placeholder for ecommerce-event-dispatcher-service set branch: $(BRANCH_NAME)"
               sed -i "s/^ECOMMERCE_EVENT_DISPATCHER_COMMIT_SHA=.*$/ECOMMERCE_EVENT_DISPATCHER_COMMIT_SHA=$(BRANCH_NAME)/" .env
             displayName: 'Change dispatcher branch name ecommerce-local .env'
-            workingDirectory: "./pagopa-ecommerce-local"
+            workingDirectory: $(Pipeline.Workspace)/pagopa-ecommerce-local
           - script: docker compose up pagopa-ecommerce-transactions-service pagopa-ecommerce-payment-methods-service pagopa-ecommerce-event-dispatcher-service mongo redis storage pagopa-pdv-mock pagopa-gec-mock pagopa-npg-mock pagopa-node-mock traefik azurite-init pagopa-psp-mock pagopa-notifications-service pagopa-jwt-issuer-mock pagopa-ecommerce-transactions-scheduler-service -d
             displayName: 'Run app with docker-compose'
           - script: |
               timeout 180 bash -c 'while [[ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:8080/actuator/health/liveness)" != "200" ]]; do sleep 5; done' || exit 1
             displayName: 'Health check'
-            workingDirectory: "./pagopa-ecommerce-local"
+            workingDirectory: $(Pipeline.Workspace)/pagopa-ecommerce-local
           - script: yarn global add newman
             displayName: 'newman installation'
-            workingDirectory: "./pagopa-ecommerce-local"
+            workingDirectory: $(Pipeline.Workspace)/pagopa-ecommerce-local
           - script: newman run api-tests/transaction-service/npg/transaction-service_ecommerce_local.postman_collection.json --environment=api-tests/transaction-service/npg/transaction-service_ecommerce_local.postman_environment.json --reporters cli,junit --reporter-junit-export Results/TEST-NPG-api.xml
             displayName: 'Run api test for NPG integration'
-            workingDirectory: "./pagopa-ecommerce-local"
+            workingDirectory: $(Pipeline.Workspace)/pagopa-ecommerce-local
           - script: newman run api-tests/transaction-service/redirect/transaction-service_ecommerce_local.postman_collection.json --environment=api-tests/transaction-service/redirect/transaction-service_ecommerce_local.postman_environment.json --reporters cli,junit --reporter-junit-export Results/TEST-REDIRECT-api.xml
             displayName: 'Run api test for REDIRECT integration'
-            workingDirectory: "./pagopa-ecommerce-local"
+            workingDirectory: $(Pipeline.Workspace)/pagopa-ecommerce-local
           - script: newman run api-tests/event-dispatcher-service/ecommerce-event-dispatcher_tests.postman_collection.json --environment=api-tests/event-dispatcher-service/ecommerce-event-dispatcher_tests.postman_environment.json --reporters cli,junit --reporter-junit-export Results/TEST-event-dispatcher-api.xml
             displayName: 'Run api test for event-dispatcher'
-            workingDirectory: "./pagopa-ecommerce-local"
+            workingDirectory: $(Pipeline.Workspace)/pagopa-ecommerce-local
             continueOnError: false
           - checkout: pagopaEcommerceTests
-            path: "./pagopa-ecommerce-tests"
+            path: $(Pipeline.Workspace)/pagopa-ecommerce-tests
           - script: |
               export $(grep -v '^#' .env.example | xargs) && ./mvnw test -PcodeReviewTests
             displayName: "Execute local tests"
-            workingDirectory: "./pagopa-ecommerce-tests"
+            workingDirectory: $(Pipeline.Workspace)/pagopa-ecommerce-tests
           - task: PublishTestResults@2
             inputs:
               testResultsFormat: 'JUnit'
