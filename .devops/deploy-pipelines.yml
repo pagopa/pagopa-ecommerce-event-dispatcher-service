@@ -118,9 +118,9 @@ stages:
             workingDirectory: ./integration_tests
           - script: |
               cp .env.dev .env
-              ESCAPED_CONNECTION_STRING=$(printf '%s\n' "$(DEV_TRANSIENT_STORAGE_CONNECTION_STRING)" | sed -e 's/[\/&]/\\&/g')
-              ESCAPED_PASSWORD=$(printf '%s\n' "$(DEV_MONGO_ECOMMERCE_PASSWORD)" | sed -e 's/[\/&]/\\&/g')
-              sed -i "s|^QUEUE_TRANSIENT_CONNECTION_STRING=.*$|QUEUE_TRANSIENT_CONNECTION_STRING=$ESCAPED_CONNECTION_STRING|" .env
+              ESCAPED_CONNECTION_STRING=$(echo "$(DEV_TRANSIENT_STORAGE_CONNECTION_STRING)" | sed -e 's/[\/&]/\\&/g')
+              ESCAPED_PASSWORD=$(echo "$(DEV_MONGO_ECOMMERCE_PASSWORD)" | sed -e 's/[\/&]/\\&/g')
+              sed -i "s/^QUEUE_TRANSIENT_CONNECTION_STRING=.*$/QUEUE_TRANSIENT_CONNECTION_STRING=$ESCAPED_CONNECTION_STRING/" .env
               sed -i "s/^MONGO_PASSWORD=.*$/MONGO_PASSWORD=$ESCAPED_PASSWORD/" .env
               export $(grep -v '^#' .env | xargs)
               ./mvnw test -PintegrationTests
@@ -294,9 +294,9 @@ stages:
             workingDirectory: ./integration_tests
           - script: |
               cp .env.uat .env
-              ESCAPED_CONNECTION_STRING=$(printf '%s\n' "$(UAT_TRANSIENT_STORAGE_CONNECTION_STRING)" | sed -e 's/[\/&]/\\&/g')
-              ESCAPED_PASSWORD=$(printf '%s\n' "$(UAT_MONGO_ECOMMERCE_PASSWORD)" | sed -e 's/[\/&]/\\&/g')
-              sed -i "s|^QUEUE_TRANSIENT_CONNECTION_STRING=.*$|QUEUE_TRANSIENT_CONNECTION_STRING=$ESCAPED_CONNECTION_STRING|" .env
+              ESCAPED_CONNECTION_STRING=$(echo "$(UAT_TRANSIENT_STORAGE_CONNECTION_STRING)" | sed -e 's/[\/&]/\\&/g')
+              ESCAPED_PASSWORD=$(echo "$(UAT_MONGO_ECOMMERCE_PASSWORD)" | sed -e 's/[\/&]/\\&/g')
+              sed -i "s/^QUEUE_TRANSIENT_CONNECTION_STRING=.*$/QUEUE_TRANSIENT_CONNECTION_STRING=$ESCAPED_CONNECTION_STRING/" .env
               sed -i "s/^MONGO_PASSWORD=.*$/MONGO_PASSWORD=$ESCAPED_PASSWORD/" .env
               export $(grep -v '^#' .env | xargs)
               ./mvnw test -PintegrationTests
