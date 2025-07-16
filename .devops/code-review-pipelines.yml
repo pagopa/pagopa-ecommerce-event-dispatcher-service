@@ -12,7 +12,7 @@ resources:
     - repository: pagopaEcommerceLocal
       type: github
       name: pagopa/pagopa-ecommerce-local
-      ref: CHK-4322-parameterize-mock-responses
+      ref: main
       endpoint: 'io-azure-devops-github-ro'
     - repository: pagopaEcommerceTests
       type: github
