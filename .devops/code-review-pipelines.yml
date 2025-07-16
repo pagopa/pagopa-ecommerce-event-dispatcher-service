@@ -117,9 +117,9 @@ stages:
           - script: |
               export $(grep -v '^#' .env.example | xargs) && ./mvnw test -PcodeReviewTests
             displayName: "Execute local tests"
-            workingDirectory: pagopa-ecommerce-tests
+            workingDirectory: pagopa-ecommerce-tests/integration_tests
           - task: PublishTestResults@2
             inputs:
               testResultsFormat: 'JUnit'
-              testResultsFiles: '**/*-TEST.xml'
+              testResultsFiles: '**/TEST-*.xml'
               searchFolder: '$(System.DefaultWorkingDirectory)'
