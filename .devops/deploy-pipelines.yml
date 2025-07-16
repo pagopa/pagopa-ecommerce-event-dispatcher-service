@@ -97,10 +97,13 @@ stages:
                     script: |
                       echo "mocked deploy"
   - stage: IntegrationTestDev
+    displayName: "Integration test for DEV environment"
     dependsOn:
       - Deploy_for_DEV
+    condition: |
+      in(dependencies.Deploy_for_DEV.result, 'Succeeded', 'Skipped')
     jobs:
-      - job: make_integration_test
+      - job: execute_integration_tests
         steps:
           - checkout: pagopaEcommerceTests
           - task: JavaToolInstaller@0
@@ -266,12 +269,15 @@ stages:
                 
 
   - stage: IntegrationTestUat
+    displayName: "Integration tests for UAT environment"
     dependsOn:
       - Deploy_UAT_Green
+    condition: |
+      in(dependencies.Deploy_UAT_Green.result, 'Succeeded', 'Skipped')
     pool:
       name: pagopa-uat-linux
     jobs:
-      - job: make_integration_test
+      - job: execute_integration_tests
         steps:
           - checkout: pagopaEcommerceTests
           - task: JavaToolInstaller@0
