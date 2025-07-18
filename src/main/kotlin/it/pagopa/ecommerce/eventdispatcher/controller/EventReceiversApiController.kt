@@ -1,7 +1,7 @@
 package it.pagopa.ecommerce.eventdispatcher.controller
 
 import it.pagopa.ecommerce.eventdispatcher.services.EventReceiverService
-import it.pagopa.generated.eventdispatcher.server.api.EventReceiversApi
+import it.pagopa.generated.eventdispatcher.server.api.EventDispatcherApi
 import it.pagopa.generated.eventdispatcher.server.model.DeploymentVersionDto
 import it.pagopa.generated.eventdispatcher.server.model.EventReceiverCommandRequestDto
 import it.pagopa.generated.eventdispatcher.server.model.EventReceiverStatusResponseDto
@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping("/event-dispatcher")
 class EventReceiversApiController(
   @Autowired private val eventReceiverService: EventReceiverService,
-) : EventReceiversApi {
+) : EventDispatcherApi {
 
   /** Handle new receiver command */
   override suspend fun newReceiverCommand(

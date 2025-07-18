@@ -15,11 +15,11 @@ externalDocs:
   url: https://pagopa.atlassian.net/wiki/spaces/I/pages/492339720/pagoPA+eCommerce+Design+Review
   description: Design review
 servers:
-  - url: https://api.platform.pagopa.it/event-dispatcher
+  - url: https://api.platform.pagopa.it
 security:
   - ApiKeyAuth: [ ]
 paths:
-  /event-receivers/commands:
+  /event-dispatcher/event-receivers/commands:
     post:
       operationId: newReceiverCommand
       tags:
@@ -52,7 +52,7 @@ paths:
                 title: Internal Server Error
                 status: 500
                 detail: There was an error processing the request
-  /event-receivers/status:
+  /event-dispatcher/event-receivers/status:
     get:
       operationId: retrieveReceiverStatus
       tags:
