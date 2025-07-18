@@ -119,7 +119,7 @@ stages:
             workingDirectory: pagopa-ecommerce-tests/integration_tests
           - script: |
               cp .env.example .env
-              docker run --network pagopa-ecommerce-net --mount type=bind,src=$PWD,dst=/workspace/app maven_test_runner integration
+              docker run --network pagopa-ecommerce-net --mount type=bind,src=$PWD,dst=/workspace/app maven_test_runner coreReview
             displayName: "Execute pending transaction code review tests"
             workingDirectory: pagopa-ecommerce-tests/integration_tests
           - task: PublishTestResults@2
