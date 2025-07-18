@@ -21,6 +21,8 @@ import okhttp3.mockwebserver.*
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeAll
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import org.mockito.Mockito
@@ -379,5 +381,19 @@ class NodeClientTest {
         true
       }
       .verify()
+  }
+
+  @Test
+  fun `closePayment throws on unknown ClosePaymentRequestV2Dto implementation`() {
+    // Create a dummy implementation not covered by the when
+    val unknownRequest = ClosePaymentRequestV2Dto {
+      // implement required members if any
+      "this is a dummy object"
+    }
+
+    val exception =
+      assertThrows<IllegalArgumentException> { nodeClient.closePayment(unknownRequest) }
+
+    assert(exception.message!!.contains("Unhandled `ClosePaymentRequestV2Dto` implementation"))
   }
 }
