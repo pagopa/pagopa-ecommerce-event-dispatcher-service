@@ -8,7 +8,10 @@ import it.pagopa.ecommerce.eventdispatcher.exceptions.ClosePaymentErrorResponseE
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.ClosePaymentOutcome
 import it.pagopa.ecommerce.eventdispatcher.utils.getMockedCardClosePaymentRequest
 import it.pagopa.generated.ecommerce.nodo.v2.dto.CardClosePaymentRequestV2Dto
+import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
+import it.pagopa.generated.ecommerce.nodo.v2.dto.GooglePayClosePaymentRequestV2Dto
+import java.util.UUID
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.reactor.awaitSingle
 import kotlinx.coroutines.test.runTest
@@ -17,6 +20,9 @@ import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.MethodSource
+import org.mockito.Mockito
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.http.HttpStatus
 import org.springframework.test.context.TestPropertySource
@@ -30,6 +36,21 @@ class NodeClientTest {
   companion object {
 
     val mockWebServer = MockWebServer()
+
+    @JvmStatic
+    fun closePaymentOutcomeProvider(): List<ClosePaymentRequestV2Dto> {
+      val cardClosePaymentRequestV2Dto =
+        Mockito.mock(CardClosePaymentRequestV2Dto::class.java).apply {
+          Mockito.`when`(this.paymentTokens).thenReturn(listOf(UUID.randomUUID().toString()))
+          Mockito.`when`(this.transactionId).thenReturn(UUID.randomUUID().toString())
+        }
+      val googlePayClosePaymentRequestV2Dto =
+        Mockito.mock(GooglePayClosePaymentRequestV2Dto::class.java).apply {
+          Mockito.`when`(this.paymentTokens).thenReturn(listOf(UUID.randomUUID().toString()))
+          Mockito.`when`(this.transactionId).thenReturn(UUID.randomUUID().toString())
+        }
+      return listOf(cardClosePaymentRequestV2Dto, googlePayClosePaymentRequestV2Dto)
+    }
 
     @JvmStatic
     @BeforeAll
@@ -63,45 +84,43 @@ class NodeClientTest {
       .paymentTokens(listOf(TransactionTestUtils.PAYMENT_TOKEN))
       .outcome(CardClosePaymentRequestV2Dto.OutcomeEnum.OK)
 
-  @Test
-  fun `closePayment returns successfully`() = runTest {
-    val transactionId = TransactionId(TransactionTestUtils.TRANSACTION_ID)
+  @ParameterizedTest
+  @MethodSource("closePaymentOutcomeProvider")
+  fun `closePayment returns successfully`(cloePaymentRequestV2Dto: ClosePaymentRequestV2Dto) =
+    runTest {
+      val expected =
+        ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
 
-    val closePaymentRequest =
-      getMockedCardClosePaymentRequest(transactionId, ClosePaymentOutcome.OK)
-    val expected =
-      ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
-
-    /* preconditions */
-    val dispatcher: Dispatcher =
-      object : Dispatcher() {
-        override fun dispatch(request: RecordedRequest): MockResponse {
-          return when (request.path) {
-            "/closepayment?clientId=ecomm" ->
-              return MockResponse()
-                .setStatus("OK")
-                .setResponseCode(200)
-                .addHeader("Content-Type", "application/json")
-                .setBody(
-                  """
+      /* preconditions */
+      val dispatcher: Dispatcher =
+        object : Dispatcher() {
+          override fun dispatch(request: RecordedRequest): MockResponse {
+            return when (request.path) {
+              "/closepayment?clientId=ecomm" ->
+                return MockResponse()
+                  .setStatus("OK")
+                  .setResponseCode(200)
+                  .addHeader("Content-Type", "application/json")
+                  .setBody(
+                    """
                             {
                                 "outcome": "OK"
                             }
                         """.trimIndent())
-            else -> MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE)
+              else -> MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE)
+            }
           }
         }
-      }
-    mockWebServer.dispatcher = dispatcher
-    /* test */
-    val response = nodeClient.closePayment(closePaymentRequest).awaitSingle()
+      mockWebServer.dispatcher = dispatcher
+      /* test */
+      val response = nodeClient.closePayment(cloePaymentRequestV2Dto).awaitSingle()
 
-    assertEquals(expected, response)
+      assertEquals(expected, response)
 
-    // validate presence of your header
-    val recordedRequest = mockWebServer.takeRequest()
-    assertEquals("nodeForEcommerceApiKey", recordedRequest.getHeader("ocp-apim-subscription-key"))
-  }
+      // validate presence of your header
+      val recordedRequest = mockWebServer.takeRequest()
+      assertEquals("nodeForEcommerceApiKey", recordedRequest.getHeader("ocp-apim-subscription-key"))
+    }
 
   @Test
   fun `closePayment throws TransactionEventNotFoundException on Node 404`() = runTest {
