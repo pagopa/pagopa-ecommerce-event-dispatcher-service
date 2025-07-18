@@ -33,6 +33,7 @@ class NodeClient(
         is PayPalClosePaymentRequestV2Dto -> closePaymentRequest.transactionId
         is SatispayClosePaymentRequestV2Dto -> closePaymentRequest.transactionId
         is ApplePayClosePaymentRequestV2Dto -> closePaymentRequest.transactionId
+        is GooglePayClosePaymentRequestV2Dto -> closePaymentRequest.transactionId
         else ->
           throw IllegalArgumentException(
             "Unhandled `ClosePaymentRequestV2Dto` implementation: ${closePaymentRequest.javaClass}")
@@ -47,6 +48,7 @@ class NodeClient(
         is PayPalClosePaymentRequestV2Dto -> closePaymentRequest.paymentTokens
         is SatispayClosePaymentRequestV2Dto -> closePaymentRequest.paymentTokens
         is ApplePayClosePaymentRequestV2Dto -> closePaymentRequest.paymentTokens
+        is GooglePayClosePaymentRequestV2Dto -> closePaymentRequest.paymentTokens
         else ->
           throw IllegalArgumentException(
             "Unhandled `ClosePaymentRequestV2Dto` implementation: ${closePaymentRequest.javaClass}")
