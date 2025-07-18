@@ -7,10 +7,16 @@ import it.pagopa.ecommerce.eventdispatcher.config.WebClientConfig
 import it.pagopa.ecommerce.eventdispatcher.exceptions.ClosePaymentErrorResponseException
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.ClosePaymentOutcome
 import it.pagopa.ecommerce.eventdispatcher.utils.getMockedCardClosePaymentRequest
+import it.pagopa.generated.ecommerce.nodo.v2.dto.ApplePayClosePaymentRequestV2Dto
+import it.pagopa.generated.ecommerce.nodo.v2.dto.BancomatPayClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.CardClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentRequestV2Dto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
 import it.pagopa.generated.ecommerce.nodo.v2.dto.GooglePayClosePaymentRequestV2Dto
+import it.pagopa.generated.ecommerce.nodo.v2.dto.MyBankClosePaymentRequestV2Dto
+import it.pagopa.generated.ecommerce.nodo.v2.dto.PayPalClosePaymentRequestV2Dto
+import it.pagopa.generated.ecommerce.nodo.v2.dto.RedirectClosePaymentRequestV2Dto
+import it.pagopa.generated.ecommerce.nodo.v2.dto.SatispayClosePaymentRequestV2Dto
 import java.util.UUID
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.reactor.awaitSingle
@@ -49,7 +55,45 @@ class NodeClientTest {
           Mockito.`when`(this.paymentTokens).thenReturn(listOf(UUID.randomUUID().toString()))
           Mockito.`when`(this.transactionId).thenReturn(UUID.randomUUID().toString())
         }
-      return listOf(cardClosePaymentRequestV2Dto, googlePayClosePaymentRequestV2Dto)
+      val redirectClosePaymentRequestV2Dto =
+        Mockito.mock(RedirectClosePaymentRequestV2Dto::class.java).apply {
+          Mockito.`when`(this.paymentTokens).thenReturn(listOf(UUID.randomUUID().toString()))
+          Mockito.`when`(this.transactionId).thenReturn(UUID.randomUUID().toString())
+        }
+      val bancomatPayClosePaymentRequestV2Dto =
+        Mockito.mock(BancomatPayClosePaymentRequestV2Dto::class.java).apply {
+          Mockito.`when`(this.paymentTokens).thenReturn(listOf(UUID.randomUUID().toString()))
+          Mockito.`when`(this.transactionId).thenReturn(UUID.randomUUID().toString())
+        }
+      val myBankClosePaymentRequestV2Dto =
+        Mockito.mock(MyBankClosePaymentRequestV2Dto::class.java).apply {
+          Mockito.`when`(this.paymentTokens).thenReturn(listOf(UUID.randomUUID().toString()))
+          Mockito.`when`(this.transactionId).thenReturn(UUID.randomUUID().toString())
+        }
+      val payPalClosePaymentRequestV2Dto =
+        Mockito.mock(PayPalClosePaymentRequestV2Dto::class.java).apply {
+          Mockito.`when`(this.paymentTokens).thenReturn(listOf(UUID.randomUUID().toString()))
+          Mockito.`when`(this.transactionId).thenReturn(UUID.randomUUID().toString())
+        }
+      val satispayClosePaymentRequestV2Dto =
+        Mockito.mock(SatispayClosePaymentRequestV2Dto::class.java).apply {
+          Mockito.`when`(this.paymentTokens).thenReturn(listOf(UUID.randomUUID().toString()))
+          Mockito.`when`(this.transactionId).thenReturn(UUID.randomUUID().toString())
+        }
+      val applePayClosePaymentRequestV2Dto =
+        Mockito.mock(ApplePayClosePaymentRequestV2Dto::class.java).apply {
+          Mockito.`when`(this.paymentTokens).thenReturn(listOf(UUID.randomUUID().toString()))
+          Mockito.`when`(this.transactionId).thenReturn(UUID.randomUUID().toString())
+        }
+      return listOf(
+        cardClosePaymentRequestV2Dto,
+        googlePayClosePaymentRequestV2Dto,
+        redirectClosePaymentRequestV2Dto,
+        bancomatPayClosePaymentRequestV2Dto,
+        myBankClosePaymentRequestV2Dto,
+        payPalClosePaymentRequestV2Dto,
+        satispayClosePaymentRequestV2Dto,
+        applePayClosePaymentRequestV2Dto)
     }
 
     @JvmStatic
@@ -86,7 +130,7 @@ class NodeClientTest {
 
   @ParameterizedTest
   @MethodSource("closePaymentOutcomeProvider")
-  fun `closePayment returns successfully`(cloePaymentRequestV2Dto: ClosePaymentRequestV2Dto) =
+  fun `closePayment returns successfully`(closePaymentRequestV2Dto: ClosePaymentRequestV2Dto) =
     runTest {
       val expected =
         ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
@@ -113,7 +157,7 @@ class NodeClientTest {
         }
       mockWebServer.dispatcher = dispatcher
       /* test */
-      val response = nodeClient.closePayment(cloePaymentRequestV2Dto).awaitSingle()
+      val response = nodeClient.closePayment(closePaymentRequestV2Dto).awaitSingle()
 
       assertEquals(expected, response)
 
