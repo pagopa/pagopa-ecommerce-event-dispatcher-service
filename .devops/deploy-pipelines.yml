@@ -54,6 +54,11 @@ resources:
       name: pagopa/azure-pipeline-templates
       ref: refs/tags/v2.10.1
       endpoint: 'io-azure-devops-github-ro'
+    - repository: pagopaEcommerceTests
+      type: github
+      name: pagopa/pagopa-ecommerce-tests
+      ref: main
+      endpoint: 'io-azure-devops-github-ro'
 
 pool:
   vmImage: ubuntu-latest
@@ -108,6 +113,41 @@ stages:
                     VALUE_FILE: "helm/values-dev.yaml"
                     GREEN_VERSION: $(Build.SourceVersion)
                     BLUE_VERSION: $(Build.SourceVersion)
+  - stage: IntegrationTestDev
+    displayName: "Integration test for DEV environment"
+    dependsOn:
+      - Deploy_for_DEV
+    condition: |
+      eq(dependencies.Deploy_for_DEV.result, 'Succeeded')
+    jobs:
+      - job: execute_integration_tests
+        steps:
+          - checkout: pagopaEcommerceTests
+            path: ./pagopa-ecommerce-tests
+          - task: CopyFiles@2
+            inputs:
+              SourceFolder: $(Pipeline.Workspace)/pagopa-ecommerce-tests
+              Contents: '**'
+              TargetFolder: $(Agent.TempDirectory)/pagopa-ecommerce-tests
+          - script: |
+              docker build -t maven_test_runner .
+            displayName: "Build docker test image runner"
+            workingDirectory: $(Agent.TempDirectory)/pagopa-ecommerce-tests/integration_tests
+          - script: |
+              cp .env.dev .env
+              ESCAPED_CONNECTION_STRING=$(echo "$(DEV_TRANSIENT_STORAGE_CONNECTION_STRING)" | sed -e 's/[\/&]/\\&/g')
+              ESCAPED_PASSWORD=$(echo "$(DEV_MONGO_ECOMMERCE_PASSWORD)" | sed -e 's/[\/&]/\\&/g')
+              sed -i "s/^QUEUE_TRANSIENT_CONNECTION_STRING=.*$/QUEUE_TRANSIENT_CONNECTION_STRING=$ESCAPED_CONNECTION_STRING/" .env
+              sed -i "s/^MONGO_PASSWORD=.*$/MONGO_PASSWORD=$ESCAPED_PASSWORD/" .env
+              docker run --mount type=bind,src=$PWD,dst=/workspace/app maven_test_runner integration
+            displayName: "Execute pending transaction code review tests"
+            workingDirectory: $(Agent.TempDirectory)/pagopa-ecommerce-tests/integration_tests
+          - task: PublishTestResults@2
+            inputs:
+              testResultsFormat: 'JUnit'
+              testResultsFiles: '**/TEST-*.xml'
+              searchFolder: '$(Agent.TempDirectory)'
+              testRunTitle: "DEV integration tests"
   # --- START Deploy UAT --- #
   - stage: "Build_release_candidate"
     displayName: 'Build release candidate'
@@ -280,6 +320,44 @@ stages:
                     APP_NAME: $(K8S_IMAGE_REPOSITORY_NAME)
                     VALUE_FILE: "helm/values-uat.yaml"
                     GREEN_VERSION: $(app_version)
+
+  - stage: IntegrationTestUat
+    displayName: "Integration tests for UAT environment"
+    dependsOn:
+      - Deploy_UAT_Green
+    condition: |
+      eq(dependencies.Deploy_UAT_Green.result, 'Succeeded')
+    pool:
+      name: pagopa-uat-linux
+    jobs:
+      - job: execute_integration_tests
+        steps:
+          - checkout: pagopaEcommerceTests
+            path: ./pagopa-ecommerce-tests
+          - task: CopyFiles@2
+            inputs:
+              SourceFolder: $(Pipeline.Workspace)/pagopa-ecommerce-tests
+              Contents: '**'
+              TargetFolder: $(Agent.TempDirectory)/pagopa-ecommerce-tests
+          - script: |
+              docker build -t maven_test_runner .
+            displayName: "Build docker test image runner"
+            workingDirectory: $(Agent.TempDirectory)/pagopa-ecommerce-tests/integration_tests
+          - script: |
+              cp .env.uat .env
+              ESCAPED_CONNECTION_STRING=$(echo "$(UAT_TRANSIENT_STORAGE_CONNECTION_STRING)" | sed -e 's/[\/&]/\\&/g')
+              ESCAPED_PASSWORD=$(echo "$(UAT_MONGO_ECOMMERCE_PASSWORD)" | sed -e 's/[\/&]/\\&/g')
+              sed -i "s/^QUEUE_TRANSIENT_CONNECTION_STRING=.*$/QUEUE_TRANSIENT_CONNECTION_STRING=$ESCAPED_CONNECTION_STRING/" .env
+              sed -i "s/^MONGO_PASSWORD=.*$/MONGO_PASSWORD=$ESCAPED_PASSWORD/" .env
+              docker run --mount type=bind,src=$PWD,dst=/workspace/app maven_test_runner integration
+            displayName: "Execute pending transaction code review tests"
+            workingDirectory: $(Agent.TempDirectory)/pagopa-ecommerce-tests/integration_tests
+          - task: PublishTestResults@2
+            inputs:
+              testResultsFormat: 'JUnit'
+              testResultsFiles: '**/TEST-*.xml'
+              searchFolder: '$(Agent.TempDirectory)'
+              testRunTitle: "UAT integration tests"
   # --- END Deploy UAT --- #
 
   # --- START Deploy PROD --- #
