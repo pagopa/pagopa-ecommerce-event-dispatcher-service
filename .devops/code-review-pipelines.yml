@@ -118,7 +118,7 @@ stages:
             displayName: "Build docker test image runner"
             workingDirectory: pagopa-ecommerce-tests/integration_tests
           - script: |
-              cp .env.example .env
+              cp .env.ecommerceLocal .env
               docker run --network pagopa-ecommerce-net --mount type=bind,src=$PWD,dst=/workspace/app maven_test_runner codeReview
             displayName: "Execute pending transaction code review tests"
             workingDirectory: pagopa-ecommerce-tests/integration_tests
