@@ -57,7 +57,7 @@ resources:
     - repository: pagopaEcommerceTests
       type: github
       name: pagopa/pagopa-ecommerce-tests
-      ref: CHK-4329-event-dispatcher-integration-tests
+      ref: main
       endpoint: 'io-azure-devops-github-ro'
 
 pool:
