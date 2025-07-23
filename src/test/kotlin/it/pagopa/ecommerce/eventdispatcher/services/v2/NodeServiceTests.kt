@@ -223,7 +223,7 @@ class NodeServiceTests {
     val events = listOf(activatedEvent, canceledEvent) as List<TransactionEvent<Any>>
     val transactionId = activatedEvent.transactionId
     val amount =
-      BigDecimal(activatedEvent.data.paymentNotices.stream().mapToInt { el -> el.amount }.sum())
+      BigDecimal(activatedEvent.data.paymentNotices.stream().mapToLong { el -> el.amount }.sum())
     val closePaymentResponse =
       ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
 
@@ -313,7 +313,7 @@ class NodeServiceTests {
       listOf(activatedEvent, authEvent, authCompletedEvent, closureRequestedEvent, closureError)
         as List<TransactionEvent<Any>>
     val amount =
-      BigDecimal(activatedEvent.data.paymentNotices.stream().mapToInt { el -> el.amount }.sum())
+      BigDecimal(activatedEvent.data.paymentNotices.stream().mapToLong { el -> el.amount }.sum())
     val closePaymentResponse =
       ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
 
@@ -372,7 +372,7 @@ class NodeServiceTests {
         listOf(activatedEvent, canceledEvent, closureError) as List<TransactionEvent<Any>>
       val transactionId = activatedEvent.transactionId
       val amount =
-        BigDecimal(activatedEvent.data.paymentNotices.stream().mapToInt { el -> el.amount }.sum())
+        BigDecimal(activatedEvent.data.paymentNotices.stream().mapToLong { el -> el.amount }.sum())
 
       val closePaymentResponse =
         ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK }
