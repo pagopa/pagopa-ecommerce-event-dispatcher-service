@@ -9,7 +9,7 @@
 	</parent>
 	<groupId>it.pagopa.ecommerce</groupId>
 	<artifactId>pagopa-ecommerce-event-dispatcher-service</artifactId>
-	<version>3.0.3</version>
+	<version>3.0.4</version>
 	<name>pagopa-ecommerce-event-dispatcher-service</name>
 	<description>pagoPA ecommerce microservice to handle transaction events and perform async operations such as
 		send user email, refund based on transaction status</description>
