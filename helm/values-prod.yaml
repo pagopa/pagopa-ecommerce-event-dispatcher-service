@@ -31,7 +31,7 @@ microservice-chart:
     envSecret: {}
   image:
     repository: pagopapcommonacr.azurecr.io/pagopaecommerceeventdispatcherservice
-    tag: "3.0.3"
+    tag: "3.0.4"
     pullPolicy: Always
   livenessProbe:
     handlerType: httpGet
@@ -185,6 +185,7 @@ microservice-chart:
     USER_STATS_SERVICE_ENABLE_SAVE_LAST_USAGE: "true"
     NPG_REFUND_EVENT_PROCESSING_DELAY_SECONDS: "10"
     SECURITY_API_KEYS_SECURED_PATHS: "/event-dispatcher"
+    TRANSACTIONSVIEW_UPDATE_ENABLED: "true"
   envSecret:
     ECOMMERCE_STORAGE_TRANSIENT_QUEUE_KEY: ecommerce-storage-transient-account-key
     NODO_NODEFORECOMMERCE_API_KEY: node-for-ecommerce-api-v2-key
