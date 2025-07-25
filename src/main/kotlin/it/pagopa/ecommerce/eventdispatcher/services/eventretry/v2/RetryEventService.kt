@@ -4,7 +4,6 @@ import com.azure.core.util.BinaryData
 import com.azure.core.util.serializer.JsonSerializerProvider
 import com.azure.storage.queue.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v2.BaseTransactionRetriedData
-import it.pagopa.ecommerce.commons.documents.v2.Transaction
 import it.pagopa.ecommerce.commons.documents.v2.TransactionEvent
 import it.pagopa.ecommerce.commons.documents.v2.TransactionRetriedData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.TransactionGatewayAuthorizationData
@@ -15,12 +14,14 @@ import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.TooLateRetryAttemptException
+import it.pagopa.ecommerce.eventdispatcher.queues.v2.conditionallySaveTransactionView
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import java.time.Duration
 import java.time.Instant
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Value
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.switchIfEmpty
 
@@ -33,7 +34,8 @@ abstract class RetryEventService<E>(
     TransactionsEventStoreRepository<BaseTransactionRetriedData>,
   protected val logger: Logger = LoggerFactory.getLogger(RetryEventService::class.java),
   private val transientQueuesTTLSeconds: Int,
-  private val strictSerializerProviderV2: JsonSerializerProvider
+  private val strictSerializerProviderV2: JsonSerializerProvider,
+  @Value("\${transactionsview.update.enabled}") private val transactionsViewUpdateEnabled: Boolean,
 ) where E : TransactionEvent<BaseTransactionRetriedData> {
 
   fun enqueueRetryEvent(
@@ -89,12 +91,11 @@ abstract class RetryEventService<E>(
   private fun storeEventAndUpdateView(event: E, newStatus: TransactionStatusDto): Mono<E> =
     Mono.just(event)
       .flatMap { retryEventStoreRepository.save(it) }
-      .flatMap { viewRepository.findByTransactionId(it.transactionId) }
-      .cast(Transaction::class.java)
-      .flatMap {
-        it.status = newStatus
-        viewRepository.save(it).flatMap { Mono.just(event) }
+      .flatMap { savedEvent ->
+        conditionallySaveTransactionView(
+          event.transactionId, newStatus, viewRepository, transactionsViewUpdateEnabled)
       }
+      .flatMap { Mono.just(event) }
 
   private fun enqueueMessage(
     event: E,

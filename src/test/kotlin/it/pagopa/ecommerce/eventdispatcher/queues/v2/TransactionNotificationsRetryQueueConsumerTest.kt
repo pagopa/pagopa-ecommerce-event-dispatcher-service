@@ -124,7 +124,8 @@ class TransactionNotificationsRetryQueueConsumerTest {
           refundDelayFromAuthRequestMinutes,
           eventProcessingDelaySeconds),
       transactionTracing = transactionTracing,
-      transientQueueTTLSeconds = TRANSIENT_QUEUE_TTL_SECONDS)
+      transientQueueTTLSeconds = TRANSIENT_QUEUE_TTL_SECONDS,
+      transactionsViewUpdateEnabled = true)
 
   @Test
   fun `Should successfully retry send user email for send payment result outcome OK`() = runTest {

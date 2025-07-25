@@ -53,7 +53,8 @@ class TransactionExpirationQueueConsumer(
   @Autowired private val tracingUtils: TracingUtils,
   @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider,
   @Autowired private val npgService: NpgService,
-  @Autowired private val transactionTracing: TransactionTracing
+  @Autowired private val transactionTracing: TransactionTracing,
+  @Value("\${transactionsview.update.enabled}") private val transactionsViewUpdateEnabled: Boolean
 ) {
 
   val logger: Logger = LoggerFactory.getLogger(TransactionExpirationQueueConsumer::class.java)
@@ -125,7 +126,10 @@ class TransactionExpirationQueueConsumer(
           logger.info("Transaction ${tx.transactionId.value()} is expired: $isTransactionExpired")
           if (!isTransactionExpired) {
             updateTransactionToExpired(
-                tx, transactionsExpiredEventStoreRepository, transactionsViewRepository)
+                tx,
+                transactionsExpiredEventStoreRepository,
+                transactionsViewRepository,
+                transactionsViewUpdateEnabled)
               .doOnSuccess { it ->
                 transactionTracing.addSpanAttributesExpiredFlowFromTransaction(it, events)
               }
@@ -174,7 +178,8 @@ class TransactionExpirationQueueConsumer(
                 npgService,
                 tracingInfo,
                 refundRequestedAsyncClient,
-                Duration.ofSeconds(transientQueueTTLSeconds.toLong()))
+                Duration.ofSeconds(transientQueueTTLSeconds.toLong()),
+                transactionsViewUpdateEnabled)
             } else {
               logger.info(
                 "Transaction ${tx.transactionId.value()} not received authorization outcome yet, postpone refund processing for: $timeout")

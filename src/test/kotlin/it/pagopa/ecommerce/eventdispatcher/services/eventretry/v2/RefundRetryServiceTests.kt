@@ -69,7 +69,8 @@ class RefundRetryServiceTests {
       viewRepository = transactionsViewRepository,
       eventStoreRepository = eventStoreRepository,
       transientQueuesTTLSeconds = TRANSIENT_QUEUE_TTL_SECONDS,
-      strictSerializerProviderV2 = jsonSerializerV2)
+      strictSerializerProviderV2 = jsonSerializerV2,
+      transactionsViewUpdateEnabled = true)
 
   @Test
   fun `Should enqueue new refund retry event for left remaining attempts`() {

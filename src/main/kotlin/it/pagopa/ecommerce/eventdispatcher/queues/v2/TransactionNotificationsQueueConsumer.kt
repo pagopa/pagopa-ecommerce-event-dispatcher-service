@@ -50,7 +50,8 @@ class TransactionNotificationsQueueConsumer(
   @Autowired private val npgService: NpgService,
   @Value("\${azurestorage.queues.transientQueues.ttlSeconds}")
   private val transientQueueTTLSeconds: Int,
-  @Autowired private val transactionTracing: TransactionTracing
+  @Autowired private val transactionTracing: TransactionTracing,
+  @Value("\${transactionsview.update.enabled}") private val transactionsViewUpdateEnabled: Boolean
 ) {
   var logger: Logger = LoggerFactory.getLogger(TransactionNotificationsQueueConsumer::class.java)
 
@@ -96,7 +97,10 @@ class TransactionNotificationsQueueConsumer(
             .flatMap { notificationsServiceClient.sendNotificationEmail(it) }
             .flatMap {
               updateNotifiedTransactionStatus(
-                tx, transactionsViewRepository, transactionUserReceiptRepository)
+                tx,
+                transactionsViewRepository,
+                transactionUserReceiptRepository,
+                transactionsViewUpdateEnabled)
             }
             .doOnSuccess {
               transactionTracing.addSpanAttributesNotificationsFlowFromTransaction(it, events)
@@ -109,7 +113,8 @@ class TransactionNotificationsQueueConsumer(
                 npgService,
                 tracingInfo,
                 refundRequestedAsyncClient,
-                Duration.ofSeconds(transientQueueTTLSeconds.toLong()))
+                Duration.ofSeconds(transientQueueTTLSeconds.toLong()),
+                transactionsViewUpdateEnabled)
             }
             .then()
             .onErrorResume { exception ->
@@ -117,7 +122,10 @@ class TransactionNotificationsQueueConsumer(
                 "Got exception while retrying user receipt mail sending for transaction with id ${tx.transactionId}!",
                 exception)
               updateNotificationErrorTransactionStatus(
-                  tx, transactionsViewRepository, transactionUserReceiptRepository)
+                  tx,
+                  transactionsViewRepository,
+                  transactionUserReceiptRepository,
+                  transactionsViewUpdateEnabled)
                 .flatMap {
                   notificationRetryService.enqueueRetryEvent(tx, 0, tracingInfo).doOnError {
                     retryException ->

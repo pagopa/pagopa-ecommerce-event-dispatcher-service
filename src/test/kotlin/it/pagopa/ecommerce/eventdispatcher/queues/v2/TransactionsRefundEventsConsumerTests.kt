@@ -117,7 +117,7 @@ class TransactionsRefundEventsConsumerTests {
       strictSerializerProviderV2 = strictJsonSerializerProviderV2,
       npgService = npgService,
       transactionTracing = transactionTracing,
-    )
+      transactionsViewUpdateEnabled = true)
 
   private val jsonSerializerV2 = strictJsonSerializerProviderV2.createInstance()
 

@@ -137,7 +137,8 @@ class TransactionExpirationQueueConsumerTests {
           authorizationStateRetrieverService,
           refundDelayFromAuthRequestMinutes,
           eventProcessingDelaySeconds),
-      transactionTracing = transactionTracing)
+      transactionTracing = transactionTracing,
+      transactionsViewUpdateEnabled = true)
 
   @Test
   fun `messageReceiver receives activated messages successfully`() {
@@ -3263,7 +3264,8 @@ class TransactionExpirationQueueConsumerTests {
             authorizationStateRetrieverService,
             npgTimeToWaitForRefundFromAuthRequest,
             eventProcessingDelaySeconds),
-        transactionTracing = transactionTracing)
+        transactionTracing = transactionTracing,
+        transactionsViewUpdateEnabled = true)
     val events =
       listOf(
         transactionActivateEvent(npgTransactionGatewayActivationData()),

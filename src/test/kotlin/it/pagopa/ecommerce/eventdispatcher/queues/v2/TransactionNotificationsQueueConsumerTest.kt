@@ -120,7 +120,7 @@ class TransactionNotificationsQueueConsumerTest {
           eventProcessingDelaySeconds),
       transactionTracing = transactionTracing,
       transientQueueTTLSeconds = TRANSIENT_QUEUE_TTL_SECONDS,
-    )
+      transactionsViewUpdateEnabled = true)
 
   @Test
   fun `Should successfully send user email for send payment result outcome OK`() = runTest {
