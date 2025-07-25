@@ -5,6 +5,7 @@ import com.azure.spring.messaging.checkpoint.Checkpointer
 import it.pagopa.ecommerce.commons.client.NpgClient
 import it.pagopa.ecommerce.commons.client.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v2.*
+import it.pagopa.ecommerce.commons.documents.v2.Transaction
 import it.pagopa.ecommerce.commons.documents.v2.activation.NpgTransactionGatewayActivationData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.*
 import it.pagopa.ecommerce.commons.documents.v2.refund.EmptyGatewayRefundData
@@ -15,6 +16,7 @@ import it.pagopa.ecommerce.commons.domain.v2.TransactionEventCode
 import it.pagopa.ecommerce.commons.domain.v2.TransactionId
 import it.pagopa.ecommerce.commons.domain.v2.TransactionWithClosureError
 import it.pagopa.ecommerce.commons.domain.v2.pojos.*
+import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.exceptions.NpgResponseException
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.RefundResponseDto
@@ -58,7 +60,8 @@ object QueueCommonsLogger {
 fun updateTransactionToExpired(
   transaction: BaseTransaction,
   transactionsExpiredEventStoreRepository: TransactionsEventStoreRepository<TransactionExpiredData>,
-  transactionsViewRepository: TransactionsViewRepository
+  transactionsViewRepository: TransactionsViewRepository,
+  transactionsViewUpdateEnabled: Boolean
 ): Mono<BaseTransaction> {
 
   return transactionsExpiredEventStoreRepository
@@ -69,15 +72,14 @@ fun updateTransactionToExpired(
       (transaction as it.pagopa.ecommerce.commons.domain.v2.Transaction).applyEvent(it)
         as BaseTransaction
     }
-    .flatMap {
-      transactionsViewRepository
-        .findByTransactionId(transaction.transactionId.value())
-        .cast(Transaction::class.java)
-        .flatMap { tx ->
-          tx.status = getExpiredTransactionStatus(transaction)
-          transactionsViewRepository.save(tx)
-        }
-        .thenReturn(it)
+    .flatMap { tx ->
+      conditionallySaveTransactionView(
+          tx,
+          getExpiredTransactionStatus(tx),
+          transactionsViewRepository,
+          transactionsViewUpdateEnabled)
+        .thenReturn(tx) // Return the BaseTransaction
+        .switchIfEmpty(Mono.just(tx))
     }
     .doOnSuccess {
       logger.info("Transaction expired for transaction ${transaction.transactionId.value()}")
@@ -118,7 +120,8 @@ fun updateTransactionToRefundRequested(
   transactionsRefundedEventStoreRepository:
     TransactionsEventStoreRepository<BaseTransactionRefundedData>,
   transactionsViewRepository: TransactionsViewRepository,
-  transactionGatewayAuthorizationData: TransactionGatewayAuthorizationData? = null
+  transactionGatewayAuthorizationData: TransactionGatewayAuthorizationData? = null,
+  transactionsViewUpdateEnabled: Boolean
 ): Mono<Pair<BaseTransactionWithRefundRequested, TransactionRefundRequestedEvent>> {
   val event =
     TransactionRefundRequestedEvent(
@@ -130,7 +133,8 @@ fun updateTransactionToRefundRequested(
       transactionsRefundedEventStoreRepository,
       transactionsViewRepository,
       event as TransactionEvent<BaseTransactionRefundedData>,
-      TransactionStatusDto.REFUND_REQUESTED)
+      TransactionStatusDto.REFUND_REQUESTED,
+      transactionsViewUpdateEnabled)
     .thenReturn(
       Pair(
         (transaction as it.pagopa.ecommerce.commons.domain.v2.Transaction).applyEvent(event)
@@ -142,7 +146,8 @@ fun updateTransactionToRefundError(
   transaction: BaseTransaction,
   transactionsRefundedEventStoreRepository:
     TransactionsEventStoreRepository<BaseTransactionRefundedData>,
-  transactionsViewRepository: TransactionsViewRepository
+  transactionsViewRepository: TransactionsViewRepository,
+  transactionsViewUpdateEnabled: Boolean
 ): Mono<BaseTransaction> {
   val event =
     TransactionRefundErrorEvent(
@@ -153,7 +158,8 @@ fun updateTransactionToRefundError(
     transactionsRefundedEventStoreRepository,
     transactionsViewRepository,
     event as TransactionEvent<BaseTransactionRefundedData>,
-    TransactionStatusDto.REFUND_ERROR)
+    TransactionStatusDto.REFUND_ERROR,
+    transactionsViewUpdateEnabled)
 }
 
 fun updateTransactionToRefunded(
@@ -161,7 +167,8 @@ fun updateTransactionToRefunded(
   transactionsRefundedEventStoreRepository:
     TransactionsEventStoreRepository<BaseTransactionRefundedData>,
   transactionsViewRepository: TransactionsViewRepository,
-  gatewayRefundData: GatewayRefundData = EmptyGatewayRefundData()
+  gatewayRefundData: GatewayRefundData = EmptyGatewayRefundData(),
+  transactionsViewUpdateEnabled: Boolean
 ): Mono<BaseTransaction> {
   val event =
     TransactionRefundedEvent(
@@ -173,7 +180,8 @@ fun updateTransactionToRefunded(
       transactionsRefundedEventStoreRepository,
       transactionsViewRepository,
       event as TransactionEvent<BaseTransactionRefundedData>,
-      TransactionStatusDto.REFUNDED)
+      TransactionStatusDto.REFUNDED,
+      transactionsViewUpdateEnabled)
     .thenReturn(
       (transaction as it.pagopa.ecommerce.commons.domain.v2.Transaction).applyEvent(event)
         as BaseTransactionRefunded)
@@ -185,18 +193,14 @@ fun updateTransactionWithRefundEvent(
     TransactionsEventStoreRepository<BaseTransactionRefundedData>,
   transactionsViewRepository: TransactionsViewRepository,
   event: TransactionEvent<BaseTransactionRefundedData>,
-  status: TransactionStatusDto
+  status: TransactionStatusDto,
+  transactionsViewUpdateEnabled: Boolean
 ): Mono<BaseTransaction> {
   return transactionsRefundedEventStoreRepository
     .save(event)
     .then(
-      transactionsViewRepository
-        .findByTransactionId(transaction.transactionId.value())
-        .cast(Transaction::class.java)
-        .flatMap { tx ->
-          tx.status = status
-          transactionsViewRepository.save(tx)
-        })
+      conditionallySaveTransactionView(
+        transaction, status, transactionsViewRepository, transactionsViewUpdateEnabled))
     .doOnSuccess {
       logger.info(
         "Updated event for transaction with id ${transaction.transactionId.value()} to status $status")
@@ -367,12 +371,17 @@ fun appendRefundRequestedEventIfNeeded(
   transaction: BaseTransaction,
   transactionsEventStoreRepository: TransactionsEventStoreRepository<BaseTransactionRefundedData>,
   transactionsViewRepository: TransactionsViewRepository,
-  authorizationData: TransactionGatewayAuthorizationData? = null
+  authorizationData: TransactionGatewayAuthorizationData? = null,
+  transactionsViewUpdateEnabled: Boolean
 ): Mono<Pair<BaseTransactionWithRefundRequested, TransactionRefundRequestedEvent?>> {
   return if (transaction !is BaseTransactionWithRefundRequested) {
     Mono.just(transaction).flatMap { tx ->
       updateTransactionToRefundRequested(
-        tx, transactionsEventStoreRepository, transactionsViewRepository, authorizationData)
+        tx,
+        transactionsEventStoreRepository,
+        transactionsViewRepository,
+        authorizationData,
+        transactionsViewUpdateEnabled)
     }
   } else {
     Mono.just(transaction to null)
@@ -386,7 +395,8 @@ fun requestRefundTransaction(
   npgService: NpgService,
   tracingInfo: TracingInfo?,
   refundRequestedAsyncClient: QueueAsyncClient,
-  transientQueueTTLSeconds: Duration
+  transientQueueTTLSeconds: Duration,
+  transactionsViewUpdateEnabled: Boolean
 ): Mono<BaseTransactionWithRefundRequested> {
   val transactionAuthorizationRequestData = getTransactionAuthorizationRequestData(transaction)
 
@@ -402,10 +412,17 @@ fun requestRefundTransaction(
   return when (transactionAuthorizationRequestData.paymentGateway) {
     TransactionAuthorizationRequestData.PaymentGateway.REDIRECT ->
       appendRefundRequestedEventIfNeeded(
-        transaction, transactionsEventStoreRepository, transactionsViewRepository)
+        transaction,
+        transactionsEventStoreRepository,
+        transactionsViewRepository,
+        transactionsViewUpdateEnabled = transactionsViewUpdateEnabled)
     TransactionAuthorizationRequestData.PaymentGateway.NPG ->
       appendNpgRefundRequestedEventIfNeeded(
-        transaction, transactionsEventStoreRepository, transactionsViewRepository, npgService)
+        transaction,
+        transactionsEventStoreRepository,
+        transactionsViewRepository,
+        npgService,
+        transactionsViewUpdateEnabled = transactionsViewUpdateEnabled)
     else ->
       Mono.error(
         RuntimeException(
@@ -442,7 +459,8 @@ fun refundTransaction(
   refundRetryService: RefundRetryService,
   npgService: NpgService,
   tracingInfo: TracingInfo?,
-  retryCount: Int = 0
+  retryCount: Int = 0,
+  transactionsViewUpdateEnabled: Boolean
 ): Mono<BaseTransaction> {
   val transactionAuthorizationRequestData = getTransactionAuthorizationRequestData(tx)
 
@@ -495,14 +513,16 @@ fun refundTransaction(
             transaction,
             refundResponse,
             transactionsEventStoreRepository,
-            transactionsViewRepository)
+            transactionsViewRepository,
+            transactionsViewUpdateEnabled)
         is it.pagopa.generated.ecommerce.redirect.v1.dto.RefundResponseDto ->
           handleRedirectRefundResponse(
             transaction,
             transactionAuthorizationRequestData,
             refundResponse,
             transactionsEventStoreRepository,
-            transactionsViewRepository)
+            transactionsViewRepository,
+            transactionsViewUpdateEnabled)
         else ->
           Mono.error(
             RuntimeException(
@@ -516,7 +536,10 @@ fun refundTransaction(
       if (retryCount == 0) {
           // refund error event written only the first time
           updateTransactionToRefundError(
-            tx, transactionsEventStoreRepository, transactionsViewRepository)
+            tx,
+            transactionsEventStoreRepository,
+            transactionsViewRepository,
+            transactionsViewUpdateEnabled)
         } else {
           Mono.just(tx)
         }
@@ -540,6 +563,7 @@ private fun appendNpgRefundRequestedEventIfNeeded(
   transactionsEventStoreRepository: TransactionsEventStoreRepository<BaseTransactionRefundedData>,
   transactionsViewRepository: TransactionsViewRepository,
   npgService: NpgService,
+  transactionsViewUpdateEnabled: Boolean
 ): Mono<Pair<BaseTransactionWithRefundRequested, TransactionRefundRequestedEvent?>> {
   return getAuthorizationCompletedData(transaction, npgService)
     .map { Optional.of(it) }
@@ -571,12 +595,14 @@ private fun appendNpgRefundRequestedEventIfNeeded(
               transaction,
               transactionsEventStoreRepository,
               transactionsViewRepository,
-              error.authorizationData)
+              error.authorizationData,
+              transactionsViewUpdateEnabled)
             .flatMap { (tx, _) ->
               updateTransactionToRefundError(
                 transaction = tx,
                 transactionsRefundedEventStoreRepository = transactionsEventStoreRepository,
-                transactionsViewRepository = transactionsViewRepository)
+                transactionsViewRepository = transactionsViewRepository,
+                transactionsViewUpdateEnabled)
             }
             .then(
               Mono.error(
@@ -597,7 +623,8 @@ private fun appendNpgRefundRequestedEventIfNeeded(
         transaction,
         transactionsEventStoreRepository,
         transactionsViewRepository,
-        authorizationData.orElse(null))
+        authorizationData.orElse(null),
+        transactionsViewUpdateEnabled)
     }
 }
 
@@ -691,7 +718,8 @@ fun handleNpgRefundResponse(
   transaction: BaseTransaction,
   refundResponse: RefundResponseDto,
   transactionsEventStoreRepository: TransactionsEventStoreRepository<BaseTransactionRefundedData>,
-  transactionsViewRepository: TransactionsViewRepository
+  transactionsViewRepository: TransactionsViewRepository,
+  transactionsViewUpdateEnabled: Boolean
 ): Mono<BaseTransaction> {
   logger.info(
     "Refund for transaction with id: [{}] and NPG operationId [{}] processed successfully",
@@ -701,7 +729,8 @@ fun handleNpgRefundResponse(
     transaction,
     transactionsEventStoreRepository,
     transactionsViewRepository,
-    NpgGatewayRefundData(refundResponse.operationId))
+    NpgGatewayRefundData(refundResponse.operationId),
+    transactionsViewUpdateEnabled)
 }
 
 fun handleRedirectRefundResponse(
@@ -709,7 +738,8 @@ fun handleRedirectRefundResponse(
   transactionAuthorizationRequestData: TransactionAuthorizationRequestData,
   refundResponse: it.pagopa.generated.ecommerce.redirect.v1.dto.RefundResponseDto,
   transactionsEventStoreRepository: TransactionsEventStoreRepository<BaseTransactionRefundedData>,
-  transactionsViewRepository: TransactionsViewRepository
+  transactionsViewRepository: TransactionsViewRepository,
+  transactionsViewUpdateEnabled: Boolean
 ): Mono<BaseTransaction> {
   val refundOutcome = refundResponse.outcome
   logger.info(
@@ -721,10 +751,16 @@ fun handleRedirectRefundResponse(
     RefundOutcomeDto.OK,
     RefundOutcomeDto.CANCELED ->
       updateTransactionToRefunded(
-        transaction, transactionsEventStoreRepository, transactionsViewRepository)
+        transaction,
+        transactionsEventStoreRepository,
+        transactionsViewRepository,
+        transactionsViewUpdateEnabled = transactionsViewUpdateEnabled)
     RefundOutcomeDto.KO ->
       updateTransactionToRefundError(
-          transaction, transactionsEventStoreRepository, transactionsViewRepository)
+          transaction,
+          transactionsEventStoreRepository,
+          transactionsViewRepository,
+          transactionsViewUpdateEnabled)
         .flatMap {
           Mono.error(
             RefundNotAllowedException(
@@ -890,7 +926,8 @@ fun <T> reduceEvents(
 fun updateNotifiedTransactionStatus(
   transaction: BaseTransactionWithRequestedUserReceipt,
   transactionsViewRepository: TransactionsViewRepository,
-  transactionUserReceiptRepository: TransactionsEventStoreRepository<TransactionUserReceiptData>
+  transactionUserReceiptRepository: TransactionsEventStoreRepository<TransactionUserReceiptData>,
+  transactionsViewUpdateEnabled: Boolean
 ): Mono<BaseTransactionWithUserReceipt> {
   val newStatus =
     when (transaction.transactionUserReceiptData.responseOutcome!!) {
@@ -905,13 +942,8 @@ fun updateNotifiedTransactionStatus(
       transaction.transactionId.value(), transaction.transactionUserReceiptData)
   logger.info("Updating transaction {} status to {}", transaction.transactionId.value(), newStatus)
 
-  return transactionsViewRepository
-    .findByTransactionId(transaction.transactionId.value())
-    .cast(Transaction::class.java)
-    .flatMap { tx ->
-      tx.status = newStatus
-      transactionsViewRepository.save(tx)
-    }
+  return conditionallySaveTransactionView(
+      transaction, newStatus, transactionsViewRepository, transactionsViewUpdateEnabled)
     .flatMap { transactionUserReceiptRepository.save(event) }
     .thenReturn(
       (transaction as it.pagopa.ecommerce.commons.domain.v2.Transaction).applyEvent(event)
@@ -921,7 +953,8 @@ fun updateNotifiedTransactionStatus(
 fun updateNotificationErrorTransactionStatus(
   transaction: BaseTransactionWithRequestedUserReceipt,
   transactionsViewRepository: TransactionsViewRepository,
-  transactionUserReceiptRepository: TransactionsEventStoreRepository<TransactionUserReceiptData>
+  transactionUserReceiptRepository: TransactionsEventStoreRepository<TransactionUserReceiptData>,
+  transactionsViewUpdateEnabled: Boolean
 ): Mono<TransactionUserReceiptAddErrorEvent> {
   val newStatus = TransactionStatusDto.NOTIFICATION_ERROR
   val event =
@@ -929,13 +962,8 @@ fun updateNotificationErrorTransactionStatus(
       transaction.transactionId.value(), transaction.transactionUserReceiptData)
   logger.info("Updating transaction {} status to {}", transaction.transactionId.value(), newStatus)
 
-  return transactionsViewRepository
-    .findByTransactionId(transaction.transactionId.value())
-    .cast(Transaction::class.java)
-    .flatMap { tx ->
-      tx.status = newStatus
-      transactionsViewRepository.save(tx)
-    }
+  return conditionallySaveTransactionView(
+      transaction, newStatus, transactionsViewRepository, transactionsViewUpdateEnabled)
     .flatMap { transactionUserReceiptRepository.save(event) }
 }
 
@@ -957,7 +985,8 @@ fun notificationRefundTransactionPipeline(
   npgService: NpgService,
   tracingInfo: TracingInfo?,
   refundRequestedAsyncClient: QueueAsyncClient,
-  transientQueueTTLSeconds: Duration
+  transientQueueTTLSeconds: Duration,
+  transactionsViewUpdateEnabled: Boolean
 ): Mono<BaseTransaction> {
   val userReceiptOutcome = transaction.transactionUserReceiptData.responseOutcome
   val toBeRefunded = userReceiptOutcome == TransactionUserReceiptData.Outcome.KO
@@ -973,7 +1002,8 @@ fun notificationRefundTransactionPipeline(
         npgService,
         tracingInfo,
         refundRequestedAsyncClient,
-        transientQueueTTLSeconds)
+        transientQueueTTLSeconds,
+        transactionsViewUpdateEnabled)
     }
 }
 
@@ -1115,4 +1145,57 @@ fun <T> computeRefundProcessingRequestDelay(
       refundNotBefore)
     refundTimeout
   }
+}
+
+/**
+ * Save the transaction in the transactions-view collection, iff the transactions-view update is
+ * enabled. Otherwise, do nothing.
+ */
+fun conditionallySaveTransactionView(
+  transaction: BaseTransaction,
+  newStatus: TransactionStatusDto,
+  transactionsViewRepository: TransactionsViewRepository,
+  transactionsViewUpdateEnabled: Boolean
+): Mono<Transaction> {
+  return conditionallySaveTransactionView(
+    transaction.transactionId.value(),
+    transactionsViewRepository,
+    transactionsViewUpdateEnabled,
+    updater = { trx -> trx.status = newStatus })
+}
+
+/**
+ * Save the transaction in the transactions-view collection, iff the transactions-view update is
+ * enabled. Otherwise, do nothing.
+ */
+fun conditionallySaveTransactionView(
+  transactionId: String,
+  newStatus: TransactionStatusDto,
+  transactionsViewRepository: TransactionsViewRepository,
+  transactionsViewUpdateEnabled: Boolean
+): Mono<Transaction> {
+  return conditionallySaveTransactionView(
+    transactionId,
+    transactionsViewRepository,
+    transactionsViewUpdateEnabled,
+    updater = { trx -> trx.status = newStatus })
+}
+
+fun conditionallySaveTransactionView(
+  transactionId: String,
+  transactionsViewRepository: TransactionsViewRepository,
+  transactionsViewUpdateEnabled: Boolean,
+  updater: (Transaction) -> Unit
+): Mono<Transaction> {
+  return Mono.just(transactionsViewUpdateEnabled) // Start with the flag
+    .filter { it } // Proceed only if the flag is true
+    .flatMap {
+      transactionsViewRepository
+        .findByTransactionId(transactionId)
+        .cast(Transaction::class.java)
+        .flatMap { tx ->
+          updater(tx) // Update the status in the view transaction
+          transactionsViewRepository.save(tx) // Save the updated transaction
+        }
+    }
 }

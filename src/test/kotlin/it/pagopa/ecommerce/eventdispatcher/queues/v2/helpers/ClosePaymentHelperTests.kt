@@ -147,7 +147,8 @@ class ClosePaymentHelperTests {
       refundQueueAsyncClient = refundQueueAsyncClient,
       transientQueueTTLSeconds = TRANSIENT_QUEUE_TTL_SECONDS,
       updateTransactionStatusTracerUtils = updateTransactionStatusTracerUtils,
-      transactionTracing = transactionTracing)
+      transactionTracing = transactionTracing,
+      transactionsViewUpdateEnabled = true)
 
   @Test
   fun `consumer throw exception when the transaction authorization is performed via pgs`() =

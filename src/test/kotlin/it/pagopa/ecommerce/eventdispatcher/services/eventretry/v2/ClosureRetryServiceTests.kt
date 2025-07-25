@@ -74,7 +74,8 @@ class ClosureRetryServiceTests {
       eventStoreRepository = eventStoreRepository,
       paymentTokenValidityTimeOffset = paymentTokenValidityTimeOffset,
       transientQueuesTTLSeconds = TRANSIENT_QUEUE_TTL_SECONDS,
-      strictSerializerProviderV2 = jsonSerializerV2)
+      strictSerializerProviderV2 = jsonSerializerV2,
+      transactionsViewUpdateEnabled = true)
 
   @Test
   fun `Should enqueue new closure retry event for left remaining attempts`() {

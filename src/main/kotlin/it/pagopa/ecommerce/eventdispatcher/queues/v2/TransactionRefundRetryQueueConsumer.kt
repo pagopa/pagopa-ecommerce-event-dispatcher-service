@@ -23,6 +23,7 @@ import it.pagopa.ecommerce.eventdispatcher.utils.TransactionTracing
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
 
@@ -44,7 +45,8 @@ class TransactionRefundRetryQueueConsumer(
   @Autowired private val tracingUtils: TracingUtils,
   @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider,
   @Autowired private val ngpService: NpgService,
-  @Autowired private val transactionTracing: TransactionTracing
+  @Autowired private val transactionTracing: TransactionTracing,
+  @Value("\${transactionsview.update.enabled}") private val transactionsViewUpdateEnabled: Boolean
 ) {
 
   var logger: Logger = LoggerFactory.getLogger(TransactionRefundRetryQueueConsumer::class.java)
@@ -88,7 +90,7 @@ class TransactionRefundRetryQueueConsumer(
               ngpService,
               tracingInfo,
               event.data.retryCount,
-            )
+              transactionsViewUpdateEnabled)
             .doOnSuccess {
               transactionTracing.addSpanAttributesRefundedFlowFromTransaction(it, events)
             }

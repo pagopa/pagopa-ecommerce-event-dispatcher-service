@@ -73,7 +73,8 @@ class AuthorizationStateRetrieverRetryServiceTest {
       retryOffset = retryOffset,
       maxAttempts = maxAttempts,
       transientQueuesTTLSeconds = TRANSIENT_QUEUE_TTL_SECONDS,
-      strictSerializerProviderV2 = strictSerializerProviderV2)
+      strictSerializerProviderV2 = strictSerializerProviderV2,
+      transactionsViewUpdateEnabled = true)
 
   @Test
   fun `Should enqueue new authorization requested retry event for left remaining attempts`() {

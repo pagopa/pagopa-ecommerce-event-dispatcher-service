@@ -107,7 +107,8 @@ class TransactionRefundRetryQueueConsumerTest {
           authorizationStateRetrieverService,
           refundDelayFromAuthRequestMinutes,
           eventProcessingDelaySeconds),
-      transactionTracing = transactionTracing)
+      transactionTracing = transactionTracing,
+      transactionsViewUpdateEnabled = true)
 
   @Test
   fun `messageReceiver consume event correctly with OK outcome from gateway`() = runTest {

@@ -24,6 +24,7 @@ import it.pagopa.ecommerce.commons.utils.UpdateTransactionStatusTracerUtils.User
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.ClosePaymentErrorResponseException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
+import it.pagopa.ecommerce.eventdispatcher.queues.v2.conditionallySaveTransactionView
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.ClosePaymentEvent.Companion.exceptionToClosureErrorData
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.reduceEvents
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.requestRefundTransaction
@@ -151,7 +152,8 @@ class ClosePaymentHelper(
   @Value("\${azurestorage.queues.transientQueues.ttlSeconds}")
   private val transientQueueTTLSeconds: Int,
   @Autowired private val updateTransactionStatusTracerUtils: UpdateTransactionStatusTracerUtils,
-  @Autowired private val transactionTracing: TransactionTracing
+  @Autowired private val transactionTracing: TransactionTracing,
+  @Value("\${transactionsview.update.enabled}") private val transactionsViewUpdateEnabled: Boolean
 ) {
   val logger: Logger = LoggerFactory.getLogger(ClosePaymentHelper::class.java)
 
@@ -358,14 +360,15 @@ class ClosePaymentHelper(
 
       transactionClosureErrorEventStoreRepository
         .save(event)
-        .flatMap {
-          transactionsViewRepository.findByTransactionId(baseTransaction.transactionId.value())
-        }
-        .cast(Transaction::class.java)
         .flatMap { trx ->
-          trx.status = TransactionStatusDto.CLOSURE_ERROR
-          trx.closureErrorData = closureErrorData
-          transactionsViewRepository.save(trx)
+          conditionallySaveTransactionView(
+            event.transactionId,
+            transactionsViewRepository,
+            transactionsViewUpdateEnabled,
+            updater = { trx ->
+              trx.status = TransactionStatusDto.CLOSURE_ERROR
+              trx.closureErrorData = closureErrorData
+            })
         }
         .thenReturn(
           (baseTransaction as it.pagopa.ecommerce.commons.domain.v2.Transaction).applyEvent(event)
@@ -373,14 +376,14 @@ class ClosePaymentHelper(
     } else {
       logger.info(
         "Transaction with id: [${baseTransaction.transactionId.value()}] already in ${TransactionStatusDto.CLOSURE_ERROR} status")
-      transactionsViewRepository
-        .findByTransactionId(baseTransaction.transactionId.value())
-        .cast(Transaction::class.java)
-        .flatMap { trx ->
-          trx.status = TransactionStatusDto.CLOSURE_ERROR
-          trx.closureErrorData = closureErrorData
-          transactionsViewRepository.save(trx)
-        }
+      conditionallySaveTransactionView(
+          baseTransaction.transactionId.value(),
+          transactionsViewRepository,
+          transactionsViewUpdateEnabled,
+          updater = { trx ->
+            trx.status = TransactionStatusDto.CLOSURE_ERROR
+            trx.closureErrorData = closureErrorData
+          })
         .thenReturn((baseTransaction as BaseTransactionWithClosureError))
     }
   }
@@ -428,11 +431,6 @@ class ClosePaymentHelper(
     logger.info(
       "Updating transaction {} status to {}", transaction.transactionId.value(), newStatus)
 
-    val transactionUpdate =
-      transactionsViewRepository
-        .findByTransactionId(transaction.transactionId.value())
-        .cast(Transaction::class.java)
-
     val sendPaymentResultOutcome =
       if (!canceledByUser && closePaymentTransactionData.closureOutcome == ClosePaymentOutcome.OK) {
         TransactionUserReceiptData.Outcome.NOT_RECEIVED
@@ -444,27 +442,33 @@ class ClosePaymentHelper(
       event.bimap(
         {
           transactionClosureSentEventRepository.save(it).flatMap { closedEvent ->
-            transactionUpdate
-              .flatMap { tx ->
-                tx.status = newStatus
-                tx.sendPaymentResultOutcome = sendPaymentResultOutcome
-                tx.closureErrorData =
-                  null // reset closure error state when a close payment response have been received
-                transactionsViewRepository.save(tx)
-              }
+            conditionallySaveTransactionView(
+                transaction.transactionId.value(),
+                transactionsViewRepository,
+                transactionsViewUpdateEnabled,
+                updater = { tx ->
+                  tx.status = newStatus
+                  tx.sendPaymentResultOutcome = sendPaymentResultOutcome
+                  tx.closureErrorData =
+                    null // reset closure error state when a close payment response have been
+                  // received
+                })
               .thenReturn(closedEvent)
           }
         },
         {
           transactionClosureSentEventRepository.save(it).flatMap { closedEvent ->
-            transactionUpdate
-              .flatMap { tx ->
-                tx.status = newStatus
-                tx.sendPaymentResultOutcome = sendPaymentResultOutcome
-                tx.closureErrorData =
-                  null // reset closure error state when a close payment response have been received
-                transactionsViewRepository.save(tx)
-              }
+            conditionallySaveTransactionView(
+                transaction.transactionId.value(),
+                transactionsViewRepository,
+                transactionsViewUpdateEnabled,
+                updater = { tx ->
+                  tx.status = newStatus
+                  tx.sendPaymentResultOutcome = sendPaymentResultOutcome
+                  tx.closureErrorData =
+                    null // reset closure error state when a close payment response have been
+                  // received
+                })
               .thenReturn(closedEvent)
           }
         })
@@ -654,7 +658,8 @@ class ClosePaymentHelper(
           npgService,
           tracingInfo,
           refundQueueAsyncClient,
-          Duration.ofSeconds(transientQueueTTLSeconds.toLong()))
+          Duration.ofSeconds(transientQueueTTLSeconds.toLong()),
+          transactionsViewUpdateEnabled)
       }
   }
 

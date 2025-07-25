@@ -29,7 +29,8 @@ class ClosureRetryService(
   private val paymentTokenValidityTimeOffset: Int,
   @Value("\${azurestorage.queues.transientQueues.ttlSeconds}")
   private val transientQueuesTTLSeconds: Int,
-  @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider
+  @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider,
+  @Value("\${transactionsview.update.enabled}") private val transactionsViewUpdateEnabled: Boolean
 ) :
   RetryEventService<TransactionEvent<BaseTransactionRetriedData>>(
     queueAsyncClient = closureRetryQueueAsyncClient,
@@ -38,7 +39,8 @@ class ClosureRetryService(
     viewRepository = viewRepository,
     retryEventStoreRepository = eventStoreRepository,
     transientQueuesTTLSeconds = transientQueuesTTLSeconds,
-    strictSerializerProviderV2 = strictSerializerProviderV2) {
+    strictSerializerProviderV2 = strictSerializerProviderV2,
+    transactionsViewUpdateEnabled = transactionsViewUpdateEnabled) {
 
   companion object {
     const val QUALIFIER = "ClosureRetryServiceV2"
