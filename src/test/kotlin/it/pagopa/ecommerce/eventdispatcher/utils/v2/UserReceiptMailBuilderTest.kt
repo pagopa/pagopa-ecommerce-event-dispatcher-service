@@ -434,7 +434,7 @@ class UserReceiptMailBuilderTest {
           paymentToken = UUID.randomUUID().toString().replace("-", "")
           rptId = RPT_ID
           description = "description_$it"
-          amount = it * 100
+          amount = it * 100L
           paymentContextCode = null
           transferList = listOf()
           isAllCCP = false
@@ -660,7 +660,7 @@ class UserReceiptMailBuilderTest {
           paymentToken = UUID.randomUUID().toString().replace("-", "")
           rptId = RPT_ID
           description = "description_$it"
-          amount = it * 100
+          amount = it * 100L
           paymentContextCode = null
           transferList = listOf()
           isAllCCP = false
@@ -787,7 +787,7 @@ class UserReceiptMailBuilderTest {
           paymentToken = UUID.randomUUID().toString().replace("-", "")
           rptId = RPT_ID
           description = "description_$it"
-          amount = it * 100
+          amount = it * 100L
           paymentContextCode = null
           transferList = listOf()
           isAllCCP = false
@@ -862,7 +862,7 @@ class UserReceiptMailBuilderTest {
             paymentToken = UUID.randomUUID().toString().replace("-", "")
             rptId = RPT_ID
             description = "description_$it"
-            amount = it * 100
+            amount = it * 100L
             paymentContextCode = null
             transferList = listOf()
             isAllCCP = false
