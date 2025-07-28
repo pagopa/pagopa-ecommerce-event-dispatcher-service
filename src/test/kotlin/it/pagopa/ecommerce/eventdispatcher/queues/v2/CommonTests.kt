@@ -431,9 +431,12 @@ class CommonTests {
     StepVerifier.create(
         conditionallySaveTransactionsView(
           TRANSACTION_ID,
-          TransactionStatusDto.UNAUTHORIZED,
           transactionsViewRepository,
-          transactionsViewUpdateEnabled))
+          transactionsViewUpdateEnabled,
+          updater = { trx ->
+            trx.apply {
+              trx.status = TransactionStatusDto.UNAUTHORIZED
+            }}))
       .verifyComplete()
 
     verify(transactionsViewRepository, never()).findByTransactionId(TRANSACTION_ID)
@@ -463,9 +466,12 @@ class CommonTests {
     StepVerifier.create(
         conditionallySaveTransactionsView(
           TRANSACTION_ID,
-          TransactionStatusDto.AUTHORIZATION_COMPLETED,
           transactionsViewRepository,
-          transactionsViewUpdateEnabled))
+          transactionsViewUpdateEnabled,
+          updater = { trx ->
+            trx.apply {
+              trx.status = TransactionStatusDto.AUTHORIZATION_COMPLETED
+            }}))
       .expectNextCount(1) // Just verify something was emitted
       .verifyComplete()
 
@@ -510,6 +516,56 @@ class CommonTests {
               trx.sendPaymentResultOutcome = TransactionUserReceiptData.Outcome.NOT_RECEIVED
             }
           }))
+      .expectNextCount(1) // Just verify something was emitted
+      .verifyComplete()
+
+    verify(transactionsViewRepository, times(1)).findByTransactionId(TRANSACTION_ID)
+    verify(transactionsViewRepository, times(1)).save(any<Transaction>())
+    val capturedTransaction = savedTransactionCaptor.firstValue
+    assertEquals(capturedTransaction.transactionId.toString(), TRANSACTION_ID)
+    assertEquals(
+      capturedTransaction.closureErrorData?.httpErrorCode, HttpStatus.UNPROCESSABLE_ENTITY)
+    assertEquals(capturedTransaction.status, TransactionStatusDto.CLOSURE_ERROR)
+    assertEquals(
+      capturedTransaction.sendPaymentResultOutcome, TransactionUserReceiptData.Outcome.NOT_RECEIVED)
+  }
+
+  @Test
+  fun `Should correctly save all the fields from the updater transaction in transactions-view with conditionallySaveTransactionView if the feature flag is enabled and a base transaction as param`() {
+    // Given
+    val transactionsViewRepository: TransactionsViewRepository = mock()
+
+    val activatedTransaction = transactionActivated(ZonedDateTime.now().toString())
+
+    val savedTransaction =
+      transactionDocument(TransactionStatusDto.AUTHORIZATION_REQUESTED, ZonedDateTime.now())
+
+    given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+      .willReturn(
+        Mono.just(
+          transactionDocument(TransactionStatusDto.ACTIVATED, ZonedDateTime.now())))
+    val savedTransactionCaptor = argumentCaptor<Transaction>()
+    given(transactionsViewRepository.save(savedTransactionCaptor.capture()))
+      .willReturn(Mono.just(savedTransaction))
+
+    val transactionsViewUpdateEnabled = true
+
+    // When & Then
+    // When & Then - No block() needed!
+    StepVerifier.create(
+      conditionallySaveTransactionsView(
+        activatedTransaction,
+        transactionsViewRepository,
+        transactionsViewUpdateEnabled,
+        updater = { trx ->
+          trx.apply {
+            trx.status = TransactionStatusDto.CLOSURE_ERROR
+            trx.closureErrorData =
+              exceptionToClosureErrorData(
+                ClosePaymentErrorResponseException(HttpStatus.UNPROCESSABLE_ENTITY, null))
+            trx.sendPaymentResultOutcome = TransactionUserReceiptData.Outcome.NOT_RECEIVED
+          }
+        }))
       .expectNextCount(1) // Just verify something was emitted
       .verifyComplete()
 

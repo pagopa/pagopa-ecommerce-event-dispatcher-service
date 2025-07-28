@@ -1122,16 +1122,16 @@ fun <T> computeRefundProcessingRequestDelay(
  * enabled. Otherwise, do nothing.
  */
 fun conditionallySaveTransactionsView(
-  transactionId: String,
-  newStatus: TransactionStatusDto,
+  transaction: BaseTransaction,
   transactionsViewRepository: TransactionsViewRepository,
-  transactionsViewUpdateEnabled: Boolean
+  transactionsViewUpdateEnabled: Boolean,
+  updater: (Transaction) -> Transaction
 ): Mono<Transaction> {
   return conditionallySaveTransactionsView(
-    transactionId,
+    transaction.transactionId.value(),
     transactionsViewRepository,
     transactionsViewUpdateEnabled,
-    updater = { trx -> trx.apply { status = newStatus } })
+    updater)
 }
 
 fun conditionallySaveTransactionsView(
