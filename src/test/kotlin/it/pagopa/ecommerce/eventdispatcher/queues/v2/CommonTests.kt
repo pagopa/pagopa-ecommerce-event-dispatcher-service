@@ -1,5 +1,6 @@
 package it.pagopa.ecommerce.eventdispatcher.queues.v2
 
+import it.pagopa.ecommerce.commons.documents.v2.Transaction
 import it.pagopa.ecommerce.commons.documents.v2.TransactionClosureData
 import it.pagopa.ecommerce.commons.documents.v2.TransactionEvent
 import it.pagopa.ecommerce.commons.documents.v2.TransactionUserReceiptData
@@ -8,9 +9,23 @@ import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.utils.v2.TransactionUtils
 import it.pagopa.ecommerce.commons.v2.TransactionTestUtils.*
+import it.pagopa.ecommerce.eventdispatcher.exceptions.ClosePaymentErrorResponseException
+import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.ClosePaymentEvent.Companion.exceptionToClosureErrorData
+import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
+import java.time.ZonedDateTime
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import org.mockito.kotlin.any
+import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.given
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
+import org.mockito.kotlin.times
+import org.mockito.kotlin.verify
+import org.springframework.http.HttpStatus
+import reactor.core.publisher.Mono
+import reactor.test.StepVerifier
 
 class CommonTests {
 
@@ -403,6 +418,110 @@ class CommonTests {
     assertFalse(isRefundableCheckRequired(baseTransactionExpired))
     assertEquals(TransactionStatusDto.NOTIFIED_KO, baseTransaction.status)
     assertEquals(TransactionStatusDto.EXPIRED, baseTransactionExpired.status)
+  }
+
+  @Test
+  fun `Should not save transaction in transactions-view with conditionallySaveTransactionView if the feature flag is disabled`() {
+    // Given
+    val transactionsViewRepository: TransactionsViewRepository = mock()
+
+    val transactionsViewUpdateEnabled = false
+
+    // When & Then
+    StepVerifier.create(
+        conditionallySaveTransactionsView(
+          TRANSACTION_ID,
+          TransactionStatusDto.UNAUTHORIZED,
+          transactionsViewRepository,
+          transactionsViewUpdateEnabled))
+      .verifyComplete()
+
+    verify(transactionsViewRepository, never()).findByTransactionId(TRANSACTION_ID)
+    verify(transactionsViewRepository, never()).save(any<Transaction>())
+  }
+
+  @Test
+  fun `Should save transaction in transactions-view with conditionallySaveTransactionView if the feature flag is enabled`() {
+    // Given
+    val transactionsViewRepository: TransactionsViewRepository = mock()
+
+    val savedTransaction =
+      transactionDocument(TransactionStatusDto.AUTHORIZATION_COMPLETED, ZonedDateTime.now())
+
+    given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+      .willReturn(
+        Mono.just(
+          transactionDocument(TransactionStatusDto.AUTHORIZATION_REQUESTED, ZonedDateTime.now())))
+    val savedTransactionCaptor = argumentCaptor<Transaction>()
+    given(transactionsViewRepository.save(savedTransactionCaptor.capture()))
+      .willReturn(Mono.just(savedTransaction))
+
+    val transactionsViewUpdateEnabled = true
+
+    // When & Then
+    // When & Then - No block() needed!
+    StepVerifier.create(
+        conditionallySaveTransactionsView(
+          TRANSACTION_ID,
+          TransactionStatusDto.AUTHORIZATION_COMPLETED,
+          transactionsViewRepository,
+          transactionsViewUpdateEnabled))
+      .expectNextCount(1) // Just verify something was emitted
+      .verifyComplete()
+
+    verify(transactionsViewRepository, times(1)).findByTransactionId(TRANSACTION_ID)
+    verify(transactionsViewRepository, times(1)).save(any<Transaction>())
+    val capturedTransaction = savedTransactionCaptor.firstValue
+    assertEquals(capturedTransaction.transactionId.toString(), TRANSACTION_ID)
+    assertEquals(capturedTransaction.status, TransactionStatusDto.AUTHORIZATION_COMPLETED)
+  }
+
+  @Test
+  fun `Should correctly save all the fields from the updater transaction in transactions-view with conditionallySaveTransactionView if the feature flag is enabled`() {
+    // Given
+    val transactionsViewRepository: TransactionsViewRepository = mock()
+
+    val savedTransaction =
+      transactionDocument(TransactionStatusDto.AUTHORIZATION_COMPLETED, ZonedDateTime.now())
+
+    given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+      .willReturn(
+        Mono.just(
+          transactionDocument(TransactionStatusDto.AUTHORIZATION_REQUESTED, ZonedDateTime.now())))
+    val savedTransactionCaptor = argumentCaptor<Transaction>()
+    given(transactionsViewRepository.save(savedTransactionCaptor.capture()))
+      .willReturn(Mono.just(savedTransaction))
+
+    val transactionsViewUpdateEnabled = true
+
+    // When & Then
+    // When & Then - No block() needed!
+    StepVerifier.create(
+        conditionallySaveTransactionsView(
+          TRANSACTION_ID,
+          transactionsViewRepository,
+          transactionsViewUpdateEnabled,
+          updater = { trx ->
+            trx.apply {
+              trx.status = TransactionStatusDto.CLOSURE_ERROR
+              trx.closureErrorData =
+                exceptionToClosureErrorData(
+                  ClosePaymentErrorResponseException(HttpStatus.UNPROCESSABLE_ENTITY, null))
+              trx.sendPaymentResultOutcome = TransactionUserReceiptData.Outcome.NOT_RECEIVED
+            }
+          }))
+      .expectNextCount(1) // Just verify something was emitted
+      .verifyComplete()
+
+    verify(transactionsViewRepository, times(1)).findByTransactionId(TRANSACTION_ID)
+    verify(transactionsViewRepository, times(1)).save(any<Transaction>())
+    val capturedTransaction = savedTransactionCaptor.firstValue
+    assertEquals(capturedTransaction.transactionId.toString(), TRANSACTION_ID)
+    assertEquals(
+      capturedTransaction.closureErrorData?.httpErrorCode, HttpStatus.UNPROCESSABLE_ENTITY)
+    assertEquals(capturedTransaction.status, TransactionStatusDto.CLOSURE_ERROR)
+    assertEquals(
+      capturedTransaction.sendPaymentResultOutcome, TransactionUserReceiptData.Outcome.NOT_RECEIVED)
   }
 
   private fun reduceEventsAndExpireTransaction(

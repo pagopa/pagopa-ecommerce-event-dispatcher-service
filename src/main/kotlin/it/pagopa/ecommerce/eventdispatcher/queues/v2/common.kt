@@ -1116,3 +1116,37 @@ fun <T> computeRefundProcessingRequestDelay(
     refundTimeout
   }
 }
+
+/**
+ * Save the transaction in the transactions-view collection, iff the transactions-view update is
+ * enabled. Otherwise, do nothing.
+ */
+fun conditionallySaveTransactionsView(
+  transactionId: String,
+  newStatus: TransactionStatusDto,
+  transactionsViewRepository: TransactionsViewRepository,
+  transactionsViewUpdateEnabled: Boolean
+): Mono<Transaction> {
+  return conditionallySaveTransactionsView(
+    transactionId,
+    transactionsViewRepository,
+    transactionsViewUpdateEnabled,
+    updater = { trx -> trx.apply { status = newStatus } })
+}
+
+fun conditionallySaveTransactionsView(
+  transactionId: String,
+  transactionsViewRepository: TransactionsViewRepository,
+  transactionsViewUpdateEnabled: Boolean,
+  updater: (Transaction) -> Transaction
+): Mono<Transaction> {
+  return Mono.just(transactionsViewUpdateEnabled)
+    .filter { it }
+    .flatMap {
+      transactionsViewRepository
+        .findByTransactionId(transactionId)
+        .cast(Transaction::class.java)
+        .map { tx -> updater(tx) }
+        .flatMap { transactionsViewRepository.save(it) }
+    }
+}
