@@ -23,6 +23,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.switchIfEmpty
+import java.time.ZonedDateTime
 
 abstract class RetryEventService<E>(
   private val queueAsyncClient: QueueAsyncClient,
@@ -93,6 +94,7 @@ abstract class RetryEventService<E>(
       .cast(Transaction::class.java)
       .flatMap {
         it.status = newStatus
+        it.lastProcessedEventAt = ZonedDateTime.parse(event.creationDate).toInstant().toEpochMilli()
         viewRepository.save(it).flatMap { Mono.just(event) }
       }
 

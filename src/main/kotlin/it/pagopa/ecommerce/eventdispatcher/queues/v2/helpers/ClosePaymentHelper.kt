@@ -48,6 +48,9 @@ import org.springframework.stereotype.Component
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Schedulers
+import java.time.ZonedDateTime
+import kotlin.time.Clock
+import kotlin.time.Instant
 
 data class ClosePaymentTransactionData(
   val closureOutcome: ClosePaymentOutcome,
@@ -365,6 +368,7 @@ class ClosePaymentHelper(
         .flatMap { trx ->
           trx.status = TransactionStatusDto.CLOSURE_ERROR
           trx.closureErrorData = closureErrorData
+          trx.lastProcessedEventAt = ZonedDateTime.parse(event.creationDate).toInstant().toEpochMilli()
           transactionsViewRepository.save(trx)
         }
         .thenReturn(
@@ -379,6 +383,7 @@ class ClosePaymentHelper(
         .flatMap { trx ->
           trx.status = TransactionStatusDto.CLOSURE_ERROR
           trx.closureErrorData = closureErrorData
+          trx.lastProcessedEventAt = ZonedDateTime.now().toInstant().toEpochMilli() // Qui non abbiamo un evento processato, è giusto mettere il timestamp now?
           transactionsViewRepository.save(trx)
         }
         .thenReturn((baseTransaction as BaseTransactionWithClosureError))
@@ -450,6 +455,7 @@ class ClosePaymentHelper(
                 tx.sendPaymentResultOutcome = sendPaymentResultOutcome
                 tx.closureErrorData =
                   null // reset closure error state when a close payment response have been received
+                tx.lastProcessedEventAt = ZonedDateTime.parse(closedEvent.creationDate).toInstant().toEpochMilli()
                 transactionsViewRepository.save(tx)
               }
               .thenReturn(closedEvent)
@@ -463,6 +469,7 @@ class ClosePaymentHelper(
                 tx.sendPaymentResultOutcome = sendPaymentResultOutcome
                 tx.closureErrorData =
                   null // reset closure error state when a close payment response have been received
+                tx.lastProcessedEventAt = ZonedDateTime.parse(closedEvent.creationDate).toInstant().toEpochMilli()
                 transactionsViewRepository.save(tx)
               }
               .thenReturn(closedEvent)

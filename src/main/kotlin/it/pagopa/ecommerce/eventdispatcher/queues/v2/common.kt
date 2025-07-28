@@ -50,6 +50,7 @@ import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toMono
+import reactor.util.function.Tuples
 
 object QueueCommonsLogger {
   val logger: Logger = LoggerFactory.getLogger(QueueCommonsLogger::class.java)
@@ -65,19 +66,20 @@ fun updateTransactionToExpired(
     .save(
       TransactionExpiredEvent(
         transaction.transactionId.value(), TransactionExpiredData(transaction.status)))
-    .map {
-      (transaction as it.pagopa.ecommerce.commons.domain.v2.Transaction).applyEvent(it)
-        as BaseTransaction
+    .map {ev ->
+      Tuples.of(((transaction as it.pagopa.ecommerce.commons.domain.v2.Transaction).applyEvent(ev)
+        as BaseTransaction), ev)
     }
-    .flatMap {
+    .flatMap {transactionAndEvent ->
       transactionsViewRepository
-        .findByTransactionId(transaction.transactionId.value())
+        .findByTransactionId(transactionAndEvent.t1.transactionId.value())
         .cast(Transaction::class.java)
         .flatMap { tx ->
           tx.status = getExpiredTransactionStatus(transaction)
+          tx.lastProcessedEventAt = ZonedDateTime.parse(transactionAndEvent.t2.creationDate).toInstant().toEpochMilli()
           transactionsViewRepository.save(tx)
         }
-        .thenReturn(it)
+        .thenReturn(transactionAndEvent.t1)
     }
     .doOnSuccess {
       logger.info("Transaction expired for transaction ${transaction.transactionId.value()}")
@@ -195,6 +197,7 @@ fun updateTransactionWithRefundEvent(
         .cast(Transaction::class.java)
         .flatMap { tx ->
           tx.status = status
+          tx.lastProcessedEventAt = ZonedDateTime.parse(event.creationDate).toInstant().toEpochMilli()
           transactionsViewRepository.save(tx)
         })
     .doOnSuccess {
@@ -910,6 +913,7 @@ fun updateNotifiedTransactionStatus(
     .cast(Transaction::class.java)
     .flatMap { tx ->
       tx.status = newStatus
+      tx.lastProcessedEventAt = ZonedDateTime.parse(event.creationDate).toInstant().toEpochMilli()
       transactionsViewRepository.save(tx)
     }
     .flatMap { transactionUserReceiptRepository.save(event) }
@@ -934,6 +938,7 @@ fun updateNotificationErrorTransactionStatus(
     .cast(Transaction::class.java)
     .flatMap { tx ->
       tx.status = newStatus
+      tx.lastProcessedEventAt = ZonedDateTime.parse(event.creationDate).toInstant().toEpochMilli()
       transactionsViewRepository.save(tx)
     }
     .flatMap { transactionUserReceiptRepository.save(event) }
