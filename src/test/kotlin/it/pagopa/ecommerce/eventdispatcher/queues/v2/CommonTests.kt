@@ -433,10 +433,7 @@ class CommonTests {
           TRANSACTION_ID,
           transactionsViewRepository,
           transactionsViewUpdateEnabled,
-          updater = { trx ->
-            trx.apply {
-              trx.status = TransactionStatusDto.UNAUTHORIZED
-            }}))
+          updater = { trx -> trx.apply { trx.status = TransactionStatusDto.UNAUTHORIZED } }))
       .verifyComplete()
 
     verify(transactionsViewRepository, never()).findByTransactionId(TRANSACTION_ID)
@@ -469,9 +466,8 @@ class CommonTests {
           transactionsViewRepository,
           transactionsViewUpdateEnabled,
           updater = { trx ->
-            trx.apply {
-              trx.status = TransactionStatusDto.AUTHORIZATION_COMPLETED
-            }}))
+            trx.apply { trx.status = TransactionStatusDto.AUTHORIZATION_COMPLETED }
+          }))
       .expectNextCount(1) // Just verify something was emitted
       .verifyComplete()
 
@@ -542,8 +538,7 @@ class CommonTests {
 
     given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
       .willReturn(
-        Mono.just(
-          transactionDocument(TransactionStatusDto.ACTIVATED, ZonedDateTime.now())))
+        Mono.just(transactionDocument(TransactionStatusDto.ACTIVATED, ZonedDateTime.now())))
     val savedTransactionCaptor = argumentCaptor<Transaction>()
     given(transactionsViewRepository.save(savedTransactionCaptor.capture()))
       .willReturn(Mono.just(savedTransaction))
@@ -553,19 +548,19 @@ class CommonTests {
     // When & Then
     // When & Then - No block() needed!
     StepVerifier.create(
-      conditionallySaveTransactionsView(
-        activatedTransaction,
-        transactionsViewRepository,
-        transactionsViewUpdateEnabled,
-        updater = { trx ->
-          trx.apply {
-            trx.status = TransactionStatusDto.CLOSURE_ERROR
-            trx.closureErrorData =
-              exceptionToClosureErrorData(
-                ClosePaymentErrorResponseException(HttpStatus.UNPROCESSABLE_ENTITY, null))
-            trx.sendPaymentResultOutcome = TransactionUserReceiptData.Outcome.NOT_RECEIVED
-          }
-        }))
+        conditionallySaveTransactionsView(
+          activatedTransaction,
+          transactionsViewRepository,
+          transactionsViewUpdateEnabled,
+          updater = { trx ->
+            trx.apply {
+              trx.status = TransactionStatusDto.CLOSURE_ERROR
+              trx.closureErrorData =
+                exceptionToClosureErrorData(
+                  ClosePaymentErrorResponseException(HttpStatus.UNPROCESSABLE_ENTITY, null))
+              trx.sendPaymentResultOutcome = TransactionUserReceiptData.Outcome.NOT_RECEIVED
+            }
+          }))
       .expectNextCount(1) // Just verify something was emitted
       .verifyComplete()
 
