@@ -93,7 +93,10 @@ abstract class RetryEventService<E>(
       .flatMap { retryEventStoreRepository.save(it) }
       .flatMap { savedEvent ->
         conditionallySaveTransactionsView(
-          event.transactionId, viewRepository, transactionsViewUpdateEnabled, updater = { trx -> trx.apply { trx.status = newStatus } })
+          event.transactionId,
+          viewRepository,
+          transactionsViewUpdateEnabled,
+          updater = { trx -> trx.apply { trx.status = newStatus } })
       }
       .flatMap { Mono.just(event) }
 
