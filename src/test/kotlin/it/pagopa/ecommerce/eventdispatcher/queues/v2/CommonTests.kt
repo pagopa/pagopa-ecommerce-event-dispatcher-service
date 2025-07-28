@@ -1,5 +1,6 @@
 package it.pagopa.ecommerce.eventdispatcher.queues.v2
 
+import it.pagopa.ecommerce.commons.documents.v2.Transaction
 import it.pagopa.ecommerce.commons.documents.v2.TransactionClosureData
 import it.pagopa.ecommerce.commons.documents.v2.TransactionEvent
 import it.pagopa.ecommerce.commons.documents.v2.TransactionUserReceiptData
@@ -8,9 +9,19 @@ import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.utils.v2.TransactionUtils
 import it.pagopa.ecommerce.commons.v2.TransactionTestUtils.*
+import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
+import java.time.ZonedDateTime
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import org.mockito.kotlin.any
+import org.mockito.kotlin.given
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
+import org.mockito.kotlin.times
+import org.mockito.kotlin.verify
+import reactor.core.publisher.Mono
+import reactor.test.StepVerifier
 
 class CommonTests {
 
@@ -403,6 +414,58 @@ class CommonTests {
     assertFalse(isRefundableCheckRequired(baseTransactionExpired))
     assertEquals(TransactionStatusDto.NOTIFIED_KO, baseTransaction.status)
     assertEquals(TransactionStatusDto.EXPIRED, baseTransactionExpired.status)
+  }
+
+  @Test
+  fun `Should not save transaction in transactions-view with conditionallySaveTransactionView if the feature flag is disabled`() {
+    // Given
+    val transactionsViewRepository: TransactionsViewRepository = mock()
+
+    val transactionsViewUpdateEnabled = false
+
+    // When & Then
+    StepVerifier.create(
+        conditionallySaveTransactionsView(
+          "test-transaction-id",
+          TransactionStatusDto.UNAUTHORIZED,
+          transactionsViewRepository,
+          transactionsViewUpdateEnabled))
+      .verifyComplete()
+
+    verify(transactionsViewRepository, never()).findByTransactionId(any())
+    verify(transactionsViewRepository, never()).save(any<Transaction>())
+  }
+
+  @Test
+  fun `Should save transaction in transactions-view with conditionallySaveTransactionView if the feature flag is enabled`() {
+    // Given
+    val transactionsViewRepository: TransactionsViewRepository = mock()
+
+    val transactionId = "test-transaction-1"
+
+    val savedTransaction =
+      transactionDocument(TransactionStatusDto.AUTHORIZATION_COMPLETED, ZonedDateTime.now())
+
+    given(transactionsViewRepository.findByTransactionId(transactionId))
+      .willReturn(
+        Mono.just(
+          transactionDocument(TransactionStatusDto.AUTHORIZATION_REQUESTED, ZonedDateTime.now())))
+    given(transactionsViewRepository.save(any())).willReturn(Mono.just(savedTransaction))
+
+    val transactionsViewUpdateEnabled = true
+
+    // When & Then
+    StepVerifier.create(
+        conditionallySaveTransactionsView(
+          transactionId,
+          TransactionStatusDto.UNAUTHORIZED,
+          transactionsViewRepository,
+          transactionsViewUpdateEnabled))
+      .expectNext(savedTransaction)
+      .verifyComplete()
+
+    verify(transactionsViewRepository, times(1)).findByTransactionId(any())
+    verify(transactionsViewRepository, times(1)).save(any<Transaction>())
   }
 
   private fun reduceEventsAndExpireTransaction(
