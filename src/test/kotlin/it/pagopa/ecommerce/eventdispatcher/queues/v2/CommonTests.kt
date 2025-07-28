@@ -494,7 +494,6 @@ class CommonTests {
     val transactionsViewUpdateEnabled = true
 
     // When & Then
-    // When & Then - No block() needed!
     StepVerifier.create(
         conditionallySaveTransactionsView(
           TRANSACTION_ID,
@@ -543,7 +542,6 @@ class CommonTests {
     val transactionsViewUpdateEnabled = true
 
     // When & Then
-    // When & Then - No block() needed!
     StepVerifier.create(
         conditionallySaveTransactionsView(
           activatedTransaction,
