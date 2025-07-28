@@ -4,7 +4,6 @@ import com.azure.spring.messaging.checkpoint.Checkpointer
 import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.client.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v2.*
-import it.pagopa.ecommerce.commons.documents.v2.Transaction
 import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationRequestedData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.PgsTransactionGatewayAuthorizationData
@@ -24,7 +23,7 @@ import it.pagopa.ecommerce.commons.utils.UpdateTransactionStatusTracerUtils.User
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.ClosePaymentErrorResponseException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
-import it.pagopa.ecommerce.eventdispatcher.queues.v2.conditionallySaveTransactionView
+import it.pagopa.ecommerce.eventdispatcher.queues.v2.conditionallySaveTransactionsView
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.ClosePaymentEvent.Companion.exceptionToClosureErrorData
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.reduceEvents
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.requestRefundTransaction
@@ -361,13 +360,15 @@ class ClosePaymentHelper(
       transactionClosureErrorEventStoreRepository
         .save(event)
         .flatMap { trx ->
-          conditionallySaveTransactionView(
+          conditionallySaveTransactionsView(
             event.transactionId,
             transactionsViewRepository,
             transactionsViewUpdateEnabled,
             updater = { trx ->
-              trx.status = TransactionStatusDto.CLOSURE_ERROR
-              trx.closureErrorData = closureErrorData
+              trx.apply {
+                trx.status = TransactionStatusDto.CLOSURE_ERROR
+                trx.closureErrorData = closureErrorData
+              }
             })
         }
         .thenReturn(
@@ -376,13 +377,15 @@ class ClosePaymentHelper(
     } else {
       logger.info(
         "Transaction with id: [${baseTransaction.transactionId.value()}] already in ${TransactionStatusDto.CLOSURE_ERROR} status")
-      conditionallySaveTransactionView(
+      conditionallySaveTransactionsView(
           baseTransaction.transactionId.value(),
           transactionsViewRepository,
           transactionsViewUpdateEnabled,
           updater = { trx ->
-            trx.status = TransactionStatusDto.CLOSURE_ERROR
-            trx.closureErrorData = closureErrorData
+            trx.apply {
+              trx.status = TransactionStatusDto.CLOSURE_ERROR
+              trx.closureErrorData = closureErrorData
+            }
           })
         .thenReturn((baseTransaction as BaseTransactionWithClosureError))
     }
@@ -442,32 +445,36 @@ class ClosePaymentHelper(
       event.bimap(
         {
           transactionClosureSentEventRepository.save(it).flatMap { closedEvent ->
-            conditionallySaveTransactionView(
+            conditionallySaveTransactionsView(
                 transaction.transactionId.value(),
                 transactionsViewRepository,
                 transactionsViewUpdateEnabled,
                 updater = { tx ->
-                  tx.status = newStatus
-                  tx.sendPaymentResultOutcome = sendPaymentResultOutcome
-                  tx.closureErrorData =
-                    null // reset closure error state when a close payment response have been
-                  // received
+                  tx.apply {
+                    tx.status = newStatus
+                    tx.sendPaymentResultOutcome = sendPaymentResultOutcome
+                    tx.closureErrorData =
+                      null // reset closure error state when a close payment response have been
+                    // received
+                  }
                 })
               .thenReturn(closedEvent)
           }
         },
         {
           transactionClosureSentEventRepository.save(it).flatMap { closedEvent ->
-            conditionallySaveTransactionView(
+            conditionallySaveTransactionsView(
                 transaction.transactionId.value(),
                 transactionsViewRepository,
                 transactionsViewUpdateEnabled,
                 updater = { tx ->
-                  tx.status = newStatus
-                  tx.sendPaymentResultOutcome = sendPaymentResultOutcome
-                  tx.closureErrorData =
-                    null // reset closure error state when a close payment response have been
-                  // received
+                  tx.apply {
+                    tx.status = newStatus
+                    tx.sendPaymentResultOutcome = sendPaymentResultOutcome
+                    tx.closureErrorData =
+                      null // reset closure error state when a close payment response have been
+                    // received
+                  }
                 })
               .thenReturn(closedEvent)
           }

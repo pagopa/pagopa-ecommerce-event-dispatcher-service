@@ -73,7 +73,7 @@ fun updateTransactionToExpired(
         as BaseTransaction
     }
     .flatMap { tx ->
-      conditionallySaveTransactionView(
+      conditionallySaveTransactionsView(
           tx,
           getExpiredTransactionStatus(tx),
           transactionsViewRepository,
@@ -199,7 +199,7 @@ fun updateTransactionWithRefundEvent(
   return transactionsRefundedEventStoreRepository
     .save(event)
     .then(
-      conditionallySaveTransactionView(
+      conditionallySaveTransactionsView(
         transaction, status, transactionsViewRepository, transactionsViewUpdateEnabled))
     .doOnSuccess {
       logger.info(
@@ -942,7 +942,7 @@ fun updateNotifiedTransactionStatus(
       transaction.transactionId.value(), transaction.transactionUserReceiptData)
   logger.info("Updating transaction {} status to {}", transaction.transactionId.value(), newStatus)
 
-  return conditionallySaveTransactionView(
+  return conditionallySaveTransactionsView(
       transaction, newStatus, transactionsViewRepository, transactionsViewUpdateEnabled)
     .flatMap { transactionUserReceiptRepository.save(event) }
     .thenReturn(
@@ -962,7 +962,7 @@ fun updateNotificationErrorTransactionStatus(
       transaction.transactionId.value(), transaction.transactionUserReceiptData)
   logger.info("Updating transaction {} status to {}", transaction.transactionId.value(), newStatus)
 
-  return conditionallySaveTransactionView(
+  return conditionallySaveTransactionsView(
       transaction, newStatus, transactionsViewRepository, transactionsViewUpdateEnabled)
     .flatMap { transactionUserReceiptRepository.save(event) }
 }
@@ -1151,51 +1151,49 @@ fun <T> computeRefundProcessingRequestDelay(
  * Save the transaction in the transactions-view collection, iff the transactions-view update is
  * enabled. Otherwise, do nothing.
  */
-fun conditionallySaveTransactionView(
+fun conditionallySaveTransactionsView(
   transaction: BaseTransaction,
   newStatus: TransactionStatusDto,
   transactionsViewRepository: TransactionsViewRepository,
   transactionsViewUpdateEnabled: Boolean
 ): Mono<Transaction> {
-  return conditionallySaveTransactionView(
+  return conditionallySaveTransactionsView(
     transaction.transactionId.value(),
+    newStatus,
     transactionsViewRepository,
-    transactionsViewUpdateEnabled,
-    updater = { trx -> trx.status = newStatus })
+    transactionsViewUpdateEnabled)
 }
 
 /**
  * Save the transaction in the transactions-view collection, iff the transactions-view update is
  * enabled. Otherwise, do nothing.
  */
-fun conditionallySaveTransactionView(
+fun conditionallySaveTransactionsView(
   transactionId: String,
   newStatus: TransactionStatusDto,
   transactionsViewRepository: TransactionsViewRepository,
   transactionsViewUpdateEnabled: Boolean
 ): Mono<Transaction> {
-  return conditionallySaveTransactionView(
+  return conditionallySaveTransactionsView(
     transactionId,
     transactionsViewRepository,
     transactionsViewUpdateEnabled,
-    updater = { trx -> trx.status = newStatus })
+    updater = { trx -> trx.apply { status = newStatus } })
 }
 
-fun conditionallySaveTransactionView(
+fun conditionallySaveTransactionsView(
   transactionId: String,
   transactionsViewRepository: TransactionsViewRepository,
   transactionsViewUpdateEnabled: Boolean,
-  updater: (Transaction) -> Unit
+  updater: (Transaction) -> Transaction
 ): Mono<Transaction> {
-  return Mono.just(transactionsViewUpdateEnabled) // Start with the flag
-    .filter { it } // Proceed only if the flag is true
+  return Mono.just(transactionsViewUpdateEnabled)
+    .filter { it }
     .flatMap {
       transactionsViewRepository
         .findByTransactionId(transactionId)
         .cast(Transaction::class.java)
-        .flatMap { tx ->
-          updater(tx) // Update the status in the view transaction
-          transactionsViewRepository.save(tx) // Save the updated transaction
-        }
+        .map { tx -> updater(tx) }
+        .flatMap { transactionsViewRepository.save(it) }
     }
 }

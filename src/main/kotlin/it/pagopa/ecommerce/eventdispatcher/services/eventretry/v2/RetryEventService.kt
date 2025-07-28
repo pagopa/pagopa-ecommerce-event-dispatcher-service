@@ -14,7 +14,7 @@ import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.TooLateRetryAttemptException
-import it.pagopa.ecommerce.eventdispatcher.queues.v2.conditionallySaveTransactionView
+import it.pagopa.ecommerce.eventdispatcher.queues.v2.conditionallySaveTransactionsView
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import java.time.Duration
@@ -92,7 +92,7 @@ abstract class RetryEventService<E>(
     Mono.just(event)
       .flatMap { retryEventStoreRepository.save(it) }
       .flatMap { savedEvent ->
-        conditionallySaveTransactionView(
+        conditionallySaveTransactionsView(
           event.transactionId, newStatus, viewRepository, transactionsViewUpdateEnabled)
       }
       .flatMap { Mono.just(event) }
