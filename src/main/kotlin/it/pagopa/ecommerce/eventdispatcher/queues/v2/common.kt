@@ -66,17 +66,20 @@ fun updateTransactionToExpired(
     .save(
       TransactionExpiredEvent(
         transaction.transactionId.value(), TransactionExpiredData(transaction.status)))
-    .map {ev ->
-      Tuples.of(((transaction as it.pagopa.ecommerce.commons.domain.v2.Transaction).applyEvent(ev)
-        as BaseTransaction), ev)
+    .map { ev ->
+      Tuples.of(
+        ((transaction as it.pagopa.ecommerce.commons.domain.v2.Transaction).applyEvent(ev)
+          as BaseTransaction),
+        ev)
     }
-    .flatMap {transactionAndEvent ->
+    .flatMap { transactionAndEvent ->
       transactionsViewRepository
         .findByTransactionId(transactionAndEvent.t1.transactionId.value())
         .cast(Transaction::class.java)
         .flatMap { tx ->
           tx.status = getExpiredTransactionStatus(transaction)
-          tx.lastProcessedEventAt = ZonedDateTime.parse(transactionAndEvent.t2.creationDate).toInstant().toEpochMilli()
+          tx.lastProcessedEventAt =
+            ZonedDateTime.parse(transactionAndEvent.t2.creationDate).toInstant().toEpochMilli()
           transactionsViewRepository.save(tx)
         }
         .thenReturn(transactionAndEvent.t1)
@@ -197,7 +200,8 @@ fun updateTransactionWithRefundEvent(
         .cast(Transaction::class.java)
         .flatMap { tx ->
           tx.status = status
-          tx.lastProcessedEventAt = ZonedDateTime.parse(event.creationDate).toInstant().toEpochMilli()
+          tx.lastProcessedEventAt =
+            ZonedDateTime.parse(event.creationDate).toInstant().toEpochMilli()
           transactionsViewRepository.save(tx)
         })
     .doOnSuccess {
