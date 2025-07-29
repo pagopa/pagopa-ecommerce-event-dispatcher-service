@@ -67,7 +67,7 @@ fun updateTransactionToExpired(
       TransactionExpiredEvent(
         transaction.transactionId.value(), TransactionExpiredData(transaction.status)))
     .map { ev ->
-      Tuples.of(
+      Pair(
         ((transaction as it.pagopa.ecommerce.commons.domain.v2.Transaction).applyEvent(ev)
           as BaseTransaction),
         ev)
