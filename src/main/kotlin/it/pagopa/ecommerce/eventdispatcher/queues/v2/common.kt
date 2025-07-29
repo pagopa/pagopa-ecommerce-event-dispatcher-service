@@ -72,7 +72,7 @@ fun updateTransactionToExpired(
           as BaseTransaction),
         ev)
     }
-    .flatMap { transactionAndEvent ->
+    .flatMap { (transaction, view) ->
       transactionsViewRepository
         .findByTransactionId(transactionAndEvent.t1.transactionId.value())
         .cast(Transaction::class.java)
