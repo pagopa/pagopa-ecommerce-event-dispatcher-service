@@ -45,6 +45,7 @@ import it.pagopa.generated.transactionauthrequests.v2.dto.UpdateAuthorizationRes
 import java.math.BigDecimal
 import java.time.*
 import java.util.*
+import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
@@ -890,7 +891,8 @@ fun <T> reduceEvents(
 fun updateNotifiedTransactionStatus(
   transaction: BaseTransactionWithRequestedUserReceipt,
   transactionsViewRepository: TransactionsViewRepository,
-  transactionUserReceiptRepository: TransactionsEventStoreRepository<TransactionUserReceiptData>
+  transactionUserReceiptRepository: TransactionsEventStoreRepository<TransactionUserReceiptData>,
+  transactionsViewUpdateEnabled: Boolean
 ): Mono<BaseTransactionWithUserReceipt> {
   val newStatus =
     when (transaction.transactionUserReceiptData.responseOutcome!!) {
@@ -905,13 +907,11 @@ fun updateNotifiedTransactionStatus(
       transaction.transactionId.value(), transaction.transactionUserReceiptData)
   logger.info("Updating transaction {} status to {}", transaction.transactionId.value(), newStatus)
 
-  return transactionsViewRepository
-    .findByTransactionId(transaction.transactionId.value())
-    .cast(Transaction::class.java)
-    .flatMap { tx ->
-      tx.status = newStatus
-      transactionsViewRepository.save(tx)
-    }
+  return conditionallySaveTransactionsView(
+      transaction,
+      transactionsViewRepository,
+      transactionsViewUpdateEnabled,
+      updater = { trx -> trx.apply { trx.status = newStatus } })
     .flatMap { transactionUserReceiptRepository.save(event) }
     .thenReturn(
       (transaction as it.pagopa.ecommerce.commons.domain.v2.Transaction).applyEvent(event)
@@ -921,7 +921,8 @@ fun updateNotifiedTransactionStatus(
 fun updateNotificationErrorTransactionStatus(
   transaction: BaseTransactionWithRequestedUserReceipt,
   transactionsViewRepository: TransactionsViewRepository,
-  transactionUserReceiptRepository: TransactionsEventStoreRepository<TransactionUserReceiptData>
+  transactionUserReceiptRepository: TransactionsEventStoreRepository<TransactionUserReceiptData>,
+  transactionsViewUpdateEnabled: Boolean
 ): Mono<TransactionUserReceiptAddErrorEvent> {
   val newStatus = TransactionStatusDto.NOTIFICATION_ERROR
   val event =
@@ -929,13 +930,11 @@ fun updateNotificationErrorTransactionStatus(
       transaction.transactionId.value(), transaction.transactionUserReceiptData)
   logger.info("Updating transaction {} status to {}", transaction.transactionId.value(), newStatus)
 
-  return transactionsViewRepository
-    .findByTransactionId(transaction.transactionId.value())
-    .cast(Transaction::class.java)
-    .flatMap { tx ->
-      tx.status = newStatus
-      transactionsViewRepository.save(tx)
-    }
+  return conditionallySaveTransactionsView(
+      transaction,
+      transactionsViewRepository,
+      transactionsViewUpdateEnabled,
+      updater = { trx -> trx.apply { trx.status = newStatus } })
     .flatMap { transactionUserReceiptRepository.save(event) }
 }
 
@@ -1126,7 +1125,7 @@ fun conditionallySaveTransactionsView(
   transactionsViewRepository: TransactionsViewRepository,
   transactionsViewUpdateEnabled: Boolean,
   updater: (Transaction) -> Transaction
-): Mono<Transaction> {
+): Mono<Unit> {
   return conditionallySaveTransactionsView(
     transaction.transactionId.value(),
     transactionsViewRepository,
@@ -1139,7 +1138,7 @@ fun conditionallySaveTransactionsView(
   transactionsViewRepository: TransactionsViewRepository,
   transactionsViewUpdateEnabled: Boolean,
   updater: (Transaction) -> Transaction
-): Mono<Transaction> {
+): Mono<Unit> {
   return Mono.just(transactionsViewUpdateEnabled)
     .filter { it }
     .flatMap {
@@ -1149,4 +1148,5 @@ fun conditionallySaveTransactionsView(
         .map { tx -> updater(tx) }
         .flatMap { transactionsViewRepository.save(it) }
     }
+    .then(mono {})
 }
