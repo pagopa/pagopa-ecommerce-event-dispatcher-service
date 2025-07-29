@@ -17,6 +17,7 @@ import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftExcepti
 import it.pagopa.ecommerce.eventdispatcher.exceptions.TooLateRetryAttemptException
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
+import it.pagopa.ecommerce.eventdispatcher.utils.TransactionsViewProjectionHandler
 import java.time.Duration
 import java.time.Instant
 import org.slf4j.Logger
@@ -28,7 +29,7 @@ abstract class RetryEventService<E>(
   private val queueAsyncClient: QueueAsyncClient,
   private val retryOffset: Int,
   private val maxAttempts: Int,
-  private val viewRepository: TransactionsViewRepository,
+  private val transactionsViewRepository: TransactionsViewRepository,
   private val retryEventStoreRepository:
     TransactionsEventStoreRepository<BaseTransactionRetriedData>,
   protected val logger: Logger = LoggerFactory.getLogger(RetryEventService::class.java),
@@ -89,11 +90,18 @@ abstract class RetryEventService<E>(
   private fun storeEventAndUpdateView(event: E, newStatus: TransactionStatusDto): Mono<E> =
     Mono.just(event)
       .flatMap { retryEventStoreRepository.save(it) }
-      .flatMap { viewRepository.findByTransactionId(it.transactionId) }
+      .flatMap { transactionsViewRepository.findByTransactionId(it.transactionId) }
       .cast(Transaction::class.java)
       .flatMap {
-        it.status = newStatus
-        viewRepository.save(it).flatMap { Mono.just(event) }
+
+
+        TransactionsViewProjectionHandler.saveEventIntoView(
+          transaction = it,
+          transactionsViewRepository = transactionsViewRepository,
+          saveAction = { transactionsViewRepository, trx ->
+            trx.status = newStatus
+            transactionsViewRepository.save(trx)
+          }).flatMap { Mono.just(event) }
       }
 
   private fun enqueueMessage(
