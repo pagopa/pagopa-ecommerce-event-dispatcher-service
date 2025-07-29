@@ -100,7 +100,10 @@ class TransactionNotificationsQueueConsumerTest {
   private val refundDelayFromAuthRequestMinutes = 10L
   private val eventProcessingDelaySeconds = 10L
 
-  private val transactionNotificationsRetryQueueConsumer = createConsumerWithViewUpdateEnabled()
+  private val transactionNotificationsQueueConsumerViewUpdateEnabled =
+    createConsumerWithViewUpdateEnabled()
+  private val transactionNotificationsQueueConsumerWithViewUpdateDisabled =
+    createConsumerWithViewUpdateDisabled()
 
   @Test
   fun `Should successfully send user email for send payment result outcome OK`() = runTest {
@@ -141,7 +144,7 @@ class TransactionNotificationsQueueConsumerTest {
     }
 
     StepVerifier.create(
-        transactionNotificationsRetryQueueConsumer.messageReceiver(
+        transactionNotificationsQueueConsumerViewUpdateEnabled.messageReceiver(
           QueueEvent(notificationRequested, MOCK_TRACING_INFO), checkpointer))
       .expectNext(Unit)
       .verifyComplete()
@@ -172,9 +175,6 @@ class TransactionNotificationsQueueConsumerTest {
   @Test
   fun `Should successfully send user email for send payment result outcome OK with transactions-view update disabled`() =
     runTest {
-      val transactionNotificationsRetryQueueConsumerWithViewUpdateDisabled =
-        createConsumerWithViewUpdateDisabled()
-
       val transactionUserReceiptData =
         transactionUserReceiptData(TransactionUserReceiptData.Outcome.OK)
       val notificationRequested = transactionUserReceiptRequestedEvent(transactionUserReceiptData)
@@ -208,7 +208,7 @@ class TransactionNotificationsQueueConsumerTest {
         .willAnswer { Mono.just(it.arguments) }
 
       StepVerifier.create(
-          transactionNotificationsRetryQueueConsumerWithViewUpdateDisabled.messageReceiver(
+          transactionNotificationsQueueConsumerWithViewUpdateDisabled.messageReceiver(
             QueueEvent(notificationRequested, MOCK_TRACING_INFO), checkpointer))
         .expectNext(Unit)
         .verifyComplete()
@@ -220,7 +220,6 @@ class TransactionNotificationsQueueConsumerTest {
       verify(notificationRetryService, times(0))
         .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
 
-      // Key assertions: verify that transactionsViewRepository methods are NOT called
       verify(transactionsViewRepository, never()).save(any())
       verify(transactionsViewRepository, never()).findByTransactionId(any())
 
@@ -229,10 +228,6 @@ class TransactionNotificationsQueueConsumerTest {
       verify(transactionRefundRepository, times(0)).save(any())
       verify(transactionUserReceiptRepository, times(1)).save(any())
       verify(userReceiptMailBuilder, times(1)).buildNotificationEmailRequestDto(baseTransaction)
-
-      // Remove this assertion since transactionViewRepositoryCaptor won't be populated
-      // assertEquals(TransactionStatusDto.NOTIFIED_OK,
-      // transactionViewRepositoryCaptor.value.status)
 
       val savedEvent = transactionUserReceiptCaptor.value
       assertEquals(
@@ -298,7 +293,7 @@ class TransactionNotificationsQueueConsumerTest {
               transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now()))))
 
       StepVerifier.create(
-          transactionNotificationsRetryQueueConsumer.messageReceiver(
+          transactionNotificationsQueueConsumerViewUpdateEnabled.messageReceiver(
             QueueEvent(notificationRequested, MOCK_TRACING_INFO), checkpointer))
         .expectNext(Unit)
         .verifyComplete()
@@ -378,7 +373,7 @@ class TransactionNotificationsQueueConsumerTest {
         .willAnswer { Mono.just(it.arguments[0]) }
 
       StepVerifier.create(
-          transactionNotificationsRetryQueueConsumer.messageReceiver(
+          transactionNotificationsQueueConsumerViewUpdateEnabled.messageReceiver(
             QueueEvent(notificationRequested, null), checkpointer))
         .expectNext(Unit)
         .verifyComplete()
@@ -412,8 +407,6 @@ class TransactionNotificationsQueueConsumerTest {
       val transactionUserReceiptData =
         transactionUserReceiptData(TransactionUserReceiptData.Outcome.OK)
       val notificationRequested = transactionUserReceiptRequestedEvent(transactionUserReceiptData)
-      val transactionNotificationsRetryQueueConsumerWithViewUpdateDisabled =
-        createConsumerWithViewUpdateDisabled()
       val events =
         listOf(
           transactionActivateEvent(),
@@ -441,7 +434,7 @@ class TransactionNotificationsQueueConsumerTest {
         .willAnswer { Mono.just(it.arguments[0]) }
 
       StepVerifier.create(
-          transactionNotificationsRetryQueueConsumerWithViewUpdateDisabled.messageReceiver(
+          transactionNotificationsQueueConsumerWithViewUpdateDisabled.messageReceiver(
             QueueEvent(notificationRequested, null), checkpointer))
         .expectNext(Unit)
         .verifyComplete()
@@ -520,7 +513,7 @@ class TransactionNotificationsQueueConsumerTest {
               transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now()))))
 
       StepVerifier.create(
-          transactionNotificationsRetryQueueConsumer.messageReceiver(
+          transactionNotificationsQueueConsumerViewUpdateEnabled.messageReceiver(
             QueueEvent(notificationRequested, null), checkpointer))
         .expectNext(Unit)
         .verifyComplete()
@@ -604,7 +597,7 @@ class TransactionNotificationsQueueConsumerTest {
             any(), capture(retryCountCaptor), any(), anyOrNull(), anyOrNull()))
         .willReturn(Mono.empty())
       StepVerifier.create(
-          transactionNotificationsRetryQueueConsumer.messageReceiver(
+          transactionNotificationsQueueConsumerViewUpdateEnabled.messageReceiver(
             QueueEvent(notificationRequested, MOCK_TRACING_INFO), checkpointer))
         .expectNext(Unit)
         .verifyComplete()
@@ -678,7 +671,7 @@ class TransactionNotificationsQueueConsumerTest {
             any(), capture(retryCountCaptor), any(), anyOrNull(), anyOrNull()))
         .willReturn(Mono.empty())
       StepVerifier.create(
-          transactionNotificationsRetryQueueConsumer.messageReceiver(
+          transactionNotificationsQueueConsumerViewUpdateEnabled.messageReceiver(
             QueueEvent(notificationRequested, MOCK_TRACING_INFO), checkpointer))
         .expectNext(Unit)
         .verifyComplete()
@@ -719,8 +712,6 @@ class TransactionNotificationsQueueConsumerTest {
       val transactionUserReceiptData =
         transactionUserReceiptData(TransactionUserReceiptData.Outcome.KO)
       val notificationRequested = transactionUserReceiptRequestedEvent(transactionUserReceiptData)
-      val transactionNotificationsRetryQueueConsumerWithViewUpdateDisabled =
-        createConsumerWithViewUpdateDisabled()
       val events =
         listOf(
           transactionActivateEvent(),
@@ -754,7 +745,7 @@ class TransactionNotificationsQueueConsumerTest {
             any(), capture(retryCountCaptor), any(), anyOrNull(), anyOrNull()))
         .willReturn(Mono.empty())
       StepVerifier.create(
-          transactionNotificationsRetryQueueConsumerWithViewUpdateDisabled.messageReceiver(
+          transactionNotificationsQueueConsumerWithViewUpdateDisabled.messageReceiver(
             QueueEvent(notificationRequested, MOCK_TRACING_INFO), checkpointer))
         .expectNext(Unit)
         .verifyComplete()
@@ -835,7 +826,7 @@ class TransactionNotificationsQueueConsumerTest {
         .willReturn(mono {})
 
       StepVerifier.create(
-          transactionNotificationsRetryQueueConsumer.messageReceiver(
+          transactionNotificationsQueueConsumerViewUpdateEnabled.messageReceiver(
             QueueEvent(notificationRequested, MOCK_TRACING_INFO), checkpointer))
         .expectNext(Unit)
         .verifyComplete()
@@ -892,8 +883,6 @@ class TransactionNotificationsQueueConsumerTest {
       val transactionUserReceiptData =
         transactionUserReceiptData(TransactionUserReceiptData.Outcome.OK)
       val notificationRequested = transactionUserReceiptRequestedEvent(transactionUserReceiptData)
-      val transactionNotificationsRetryQueueConsumerWithViewUpdateDisabled =
-        createConsumerWithViewUpdateDisabled()
       val events =
         listOf(
           transactionActivateEvent(),
@@ -933,7 +922,7 @@ class TransactionNotificationsQueueConsumerTest {
         .willReturn(mono {})
 
       StepVerifier.create(
-          transactionNotificationsRetryQueueConsumerWithViewUpdateDisabled.messageReceiver(
+          transactionNotificationsQueueConsumerWithViewUpdateDisabled.messageReceiver(
             QueueEvent(notificationRequested, MOCK_TRACING_INFO), checkpointer))
         .expectNext(Unit)
         .verifyComplete()
@@ -997,7 +986,7 @@ class TransactionNotificationsQueueConsumerTest {
       .willReturn(mono {})
 
     StepVerifier.create(
-        transactionNotificationsRetryQueueConsumer.messageReceiver(
+        transactionNotificationsQueueConsumerViewUpdateEnabled.messageReceiver(
           QueueEvent(notificationRequested, MOCK_TRACING_INFO), checkpointer))
       .expectNext(Unit)
       .verifyComplete()
@@ -1174,7 +1163,7 @@ class TransactionNotificationsQueueConsumerTest {
             any(), capture(retryCountCaptor), any(), anyOrNull(), anyOrNull()))
         .willReturn(Mono.empty())
       StepVerifier.create(
-          transactionNotificationsRetryQueueConsumer.messageReceiver(
+          transactionNotificationsQueueConsumerViewUpdateEnabled.messageReceiver(
             QueueEvent(notificationRequested, MOCK_TRACING_INFO), checkpointer))
         .expectNext(Unit)
         .verifyComplete()
@@ -1210,8 +1199,6 @@ class TransactionNotificationsQueueConsumerTest {
       val transactionUserReceiptData =
         transactionUserReceiptData(TransactionUserReceiptData.Outcome.NOT_RECEIVED)
       val notificationRequested = transactionUserReceiptRequestedEvent(transactionUserReceiptData)
-      val transactionNotificationsRetryQueueConsumerWithViewUpdateDisabled =
-        createConsumerWithViewUpdateDisabled()
       val events =
         listOf(
           transactionActivateEvent(),
@@ -1245,7 +1232,7 @@ class TransactionNotificationsQueueConsumerTest {
             any(), capture(retryCountCaptor), any(), anyOrNull(), anyOrNull()))
         .willReturn(Mono.empty())
       StepVerifier.create(
-          transactionNotificationsRetryQueueConsumerWithViewUpdateDisabled.messageReceiver(
+          transactionNotificationsQueueConsumerWithViewUpdateDisabled.messageReceiver(
             QueueEvent(notificationRequested, MOCK_TRACING_INFO), checkpointer))
         .expectNext(Unit)
         .verifyComplete()
@@ -1325,7 +1312,7 @@ class TransactionNotificationsQueueConsumerTest {
     }
 
     StepVerifier.create(
-        transactionNotificationsRetryQueueConsumer.messageReceiver(
+        transactionNotificationsQueueConsumerViewUpdateEnabled.messageReceiver(
           QueueEvent(notificationRequested, MOCK_TRACING_INFO), checkpointer))
       .expectNext(Unit)
       .verifyComplete()
@@ -1369,8 +1356,6 @@ class TransactionNotificationsQueueConsumerTest {
         transactionUserReceiptData(TransactionUserReceiptData.Outcome.OK)
       val notificationRequested = transactionUserReceiptRequestedEvent(transactionUserReceiptData)
       val transactionAuthorizationRequestedEvt = transactionAuthorizationRequestedEvent()
-      val transactionNotificationsRetryQueueConsumerWithViewUpdateDisabled =
-        createConsumerWithViewUpdateDisabled()
       val transactionActivateEvt = transactionActivateEvent()
       val transactionAuthorizationCompletedEvt =
         transactionAuthorizationCompletedEvent(
@@ -1410,7 +1395,7 @@ class TransactionNotificationsQueueConsumerTest {
         .willAnswer { Mono.just(it.arguments[0]) }
 
       StepVerifier.create(
-          transactionNotificationsRetryQueueConsumerWithViewUpdateDisabled.messageReceiver(
+          transactionNotificationsQueueConsumerWithViewUpdateDisabled.messageReceiver(
             QueueEvent(notificationRequested, MOCK_TRACING_INFO), checkpointer))
         .expectNext(Unit)
         .verifyComplete()
@@ -1515,7 +1500,7 @@ class TransactionNotificationsQueueConsumerTest {
             transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now()))))
 
     StepVerifier.create(
-        transactionNotificationsRetryQueueConsumer.messageReceiver(
+        transactionNotificationsQueueConsumerViewUpdateEnabled.messageReceiver(
           QueueEvent(notificationRequested, MOCK_TRACING_INFO), checkpointer))
       .expectNext(Unit)
       .verifyComplete()
