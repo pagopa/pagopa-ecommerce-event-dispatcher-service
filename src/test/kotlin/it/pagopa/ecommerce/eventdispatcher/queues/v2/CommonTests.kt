@@ -434,6 +434,7 @@ class CommonTests {
           transactionsViewRepository,
           transactionsViewUpdateEnabled,
           updater = { trx -> trx.apply { trx.status = TransactionStatusDto.UNAUTHORIZED } }))
+      .expectNext(Unit)
       .verifyComplete()
 
     verify(transactionsViewRepository, never()).findByTransactionId(TRANSACTION_ID)
