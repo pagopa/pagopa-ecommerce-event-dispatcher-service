@@ -10,24 +10,23 @@ import reactor.core.publisher.Mono
 @Component
 object TransactionViewProjectionHandler {
 
-    lateinit var env: Environment
+  lateinit var env: Environment
 
-    @Autowired
-    fun init(environment: Environment) {
-        env = environment
+  @Autowired
+  fun init(environment: Environment) {
+    env = environment
+  }
+
+  fun saveEventIntoView(
+    transaction: Transaction,
+    transactionsViewRepository: TransactionsViewRepository,
+    saveAction: (TransactionsViewRepository, Transaction) -> Mono<Transaction>,
+  ): Mono<Transaction> {
+    val saveEvent = env.getProperty("transactionsview.update.enabled", "false").toBoolean()
+    return if (saveEvent) {
+      saveAction(transactionsViewRepository, transaction)
+    } else {
+      Mono.just(transaction)
     }
-
-
-    fun saveEventIntoView(
-        baseTransactionView: Transaction,
-        transactionsViewRepository: TransactionsViewRepository,
-        saveAction: (TransactionsViewRepository, Transaction) -> Mono<Transaction>,
-    ): Mono<Transaction> {
-        val saveEvent = env.getProperty("transactionsview.update.enabled", "false").toBoolean()
-        return if (saveEvent) {
-            saveAction(transactionsViewRepository, baseTransactionView)
-        } else {
-            Mono.just(baseTransactionView)
-        }
-    }
+  }
 }
