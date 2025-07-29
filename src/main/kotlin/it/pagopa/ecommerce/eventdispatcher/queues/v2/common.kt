@@ -50,7 +50,6 @@ import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toMono
-import reactor.util.function.Tuples
 
 object QueueCommonsLogger {
   val logger: Logger = LoggerFactory.getLogger(QueueCommonsLogger::class.java)
@@ -72,17 +71,17 @@ fun updateTransactionToExpired(
           as BaseTransaction),
         ev)
     }
-    .flatMap { (transaction, view) ->
+    .flatMap { (transaction, event) ->
       transactionsViewRepository
-        .findByTransactionId(transactionAndEvent.t1.transactionId.value())
+        .findByTransactionId(transaction.transactionId.value())
         .cast(Transaction::class.java)
         .flatMap { tx ->
           tx.status = getExpiredTransactionStatus(transaction)
           tx.lastProcessedEventAt =
-            ZonedDateTime.parse(transactionAndEvent.t2.creationDate).toInstant().toEpochMilli()
+            ZonedDateTime.parse(event.creationDate).toInstant().toEpochMilli()
           transactionsViewRepository.save(tx)
         }
-        .thenReturn(transactionAndEvent.t1)
+        .thenReturn(transaction)
     }
     .doOnSuccess {
       logger.info("Transaction expired for transaction ${transaction.transactionId.value()}")
