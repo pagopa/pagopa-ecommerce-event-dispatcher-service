@@ -37,6 +37,7 @@ import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.AuthorizationS
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.AuthorizationStateRetrieverService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgService
+import it.pagopa.ecommerce.eventdispatcher.utils.AppProperties
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundOutcomeDto
 import it.pagopa.generated.transactionauthrequests.v2.dto.OutcomeNpgGatewayDto
@@ -76,7 +77,7 @@ fun updateTransactionToExpired(
         .cast(Transaction::class.java)
         .flatMap { tx ->
           tx.status = getExpiredTransactionStatus(transaction)
-          transactionsViewRepository.save(tx)
+          maybeSaveTransactionView(tx, transaction, transactionsViewRepository)
         }
         .thenReturn(it)
     }
@@ -87,6 +88,21 @@ fun updateTransactionToExpired(
       logger.error(
         "Transaction expired error for transaction ${transaction.transactionId.value()} : ${it.message}")
     }
+}
+
+fun maybeSaveTransactionView(
+  tx: Transaction,
+  transaction: BaseTransaction,
+  transactionsViewRepository: TransactionsViewRepository
+): Mono<Transaction> {
+  val isUpdateEnabled =
+    AppProperties.getOrDefault("transactionsview.update.enabled", "false").toBoolean()
+
+  return if (isUpdateEnabled) {
+    transactionsViewRepository.save(tx)
+  } else {
+    Mono.just(tx)
+  }
 }
 
 fun getExpiredTransactionStatus(transaction: BaseTransaction): TransactionStatusDto =
