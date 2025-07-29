@@ -373,6 +373,11 @@ class ClosePaymentHelperTests {
         .expectNext(Unit)
         .verifyComplete()
 
+      expectedUpdatedTransaction.lastProcessedEventAt =
+        ZonedDateTime.parse(closedEventStoreRepositoryCaptor.value.creationDate)
+          .toInstant()
+          .toEpochMilli()
+
       /* Asserts */
       verify(checkpointer, Mockito.times(1)).success()
       verify(nodeService, Mockito.times(1))
@@ -471,6 +476,11 @@ class ClosePaymentHelperTests {
             EmptyTransaction()))
         .expectNext(Unit)
         .verifyComplete()
+
+      expectedUpdatedTransaction.lastProcessedEventAt =
+        ZonedDateTime.parse(closedEventStoreRepositoryCaptor.value.creationDate)
+          .toInstant()
+          .toEpochMilli()
 
       /* Asserts */
       verify(checkpointer, Mockito.times(1)).success()
@@ -734,6 +744,8 @@ class ClosePaymentHelperTests {
       .expectNext(Unit)
       .verifyComplete()
 
+    expectedUpdatedTransaction.lastProcessedEventAt =
+      ZonedDateTime.parse(expectedClosureEvent.creationDate).toInstant().toEpochMilli()
     /* Asserts */
     verify(checkpointer, Mockito.times(1)).success()
     verify(nodeService, Mockito.times(1))
@@ -1584,7 +1596,10 @@ class ClosePaymentHelperTests {
           EmptyTransaction()))
       .expectNext(Unit)
       .verifyComplete()
-
+    expectedUpdatedTransactionCanceled.lastProcessedEventAt =
+      ZonedDateTime.parse(closedEventStoreRepositoryCaptor.value.creationDate)
+        .toInstant()
+        .toEpochMilli()
     /* Asserts */
     verify(checkpointer, Mockito.times(1)).success()
     verify(nodeService, Mockito.times(1)).closePayment(transactionId, ClosePaymentOutcome.KO)
@@ -1626,11 +1641,12 @@ class ClosePaymentHelperTests {
       transactionDocument(
         TransactionStatusDto.CANCELLATION_REQUESTED,
         ZonedDateTime.parse(activationEvent.creationDate))
+    transactionDocument.lastProcessedEventAt =
+      ZonedDateTime.parse(activationEvent.creationDate).toInstant().toEpochMilli()
 
     val expectedUpdatedTransactionCanceled =
       transactionDocument(
         TransactionStatusDto.CANCELED, ZonedDateTime.parse(activationEvent.creationDate))
-
     val transactionId = TransactionId(TRANSACTION_ID)
 
     /* preconditions */
@@ -1659,7 +1675,10 @@ class ClosePaymentHelperTests {
           EmptyTransaction()))
       .expectNext(Unit)
       .verifyComplete()
-
+    expectedUpdatedTransactionCanceled.lastProcessedEventAt =
+      ZonedDateTime.parse(closedEventStoreRepositoryCaptor.value.creationDate)
+        .toInstant()
+        .toEpochMilli()
     /* Asserts */
     verify(checkpointer, Mockito.times(1)).success()
     verify(nodeService, Mockito.times(1)).closePayment(transactionId, ClosePaymentOutcome.KO)
@@ -1950,11 +1969,6 @@ class ClosePaymentHelperTests {
           closureRequestedEvent,
           closureErrorEvent)
 
-      val expectedUpdatedTransaction =
-        transactionDocument(
-            TransactionStatusDto.CLOSED, ZonedDateTime.parse(activationEvent.creationDate))
-          .apply { this.sendPaymentResultOutcome = TransactionUserReceiptData.Outcome.NOT_RECEIVED }
-
       val transactionDocument =
         transactionDocument(
           TransactionStatusDto.CLOSURE_ERROR, ZonedDateTime.parse(activationEvent.creationDate))
@@ -1979,6 +1993,12 @@ class ClosePaymentHelperTests {
       doNothing().`when`(updateTransactionStatusTracerUtils).traceStatusUpdateOperation(any())
       /* test */
       Hooks.onOperatorDebug()
+
+      val expectedUpdatedTransaction =
+        transactionDocument(
+            TransactionStatusDto.CLOSED, ZonedDateTime.parse(activationEvent.creationDate))
+          .apply { this.sendPaymentResultOutcome = TransactionUserReceiptData.Outcome.NOT_RECEIVED }
+
       StepVerifier.create(
           closePaymentHelper.closePayment(
             ClosePaymentEvent.errored(
@@ -1987,6 +2007,11 @@ class ClosePaymentHelperTests {
             EmptyTransaction()))
         .expectNext(Unit)
         .verifyComplete()
+
+      expectedUpdatedTransaction.lastProcessedEventAt =
+        ZonedDateTime.parse(closedEventStoreRepositoryCaptor.value.creationDate)
+          .toInstant()
+          .toEpochMilli()
 
       /* Asserts */
       verify(checkpointer, Mockito.times(1)).success()
@@ -2081,6 +2106,11 @@ class ClosePaymentHelperTests {
             EmptyTransaction()))
         .expectNext(Unit)
         .verifyComplete()
+
+      expectedUpdatedTransaction.lastProcessedEventAt =
+        ZonedDateTime.parse(closedEventStoreRepositoryCaptor.value.creationDate)
+          .toInstant()
+          .toEpochMilli()
 
       /* Asserts */
       verify(checkpointer, Mockito.times(1)).success()
@@ -3571,6 +3601,11 @@ class ClosePaymentHelperTests {
         .expectNext(Unit)
         .verifyComplete()
 
+      expectedUpdatedTransaction.lastProcessedEventAt =
+        ZonedDateTime.parse(closedEventStoreRepositoryCaptor.value.creationDate)
+          .toInstant()
+          .toEpochMilli()
+
       /* Asserts */
       verify(checkpointer, Mockito.times(1)).success()
       verify(nodeService, Mockito.times(1))
@@ -3668,6 +3703,11 @@ class ClosePaymentHelperTests {
           EmptyTransaction()))
       .expectNext(Unit)
       .verifyComplete()
+
+    expectedUpdatedTransaction.lastProcessedEventAt =
+      ZonedDateTime.parse(closedEventStoreRepositoryCaptor.value.creationDate)
+        .toInstant()
+        .toEpochMilli()
 
     /* Asserts */
     verify(checkpointer, Mockito.times(1)).success()
