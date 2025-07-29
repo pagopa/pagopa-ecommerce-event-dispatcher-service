@@ -102,7 +102,7 @@ class TransactionNotificationsQueueConsumerTest {
 
   private val transactionNotificationsQueueConsumerViewUpdateEnabled =
     createConsumerWithViewUpdateEnabled()
-  private val transactionNotificationsQueueConsumerWithViewUpdateDisabled =
+  private val transactionNotificationsQueueConsumerViewUpdateDisabled =
     createConsumerWithViewUpdateDisabled()
 
   @Test
@@ -208,7 +208,7 @@ class TransactionNotificationsQueueConsumerTest {
         .willAnswer { Mono.just(it.arguments) }
 
       StepVerifier.create(
-          transactionNotificationsQueueConsumerWithViewUpdateDisabled.messageReceiver(
+          transactionNotificationsQueueConsumerViewUpdateDisabled.messageReceiver(
             QueueEvent(notificationRequested, MOCK_TRACING_INFO), checkpointer))
         .expectNext(Unit)
         .verifyComplete()
@@ -434,7 +434,7 @@ class TransactionNotificationsQueueConsumerTest {
         .willAnswer { Mono.just(it.arguments[0]) }
 
       StepVerifier.create(
-          transactionNotificationsQueueConsumerWithViewUpdateDisabled.messageReceiver(
+          transactionNotificationsQueueConsumerViewUpdateDisabled.messageReceiver(
             QueueEvent(notificationRequested, null), checkpointer))
         .expectNext(Unit)
         .verifyComplete()
@@ -745,7 +745,7 @@ class TransactionNotificationsQueueConsumerTest {
             any(), capture(retryCountCaptor), any(), anyOrNull(), anyOrNull()))
         .willReturn(Mono.empty())
       StepVerifier.create(
-          transactionNotificationsQueueConsumerWithViewUpdateDisabled.messageReceiver(
+          transactionNotificationsQueueConsumerViewUpdateDisabled.messageReceiver(
             QueueEvent(notificationRequested, MOCK_TRACING_INFO), checkpointer))
         .expectNext(Unit)
         .verifyComplete()
@@ -922,7 +922,7 @@ class TransactionNotificationsQueueConsumerTest {
         .willReturn(mono {})
 
       StepVerifier.create(
-          transactionNotificationsQueueConsumerWithViewUpdateDisabled.messageReceiver(
+          transactionNotificationsQueueConsumerViewUpdateDisabled.messageReceiver(
             QueueEvent(notificationRequested, MOCK_TRACING_INFO), checkpointer))
         .expectNext(Unit)
         .verifyComplete()
@@ -1232,7 +1232,7 @@ class TransactionNotificationsQueueConsumerTest {
             any(), capture(retryCountCaptor), any(), anyOrNull(), anyOrNull()))
         .willReturn(Mono.empty())
       StepVerifier.create(
-          transactionNotificationsQueueConsumerWithViewUpdateDisabled.messageReceiver(
+          transactionNotificationsQueueConsumerViewUpdateDisabled.messageReceiver(
             QueueEvent(notificationRequested, MOCK_TRACING_INFO), checkpointer))
         .expectNext(Unit)
         .verifyComplete()
@@ -1395,7 +1395,7 @@ class TransactionNotificationsQueueConsumerTest {
         .willAnswer { Mono.just(it.arguments[0]) }
 
       StepVerifier.create(
-          transactionNotificationsQueueConsumerWithViewUpdateDisabled.messageReceiver(
+          transactionNotificationsQueueConsumerViewUpdateDisabled.messageReceiver(
             QueueEvent(notificationRequested, MOCK_TRACING_INFO), checkpointer))
         .expectNext(Unit)
         .verifyComplete()
