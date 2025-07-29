@@ -38,7 +38,7 @@ import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetrySer
 import it.pagopa.ecommerce.eventdispatcher.services.v2.AuthorizationStateRetrieverService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
-import it.pagopa.ecommerce.eventdispatcher.utils.TransactionViewProjectionHandler
+import it.pagopa.ecommerce.eventdispatcher.utils.TransactionsViewProjectionHandler
 import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundOutcomeDto
 import it.pagopa.generated.transactionauthrequests.v2.dto.OutcomeNpgGatewayDto
 import it.pagopa.generated.transactionauthrequests.v2.dto.UpdateAuthorizationRequestDto
@@ -75,7 +75,7 @@ fun updateTransactionToExpired(
         .findByTransactionId(transaction.transactionId.value())
         .cast(Transaction::class.java)
         .flatMap { tx ->
-          TransactionViewProjectionHandler.saveEventIntoView(
+          TransactionsViewProjectionHandler.saveEventIntoView(
             transaction = tx,
             transactionsViewRepository = transactionsViewRepository,
             saveAction = { transactionsViewRepository, trx ->
@@ -200,7 +200,7 @@ fun updateTransactionWithRefundEvent(
         .findByTransactionId(transaction.transactionId.value())
         .cast(Transaction::class.java)
         .flatMap { tx ->
-          TransactionViewProjectionHandler.saveEventIntoView(
+          TransactionsViewProjectionHandler.saveEventIntoView(
             transaction = tx,
             transactionsViewRepository = transactionsViewRepository,
             saveAction = { transactionsViewRepository, trx ->
@@ -901,8 +901,7 @@ fun <T> reduceEvents(
 fun updateNotifiedTransactionStatus(
   transaction: BaseTransactionWithRequestedUserReceipt,
   transactionsViewRepository: TransactionsViewRepository,
-  transactionUserReceiptRepository: TransactionsEventStoreRepository<TransactionUserReceiptData>,
-  transactionsViewUpdateEnabled: Boolean
+  transactionUserReceiptRepository: TransactionsEventStoreRepository<TransactionUserReceiptData>
 ): Mono<BaseTransactionWithUserReceipt> {
   val newStatus =
     when (transaction.transactionUserReceiptData.responseOutcome!!) {
@@ -921,7 +920,7 @@ fun updateNotifiedTransactionStatus(
     .findByTransactionId(transaction.transactionId.value())
     .cast(Transaction::class.java)
     .flatMap { tx ->
-      TransactionViewProjectionHandler.saveEventIntoView(
+      TransactionsViewProjectionHandler.saveEventIntoView(
         transaction = tx,
         transactionsViewRepository = transactionsViewRepository,
         saveAction = { transactionsViewRepository, trx ->
@@ -938,8 +937,7 @@ fun updateNotifiedTransactionStatus(
 fun updateNotificationErrorTransactionStatus(
   transaction: BaseTransactionWithRequestedUserReceipt,
   transactionsViewRepository: TransactionsViewRepository,
-  transactionUserReceiptRepository: TransactionsEventStoreRepository<TransactionUserReceiptData>,
-  transactionsViewUpdateEnabled: Boolean
+  transactionUserReceiptRepository: TransactionsEventStoreRepository<TransactionUserReceiptData>
 ): Mono<TransactionUserReceiptAddErrorEvent> {
   val newStatus = TransactionStatusDto.NOTIFICATION_ERROR
   val event =
@@ -951,7 +949,7 @@ fun updateNotificationErrorTransactionStatus(
     .findByTransactionId(transaction.transactionId.value())
     .cast(Transaction::class.java)
     .flatMap { tx ->
-      TransactionViewProjectionHandler.saveEventIntoView(
+      TransactionsViewProjectionHandler.saveEventIntoView(
         transaction = tx,
         transactionsViewRepository = transactionsViewRepository,
         saveAction = { transactionsViewRepository, trx ->

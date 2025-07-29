@@ -52,8 +52,7 @@ class TransactionNotificationsRetryQueueConsumer(
   @Autowired private val npgService: NpgService,
   @Value("\${azurestorage.queues.transientQueues.ttlSeconds}")
   private val transientQueueTTLSeconds: Int,
-  @Autowired private val transactionTracing: TransactionTracing,
-  @Value("\${transactionsview.update.enabled}") private val transactionsViewUpdateEnabled: Boolean
+  @Autowired private val transactionTracing: TransactionTracing
 ) {
   var logger: Logger =
     LoggerFactory.getLogger(TransactionNotificationsRetryQueueConsumer::class.java)
@@ -111,10 +110,7 @@ class TransactionNotificationsRetryQueueConsumer(
             .flatMap { notificationsServiceClient.sendNotificationEmail(it) }
             .flatMap {
               updateNotifiedTransactionStatus(
-                  tx,
-                  transactionsViewRepository,
-                  transactionUserReceiptRepository,
-                  transactionsViewUpdateEnabled)
+                  tx, transactionsViewRepository, transactionUserReceiptRepository)
                 .doOnSuccess {
                   transactionTracing.addSpanAttributesNotificationsFlowFromTransaction(it, events)
                 }

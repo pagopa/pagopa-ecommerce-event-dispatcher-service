@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component
 import reactor.core.publisher.Mono
 
 @Component
-object TransactionViewProjectionHandler {
+object TransactionsViewProjectionHandler {
 
   lateinit var env: Environment
 
