@@ -35,6 +35,7 @@ import it.pagopa.ecommerce.eventdispatcher.services.v2.NodeService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.ecommerce.eventdispatcher.utils.TransactionTracing
+import it.pagopa.ecommerce.eventdispatcher.utils.TransactionsViewProjectionHandler
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
 import java.time.Duration
 import java.util.*
@@ -362,10 +363,15 @@ class ClosePaymentHelper(
           transactionsViewRepository.findByTransactionId(baseTransaction.transactionId.value())
         }
         .cast(Transaction::class.java)
-        .flatMap { trx ->
-          trx.status = TransactionStatusDto.CLOSURE_ERROR
-          trx.closureErrorData = closureErrorData
-          transactionsViewRepository.save(trx)
+        .flatMap { tx ->
+          TransactionsViewProjectionHandler.saveEventIntoView(
+            transaction = tx,
+            transactionsViewRepository = transactionsViewRepository,
+            saveAction = { transactionsViewRepository, trx ->
+              trx.status = TransactionStatusDto.CLOSURE_ERROR
+              trx.closureErrorData = closureErrorData
+              transactionsViewRepository.save(trx)
+            })
         }
         .thenReturn(
           (baseTransaction as it.pagopa.ecommerce.commons.domain.v2.Transaction).applyEvent(event)
@@ -376,10 +382,16 @@ class ClosePaymentHelper(
       transactionsViewRepository
         .findByTransactionId(baseTransaction.transactionId.value())
         .cast(Transaction::class.java)
-        .flatMap { trx ->
-          trx.status = TransactionStatusDto.CLOSURE_ERROR
-          trx.closureErrorData = closureErrorData
-          transactionsViewRepository.save(trx)
+        .flatMap { tx ->
+          TransactionsViewProjectionHandler.saveEventIntoView(
+            transaction = tx,
+            transactionsViewRepository = transactionsViewRepository,
+            saveAction = { transactionsViewRepository, trx ->
+              trx.status = TransactionStatusDto.CLOSURE_ERROR
+              trx.closureErrorData = closureErrorData
+              transactionsViewRepository.save(trx)
+            })
+
         }
         .thenReturn((baseTransaction as BaseTransactionWithClosureError))
     }
@@ -446,11 +458,18 @@ class ClosePaymentHelper(
           transactionClosureSentEventRepository.save(it).flatMap { closedEvent ->
             transactionUpdate
               .flatMap { tx ->
-                tx.status = newStatus
-                tx.sendPaymentResultOutcome = sendPaymentResultOutcome
-                tx.closureErrorData =
-                  null // reset closure error state when a close payment response have been received
-                transactionsViewRepository.save(tx)
+                TransactionsViewProjectionHandler.saveEventIntoView(
+                  transaction = tx,
+                  transactionsViewRepository = transactionsViewRepository,
+                  saveAction = { transactionsViewRepository, trx ->
+                    trx.status = newStatus
+                    trx.sendPaymentResultOutcome = sendPaymentResultOutcome
+                    trx.closureErrorData =
+                      null // reset closure error state when a close payment response have been received
+                    transactionsViewRepository.save(trx)
+                  })
+
+
               }
               .thenReturn(closedEvent)
           }
@@ -459,11 +478,16 @@ class ClosePaymentHelper(
           transactionClosureSentEventRepository.save(it).flatMap { closedEvent ->
             transactionUpdate
               .flatMap { tx ->
-                tx.status = newStatus
-                tx.sendPaymentResultOutcome = sendPaymentResultOutcome
-                tx.closureErrorData =
-                  null // reset closure error state when a close payment response have been received
-                transactionsViewRepository.save(tx)
+               TransactionsViewProjectionHandler.saveEventIntoView(
+                  transaction = tx,
+                  transactionsViewRepository = transactionsViewRepository,
+                  saveAction = { transactionsViewRepository, trx ->
+                    trx.status = newStatus
+                    trx.sendPaymentResultOutcome = sendPaymentResultOutcome
+                    trx.closureErrorData =
+                      null // reset closure error state when a close payment response have been received
+                    transactionsViewRepository.save(trx)
+                  })
               }
               .thenReturn(closedEvent)
           }
