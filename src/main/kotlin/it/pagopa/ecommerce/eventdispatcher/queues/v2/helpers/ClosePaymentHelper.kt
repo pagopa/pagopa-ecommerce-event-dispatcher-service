@@ -37,6 +37,7 @@ import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClien
 import it.pagopa.ecommerce.eventdispatcher.utils.TransactionTracing
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
 import java.time.Duration
+import java.time.ZonedDateTime
 import java.util.*
 import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
@@ -350,39 +351,28 @@ class ClosePaymentHelper(
     exception: Throwable
   ): Mono<BaseTransactionWithClosureError> {
     val closureErrorData = exceptionToClosureErrorData(exception)
-    return if (baseTransaction.status != TransactionStatusDto.CLOSURE_ERROR) {
-      logger.info(
-        "Updating transaction with id: [${baseTransaction.transactionId.value()}] to ${TransactionStatusDto.CLOSURE_ERROR} status")
-      val event =
-        TransactionClosureErrorEvent(baseTransaction.transactionId.value(), closureErrorData)
 
-      transactionClosureErrorEventStoreRepository
-        .save(event)
-        .flatMap {
-          transactionsViewRepository.findByTransactionId(baseTransaction.transactionId.value())
-        }
-        .cast(Transaction::class.java)
-        .flatMap { trx ->
-          trx.status = TransactionStatusDto.CLOSURE_ERROR
-          trx.closureErrorData = closureErrorData
-          transactionsViewRepository.save(trx)
-        }
-        .thenReturn(
-          (baseTransaction as it.pagopa.ecommerce.commons.domain.v2.Transaction).applyEvent(event)
-            as BaseTransactionWithClosureError)
-    } else {
-      logger.info(
-        "Transaction with id: [${baseTransaction.transactionId.value()}] already in ${TransactionStatusDto.CLOSURE_ERROR} status")
-      transactionsViewRepository
-        .findByTransactionId(baseTransaction.transactionId.value())
-        .cast(Transaction::class.java)
-        .flatMap { trx ->
-          trx.status = TransactionStatusDto.CLOSURE_ERROR
-          trx.closureErrorData = closureErrorData
-          transactionsViewRepository.save(trx)
-        }
-        .thenReturn((baseTransaction as BaseTransactionWithClosureError))
-    }
+    logger.info(
+      "Updating transaction with id: [${baseTransaction.transactionId.value()}] to ${TransactionStatusDto.CLOSURE_ERROR} status")
+    val event =
+      TransactionClosureErrorEvent(baseTransaction.transactionId.value(), closureErrorData)
+
+    return transactionClosureErrorEventStoreRepository
+      .save(event)
+      .flatMap {
+        transactionsViewRepository.findByTransactionId(baseTransaction.transactionId.value())
+      }
+      .cast(Transaction::class.java)
+      .flatMap { trx ->
+        trx.status = TransactionStatusDto.CLOSURE_ERROR
+        trx.closureErrorData = closureErrorData
+        trx.lastProcessedEventAt =
+          ZonedDateTime.parse(event.creationDate).toInstant().toEpochMilli()
+        transactionsViewRepository.save(trx)
+      }
+      .thenReturn(
+        (baseTransaction as it.pagopa.ecommerce.commons.domain.v2.Transaction).applyEvent(event)
+          as BaseTransactionWithClosureError)
   }
 
   private fun updateTransactionStatus(
@@ -450,6 +440,8 @@ class ClosePaymentHelper(
                 tx.sendPaymentResultOutcome = sendPaymentResultOutcome
                 tx.closureErrorData =
                   null // reset closure error state when a close payment response have been received
+                tx.lastProcessedEventAt =
+                  ZonedDateTime.parse(closedEvent.creationDate).toInstant().toEpochMilli()
                 transactionsViewRepository.save(tx)
               }
               .thenReturn(closedEvent)
@@ -463,6 +455,8 @@ class ClosePaymentHelper(
                 tx.sendPaymentResultOutcome = sendPaymentResultOutcome
                 tx.closureErrorData =
                   null // reset closure error state when a close payment response have been received
+                tx.lastProcessedEventAt =
+                  ZonedDateTime.parse(closedEvent.creationDate).toInstant().toEpochMilli()
                 transactionsViewRepository.save(tx)
               }
               .thenReturn(closedEvent)

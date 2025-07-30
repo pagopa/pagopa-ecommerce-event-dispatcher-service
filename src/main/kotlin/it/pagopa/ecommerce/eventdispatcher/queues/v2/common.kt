@@ -65,19 +65,23 @@ fun updateTransactionToExpired(
     .save(
       TransactionExpiredEvent(
         transaction.transactionId.value(), TransactionExpiredData(transaction.status)))
-    .map {
-      (transaction as it.pagopa.ecommerce.commons.domain.v2.Transaction).applyEvent(it)
-        as BaseTransaction
+    .map { ev ->
+      Pair(
+        ((transaction as it.pagopa.ecommerce.commons.domain.v2.Transaction).applyEvent(ev)
+          as BaseTransaction),
+        ev)
     }
-    .flatMap {
+    .flatMap { (transaction, event) ->
       transactionsViewRepository
         .findByTransactionId(transaction.transactionId.value())
         .cast(Transaction::class.java)
         .flatMap { tx ->
           tx.status = getExpiredTransactionStatus(transaction)
+          tx.lastProcessedEventAt =
+            ZonedDateTime.parse(event.creationDate).toInstant().toEpochMilli()
           transactionsViewRepository.save(tx)
         }
-        .thenReturn(it)
+        .thenReturn(transaction)
     }
     .doOnSuccess {
       logger.info("Transaction expired for transaction ${transaction.transactionId.value()}")
@@ -195,6 +199,8 @@ fun updateTransactionWithRefundEvent(
         .cast(Transaction::class.java)
         .flatMap { tx ->
           tx.status = status
+          tx.lastProcessedEventAt =
+            ZonedDateTime.parse(event.creationDate).toInstant().toEpochMilli()
           transactionsViewRepository.save(tx)
         })
     .doOnSuccess {
@@ -910,6 +916,7 @@ fun updateNotifiedTransactionStatus(
     .cast(Transaction::class.java)
     .flatMap { tx ->
       tx.status = newStatus
+      tx.lastProcessedEventAt = ZonedDateTime.parse(event.creationDate).toInstant().toEpochMilli()
       transactionsViewRepository.save(tx)
     }
     .flatMap { transactionUserReceiptRepository.save(event) }
@@ -934,6 +941,7 @@ fun updateNotificationErrorTransactionStatus(
     .cast(Transaction::class.java)
     .flatMap { tx ->
       tx.status = newStatus
+      tx.lastProcessedEventAt = ZonedDateTime.parse(event.creationDate).toInstant().toEpochMilli()
       transactionsViewRepository.save(tx)
     }
     .flatMap { transactionUserReceiptRepository.save(event) }

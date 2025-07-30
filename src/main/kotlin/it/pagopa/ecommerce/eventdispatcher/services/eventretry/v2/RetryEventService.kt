@@ -19,6 +19,7 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRe
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import java.time.Duration
 import java.time.Instant
+import java.time.ZonedDateTime
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
@@ -93,6 +94,7 @@ abstract class RetryEventService<E>(
       .cast(Transaction::class.java)
       .flatMap {
         it.status = newStatus
+        it.lastProcessedEventAt = ZonedDateTime.parse(event.creationDate).toInstant().toEpochMilli()
         viewRepository.save(it).flatMap { Mono.just(event) }
       }
 
