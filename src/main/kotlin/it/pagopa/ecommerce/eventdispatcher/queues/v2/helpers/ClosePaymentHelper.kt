@@ -391,7 +391,6 @@ class ClosePaymentHelper(
               trx.closureErrorData = closureErrorData
               transactionsViewRepository.save(trx)
             })
-
         }
         .thenReturn((baseTransaction as BaseTransactionWithClosureError))
     }
@@ -465,11 +464,10 @@ class ClosePaymentHelper(
                     trx.status = newStatus
                     trx.sendPaymentResultOutcome = sendPaymentResultOutcome
                     trx.closureErrorData =
-                      null // reset closure error state when a close payment response have been received
+                      null // reset closure error state when a close payment response have been
+                    // received
                     transactionsViewRepository.save(trx)
                   })
-
-
               }
               .thenReturn(closedEvent)
           }
@@ -478,14 +476,15 @@ class ClosePaymentHelper(
           transactionClosureSentEventRepository.save(it).flatMap { closedEvent ->
             transactionUpdate
               .flatMap { tx ->
-               TransactionsViewProjectionHandler.saveEventIntoView(
+                TransactionsViewProjectionHandler.saveEventIntoView(
                   transaction = tx,
                   transactionsViewRepository = transactionsViewRepository,
                   saveAction = { transactionsViewRepository, trx ->
                     trx.status = newStatus
                     trx.sendPaymentResultOutcome = sendPaymentResultOutcome
                     trx.closureErrorData =
-                      null // reset closure error state when a close payment response have been received
+                      null // reset closure error state when a close payment response have been
+                    // received
                     transactionsViewRepository.save(trx)
                   })
               }

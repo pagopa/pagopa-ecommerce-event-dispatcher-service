@@ -93,15 +93,14 @@ abstract class RetryEventService<E>(
       .flatMap { transactionsViewRepository.findByTransactionId(it.transactionId) }
       .cast(Transaction::class.java)
       .flatMap {
-
-
         TransactionsViewProjectionHandler.saveEventIntoView(
-          transaction = it,
-          transactionsViewRepository = transactionsViewRepository,
-          saveAction = { transactionsViewRepository, trx ->
-            trx.status = newStatus
-            transactionsViewRepository.save(trx)
-          }).flatMap { Mono.just(event) }
+            transaction = it,
+            transactionsViewRepository = transactionsViewRepository,
+            saveAction = { transactionsViewRepository, trx ->
+              trx.status = newStatus
+              transactionsViewRepository.save(trx)
+            })
+          .flatMap { Mono.just(event) }
       }
 
   private fun enqueueMessage(

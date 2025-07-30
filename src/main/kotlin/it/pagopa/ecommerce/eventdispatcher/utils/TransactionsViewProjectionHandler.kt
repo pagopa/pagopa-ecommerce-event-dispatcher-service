@@ -12,6 +12,9 @@ object TransactionsViewProjectionHandler {
 
   lateinit var env: Environment
 
+  // Flag to decide if we have to update the transactions-view collection (true) or not.
+  const val ENV_TRANSACTIONSVIEW_UPDATE_ENABLED_FLAG = "transactionsview.update.enabled"
+
   @Autowired
   fun init(environment: Environment) {
     env = environment
@@ -22,7 +25,7 @@ object TransactionsViewProjectionHandler {
     transactionsViewRepository: TransactionsViewRepository,
     saveAction: (TransactionsViewRepository, Transaction) -> Mono<Transaction>,
   ): Mono<Transaction> {
-    val saveEvent = env.getProperty("transactionsview.update.enabled", "false").toBoolean()
+    val saveEvent = env.getProperty(ENV_TRANSACTIONSVIEW_UPDATE_ENABLED_FLAG, "true").toBoolean()
     return if (saveEvent) {
       saveAction(transactionsViewRepository, transaction)
     } else {
