@@ -24,16 +24,19 @@ import it.pagopa.ecommerce.eventdispatcher.exceptions.TooLateRetryAttemptExcepti
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.utils.TRANSIENT_QUEUE_TTL_SECONDS
+import it.pagopa.ecommerce.eventdispatcher.utils.TransactionsViewProjectionHandler
 import java.time.Duration
 import java.time.OffsetDateTime
 import java.time.ZonedDateTime
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.ArgumentCaptor
 import org.mockito.Captor
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.*
+import org.springframework.core.env.Environment
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
 
@@ -76,8 +79,19 @@ class ClosureRetryServiceTests {
       transientQueuesTTLSeconds = TRANSIENT_QUEUE_TTL_SECONDS,
       strictSerializerProviderV2 = jsonSerializerV2)
 
+  var mockedEnv: Environment = mock<Environment>() as Environment
+
+  val ENV_TRANSACTIONS_VIEW_UPDATED_ENABLED_FLAG = "transactionsview.update.enabled"
+
+  @BeforeEach
+  fun setUp() {
+    TransactionsViewProjectionHandler.env = mockedEnv
+  }
+
   @Test
   fun `Should enqueue new closure retry event for left remaining attempts`() {
+    whenever(mockedEnv.getProperty(ENV_TRANSACTIONS_VIEW_UPDATED_ENABLED_FLAG, "true"))
+      .thenReturn("true")
     val events: MutableList<TransactionEvent<Any>> =
       mutableListOf(
         TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
@@ -137,6 +151,8 @@ class ClosureRetryServiceTests {
 
   @Test
   fun `Should enqueue new closure retry event for first time sending event`() {
+    whenever(mockedEnv.getProperty(ENV_TRANSACTIONS_VIEW_UPDATED_ENABLED_FLAG, "true"))
+      .thenReturn("true")
     val events: MutableList<TransactionEvent<Any>> =
       mutableListOf(
         TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
@@ -182,6 +198,62 @@ class ClosureRetryServiceTests {
       TransactionEventCode.TRANSACTION_CLOSURE_RETRIED_EVENT,
       TransactionEventCode.valueOf(savedEvent.eventCode))
     assertEquals(TransactionStatusDto.CLOSURE_ERROR, savedView.status)
+    assertEquals(
+      1,
+      eventSentOnQueue
+        .toObject(
+          object : TypeReference<QueueEvent<TransactionClosureRetriedEvent>>() {},
+          jsonSerializerV2.createInstance())
+        .event
+        .data
+        .retryCount)
+    assertEquals(closureRetryOffset, durationCaptor.value.seconds.toInt())
+  }
+
+  @Test
+  fun `Should enqueue new closure retry event for first time sending event with no transactions-view update if ff disabled`() {
+    whenever(mockedEnv.getProperty(ENV_TRANSACTIONS_VIEW_UPDATED_ENABLED_FLAG, "true"))
+      .thenReturn("false")
+    val events: MutableList<TransactionEvent<Any>> =
+      mutableListOf(
+        TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
+        TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>,
+        TransactionTestUtils.transactionAuthorizationCompletedEvent(
+          NpgTransactionGatewayAuthorizationData(
+            OperationResultDto.EXECUTED, "operationId", "paymentEnd2EndId", null, null))
+          as TransactionEvent<Any>,
+        TransactionTestUtils.transactionClosureErrorEvent() as TransactionEvent<Any>)
+
+    val baseTransaction = TransactionTestUtils.reduceEvents(*events.toTypedArray())
+    val transactionDocument =
+      TransactionTestUtils.transactionDocument(
+        TransactionStatusDto.CLOSURE_ERROR, ZonedDateTime.now())
+    given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
+      Mono.just(it.arguments[0])
+    }
+    given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
+      .willAnswer { Mono.just(transactionDocument) }
+    given(
+        closureRetryQueueAsyncClient.sendMessageWithResponse(
+          queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
+      .willReturn(queueSuccessfulResponse())
+    StepVerifier.create(
+        closureRetryService.enqueueRetryEvent(baseTransaction, 0, MOCK_TRACING_INFO))
+      .expectNext()
+      .verifyComplete()
+
+    verify(eventStoreRepository, times(1)).save(any())
+    verify(transactionsViewRepository, times(1))
+      .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
+    verify(transactionsViewRepository, times(0)).save(any())
+    verify(closureRetryQueueAsyncClient, times(1))
+      .sendMessageWithResponse(
+        any<BinaryData>(), any(), eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_SECONDS.toLong())))
+    val savedEvent = eventStoreCaptor.value
+    val eventSentOnQueue = queueCaptor.value
+    assertEquals(
+      TransactionEventCode.TRANSACTION_CLOSURE_RETRIED_EVENT,
+      TransactionEventCode.valueOf(savedEvent.eventCode))
     assertEquals(
       1,
       eventSentOnQueue
@@ -320,6 +392,8 @@ class ClosureRetryServiceTests {
 
   @Test
   fun `Should not enqueue new closure retry event for error updating transaction view`() {
+    whenever(mockedEnv.getProperty(ENV_TRANSACTIONS_VIEW_UPDATED_ENABLED_FLAG, "true"))
+      .thenReturn("true")
     val events: MutableList<TransactionEvent<Any>> =
       mutableListOf(
         TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,

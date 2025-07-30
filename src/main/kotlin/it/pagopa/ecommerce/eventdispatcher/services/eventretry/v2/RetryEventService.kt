@@ -65,7 +65,10 @@ abstract class RetryEventService<E>(
             transactionId = baseTransaction.transactionId,
             visibilityTimeout = Instant.now().plus(visibilityTimeout)))
       }
-      .flatMap { storeEventAndUpdateView(it, newTransactionStatus()) }
+      .flatMap {
+        print("UEEEEE")
+        storeEventAndUpdateView(it, newTransactionStatus())
+      }
       .flatMap { enqueueMessage(it, visibilityTimeout, tracingInfo) }
       .doOnError {
         logger.error(
