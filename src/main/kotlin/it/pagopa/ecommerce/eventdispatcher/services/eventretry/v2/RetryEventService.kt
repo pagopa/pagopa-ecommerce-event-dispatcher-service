@@ -20,6 +20,7 @@ import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewReposito
 import it.pagopa.ecommerce.eventdispatcher.utils.TransactionsViewProjectionHandler
 import java.time.Duration
 import java.time.Instant
+import java.time.ZonedDateTime
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
@@ -65,10 +66,7 @@ abstract class RetryEventService<E>(
             transactionId = baseTransaction.transactionId,
             visibilityTimeout = Instant.now().plus(visibilityTimeout)))
       }
-      .flatMap {
-        print("UEEEEE")
-        storeEventAndUpdateView(it, newTransactionStatus())
-      }
+      .flatMap { storeEventAndUpdateView(it, newTransactionStatus()) }
       .flatMap { enqueueMessage(it, visibilityTimeout, tracingInfo) }
       .doOnError {
         logger.error(
@@ -101,6 +99,8 @@ abstract class RetryEventService<E>(
             transactionsViewRepository = transactionsViewRepository,
             saveAction = { transactionsViewRepository, trx ->
               trx.status = newStatus
+              trx.lastProcessedEventAt =
+                ZonedDateTime.parse(event.creationDate).toInstant().toEpochMilli()
               transactionsViewRepository.save(trx)
             })
           .flatMap { Mono.just(event) }

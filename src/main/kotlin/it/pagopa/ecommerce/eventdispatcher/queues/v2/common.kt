@@ -66,28 +66,30 @@ fun updateTransactionToExpired(
     .save(
       TransactionExpiredEvent(
         transaction.transactionId.value(), TransactionExpiredData(transaction.status)))
-    .map {
-      (transaction as it.pagopa.ecommerce.commons.domain.v2.Transaction).applyEvent(it)
-        as BaseTransaction
+    .map { ev ->
+      Pair(
+        ((transaction as it.pagopa.ecommerce.commons.domain.v2.Transaction).applyEvent(ev)
+          as BaseTransaction),
+        ev)
     }
-    .flatMap {
+    .flatMap { (updatedTransaction, event) ->
       transactionsViewRepository
-        .findByTransactionId(transaction.transactionId.value())
+        .findByTransactionId(updatedTransaction.transactionId.value())
         .cast(Transaction::class.java)
         .flatMap { tx ->
           TransactionsViewProjectionHandler.saveEventIntoView(
             transaction = tx,
             transactionsViewRepository = transactionsViewRepository,
             saveAction = { transactionsViewRepository, trx ->
-              trx.status = getExpiredTransactionStatus(transaction)
+              trx.status = getExpiredTransactionStatus(updatedTransaction)
+              trx.lastProcessedEventAt =
+                ZonedDateTime.parse(event.creationDate).toInstant().toEpochMilli()
               transactionsViewRepository.save(trx)
             })
         }
-        .thenReturn(it)
+        .thenReturn(updatedTransaction)
     }
-    .doOnSuccess {
-      logger.info("Transaction expired for transaction ${transaction.transactionId.value()}")
-    }
+    .doOnSuccess { logger.info("Transaction expired for transaction ${it.transactionId.value()}") }
     .doOnError {
       logger.error(
         "Transaction expired error for transaction ${transaction.transactionId.value()} : ${it.message}")
@@ -205,6 +207,8 @@ fun updateTransactionWithRefundEvent(
             transactionsViewRepository = transactionsViewRepository,
             saveAction = { transactionsViewRepository, trx ->
               trx.status = status
+              trx.lastProcessedEventAt =
+                ZonedDateTime.parse(event.creationDate).toInstant().toEpochMilli()
               transactionsViewRepository.save(trx)
             })
         })
@@ -924,7 +928,9 @@ fun updateNotifiedTransactionStatus(
         transaction = tx,
         transactionsViewRepository = transactionsViewRepository,
         saveAction = { transactionsViewRepository, trx ->
-          tx.status = newStatus
+          trx.status = newStatus
+          trx.lastProcessedEventAt =
+            ZonedDateTime.parse(event.creationDate).toInstant().toEpochMilli()
           transactionsViewRepository.save(trx)
         })
     }
@@ -953,7 +959,9 @@ fun updateNotificationErrorTransactionStatus(
         transaction = tx,
         transactionsViewRepository = transactionsViewRepository,
         saveAction = { transactionsViewRepository, trx ->
-          tx.status = newStatus
+          trx.status = newStatus
+          trx.lastProcessedEventAt =
+            ZonedDateTime.parse(event.creationDate).toInstant().toEpochMilli()
           transactionsViewRepository.save(trx)
         })
     }
