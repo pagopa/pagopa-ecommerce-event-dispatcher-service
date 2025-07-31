@@ -918,23 +918,9 @@ fun updateNotifiedTransactionStatus(
   val event =
     TransactionUserReceiptAddedEvent(
       transaction.transactionId.value(), transaction.transactionUserReceiptData)
-  logger.info("Updating transaction {} status to {}", transaction.transactionId.value(), newStatus)
 
-  return transactionsViewRepository
-    .findByTransactionId(transaction.transactionId.value())
-    .cast(Transaction::class.java)
-    .flatMap { tx ->
-      TransactionsViewProjectionHandler.saveEventIntoView(
-        transaction = tx,
-        transactionsViewRepository = transactionsViewRepository,
-        saveAction = { transactionsViewRepository, trx ->
-          trx.status = newStatus
-          trx.lastProcessedEventAt =
-            ZonedDateTime.parse(event.creationDate).toInstant().toEpochMilli()
-          transactionsViewRepository.save(trx)
-        })
-    }
-    .flatMap { transactionUserReceiptRepository.save(event) }
+  return updateNotifiedTransactionStatus(
+      transactionsViewRepository, transaction, newStatus, event, transactionUserReceiptRepository)
     .thenReturn(
       (transaction as it.pagopa.ecommerce.commons.domain.v2.Transaction).applyEvent(event)
         as BaseTransactionWithUserReceipt)
@@ -949,8 +935,20 @@ fun updateNotificationErrorTransactionStatus(
   val event =
     TransactionUserReceiptAddErrorEvent(
       transaction.transactionId.value(), transaction.transactionUserReceiptData)
-  logger.info("Updating transaction {} status to {}", transaction.transactionId.value(), newStatus)
 
+  return updateNotifiedTransactionStatus(
+      transactionsViewRepository, transaction, newStatus, event, transactionUserReceiptRepository)
+    .cast(TransactionUserReceiptAddErrorEvent::class.java)
+}
+
+private fun updateNotifiedTransactionStatus(
+  transactionsViewRepository: TransactionsViewRepository,
+  transaction: BaseTransactionWithRequestedUserReceipt,
+  newStatus: TransactionStatusDto,
+  event: TransactionEvent<TransactionUserReceiptData>,
+  transactionUserReceiptRepository: TransactionsEventStoreRepository<TransactionUserReceiptData>
+): Mono<TransactionEvent<TransactionUserReceiptData>> {
+  logger.info("Updating transaction {} status to {}", transaction.transactionId.value(), newStatus)
   return transactionsViewRepository
     .findByTransactionId(transaction.transactionId.value())
     .cast(Transaction::class.java)
@@ -966,6 +964,7 @@ fun updateNotificationErrorTransactionStatus(
         })
     }
     .flatMap { transactionUserReceiptRepository.save(event) }
+    .thenReturn(event)
 }
 
 /*
