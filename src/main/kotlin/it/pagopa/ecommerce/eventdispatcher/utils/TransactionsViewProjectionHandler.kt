@@ -1,6 +1,8 @@
 package it.pagopa.ecommerce.eventdispatcher.utils
 
+import it.pagopa.ecommerce.commons.documents.BaseTransactionView
 import it.pagopa.ecommerce.commons.documents.v2.Transaction
+import it.pagopa.ecommerce.commons.domain.v2.TransactionId
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.core.env.Environment
@@ -20,16 +22,21 @@ object TransactionsViewProjectionHandler {
     env = environment
   }
 
-  fun saveEventIntoView(
-    transaction: Transaction,
+  fun updateTransactionView(
+    transactionId: TransactionId,
     transactionsViewRepository: TransactionsViewRepository,
-    saveAction: (TransactionsViewRepository, Transaction) -> Mono<Transaction>,
-  ): Mono<Transaction> {
+    viewUpdater: (Transaction) -> Transaction,
+  ): Mono<BaseTransactionView> {
     val saveEvent = env.getProperty(ENV_TRANSACTIONSVIEW_UPDATE_ENABLED_FLAG, "true").toBoolean()
+    val currentTransactionView =
+      transactionsViewRepository.findByTransactionId(transactionId.value())
     return if (saveEvent) {
-      saveAction(transactionsViewRepository, transaction)
+      currentTransactionView
+        .cast(Transaction::class.java)
+        .map { viewUpdater(it) }
+        .flatMap { transactionsViewRepository.save(it) }
     } else {
-      Mono.just(transaction)
+      currentTransactionView
     }
   }
 }

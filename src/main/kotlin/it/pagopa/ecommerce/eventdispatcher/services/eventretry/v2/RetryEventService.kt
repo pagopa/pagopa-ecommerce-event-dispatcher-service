@@ -4,7 +4,6 @@ import com.azure.core.util.BinaryData
 import com.azure.core.util.serializer.JsonSerializerProvider
 import com.azure.storage.queue.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v2.BaseTransactionRetriedData
-import it.pagopa.ecommerce.commons.documents.v2.Transaction
 import it.pagopa.ecommerce.commons.documents.v2.TransactionEvent
 import it.pagopa.ecommerce.commons.documents.v2.TransactionRetriedData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.TransactionGatewayAuthorizationData
@@ -91,17 +90,16 @@ abstract class RetryEventService<E>(
   private fun storeEventAndUpdateView(event: E, newStatus: TransactionStatusDto): Mono<E> =
     Mono.just(event)
       .flatMap { retryEventStoreRepository.save(it) }
-      .flatMap { transactionsViewRepository.findByTransactionId(it.transactionId) }
-      .cast(Transaction::class.java)
       .flatMap {
-        TransactionsViewProjectionHandler.saveEventIntoView(
-            transaction = it,
+        TransactionsViewProjectionHandler.updateTransactionView(
+            transactionId = TransactionId(it.transactionId),
             transactionsViewRepository = transactionsViewRepository,
-            saveAction = { transactionsViewRepository, trx ->
-              trx.status = newStatus
-              trx.lastProcessedEventAt =
-                ZonedDateTime.parse(event.creationDate).toInstant().toEpochMilli()
-              transactionsViewRepository.save(trx)
+            viewUpdater = { trx ->
+              trx.apply {
+                status = newStatus
+                lastProcessedEventAt =
+                  ZonedDateTime.parse(event.creationDate).toInstant().toEpochMilli()
+              }
             })
           .flatMap { Mono.just(event) }
       }

@@ -73,20 +73,16 @@ fun updateTransactionToExpired(
         ev)
     }
     .flatMap { (updatedTransaction, event) ->
-      transactionsViewRepository
-        .findByTransactionId(updatedTransaction.transactionId.value())
-        .cast(Transaction::class.java)
-        .flatMap { tx ->
-          TransactionsViewProjectionHandler.saveEventIntoView(
-            transaction = tx,
-            transactionsViewRepository = transactionsViewRepository,
-            saveAction = { transactionsViewRepository, trx ->
-              trx.status = getExpiredTransactionStatus(updatedTransaction)
-              trx.lastProcessedEventAt =
+      TransactionsViewProjectionHandler.updateTransactionView(
+          transactionId = updatedTransaction.transactionId,
+          transactionsViewRepository = transactionsViewRepository,
+          viewUpdater = { trx ->
+            trx.apply {
+              status = getExpiredTransactionStatus(updatedTransaction)
+              lastProcessedEventAt =
                 ZonedDateTime.parse(event.creationDate).toInstant().toEpochMilli()
-              transactionsViewRepository.save(trx)
-            })
-        }
+            }
+          })
         .thenReturn(updatedTransaction)
     }
     .doOnSuccess { logger.info("Transaction expired for transaction ${it.transactionId.value()}") }
@@ -198,20 +194,16 @@ fun updateTransactionWithRefundEvent(
   return transactionsRefundedEventStoreRepository
     .save(event)
     .then(
-      transactionsViewRepository
-        .findByTransactionId(transaction.transactionId.value())
-        .cast(Transaction::class.java)
-        .flatMap { tx ->
-          TransactionsViewProjectionHandler.saveEventIntoView(
-            transaction = tx,
-            transactionsViewRepository = transactionsViewRepository,
-            saveAction = { transactionsViewRepository, trx ->
-              trx.status = status
-              trx.lastProcessedEventAt =
-                ZonedDateTime.parse(event.creationDate).toInstant().toEpochMilli()
-              transactionsViewRepository.save(trx)
-            })
-        })
+      TransactionsViewProjectionHandler.updateTransactionView(
+        transactionId = transaction.transactionId,
+        transactionsViewRepository = transactionsViewRepository,
+        viewUpdater = { trx ->
+          trx.apply {
+            this.status = status
+            lastProcessedEventAt =
+              ZonedDateTime.parse(event.creationDate).toInstant().toEpochMilli()
+          }
+        }))
     .doOnSuccess {
       logger.info(
         "Updated event for transaction with id ${transaction.transactionId.value()} to status $status")
@@ -949,20 +941,16 @@ private fun updateNotifiedTransactionStatus(
   transactionUserReceiptRepository: TransactionsEventStoreRepository<TransactionUserReceiptData>
 ): Mono<TransactionEvent<TransactionUserReceiptData>> {
   logger.info("Updating transaction {} status to {}", transaction.transactionId.value(), newStatus)
-  return transactionsViewRepository
-    .findByTransactionId(transaction.transactionId.value())
-    .cast(Transaction::class.java)
-    .flatMap { tx ->
-      TransactionsViewProjectionHandler.saveEventIntoView(
-        transaction = tx,
-        transactionsViewRepository = transactionsViewRepository,
-        saveAction = { transactionsViewRepository, trx ->
-          trx.status = newStatus
-          trx.lastProcessedEventAt =
-            ZonedDateTime.parse(event.creationDate).toInstant().toEpochMilli()
-          transactionsViewRepository.save(trx)
-        })
-    }
+
+  return TransactionsViewProjectionHandler.updateTransactionView(
+      transactionId = transaction.transactionId,
+      transactionsViewRepository = transactionsViewRepository,
+      viewUpdater = { trx ->
+        trx.apply {
+          status = newStatus
+          lastProcessedEventAt = ZonedDateTime.parse(event.creationDate).toInstant().toEpochMilli()
+        }
+      })
     .flatMap { transactionUserReceiptRepository.save(event) }
     .thenReturn(event)
 }
