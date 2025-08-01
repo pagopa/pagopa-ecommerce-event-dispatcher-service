@@ -33,7 +33,7 @@ class NotificationRetryService(
     queueAsyncClient = notificationRetryQueueAsyncClient,
     retryOffset = notificationRetryOffset,
     maxAttempts = maxAttempts,
-    viewRepository = viewRepository,
+    transactionsViewRepository = viewRepository,
     retryEventStoreRepository = eventStoreRepository,
     transientQueuesTTLSeconds = transientQueuesTTLSeconds,
     strictSerializerProviderV2 = strictSerializerProviderV2) {

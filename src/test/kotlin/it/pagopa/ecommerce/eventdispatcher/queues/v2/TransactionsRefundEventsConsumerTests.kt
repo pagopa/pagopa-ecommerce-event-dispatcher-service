@@ -33,6 +33,7 @@ import it.pagopa.ecommerce.eventdispatcher.services.v2.AuthorizationStateRetriev
 import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.ecommerce.eventdispatcher.utils.TransactionTracing
+import it.pagopa.ecommerce.eventdispatcher.utils.TransactionsViewProjectionHandler
 import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundOutcomeDto
 import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundResponseDto as RedirectRefundResponseDto
 import java.math.BigDecimal
@@ -45,6 +46,7 @@ import kotlinx.coroutines.reactor.mono
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.params.ParameterizedTest
@@ -55,6 +57,7 @@ import org.mockito.Captor
 import org.mockito.Mockito
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.*
+import org.springframework.core.env.Environment
 import reactor.core.publisher.Hooks
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toFlux
@@ -104,6 +107,15 @@ class TransactionsRefundEventsConsumerTests {
   private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient = mock()
   private val strictJsonSerializerProviderV2 = QueuesConsumerConfig().strictSerializerProviderV2()
 
+  var mockedEnv: Environment = mock<Environment>() as Environment
+
+  val ENV_TRANSACTIONS_VIEW_UPDATED_ENABLED_FLAG = "transactionsview.update.enabled"
+
+  @BeforeEach
+  fun setUp() {
+    TransactionsViewProjectionHandler.env = mockedEnv
+  }
+
   private val transactionRefundedEventsConsumer =
     TransactionsRefundQueueConsumer(
       paymentGatewayClient = paymentGatewayClient,
@@ -133,6 +145,8 @@ class TransactionsRefundEventsConsumerTests {
   @Test
   fun `consumer processes refund request event for a transaction without refund requested`() {
     runTest {
+      whenever(mockedEnv.getProperty(ENV_TRANSACTIONS_VIEW_UPDATED_ENABLED_FLAG, "true"))
+        .thenReturn("true")
       val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
       val authorizationRequestEvent =
         transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
@@ -195,6 +209,8 @@ class TransactionsRefundEventsConsumerTests {
   @Test
   fun `consumer doesn't process refund request event correctly with unknown payment gateway`() {
     runTest {
+      whenever(mockedEnv.getProperty(ENV_TRANSACTIONS_VIEW_UPDATED_ENABLED_FLAG, "true"))
+        .thenReturn("true")
       val paymentMethodName = "CARDS"
       val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
       val authorizationRequestEvent =
