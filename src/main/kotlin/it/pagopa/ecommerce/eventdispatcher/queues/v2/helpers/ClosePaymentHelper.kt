@@ -394,11 +394,11 @@ class ClosePaymentHelper(
       if (!wasAuthorized && !canceledByUser) {
         Either.left(
           TransactionClosureFailedEvent(
-            transaction.transactionId.value(), TransactionClosureData(outcome)))
+            transaction.transactionId.value(), TransactionClosureData(outcome, canceledByUser)))
       } else {
         Either.right(
           TransactionClosedEvent(
-            transaction.transactionId.value(), TransactionClosureData(outcome)))
+            transaction.transactionId.value(), TransactionClosureData(outcome, canceledByUser)))
       }
 
     /*
