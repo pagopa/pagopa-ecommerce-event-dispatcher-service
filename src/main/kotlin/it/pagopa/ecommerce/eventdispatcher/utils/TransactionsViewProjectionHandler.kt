@@ -28,15 +28,16 @@ object TransactionsViewProjectionHandler {
     viewUpdater: (Transaction) -> Transaction,
   ): Mono<BaseTransactionView> {
     val saveEvent = env.getProperty(ENV_TRANSACTIONSVIEW_UPDATE_ENABLED_FLAG, "true").toBoolean()
-    val currentTransactionView =
-      transactionsViewRepository.findByTransactionId(transactionId.value())
-    return if (saveEvent) {
-      currentTransactionView
+    val updatedTransactionView =
+      transactionsViewRepository
+        .findByTransactionId(transactionId.value())
         .cast(Transaction::class.java)
-        .map { viewUpdater(it) }
-        .flatMap { transactionsViewRepository.save(it) }
-    } else {
-      currentTransactionView
-    }
+        .map(viewUpdater)
+
+    return updatedTransactionView
+      .filter { _ -> saveEvent }
+      .cast(BaseTransactionView::class.java)
+      .flatMap(transactionsViewRepository::save)
+      .switchIfEmpty(updatedTransactionView)
   }
 }
