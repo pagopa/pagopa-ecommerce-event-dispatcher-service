@@ -30,7 +30,7 @@ class RefundRetryService(
     queueAsyncClient = refundRetryQueueAsyncClient,
     retryOffset = refundRetryOffset,
     maxAttempts = maxAttempts,
-    viewRepository = viewRepository,
+    transactionsViewRepository = viewRepository,
     retryEventStoreRepository = eventStoreRepository,
     transientQueuesTTLSeconds = transientQueuesTTLSeconds,
     strictSerializerProviderV2 = strictSerializerProviderV2) {

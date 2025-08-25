@@ -19,12 +19,14 @@ import it.pagopa.ecommerce.eventdispatcher.exceptions.TooLateRetryAttemptExcepti
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.utils.TRANSIENT_QUEUE_TTL_SECONDS
+import it.pagopa.ecommerce.eventdispatcher.utils.TransactionsViewProjectionHandler
 import java.time.Duration
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZonedDateTime
 import java.util.stream.Stream
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.params.ParameterizedTest
@@ -34,6 +36,7 @@ import org.mockito.ArgumentCaptor
 import org.mockito.Captor
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.*
+import org.springframework.core.env.Environment
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
 
@@ -75,8 +78,19 @@ class AuthorizationStateRetrieverRetryServiceTest {
       transientQueuesTTLSeconds = TRANSIENT_QUEUE_TTL_SECONDS,
       strictSerializerProviderV2 = strictSerializerProviderV2)
 
+  var mockedEnv: Environment = mock<Environment>() as Environment
+
+  val ENV_TRANSACTIONS_VIEW_UPDATED_ENABLED_FLAG = "transactionsview.update.enabled"
+
+  @BeforeEach
+  fun setUp() {
+    TransactionsViewProjectionHandler.env = mockedEnv
+  }
+
   @Test
   fun `Should enqueue new authorization requested retry event for left remaining attempts`() {
+    whenever(mockedEnv.getProperty(ENV_TRANSACTIONS_VIEW_UPDATED_ENABLED_FLAG, "true"))
+      .thenReturn("true")
     val events: MutableList<TransactionEvent<Any>> =
       mutableListOf(
         TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
@@ -130,7 +144,60 @@ class AuthorizationStateRetrieverRetryServiceTest {
   }
 
   @Test
+  fun `Should enqueue new authorization requested retry event for left remaining attempts with no transactions-view update if ff disabled`() {
+    whenever(mockedEnv.getProperty(ENV_TRANSACTIONS_VIEW_UPDATED_ENABLED_FLAG, "true"))
+      .thenReturn("false")
+    val events: MutableList<TransactionEvent<Any>> =
+      mutableListOf(
+        TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
+        TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>)
+    val baseTransaction = TransactionTestUtils.reduceEvents(*events.toTypedArray())
+    val transactionDocument =
+      TransactionTestUtils.transactionDocument(
+        TransactionStatusDto.AUTHORIZATION_REQUESTED, ZonedDateTime.now())
+    given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
+      Mono.just(it.arguments[0])
+    }
+    given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
+      .willAnswer { Mono.just(transactionDocument) }
+    given(
+        authRequestedOutcomeWaitingQueueAsyncClient.sendMessageWithResponse(
+          queueCaptor.capture(), eq(Duration.ofSeconds((retryOffset * 3).toLong())), anyOrNull()))
+      .willReturn(queueSuccessfulResponse())
+
+    StepVerifier.create(
+        authorizationStateRetrieverRetryService.enqueueRetryEvent(
+          baseTransaction, maxAttempts - 1, TracingInfoTest.MOCK_TRACING_INFO))
+      .expectNext()
+      .verifyComplete()
+
+    verify(eventStoreRepository, times(1)).save(any())
+    verify(transactionsViewRepository, times(1))
+      .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
+    verify(transactionsViewRepository, times(0)).save(any())
+    verify(authRequestedOutcomeWaitingQueueAsyncClient, times(1))
+      .sendMessageWithResponse(
+        any<BinaryData>(), any(), eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_SECONDS.toLong())))
+    val savedEvent = eventStoreCaptor.value
+    val eventSentOnQueue = queueCaptor.value
+    assertEquals(
+      TransactionEventCode.TRANSACTION_AUTHORIZATION_OUTCOME_WAITING_EVENT,
+      TransactionEventCode.valueOf(savedEvent.eventCode))
+    assertEquals(
+      maxAttempts,
+      eventSentOnQueue
+        .toObject(
+          object : TypeReference<QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>>() {},
+          strictSerializerProviderV2.createInstance())
+        .event
+        .data
+        .retryCount)
+  }
+
+  @Test
   fun `Should enqueue new authorization requested retry event for first time sending event`() {
+    whenever(mockedEnv.getProperty(ENV_TRANSACTIONS_VIEW_UPDATED_ENABLED_FLAG, "true"))
+      .thenReturn("true")
     val events: MutableList<TransactionEvent<Any>> =
       mutableListOf(
         TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
@@ -171,6 +238,57 @@ class AuthorizationStateRetrieverRetryServiceTest {
       TransactionEventCode.TRANSACTION_AUTHORIZATION_OUTCOME_WAITING_EVENT,
       TransactionEventCode.valueOf(savedEvent.eventCode))
     assertEquals(TransactionStatusDto.AUTHORIZATION_REQUESTED, savedView.status)
+    assertEquals(
+      1,
+      eventSentOnQueue
+        .toObject(
+          object : TypeReference<QueueEvent<TransactionAuthorizationOutcomeWaitingEvent>>() {},
+          strictSerializerProviderV2.createInstance())
+        .event
+        .data
+        .retryCount)
+    assertEquals(retryOffset, durationCaptor.value.seconds.toInt())
+  }
+
+  @Test
+  fun `Should enqueue new authorization requested retry event for first time sending event with no transactions-view update if ff disabled`() {
+    whenever(mockedEnv.getProperty(ENV_TRANSACTIONS_VIEW_UPDATED_ENABLED_FLAG, "true"))
+      .thenReturn("false")
+    val events: MutableList<TransactionEvent<Any>> =
+      mutableListOf(
+        TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
+        TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>)
+    val baseTransaction = TransactionTestUtils.reduceEvents(*events.toTypedArray())
+    val transactionDocument =
+      TransactionTestUtils.transactionDocument(
+        TransactionStatusDto.AUTHORIZATION_REQUESTED, ZonedDateTime.now())
+    given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
+      Mono.just(it.arguments[0])
+    }
+    given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
+      .willAnswer { Mono.just(transactionDocument) }
+    given(
+        authRequestedOutcomeWaitingQueueAsyncClient.sendMessageWithResponse(
+          queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
+      .willReturn(queueSuccessfulResponse())
+    StepVerifier.create(
+        authorizationStateRetrieverRetryService.enqueueRetryEvent(
+          baseTransaction, 0, TracingInfoTest.MOCK_TRACING_INFO))
+      .expectNext()
+      .verifyComplete()
+
+    verify(eventStoreRepository, times(1)).save(any())
+    verify(transactionsViewRepository, times(1))
+      .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
+    verify(transactionsViewRepository, times(0)).save(any())
+    verify(authRequestedOutcomeWaitingQueueAsyncClient, times(1))
+      .sendMessageWithResponse(
+        any<BinaryData>(), any(), eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_SECONDS.toLong())))
+    val savedEvent = eventStoreCaptor.value
+    val eventSentOnQueue = queueCaptor.value
+    assertEquals(
+      TransactionEventCode.TRANSACTION_AUTHORIZATION_OUTCOME_WAITING_EVENT,
+      TransactionEventCode.valueOf(savedEvent.eventCode))
     assertEquals(
       1,
       eventSentOnQueue
@@ -371,6 +489,8 @@ class AuthorizationStateRetrieverRetryServiceTest {
 
   @Test
   fun `Should not enqueue new authorization requested retry event for error updating transaction view`() {
+    whenever(mockedEnv.getProperty(ENV_TRANSACTIONS_VIEW_UPDATED_ENABLED_FLAG, "true"))
+      .thenReturn("true")
     val events: MutableList<TransactionEvent<Any>> =
       mutableListOf(
         TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
