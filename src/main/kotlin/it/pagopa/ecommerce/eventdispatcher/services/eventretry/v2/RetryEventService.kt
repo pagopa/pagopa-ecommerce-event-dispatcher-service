@@ -4,7 +4,6 @@ import com.azure.core.util.BinaryData
 import com.azure.core.util.serializer.JsonSerializerProvider
 import com.azure.storage.queue.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v2.BaseTransactionRetriedData
-import it.pagopa.ecommerce.commons.documents.v2.Transaction
 import it.pagopa.ecommerce.commons.documents.v2.TransactionEvent
 import it.pagopa.ecommerce.commons.documents.v2.TransactionRetriedData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.TransactionGatewayAuthorizationData
@@ -17,8 +16,10 @@ import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftExcepti
 import it.pagopa.ecommerce.eventdispatcher.exceptions.TooLateRetryAttemptException
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
+import it.pagopa.ecommerce.eventdispatcher.utils.TransactionsViewProjectionHandler
 import java.time.Duration
 import java.time.Instant
+import java.time.ZonedDateTime
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
@@ -28,7 +29,7 @@ abstract class RetryEventService<E>(
   private val queueAsyncClient: QueueAsyncClient,
   private val retryOffset: Int,
   private val maxAttempts: Int,
-  private val viewRepository: TransactionsViewRepository,
+  private val transactionsViewRepository: TransactionsViewRepository,
   private val retryEventStoreRepository:
     TransactionsEventStoreRepository<BaseTransactionRetriedData>,
   protected val logger: Logger = LoggerFactory.getLogger(RetryEventService::class.java),
@@ -89,11 +90,18 @@ abstract class RetryEventService<E>(
   private fun storeEventAndUpdateView(event: E, newStatus: TransactionStatusDto): Mono<E> =
     Mono.just(event)
       .flatMap { retryEventStoreRepository.save(it) }
-      .flatMap { viewRepository.findByTransactionId(it.transactionId) }
-      .cast(Transaction::class.java)
       .flatMap {
-        it.status = newStatus
-        viewRepository.save(it).flatMap { Mono.just(event) }
+        TransactionsViewProjectionHandler.updateTransactionView(
+            transactionId = TransactionId(it.transactionId),
+            transactionsViewRepository = transactionsViewRepository,
+            viewUpdater = { trx ->
+              trx.apply {
+                status = newStatus
+                lastProcessedEventAt =
+                  ZonedDateTime.parse(event.creationDate).toInstant().toEpochMilli()
+              }
+            })
+          .flatMap { Mono.just(event) }
       }
 
   private fun enqueueMessage(

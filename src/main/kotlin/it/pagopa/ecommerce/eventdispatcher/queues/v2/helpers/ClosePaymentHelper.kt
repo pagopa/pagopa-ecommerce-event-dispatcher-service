@@ -4,7 +4,6 @@ import com.azure.spring.messaging.checkpoint.Checkpointer
 import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.client.QueueAsyncClient
 import it.pagopa.ecommerce.commons.documents.v2.*
-import it.pagopa.ecommerce.commons.documents.v2.Transaction
 import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationRequestedData
 import it.pagopa.ecommerce.commons.documents.v2.authorization.PgsTransactionGatewayAuthorizationData
@@ -35,8 +34,10 @@ import it.pagopa.ecommerce.eventdispatcher.services.v2.NodeService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.ecommerce.eventdispatcher.utils.TransactionTracing
+import it.pagopa.ecommerce.eventdispatcher.utils.TransactionsViewProjectionHandler
 import it.pagopa.generated.ecommerce.nodo.v2.dto.ClosePaymentResponseDto
 import java.time.Duration
+import java.time.ZonedDateTime
 import java.util.*
 import kotlinx.coroutines.reactor.mono
 import org.slf4j.Logger
@@ -350,39 +351,30 @@ class ClosePaymentHelper(
     exception: Throwable
   ): Mono<BaseTransactionWithClosureError> {
     val closureErrorData = exceptionToClosureErrorData(exception)
-    return if (baseTransaction.status != TransactionStatusDto.CLOSURE_ERROR) {
-      logger.info(
-        "Updating transaction with id: [${baseTransaction.transactionId.value()}] to ${TransactionStatusDto.CLOSURE_ERROR} status")
-      val event =
-        TransactionClosureErrorEvent(baseTransaction.transactionId.value(), closureErrorData)
 
-      transactionClosureErrorEventStoreRepository
-        .save(event)
-        .flatMap {
-          transactionsViewRepository.findByTransactionId(baseTransaction.transactionId.value())
-        }
-        .cast(Transaction::class.java)
-        .flatMap { trx ->
-          trx.status = TransactionStatusDto.CLOSURE_ERROR
-          trx.closureErrorData = closureErrorData
-          transactionsViewRepository.save(trx)
-        }
-        .thenReturn(
-          (baseTransaction as it.pagopa.ecommerce.commons.domain.v2.Transaction).applyEvent(event)
-            as BaseTransactionWithClosureError)
-    } else {
-      logger.info(
-        "Transaction with id: [${baseTransaction.transactionId.value()}] already in ${TransactionStatusDto.CLOSURE_ERROR} status")
-      transactionsViewRepository
-        .findByTransactionId(baseTransaction.transactionId.value())
-        .cast(Transaction::class.java)
-        .flatMap { trx ->
-          trx.status = TransactionStatusDto.CLOSURE_ERROR
-          trx.closureErrorData = closureErrorData
-          transactionsViewRepository.save(trx)
-        }
-        .thenReturn((baseTransaction as BaseTransactionWithClosureError))
-    }
+    logger.info(
+      "Updating transaction with id: [${baseTransaction.transactionId.value()}] to ${TransactionStatusDto.CLOSURE_ERROR} status")
+    val event =
+      TransactionClosureErrorEvent(baseTransaction.transactionId.value(), closureErrorData)
+
+    return transactionClosureErrorEventStoreRepository
+      .save(event)
+      .flatMap {
+        TransactionsViewProjectionHandler.updateTransactionView(
+          transactionId = baseTransaction.transactionId,
+          transactionsViewRepository = transactionsViewRepository,
+          viewUpdater = { trx ->
+            trx.apply {
+              status = TransactionStatusDto.CLOSURE_ERROR
+              this.closureErrorData = closureErrorData
+              lastProcessedEventAt =
+                ZonedDateTime.parse(event.creationDate).toInstant().toEpochMilli()
+            }
+          })
+      }
+      .thenReturn(
+        (baseTransaction as it.pagopa.ecommerce.commons.domain.v2.Transaction).applyEvent(event)
+          as BaseTransactionWithClosureError)
   }
 
   private fun updateTransactionStatus(
@@ -428,11 +420,6 @@ class ClosePaymentHelper(
     logger.info(
       "Updating transaction {} status to {}", transaction.transactionId.value(), newStatus)
 
-    val transactionUpdate =
-      transactionsViewRepository
-        .findByTransactionId(transaction.transactionId.value())
-        .cast(Transaction::class.java)
-
     val sendPaymentResultOutcome =
       if (!canceledByUser && closePaymentTransactionData.closureOutcome == ClosePaymentOutcome.OK) {
         TransactionUserReceiptData.Outcome.NOT_RECEIVED
@@ -444,27 +431,39 @@ class ClosePaymentHelper(
       event.bimap(
         {
           transactionClosureSentEventRepository.save(it).flatMap { closedEvent ->
-            transactionUpdate
-              .flatMap { tx ->
-                tx.status = newStatus
-                tx.sendPaymentResultOutcome = sendPaymentResultOutcome
-                tx.closureErrorData =
-                  null // reset closure error state when a close payment response have been received
-                transactionsViewRepository.save(tx)
-              }
+            TransactionsViewProjectionHandler.updateTransactionView(
+                transactionId = transaction.transactionId,
+                transactionsViewRepository = transactionsViewRepository,
+                viewUpdater = { trx ->
+                  trx.apply {
+                    status = newStatus
+                    this.sendPaymentResultOutcome = sendPaymentResultOutcome
+                    closureErrorData =
+                      null // reset closure error state when a close payment response have been
+                    // received
+                    lastProcessedEventAt =
+                      ZonedDateTime.parse(closedEvent.creationDate).toInstant().toEpochMilli()
+                  }
+                })
               .thenReturn(closedEvent)
           }
         },
         {
           transactionClosureSentEventRepository.save(it).flatMap { closedEvent ->
-            transactionUpdate
-              .flatMap { tx ->
-                tx.status = newStatus
-                tx.sendPaymentResultOutcome = sendPaymentResultOutcome
-                tx.closureErrorData =
-                  null // reset closure error state when a close payment response have been received
-                transactionsViewRepository.save(tx)
-              }
+            TransactionsViewProjectionHandler.updateTransactionView(
+                transactionId = transaction.transactionId,
+                transactionsViewRepository = transactionsViewRepository,
+                viewUpdater = { trx ->
+                  trx.apply {
+                    status = newStatus
+                    this.sendPaymentResultOutcome = sendPaymentResultOutcome
+                    closureErrorData =
+                      null // reset closure error state when a close payment response have been
+                    // received
+                    lastProcessedEventAt =
+                      ZonedDateTime.parse(closedEvent.creationDate).toInstant().toEpochMilli()
+                  }
+                })
               .thenReturn(closedEvent)
           }
         })

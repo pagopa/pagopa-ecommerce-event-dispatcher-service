@@ -38,7 +38,7 @@ class AuthorizationStateRetrieverRetryService(
     queueAsyncClient = authRequestedOutcomeWaitingQueueAsyncClient,
     retryOffset = retryOffset,
     maxAttempts = maxAttempts,
-    viewRepository = viewRepository,
+    transactionsViewRepository = viewRepository,
     retryEventStoreRepository = eventStoreRepository,
     transientQueuesTTLSeconds = transientQueuesTTLSeconds,
     strictSerializerProviderV2 = strictSerializerProviderV2) {

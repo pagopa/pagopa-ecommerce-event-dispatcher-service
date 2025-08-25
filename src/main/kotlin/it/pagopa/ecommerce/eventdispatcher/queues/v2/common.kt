@@ -38,6 +38,7 @@ import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.RefundRetrySer
 import it.pagopa.ecommerce.eventdispatcher.services.v2.AuthorizationStateRetrieverService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
+import it.pagopa.ecommerce.eventdispatcher.utils.TransactionsViewProjectionHandler
 import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundOutcomeDto
 import it.pagopa.generated.transactionauthrequests.v2.dto.OutcomeNpgGatewayDto
 import it.pagopa.generated.transactionauthrequests.v2.dto.UpdateAuthorizationRequestDto
@@ -65,23 +66,26 @@ fun updateTransactionToExpired(
     .save(
       TransactionExpiredEvent(
         transaction.transactionId.value(), TransactionExpiredData(transaction.status)))
-    .map {
-      (transaction as it.pagopa.ecommerce.commons.domain.v2.Transaction).applyEvent(it)
-        as BaseTransaction
+    .map { ev ->
+      Pair(
+        ((transaction as it.pagopa.ecommerce.commons.domain.v2.Transaction).applyEvent(ev)
+          as BaseTransaction),
+        ev)
     }
-    .flatMap {
-      transactionsViewRepository
-        .findByTransactionId(transaction.transactionId.value())
-        .cast(Transaction::class.java)
-        .flatMap { tx ->
-          tx.status = getExpiredTransactionStatus(transaction)
-          transactionsViewRepository.save(tx)
-        }
-        .thenReturn(it)
+    .flatMap { (updatedTransaction, event) ->
+      TransactionsViewProjectionHandler.updateTransactionView(
+          transactionId = updatedTransaction.transactionId,
+          transactionsViewRepository = transactionsViewRepository,
+          viewUpdater = { trx ->
+            trx.apply {
+              status = getExpiredTransactionStatus(updatedTransaction)
+              lastProcessedEventAt =
+                ZonedDateTime.parse(event.creationDate).toInstant().toEpochMilli()
+            }
+          })
+        .thenReturn(updatedTransaction)
     }
-    .doOnSuccess {
-      logger.info("Transaction expired for transaction ${transaction.transactionId.value()}")
-    }
+    .doOnSuccess { logger.info("Transaction expired for transaction ${it.transactionId.value()}") }
     .doOnError {
       logger.error(
         "Transaction expired error for transaction ${transaction.transactionId.value()} : ${it.message}")
@@ -190,13 +194,16 @@ fun updateTransactionWithRefundEvent(
   return transactionsRefundedEventStoreRepository
     .save(event)
     .then(
-      transactionsViewRepository
-        .findByTransactionId(transaction.transactionId.value())
-        .cast(Transaction::class.java)
-        .flatMap { tx ->
-          tx.status = status
-          transactionsViewRepository.save(tx)
-        })
+      TransactionsViewProjectionHandler.updateTransactionView(
+        transactionId = transaction.transactionId,
+        transactionsViewRepository = transactionsViewRepository,
+        viewUpdater = { trx ->
+          trx.apply {
+            this.status = status
+            lastProcessedEventAt =
+              ZonedDateTime.parse(event.creationDate).toInstant().toEpochMilli()
+          }
+        }))
     .doOnSuccess {
       logger.info(
         "Updated event for transaction with id ${transaction.transactionId.value()} to status $status")
@@ -903,16 +910,9 @@ fun updateNotifiedTransactionStatus(
   val event =
     TransactionUserReceiptAddedEvent(
       transaction.transactionId.value(), transaction.transactionUserReceiptData)
-  logger.info("Updating transaction {} status to {}", transaction.transactionId.value(), newStatus)
 
-  return transactionsViewRepository
-    .findByTransactionId(transaction.transactionId.value())
-    .cast(Transaction::class.java)
-    .flatMap { tx ->
-      tx.status = newStatus
-      transactionsViewRepository.save(tx)
-    }
-    .flatMap { transactionUserReceiptRepository.save(event) }
+  return updateNotifiedTransactionStatus(
+      transactionsViewRepository, transaction, newStatus, event, transactionUserReceiptRepository)
     .thenReturn(
       (transaction as it.pagopa.ecommerce.commons.domain.v2.Transaction).applyEvent(event)
         as BaseTransactionWithUserReceipt)
@@ -927,16 +927,32 @@ fun updateNotificationErrorTransactionStatus(
   val event =
     TransactionUserReceiptAddErrorEvent(
       transaction.transactionId.value(), transaction.transactionUserReceiptData)
+
+  return updateNotifiedTransactionStatus(
+      transactionsViewRepository, transaction, newStatus, event, transactionUserReceiptRepository)
+    .cast(TransactionUserReceiptAddErrorEvent::class.java)
+}
+
+private fun updateNotifiedTransactionStatus(
+  transactionsViewRepository: TransactionsViewRepository,
+  transaction: BaseTransactionWithRequestedUserReceipt,
+  newStatus: TransactionStatusDto,
+  event: TransactionEvent<TransactionUserReceiptData>,
+  transactionUserReceiptRepository: TransactionsEventStoreRepository<TransactionUserReceiptData>
+): Mono<TransactionEvent<TransactionUserReceiptData>> {
   logger.info("Updating transaction {} status to {}", transaction.transactionId.value(), newStatus)
 
-  return transactionsViewRepository
-    .findByTransactionId(transaction.transactionId.value())
-    .cast(Transaction::class.java)
-    .flatMap { tx ->
-      tx.status = newStatus
-      transactionsViewRepository.save(tx)
-    }
+  return TransactionsViewProjectionHandler.updateTransactionView(
+      transactionId = transaction.transactionId,
+      transactionsViewRepository = transactionsViewRepository,
+      viewUpdater = { trx ->
+        trx.apply {
+          status = newStatus
+          lastProcessedEventAt = ZonedDateTime.parse(event.creationDate).toInstant().toEpochMilli()
+        }
+      })
     .flatMap { transactionUserReceiptRepository.save(event) }
+    .thenReturn(event)
 }
 
 /*

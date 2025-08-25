@@ -22,16 +22,19 @@ import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftExcepti
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.utils.TRANSIENT_QUEUE_TTL_SECONDS
+import it.pagopa.ecommerce.eventdispatcher.utils.TransactionsViewProjectionHandler
 import java.time.Duration
 import java.time.OffsetDateTime
 import java.time.ZonedDateTime
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.ArgumentCaptor
 import org.mockito.Captor
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.*
+import org.springframework.core.env.Environment
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
 
@@ -71,8 +74,19 @@ class RefundRetryServiceTests {
       transientQueuesTTLSeconds = TRANSIENT_QUEUE_TTL_SECONDS,
       strictSerializerProviderV2 = jsonSerializerV2)
 
+  var mockedEnv: Environment = mock<Environment>() as Environment
+
+  val ENV_TRANSACTIONSVIEW_UPDATED_ENABLED_FLAG = "transactionsview.update.enabled"
+
+  @BeforeEach
+  fun setUp() {
+    TransactionsViewProjectionHandler.env = mockedEnv
+  }
+
   @Test
   fun `Should enqueue new refund retry event for left remaining attempts`() {
+    whenever(mockedEnv.getProperty(ENV_TRANSACTIONSVIEW_UPDATED_ENABLED_FLAG, "true"))
+      .thenReturn("true")
     val events: MutableList<TransactionEvent<Any>> =
       mutableListOf(
         TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
@@ -137,7 +151,71 @@ class RefundRetryServiceTests {
   }
 
   @Test
+  fun `Should enqueue new refund retry event for left remaining attempts with no transactions-view update if ff disabled`() {
+    whenever(mockedEnv.getProperty(ENV_TRANSACTIONSVIEW_UPDATED_ENABLED_FLAG, "true"))
+      .thenReturn("false")
+    val events: MutableList<TransactionEvent<Any>> =
+      mutableListOf(
+        TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
+        TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>,
+        TransactionTestUtils.transactionAuthorizationCompletedEvent(
+          NpgTransactionGatewayAuthorizationData(
+            OperationResultDto.EXECUTED, "operationId", "paymentEnd2EndId", null, null))
+          as TransactionEvent<Any>,
+      )
+    events.add(
+      TransactionTestUtils.transactionExpiredEvent(
+        TransactionTestUtils.reduceEvents(*events.toTypedArray())) as TransactionEvent<Any>)
+    events.add(
+      TransactionTestUtils.transactionRefundRequestedEvent(
+        TransactionTestUtils.reduceEvents(*events.toTypedArray())) as TransactionEvent<Any>)
+    val baseTransaction = TransactionTestUtils.reduceEvents(*events.toTypedArray())
+    val transactionDocument =
+      TransactionTestUtils.transactionDocument(
+        TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now())
+    given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
+      Mono.just(it.arguments[0])
+    }
+    given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
+      .willAnswer { Mono.just(transactionDocument) }
+    given(
+        refundRetryQueueAsyncClient.sendMessageWithResponse(
+          queueCaptor.capture(),
+          eq(Duration.ofSeconds((refundRetryOffset * 3).toLong())),
+          anyOrNull()))
+      .willReturn(queueSuccessfulResponse())
+    StepVerifier.create(
+        refundRetryService.enqueueRetryEvent(baseTransaction, maxAttempts - 1, MOCK_TRACING_INFO))
+      .expectNext()
+      .verifyComplete()
+
+    verify(eventStoreRepository, times(1)).save(any())
+    verify(transactionsViewRepository, times(1))
+      .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
+    verify(transactionsViewRepository, times(0)).save(any())
+    verify(refundRetryQueueAsyncClient, times(1))
+      .sendMessageWithResponse(
+        any<BinaryData>(), any(), eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_SECONDS.toLong())))
+    val savedEvent = eventStoreCaptor.value
+    val eventSentOnQueue = queueCaptor.value
+    assertEquals(
+      TransactionEventCode.TRANSACTION_REFUND_RETRIED_EVENT,
+      TransactionEventCode.valueOf(savedEvent.eventCode))
+    assertEquals(
+      maxAttempts,
+      eventSentOnQueue
+        .toObject(
+          object : TypeReference<QueueEvent<TransactionRefundRetriedEvent>>() {},
+          jsonSerializerV2.createInstance())
+        .event
+        .data
+        .retryCount)
+  }
+
+  @Test
   fun `Should enqueue new refund retry event for first time sending event`() {
+    whenever(mockedEnv.getProperty(ENV_TRANSACTIONSVIEW_UPDATED_ENABLED_FLAG, "true"))
+      .thenReturn("true")
     val events: MutableList<TransactionEvent<Any>> =
       mutableListOf(
         TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
@@ -187,6 +265,66 @@ class RefundRetryServiceTests {
       TransactionEventCode.TRANSACTION_REFUND_RETRIED_EVENT,
       TransactionEventCode.valueOf(savedEvent.eventCode))
     assertEquals(TransactionStatusDto.REFUND_ERROR, savedView.status)
+    assertEquals(
+      1,
+      eventSentOnQueue
+        .toObject(
+          object : TypeReference<QueueEvent<TransactionRefundRetriedEvent>>() {},
+          jsonSerializerV2.createInstance())
+        .event
+        .data
+        .retryCount)
+    assertEquals(refundRetryOffset, durationCaptor.value.seconds.toInt())
+  }
+
+  @Test
+  fun `Should enqueue new refund retry event for first time sending event with no transactions-view update if ff disabled`() {
+    whenever(mockedEnv.getProperty(ENV_TRANSACTIONSVIEW_UPDATED_ENABLED_FLAG, "true"))
+      .thenReturn("false")
+    val events: MutableList<TransactionEvent<Any>> =
+      mutableListOf(
+        TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
+        TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>,
+        TransactionTestUtils.transactionAuthorizationCompletedEvent(
+          NpgTransactionGatewayAuthorizationData(
+            OperationResultDto.EXECUTED, "operationId", "paymentEnd2EndId", null, null))
+          as TransactionEvent<Any>,
+      )
+    events.add(
+      TransactionTestUtils.transactionExpiredEvent(
+        TransactionTestUtils.reduceEvents(*events.toTypedArray())) as TransactionEvent<Any>)
+    events.add(
+      TransactionTestUtils.transactionRefundRequestedEvent(
+        TransactionTestUtils.reduceEvents(*events.toTypedArray())) as TransactionEvent<Any>)
+    val baseTransaction = TransactionTestUtils.reduceEvents(*events.toTypedArray())
+    val transactionDocument =
+      TransactionTestUtils.transactionDocument(
+        TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now())
+    given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
+      Mono.just(it.arguments[0])
+    }
+    given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
+      .willAnswer { Mono.just(transactionDocument) }
+    given(
+        refundRetryQueueAsyncClient.sendMessageWithResponse(
+          queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
+      .willReturn(queueSuccessfulResponse())
+    StepVerifier.create(refundRetryService.enqueueRetryEvent(baseTransaction, 0, MOCK_TRACING_INFO))
+      .expectNext()
+      .verifyComplete()
+
+    verify(eventStoreRepository, times(1)).save(any())
+    verify(transactionsViewRepository, times(1))
+      .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
+    verify(transactionsViewRepository, times(0)).save(any())
+    verify(refundRetryQueueAsyncClient, times(1))
+      .sendMessageWithResponse(
+        any<BinaryData>(), any(), eq(Duration.ofSeconds(TRANSIENT_QUEUE_TTL_SECONDS.toLong())))
+    val savedEvent = eventStoreCaptor.value
+    val eventSentOnQueue = queueCaptor.value
+    assertEquals(
+      TransactionEventCode.TRANSACTION_REFUND_RETRIED_EVENT,
+      TransactionEventCode.valueOf(savedEvent.eventCode))
     assertEquals(
       1,
       eventSentOnQueue
@@ -340,6 +478,8 @@ class RefundRetryServiceTests {
 
   @Test
   fun `Should not enqueue new refund retry event for error updating transaction view`() {
+    whenever(mockedEnv.getProperty(ENV_TRANSACTIONSVIEW_UPDATED_ENABLED_FLAG, "true"))
+      .thenReturn("true")
     val events: MutableList<TransactionEvent<Any>> =
       mutableListOf(
         TransactionTestUtils.transactionActivateEvent() as TransactionEvent<Any>,
