@@ -75,7 +75,7 @@ class UserReceiptMailBuilder(@Autowired private val confidentialDataUtils: Confi
             amountToHumanReadableString(
               baseTransactionWithRequestedUserReceipt.paymentNotices
                 .stream()
-                .mapToInt { paymentNotice: PaymentNotice ->
+                .mapToLong { paymentNotice: PaymentNotice ->
                   paymentNotice.transactionAmount().value()
                 }
                 .sum()))))
@@ -167,7 +167,7 @@ class UserReceiptMailBuilder(@Autowired private val confidentialDataUtils: Confi
         amountToHumanReadableString(
           baseTransactionWithRequestedUserReceipt.paymentNotices
             .stream()
-            .mapToInt { paymentNotice: PaymentNotice -> paymentNotice.transactionAmount().value() }
+            .mapToLong { paymentNotice: PaymentNotice -> paymentNotice.transactionAmount().value() }
             .sum() + transactionAuthorizationRequestData.fee),
         PspTemplate(
           transactionAuthorizationRequestData.pspBusinessName,
@@ -200,15 +200,22 @@ class UserReceiptMailBuilder(@Autowired private val confidentialDataUtils: Confi
         amountToHumanReadableString(
           baseTransactionWithRequestedUserReceipt.paymentNotices
             .stream()
-            .mapToInt { paymentNotice -> paymentNotice.transactionAmount().value() }
+            .mapToLong { paymentNotice -> paymentNotice.transactionAmount().value() }
             .sum())))
   }
 
+  fun amountToHumanReadableString(amount: Long): String {
+    return amountToHumanReadableString(amount.toString())
+  }
+
   fun amountToHumanReadableString(amount: Int): String {
-    val repr = amount.toString()
-    val centsSeparationIndex = 0.coerceAtLeast(repr.length - 2)
-    var cents = repr.substring(centsSeparationIndex)
-    var euros = repr.substring(0, centsSeparationIndex)
+    return amountToHumanReadableString(amount.toString())
+  }
+
+  fun amountToHumanReadableString(amount: String): String {
+    val centsSeparationIndex = 0.coerceAtLeast(amount.length - 2)
+    var cents = amount.substring(centsSeparationIndex)
+    var euros = amount.substring(0, centsSeparationIndex)
     if (euros.isEmpty()) {
       euros = "0"
     }
