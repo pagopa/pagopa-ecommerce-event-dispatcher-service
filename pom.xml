@@ -13,6 +13,17 @@
 	<name>pagopa-ecommerce-event-dispatcher-service</name>
 	<description>pagoPA ecommerce microservice to handle transaction events and perform async operations such as
 		send user email, refund based on transaction status</description>
+	<repositories>
+		<repository>
+			<id>central</id>
+			<url>https://repo.maven.apache.org/maven2</url>
+		</repository>
+		<repository>
+			<id>github</id>
+			<!--suppress UnresolvedMavenProperty, create a github personal access token with at least package:read permission and set in environment-->
+			<url>https://maven.pkg.github.com/pagopa/pagopa-ecommerce-commons</url>
+		</repository>
+	</repositories>
 	<properties>
 		<java.version>21</java.version>
 		<kotlin.version>2.1.21</kotlin.version>
@@ -630,26 +641,6 @@
 				<configuration>
 					<argLine>@{argLine} -Xmx1024m</argLine>
 				</configuration>
-			</plugin>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-scm-plugin</artifactId>
-				<version>2.0.0-M3</version>
-				<configuration>
-					<skipCheckoutIfExists>false</skipCheckoutIfExists>
-					<connectionUrl>scm:git:https://github.com/pagopa/pagopa-ecommerce-commons.git</connectionUrl>
-                    <scmVersionType>tag</scmVersionType>
-                    <scmVersion>${pagopa-ecommerce-commons.version}</scmVersion>
-					<goals>install -DskipTests</goals>
-				</configuration>
-				<executions>
-					<execution>
-						<phase>validate</phase>
-						<goals>
-							<goal>bootstrap</goal>
-						</goals>
-					</execution>
-				</executions>
 			</plugin>
 			<plugin>
 				<groupId>com.diffplug.spotless</groupId>
