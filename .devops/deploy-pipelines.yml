@@ -99,7 +99,7 @@ stages:
               CONTAINER_REGISTRY_SERVICE_CONN: $(UAT_CONTAINER_REGISTRY_SERVICE_CONN)
               CONTAINER_REGISTRY_FQDN: $(UAT_CONTAINER_NAMESPACE)
               DOCKER_IMAGE_NAME: $(K8S_IMAGE_REPOSITORY_NAME)
-              DOCKER_IMAGE_TAG: perf
+              DOCKER_IMAGE_TAG: cdctest
               FORCE_REPLACE_DOCKER_IMAGE: ${{ parameters.FORCE_REPLACE_DOCKER_IMAGE }}
           - template: azure-templates/chart-current-version.yml
 
@@ -107,7 +107,7 @@ stages:
     displayName: 'UAT green deployment'
     dependsOn: [ Build_release_candidate ]
     variables:
-      app_version: perf #chart app version, can differ from release for chart only version bumps
+      app_version: cdctest #chart app version, can differ from release for chart only version bumps
       release_version: soak-test-uat #chart version, this version is the same of the github release/tag
     jobs:
       - deployment: "Green_deployment"
