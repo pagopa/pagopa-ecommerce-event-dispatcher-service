@@ -751,7 +751,8 @@ class ClosePaymentHelperTests {
 
       val expectedClosureEvent =
         TransactionClosureFailedEvent(
-          activationEvent.transactionId, TransactionClosureData(TransactionClosureData.Outcome.OK))
+          activationEvent.transactionId,
+          TransactionClosureData(TransactionClosureData.Outcome.OK, false))
 
       /* preconditions */
       given(checkpointer.success()).willReturn(Mono.empty())
