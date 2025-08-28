@@ -1,7 +1,7 @@
 microservice-chart:
   namespace: "ecommerce"
-  nameOverride: ""
-  fullnameOverride: ""
+  nameOverride: "b-pagopa-ecommerce-event-dispatcher"
+  fullnameOverride: "b-pagopaecommerceeventdispatcher"
   canaryDelivery:
     create: false
     ingress:
@@ -57,7 +57,7 @@ microservice-chart:
   ingress:
     create: true
     host: "weuuat.ecommerce.internal.uat.platform.pagopa.it"
-    path: /pagopa-ecommerce-event-dispatcher/(.*)
+    path: /beta/pagopa-ecommerce-event-dispatcher/(.*)
     servicePort: 9000
   serviceAccount:
     create: false
@@ -94,17 +94,17 @@ microservice-chart:
           scaleUp:
             stabilizationWindowSeconds: 60
   envConfig:
-    TRANSACTIONS_CLOSE_PAYMENT_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-close-payment-queue
-    TRANSACTIONS_CLOSE_PAYMENT_RETRY_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-close-payment-retry-queue
-    TRANSACTIONS_EXPIRATION_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-expiration-queue
-    TRANSACTIONS_REFUND_RETRY_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-refund-retry-queue
-    TRANSACTIONS_REFUND_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-refund-queue
-    TRANSACTIONS_NOTIFICATIONS_RETRY_QUEUE_NAME: pagopa-u-weu-ecommerce-transaction-notifications-retry-queue
-    TRANSACTIONS_NOTIFICATIONS_QUEUE_NAME: pagopa-u-weu-ecommerce-transaction-notifications-queue
-    TRANSACTIONS_DEAD_LETTER_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-dead-letter-queue
-    TRANSACTIONS_AUTHORIZATION_REQUESTED_QUEUE_NAME: pagopa-u-weu-ecommerce-transaction-auth-requested-queue
-    TRANSACTIONS_AUTHORIZATION_OUTCOME_WAITING_QUEUE_NAME: pagopa-u-weu-ecommerce-transaction-auth-outcome-waiting-queue
-    NODO_URI: https://api.uat.platform.pagopa.it/nodo-auth/node-for-ecommerce/v2
+    TRANSACTIONS_CLOSE_PAYMENT_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-close-payment-queue-b
+    TRANSACTIONS_CLOSE_PAYMENT_RETRY_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-close-payment-retry-queue-b
+    TRANSACTIONS_EXPIRATION_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-expiration-queue-b
+    TRANSACTIONS_REFUND_RETRY_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-refund-retry-queue-b
+    TRANSACTIONS_REFUND_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-refund-queue-b
+    TRANSACTIONS_NOTIFICATIONS_RETRY_QUEUE_NAME: pagopa-u-weu-ecommerce-transaction-notifications-retry-queue-b
+    TRANSACTIONS_NOTIFICATIONS_QUEUE_NAME: pagopa-u-weu-ecommerce-transaction-notifications-queue-b
+    TRANSACTIONS_DEAD_LETTER_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-dead-letter-queue-b
+    TRANSACTIONS_AUTHORIZATION_REQUESTED_QUEUE_NAME: pagopa-u-weu-ecommerce-transaction-auth-requested-queue-b
+    TRANSACTIONS_AUTHORIZATION_OUTCOME_WAITING_QUEUE_NAME: pagopa-u-weu-ecommerce-transaction-auth-outcome-waiting-queue-b
+    NODO_URI: https://api.uat.platform.pagopa.it/ecommerce/mock/nodoPerPM/v1
     NODO_READ_TIMEOUT: "14000"
     NODO_CONNECTION_TIMEOUT: "14000"
     NODO_CONNECTION_STRING: "{\"idPSP\":\"AGID_01\",\"idChannel\":\"97735020584_09\",\"idBrokerPSP\":\"97735020584\"}"
@@ -140,8 +140,8 @@ microservice-chart:
     TRANSACTIONS_SERVICE_URI: https://api.uat.platform.pagopa.it/ecommerce/transaction-auth-requests-service/v2
     TRANSACTIONS_SERVICE_READ_TIMEOUT: "10000"
     TRANSACTIONS_SERVICE_CONNECTION_TIMEOUT: "10000"
-    PERSONAL_DATA_VAULT_API_BASE_PATH: "https://api.uat.tokenizer.pdv.pagopa.it/tokenizer/v1"
-    OTEL_RESOURCE_ATTRIBUTES: "service.name=pagopa-ecommerce-event-dispatcher-service,deployment.environment=uat"
+    PERSONAL_DATA_VAULT_API_BASE_PATH: "https://api.uat.platform.pagopa.it/ecommerce/mock/pdv/v1"
+    OTEL_RESOURCE_ATTRIBUTES: "service.name=pagopa-ecommerce-event-dispatcher-service-blue,deployment.environment=uat"
     OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.elastic-system.svc:4317"
     OTEL_EXPORTER_OTLP_PROTOCOL: grpc
     OTEL_TRACES_EXPORTER: otlp
@@ -150,7 +150,7 @@ microservice-chart:
     OTEL_TRACES_SAMPLER: "always_on"
     SEND_PAYMENT_RESULT_TIMEOUT_SECONDS: "3900"
     SEND_PAYMENT_RESULT_EXPIRATION_OFFSET_SECONDS: "5"
-    NPG_URI: https://stg-ta.nexigroup.com/api/phoenix-0.0
+    NPG_URI: https://api.uat.platform.pagopa.it/ecommerce/mock/npg/v1
     NPG_READ_TIMEOUT: "10000"
     NPG_CONNECTION_TIMEOUT: "10000"
     NPG_CARDS_PSP_LIST: "BCITITMM,CIPBITMM,BIC36019,UNCRITMM,BPPIITRRXXX,PPAYITR1XXX,BNLIITRR,PASCITMM,WOLLNLB1,BPMOIT22,SARDIT31,IFSPIT21,BCEPITMM"
@@ -160,16 +160,16 @@ microservice-chart:
     NPG_SATISPAY_PSP_LIST: "SATYLUL1"
     NPG_APPLEPAY_PSP_LIST: "SIGPITM1XXX,CIPBITMM,MOONITMMXXX"
     NPG_GOOGLE_PAY_PSP_LIST: "CIPBITMM"
-    ECS_SERVICE_NAME: pagopa-ecommerce-event-dispatcher-service
+    ECS_SERVICE_NAME: pagopa-ecommerce-event-dispatcher-service-blue
     ECS_SERVICE_ENVIRONMENT: uat
     REDIS_STREAM_EVENT_CONTROLLER_STREAM_KEY: "event-dispatcher-commands"
     EVENT_CONTROLLER_STATUS_POLLING_CHRON: "*/10 * * * * *"
-    NODE_FORWARDER_URL: "https://api.uat.platform.pagopa.it/pagopa-node-forwarder/api/v1"
+    NODE_FORWARDER_URL: "https://api.uat.platform.pagopa.it/ecommerce/mock/node-forwader/v1"
     NODE_FORWARDER_READ_TIMEOUT: "10000"
     NODE_FORWARDER_CONNECTION_TIMEOUT: "10000"
     REDIRECT_PAYMENT_TYPE_CODES: "BPPIITRRXXX-RBPR,BPPIITRRXXX-RBPP,BPPIITRRXXX-RBPB,PPAYITR1XXX-RBPB,CHECKOUT-PPAYITR1XXX-RBPP,IO-PPAYITR1XXX-RBPP,PPAYITR1XXX-RBPR,RBPS,RPIC,RICO,KLRN"
     NPG_REFUND_DELAY_FROM_AUTH_REQUEST_MINUTES: "10"
-    USER_STATS_URL: "https://api.uat.platform.pagopa.it/ecommerce/user-stats-service/v1/"
+    USER_STATS_URL: "https://weuuat.ecommerce.internal.uat.platform.pagopa.it/pagopa-ecommerce-user-stats-service/"
     USER_STATS_READ_TIMEOUT: "10000"
     USER_STATS_CONNECTION_TIMEOUT: "10000"
     NPG_REFUND_EVENT_PROCESSING_DELAY_SECONDS: "10"
@@ -185,12 +185,12 @@ microservice-chart:
     QUEUE_DEADLETTER_CONNECTION_STRING: ecommerce-storage-deadletter-connection-string
     NOTIFICATIONS_SERVICE_API_KEY: notifications-service-api-key
     TRANSACTIONS_SERVICE_API_KEY: transactions-service-auth-update-api-key-v2
-    ECOMMERCE_PERSONAL_DATA_VAULT_API_KEY: personal-data-vault-api-key
-    WALLET_SESSION_PERSONAL_DATA_VAULT_API_KEY: personal-data-vault-api-key-wallet-session
+    ECOMMERCE_PERSONAL_DATA_VAULT_API_KEY: ecommerce-load-test-subscription-key
+    WALLET_SESSION_PERSONAL_DATA_VAULT_API_KEY: ecommerce-load-test-subscription-key
     OTEL_EXPORTER_OTLP_HEADERS: elastic-otel-token-header
     NPG_API_KEY: npg-api-key
     NPG_CARDS_PSP_KEYS: npg-cards-psp-keys
-    NODE_FORWARDER_API_KEY: node-forwarder-api-key
+    NODE_FORWARDER_API_KEY: ecommerce-load-test-subscription-key
     USER_STATS_API_KEY: user-stats-for-event-dispatcher-api-key
     REDIRECT_URL_MAPPING: redirect-url-mapping
     NPG_PAYPAL_PSP_KEYS: npg-paypal-psp-keys
