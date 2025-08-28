@@ -78,8 +78,8 @@ microservice-chart:
       cpu: "900m"
   autoscaling:
     enable: true
-    minReplica: 1
-    maxReplica: 2
+    minReplica: 5
+    maxReplica: 15
     pollingInterval: 30 # seconds
     cooldownPeriod: 30 # seconds
     triggers:
@@ -93,6 +93,14 @@ microservice-chart:
         behavior:
           scaleUp:
             stabilizationWindowSeconds: 60
+  deployment:
+    create: true
+    replicas: 5
+  strategy:
+    type: "RollingUpdate"
+    rollingUpdate:
+      maxSurge: "100%"
+      maxUnavailable: "100%"
   envConfig:
     TRANSACTIONS_CLOSE_PAYMENT_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-close-payment-queue-b
     TRANSACTIONS_CLOSE_PAYMENT_RETRY_QUEUE_NAME: pagopa-u-weu-ecommerce-transactions-close-payment-retry-queue-b
