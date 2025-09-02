@@ -127,11 +127,11 @@ see [docs](https://www.mongodb.com/docs/drivers/java/sync/v4.3/fundamentals/conn
 Set up GitHub authentication for packages (required for pagopa-ecommerce-commons dependency):
 
 1. Configure Maven settings file:
-   - **If you don't have ~/.m2/settings.xml:**
-     ```sh
-     cp settings.xml.template ~/.m2/settings.xml
-     ```
-   - **If you already have ~/.m2/settings.xml:** Edit the file to add the GitHub server configuration from `settings.xml.template`, or replace the `${GITHUB_TOKEN}` placeholder with your actual token.
+- **If you don't have ~/.m2/settings.xml:**
+	```sh
+	cp settings.xml.template ~/.m2/settings.xml
+	```
+- **If you already have ~/.m2/settings.xml:** Edit the file to add the GitHub server configuration from `settings.xml.template`, or replace the `${GITHUB_TOKEN}` placeholder with your actual token.
 
 
 2. Set your GitHub token:
@@ -165,11 +165,11 @@ docker build --secret id=GITHUB_TOKEN,env=GITHUB_TOKEN -t pagopa-ecommerce-event
 Set up GitHub authentication for packages (required for pagopa-ecommerce-commons dependency):
 
 1. Configure Maven settings file:
-   - **If you don't have ~/.m2/settings.xml:**
-     ```sh
-     cp settings.xml.template ~/.m2/settings.xml
-     ```
-   - **If you already have ~/.m2/settings.xml:** Edit the file to add the GitHub server configuration from `settings.xml.template`, or replace the `${GITHUB_TOKEN}` placeholder with your actual token.
+- **If you don't have ~/.m2/settings.xml:**
+	```sh
+	cp settings.xml.template ~/.m2/settings.xml
+	```
+- **If you already have ~/.m2/settings.xml:** Edit the file to add the GitHub server configuration from `settings.xml.template`, or replace the `${GITHUB_TOKEN}` placeholder with your actual token.
 
 
 2. Create your environment:
