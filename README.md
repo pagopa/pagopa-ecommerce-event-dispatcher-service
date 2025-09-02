@@ -124,10 +124,22 @@ see [docs](https://www.mongodb.com/docs/drivers/java/sync/v4.3/fundamentals/conn
 ## Run the application with `Docker`
 
 ### Prerequisites
-Set up GitHub authentication for packages:
+Set up GitHub authentication for packages (required for pagopa-ecommerce-commons dependency):
+
+1. Configure Maven settings file:
+   - **If you don't have ~/.m2/settings.xml:**
+     ```sh
+     cp settings.xml.template ~/.m2/settings.xml
+     ```
+   - **If you already have ~/.m2/settings.xml:** Edit the file to add the GitHub server configuration from `settings.xml.template`, or replace the `${GITHUB_TOKEN}` placeholder with your actual token.
+
+
+2. Set your GitHub token:
 ```sh
 export GITHUB_TOKEN=your_github_token_with_packages_read_permission
 ```
+
+**Note:** The settings.xml file is required for Maven to authenticate with GitHub Packages. Without proper configuration, builds will fail with 401 Unauthorized errors.
 
 ### Run with Docker Compose
 Create your environment typing :
@@ -149,14 +161,23 @@ docker build --secret id=GITHUB_TOKEN,env=GITHUB_TOKEN -t pagopa-ecommerce-event
 
 ## Run the application with `springboot-plugin`
 
-Create your environment:
+### Prerequisites
+Set up GitHub authentication for packages (required for pagopa-ecommerce-commons dependency):
 
+1. Configure Maven settings file:
+   - **If you don't have ~/.m2/settings.xml:**
+     ```sh
+     cp settings.xml.template ~/.m2/settings.xml
+     ```
+   - **If you already have ~/.m2/settings.xml:** Edit the file to add the GitHub server configuration from `settings.xml.template`, or replace the `${GITHUB_TOKEN}` placeholder with your actual token.
+
+
+2. Create your environment:
 ```sh
 export $(grep -v '^#' .env.local | xargs)
 ```
 
-Set up GitHub authentication for packages:
-
+3. Set your GitHub token:
 ```sh
 export GITHUB_TOKEN=your_github_token_with_packages_read_permission
 ```
