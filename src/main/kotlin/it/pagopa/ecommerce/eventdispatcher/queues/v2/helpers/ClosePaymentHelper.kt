@@ -16,7 +16,7 @@ import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.commons.queues.TracingUtils
-import it.pagopa.ecommerce.commons.redis.templatewrappers.v2.PaymentRequestInfoRedisTemplateWrapper
+import it.pagopa.ecommerce.commons.redis.reactivetemplatewrappers.v2.ReactivePaymentRequestInfoRedisTemplateWrapper
 import it.pagopa.ecommerce.commons.utils.UpdateTransactionStatusTracerUtils
 import it.pagopa.ecommerce.commons.utils.UpdateTransactionStatusTracerUtils.UpdateTransactionStatusOutcome
 import it.pagopa.ecommerce.commons.utils.UpdateTransactionStatusTracerUtils.UserCancelClosePaymentNodoStatusUpdate
@@ -145,7 +145,8 @@ class ClosePaymentHelper(
   @Autowired private val deadLetterTracedQueueAsyncClient: DeadLetterTracedQueueAsyncClient,
   @Autowired private val tracingUtils: TracingUtils,
   @Autowired
-  private val paymentRequestInfoRedisTemplateWrapper: PaymentRequestInfoRedisTemplateWrapper,
+  private val reactivePaymentRequestInfoRedisTemplateWrapper:
+    ReactivePaymentRequestInfoRedisTemplateWrapper,
   @Autowired private val strictSerializerProviderV2: StrictJsonSerializerProvider,
   @Autowired private val npgService: NpgService,
   @Autowired private val refundQueueAsyncClient: QueueAsyncClient,
@@ -216,7 +217,10 @@ class ClosePaymentHelper(
               if (closePaymentTransactionData.canceledByUser) {
                 tx.paymentNotices.forEach { el ->
                   logger.info("Invalidate cache for RptId : {}", el.rptId().value())
-                  paymentRequestInfoRedisTemplateWrapper.deleteById(el.rptId().value())
+                  reactivePaymentRequestInfoRedisTemplateWrapper
+                    .deleteById(el.rptId().value())
+                    .subscribeOn(Schedulers.boundedElastic())
+                    .subscribe()
                 }
               }
             }

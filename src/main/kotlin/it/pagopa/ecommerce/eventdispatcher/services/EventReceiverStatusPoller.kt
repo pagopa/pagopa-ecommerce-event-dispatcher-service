@@ -5,6 +5,7 @@ import it.pagopa.ecommerce.eventdispatcher.config.redis.EventDispatcherReceiverS
 import it.pagopa.ecommerce.eventdispatcher.config.redis.bean.ReceiversStatus
 import it.pagopa.generated.eventdispatcher.server.model.DeploymentVersionDto
 import java.time.OffsetDateTime
+import kotlinx.coroutines.reactor.awaitSingle
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
@@ -32,7 +33,7 @@ class EventReceiverStatusPoller(
   private val logger = LoggerFactory.getLogger(javaClass)
 
   @Scheduled(cron = "\${eventController.status.pollingChron}")
-  fun eventReceiverStatusPoller() {
+  suspend fun eventReceiverStatusPoller() {
     logger.info("Polling event receiver statuses")
     val statuses = inboundChannelAdapterLifecycleHandlerService.getAllChannelStatus()
     val instanceId = redisStreamEventControllerConfigs.instanceId
@@ -45,6 +46,6 @@ class EventReceiverStatusPoller(
         version = deploymentVersion)
     // save new receivers status as redis instance, all records will be saved with the same key,
     // making this document to be updated automatically for each poll
-    eventDispatcherReceiverStatusTemplateWrapper.save(receiversStatus)
+    eventDispatcherReceiverStatusTemplateWrapper.save(receiversStatus).awaitSingle()
   }
 }
