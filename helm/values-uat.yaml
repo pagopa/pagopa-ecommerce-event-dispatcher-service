@@ -182,7 +182,7 @@ microservice-chart:
     USER_STATS_CONNECTION_TIMEOUT: "10000"
     NPG_REFUND_EVENT_PROCESSING_DELAY_SECONDS: "10"
     SECURITY_API_KEYS_SECURED_PATHS: "/event-dispatcher"
-    TRANSACTIONSVIEW_UPDATE_ENABLED: "false"
+    TRANSACTIONSVIEW_UPDATE_ENABLED: "true"
   envSecret:
     ECOMMERCE_STORAGE_TRANSIENT_QUEUE_KEY: ecommerce-storage-transient-account-key
     NODO_NODEFORECOMMERCE_API_KEY: node-for-ecommerce-api-v2-key
