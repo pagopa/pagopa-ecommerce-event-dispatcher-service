@@ -34,18 +34,20 @@ import kotlinx.coroutines.reactor.mono
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import org.mockito.ArgumentCaptor
 import org.mockito.Captor
 import org.mockito.Mockito
+import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.*
-import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.core.env.Environment
 import org.springframework.messaging.MessageHeaders
-import org.springframework.test.context.TestPropertySource
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Hooks
 import reactor.core.publisher.Mono
@@ -54,8 +56,7 @@ import reactor.kotlin.core.publisher.toMono
 import reactor.kotlin.test.test
 import reactor.test.StepVerifier
 
-@SpringBootTest
-@TestPropertySource(locations = ["classpath:application.test.properties"])
+@ExtendWith(MockitoExtension::class)
 @OptIn(ExperimentalCoroutinesApi::class)
 class TransactionExpirationQueueConsumerTests {
 
@@ -3753,6 +3754,16 @@ class TransactionExpirationQueueConsumerTests {
   }
 
   companion object {
+
+    val mockedEnv: Environment = mock<Environment>() as Environment
+
+    @BeforeAll
+    @JvmStatic
+    fun setupTransactionViewProjectionHandler() {
+      given(mockedEnv.getProperty("transactionsview.update.enabled", "true")).willReturn("true")
+      TransactionsViewProjectionHandler.env = mockedEnv
+    }
+
     @JvmStatic
     fun manualCheckRequiredNPGResponses(): Stream<Arguments> =
       Stream.of<Either<Exception, OrderResponseDto>>(
