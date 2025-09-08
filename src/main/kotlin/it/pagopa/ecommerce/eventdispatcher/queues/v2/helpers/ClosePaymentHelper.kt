@@ -213,15 +213,25 @@ class ClosePaymentHelper(
           mono {
               nodeService.closePayment(tx.transactionId, closePaymentTransactionData.closureOutcome)
             }
-            .doFinally {
+            .doFinally { _ ->
               if (closePaymentTransactionData.canceledByUser) {
-                tx.paymentNotices.forEach { el ->
-                  logger.info("Invalidate cache for RptId : {}", el.rptId().value())
-                  reactivePaymentRequestInfoRedisTemplateWrapper
-                    .deleteById(el.rptId().value())
-                    .subscribeOn(Schedulers.boundedElastic())
-                    .subscribe()
-                }
+                Flux.fromIterable(tx.paymentNotices)
+                  .flatMap { el ->
+                    reactivePaymentRequestInfoRedisTemplateWrapper
+                      .deleteById(el.rptId().value())
+                      .map { Pair(it, el) }
+                      .doOnNext { (outcome, paymentNotice) ->
+                        logger.info(
+                          "Invalidate cache for RptId : {}, successful: {}",
+                          paymentNotice.rptId().value(),
+                          outcome)
+                      }
+                      .onErrorMap {
+                        RuntimeException("Error deleting cache for rpt id: ${el.rptId.value()}", it)
+                      }
+                  }
+                  .subscribeOn(Schedulers.boundedElastic())
+                  .subscribe()
               }
             }
             .flatMap { closePaymentResponse ->

@@ -2260,6 +2260,8 @@ class ClosePaymentHelperTests {
         ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK })
 
     doNothing().`when`(updateTransactionStatusTracerUtils).traceStatusUpdateOperation(any())
+    given(reactivePaymentRequestInfoRedisTemplateWrapper.deleteById(any()))
+      .willReturn(Mono.just(true))
     /* test */
 
     StepVerifier.create(
@@ -2344,6 +2346,8 @@ class ClosePaymentHelperTests {
           ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK })
 
       doNothing().`when`(updateTransactionStatusTracerUtils).traceStatusUpdateOperation(any())
+      given(reactivePaymentRequestInfoRedisTemplateWrapper.deleteById(any()))
+        .willReturn(Mono.just(true))
       /* test */
 
       StepVerifier.create(
@@ -2423,6 +2427,8 @@ class ClosePaymentHelperTests {
       .willReturn(
         ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.KO })
     doNothing().`when`(updateTransactionStatusTracerUtils).traceStatusUpdateOperation(any())
+    given(reactivePaymentRequestInfoRedisTemplateWrapper.deleteById(any()))
+      .willReturn(Mono.just(true))
     /* test */
 
     StepVerifier.create(
@@ -2503,6 +2509,8 @@ class ClosePaymentHelperTests {
         .willReturn(
           ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.KO })
       doNothing().`when`(updateTransactionStatusTracerUtils).traceStatusUpdateOperation(any())
+      given(reactivePaymentRequestInfoRedisTemplateWrapper.deleteById(any()))
+        .willReturn(Mono.just(true))
       /* test */
 
       StepVerifier.create(
@@ -2586,6 +2594,8 @@ class ClosePaymentHelperTests {
 
     given(closureRetryService.enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull()))
       .willReturn(Mono.empty())
+    given(reactivePaymentRequestInfoRedisTemplateWrapper.deleteById(any()))
+      .willReturn(Mono.just(true))
     /* test */
 
     StepVerifier.create(
@@ -2668,6 +2678,8 @@ class ClosePaymentHelperTests {
 
       given(closureRetryService.enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull()))
         .willReturn(Mono.empty())
+      given(reactivePaymentRequestInfoRedisTemplateWrapper.deleteById(any()))
+        .willReturn(Mono.just(true))
       /* test */
 
       StepVerifier.create(
@@ -2748,6 +2760,8 @@ class ClosePaymentHelperTests {
 
       given(closureRetryService.enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull()))
         .willReturn(Mono.empty())
+      given(reactivePaymentRequestInfoRedisTemplateWrapper.deleteById(any()))
+        .willReturn(Mono.just(true))
       /* test */
 
       StepVerifier.create(
@@ -2827,6 +2841,8 @@ class ClosePaymentHelperTests {
 
       given(closureRetryService.enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull()))
         .willReturn(Mono.empty())
+      given(reactivePaymentRequestInfoRedisTemplateWrapper.deleteById(any()))
+        .willReturn(Mono.just(true))
       /* test */
 
       StepVerifier.create(
@@ -2903,6 +2919,8 @@ class ClosePaymentHelperTests {
 
       given(closureRetryService.enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull()))
         .willReturn(Mono.empty())
+      given(reactivePaymentRequestInfoRedisTemplateWrapper.deleteById(any()))
+        .willReturn(Mono.just(true))
       /* test */
 
       StepVerifier.create(

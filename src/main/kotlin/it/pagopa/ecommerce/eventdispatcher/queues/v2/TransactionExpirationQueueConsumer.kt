@@ -126,7 +126,7 @@ class TransactionExpirationQueueConsumer(
           if (!isTransactionExpired) {
             updateTransactionToExpired(
                 tx, transactionsExpiredEventStoreRepository, transactionsViewRepository)
-              .doOnSuccess { it ->
+              .doOnSuccess {
                 transactionTracing.addSpanAttributesExpiredFlowFromTransaction(it, events)
               }
           } else {
