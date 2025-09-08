@@ -71,15 +71,15 @@ microservice-chart:
     allowPrivilegeEscalation: false
   resources:
     requests:
-      memory: "512Mi"
+      memory: "768Mi"
       cpu: "300m"
     limits:
-      memory: "512Mi"
+      memory: "768Mi"
       cpu: "900m"
   autoscaling:
     enable: true
-    minReplica: 5
-    maxReplica: 15
+    minReplica: 3
+    maxReplica: 10
     pollingInterval: 30 # seconds
     cooldownPeriod: 30 # seconds
     triggers:
@@ -95,7 +95,7 @@ microservice-chart:
             stabilizationWindowSeconds: 60
   deployment:
     create: true
-    replicas: 5
+    replicas: 3
   strategy:
     type: "RollingUpdate"
     rollingUpdate:
