@@ -45,10 +45,35 @@ stages:
                 sonar.projectName=$(SONARCLOUD_PROJECT_NAME)
                 sonar.coverage.jacoco.xmlReportPaths=./target/site/jacoco/jacoco.xml
                 sonar.junit.reportPaths=target/surefire-reports/
+
+          # necessary step to make the authentication work
+          # removing it will cause the pipeline to fail when cache gets emptied
+          - task: Bash@3
+            displayName: 'Create Maven settings.xml'
+            inputs:
+              targetType: 'inline'
+              script: |
+                mkdir -p $(Pipeline.Workspace)/.m2
+                cat > $(Pipeline.Workspace)/.m2/settings.xml << EOF
+                <?xml version="1.0" encoding="UTF-8"?>
+                <settings>
+                  <servers>
+                    <server>
+                      <id>github</id>
+                      <username>token</username>
+                      <password>${GITHUB_TOKEN}</password>
+                    </server>
+                  </servers>
+                </settings>
+                EOF
+            env:
+              GITHUB_TOKEN: $(GITHUB_RO_TOKEN)
+
           - task: Maven@4
             inputs:
               mavenPomFile: 'pom.xml'
               mavenOptions: '-Xmx3072m $(MAVEN_OPTS)'
+              options: "-s $(Pipeline.Workspace)/.m2/settings.xml"
               javaHomeOption: 'JDKVersion'
               jdkVersionOption: '21'
               jdkArchitectureOption: 'x64'
@@ -57,10 +82,14 @@ stages:
               goals: 'validate'
               sonarQubeRunAnalysis: false
             displayName: "Maven validate"
+            env:
+              GITHUB_TOKEN: $(GITHUB_RO_TOKEN)
+
           - task: Maven@4
             inputs:
               mavenPomFile: 'pom.xml'
               mavenOptions: '-Xmx3072m $(MAVEN_OPTS)'
+              options: "-s $(Pipeline.Workspace)/.m2/settings.xml"
               javaHomeOption: 'JDKVersion'
               jdkVersionOption: '21'
               jdkArchitectureOption: 'x64'
@@ -69,6 +98,9 @@ stages:
               goals: 'clean verify'
               sonarQubeRunAnalysis: true
             displayName: "Maven clean verify"
+            env:
+              GITHUB_TOKEN: $(GITHUB_RO_TOKEN)
+
           - task: SonarCloudPublish@3
             displayName: 'Publish SonarCloud results on build summary'
             inputs:
