@@ -9,7 +9,7 @@
 	</parent>
 	<groupId>it.pagopa.ecommerce</groupId>
 	<artifactId>pagopa-ecommerce-event-dispatcher-service</artifactId>
-	<version>3.1.1</version>
+	<version>3.2.0</version>
 	<name>pagopa-ecommerce-event-dispatcher-service</name>
 	<description>pagoPA ecommerce microservice to handle transaction events and perform async operations such as
 		send user email, refund based on transaction status</description>
@@ -24,12 +24,12 @@
 			<url>https://maven.pkg.github.com/pagopa/pagopa-ecommerce-commons</url>
 		</repository>
 	</repositories>
-    <pluginRepositories>
-        <pluginRepository>
-            <id>github</id>
-            <url>https://maven.pkg.github.com/pagopa/depcheck</url>
-        </pluginRepository>
-    </pluginRepositories>
+  <pluginRepositories>
+    <pluginRepository>
+      <id>github</id>
+      <url>https://maven.pkg.github.com/pagopa/depcheck</url>
+    </pluginRepository>
+  </pluginRepositories>
 	<properties>
 		<java.version>21</java.version>
 		<kotlin.version>2.1.21</kotlin.version>
