@@ -18,6 +18,8 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import org.mockito.kotlin.*
 import org.springframework.data.redis.connection.stream.RecordId
+import reactor.core.publisher.Flux
+import reactor.core.publisher.Mono
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class EventReceiversServiceTest {
@@ -48,7 +50,7 @@ class EventReceiversServiceTest {
     given(
         eventDispatcherCommandsTemplateWrapper.writeEventToStreamTrimmingEvents(
           any(), any(), any()))
-      .willReturn(RecordId.autoGenerate())
+      .willReturn(Mono.just(RecordId.autoGenerate()))
     // test
     eventReceiverService.handleCommand(eventReceiverCommandDto)
     // assertions
@@ -77,7 +79,7 @@ class EventReceiversServiceTest {
           version = DeploymentVersionDto.PROD,
           queriedAt = OffsetDateTime.now().toString()))
     given(eventDispatcherReceiverStatusTemplateWrapper.allValuesInKeySpace)
-      .willReturn(receiverStatuses)
+      .willReturn(Flux.fromIterable(receiverStatuses))
     val expectedResponse =
       EventReceiverStatusResponseDto(
         status =
@@ -103,7 +105,8 @@ class EventReceiversServiceTest {
     runTest {
       // pre-requisites
 
-      given(eventDispatcherReceiverStatusTemplateWrapper.allValuesInKeySpace).willReturn(listOf())
+      given(eventDispatcherReceiverStatusTemplateWrapper.allValuesInKeySpace)
+        .willReturn(Flux.empty())
 
       // test
       assertThrows<NoEventReceiverStatusFound> { eventReceiverService.getReceiversStatus(null) }
@@ -133,7 +136,7 @@ class EventReceiversServiceTest {
           version = DeploymentVersionDto.STAGING,
           queriedAt = OffsetDateTime.now().toString()))
     given(eventDispatcherReceiverStatusTemplateWrapper.allValuesInKeySpace)
-      .willReturn(receiverStatuses)
+      .willReturn(Flux.fromIterable(receiverStatuses))
     val expectedResponse =
       EventReceiverStatusResponseDto(
         status =

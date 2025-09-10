@@ -5,9 +5,11 @@ import it.pagopa.ecommerce.eventdispatcher.config.redis.EventDispatcherReceiverS
 import it.pagopa.ecommerce.eventdispatcher.config.redis.bean.ReceiverStatus
 import it.pagopa.ecommerce.eventdispatcher.config.redis.bean.Status
 import it.pagopa.generated.eventdispatcher.server.model.DeploymentVersionDto
+import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.*
+import reactor.core.publisher.Mono
 
 class EventReceiverStatusPollerTest {
 
@@ -30,7 +32,7 @@ class EventReceiverStatusPollerTest {
       deploymentVersion = DeploymentVersionDto.PROD)
 
   @Test
-  fun `Should poll for status successfully saving receiver statuses`() {
+  fun `Should poll for status successfully saving receiver statuses`() = runTest {
     // assertions
     val receiverStatuses =
       listOf(
@@ -38,7 +40,7 @@ class EventReceiverStatusPollerTest {
         ReceiverStatus(name = "receiver2", status = Status.DOWN))
     given(inboundChannelAdapterLifecycleHandlerService.getAllChannelStatus())
       .willReturn(receiverStatuses)
-    doNothing().`when`(eventDispatcherReceiverStatusTemplateWrapper).save(any())
+    given(eventDispatcherReceiverStatusTemplateWrapper.save(any())).willReturn(Mono.just(true))
     // test
     eventReceiverStatusPoller.eventReceiverStatusPoller()
     verify(eventDispatcherReceiverStatusTemplateWrapper, times(1))
