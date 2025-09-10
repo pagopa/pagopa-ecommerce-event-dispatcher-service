@@ -69,23 +69,6 @@ stages:
             env:
               GITHUB_TOKEN: $(GITHUB_RO_TOKEN)
 
-
-          - task: Maven@4
-            inputs:
-              mavenPomFile: 'pom.xml'
-              mavenOptions: '-Xmx3072m $(MAVEN_OPTS)'
-              options: "-s $(Pipeline.Workspace)/.m2/settings.xml"
-              javaHomeOption: 'JDKVersion'
-              jdkVersionOption: '21'
-              jdkArchitectureOption: 'x64'
-              publishJUnitResults: false
-              testResultsFiles: '**/surefire-reports/TEST-*.xml'
-              goals: 'dependency:purge-local-repository -DmanualInclude=it.pagopa:pagopa-ecommerce-commons'
-              sonarQubeRunAnalysis: false
-            displayName: 'purge local repo'
-            env:
-              GITHUB_TOKEN: $(GITHUB_RO_TOKEN)
-
           - task: Maven@4
             inputs:
               mavenPomFile: 'pom.xml'
