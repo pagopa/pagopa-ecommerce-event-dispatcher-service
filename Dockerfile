@@ -7,6 +7,7 @@ COPY mvnw .
 COPY .mvn .mvn
 COPY pom.xml .
 COPY settings.xml.template /tmp/
+COPY dep-sha256.json .
 
 RUN --mount=type=secret,id=GITHUB_TOKEN,env=GITHUB_TOKEN \
     mkdir -p ~/.m2 && \

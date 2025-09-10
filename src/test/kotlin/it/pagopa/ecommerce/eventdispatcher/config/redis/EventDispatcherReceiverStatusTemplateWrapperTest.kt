@@ -6,14 +6,15 @@ import java.time.Duration
 import java.time.ZonedDateTime
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.*
-import org.springframework.data.redis.core.RedisTemplate
-import org.springframework.data.redis.core.ValueOperations
+import org.springframework.data.redis.core.ReactiveRedisTemplate
+import org.springframework.data.redis.core.ReactiveValueOperations
+import reactor.core.publisher.Mono
 
 class EventDispatcherReceiverStatusTemplateWrapperTest {
 
-  private val redisTemplate: RedisTemplate<String, ReceiversStatus> = mock()
+  private val redisTemplate: ReactiveRedisTemplate<String, ReceiversStatus> = mock()
 
-  private val opsForValue: ValueOperations<String, ReceiversStatus> = mock()
+  private val opsForValue: ReactiveValueOperations<String, ReceiversStatus> = mock()
 
   private val defaultTTL = Duration.ofSeconds(1)
 
@@ -31,7 +32,7 @@ class EventDispatcherReceiverStatusTemplateWrapperTest {
         consumerInstanceId = consumerId,
         version = DeploymentVersionDto.PROD)
     given(redisTemplate.opsForValue()).willReturn(opsForValue)
-    doNothing().`when`(opsForValue).set(any(), any(), any<Duration>())
+    given(opsForValue.set(any(), any(), any<Duration>())).willReturn(Mono.just(true))
     eventDispatcherReceiverStatusTemplateWrapper.save(receiverStatus)
     verify(opsForValue, times(1)).set("receiver-status:$consumerId", receiverStatus, defaultTTL)
   }

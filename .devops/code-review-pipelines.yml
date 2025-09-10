@@ -79,22 +79,6 @@ stages:
               jdkArchitectureOption: 'x64'
               publishJUnitResults: false
               testResultsFiles: '**/surefire-reports/TEST-*.xml'
-              goals: 'validate'
-              sonarQubeRunAnalysis: false
-            displayName: "Maven validate"
-            env:
-              GITHUB_TOKEN: $(GITHUB_RO_TOKEN)
-
-          - task: Maven@4
-            inputs:
-              mavenPomFile: 'pom.xml'
-              mavenOptions: '-Xmx3072m $(MAVEN_OPTS)'
-              options: "-s $(Pipeline.Workspace)/.m2/settings.xml"
-              javaHomeOption: 'JDKVersion'
-              jdkVersionOption: '21'
-              jdkArchitectureOption: 'x64'
-              publishJUnitResults: false
-              testResultsFiles: '**/surefire-reports/TEST-*.xml'
               goals: 'clean verify'
               sonarQubeRunAnalysis: true
             displayName: "Maven clean verify"
@@ -127,6 +111,8 @@ stages:
           - script: docker compose up pagopa-ecommerce-transactions-service pagopa-ecommerce-payment-methods-service pagopa-ecommerce-event-dispatcher-service mongo redis storage pagopa-pdv-mock pagopa-gec-mock pagopa-npg-mock pagopa-node-mock traefik azurite-init pagopa-psp-mock pagopa-notifications-service pagopa-jwt-issuer-mock pagopa-ecommerce-transactions-scheduler-service -d
             displayName: 'Run app with docker-compose'
             workingDirectory: pagopa-ecommerce-local
+            env:
+              GITHUB_TOKEN: $(GITHUB_RO_TOKEN)
           - script: |
               timeout 180 bash -c 'while [[ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:8080/actuator/health/liveness)" != "200" ]]; do sleep 5; done' || exit 1
             displayName: 'Health check'
