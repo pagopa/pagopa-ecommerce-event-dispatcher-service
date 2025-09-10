@@ -145,7 +145,7 @@ microservice-chart:
     NOTIFICATIONS_SERVICE_URI: https://api.uat.platform.pagopa.it/ecommerce/notifications-service/v1
     NOTIFICATIONS_SERVICE_READ_TIMEOUT: "10000"
     NOTIFICATIONS_SERVICE_CONNECTION_TIMEOUT: "10000"
-    TRANSACTIONS_SERVICE_URI: https://api.uat.platform.pagopa.it/ecommerce/transaction-auth-requests-service/v2
+    TRANSACTIONS_SERVICE_URI: https://weuuat.ecommerce.internal.uat.platform.pagopa.it/beta/pagopa-ecommerce-transactions-service/v2
     TRANSACTIONS_SERVICE_READ_TIMEOUT: "10000"
     TRANSACTIONS_SERVICE_CONNECTION_TIMEOUT: "10000"
     PERSONAL_DATA_VAULT_API_BASE_PATH: "https://api.uat.platform.pagopa.it/ecommerce/mock/pdv/v1"
