@@ -74,7 +74,7 @@ stages:
         displayName: Build docker with Build.SourceVersion as TAG
         steps:
           - task: Bash@3
-            displayName: "write github token file"
+            displayName: "Write GitHub token file"
             inputs:
               targetType: "inline"
               script: |
@@ -173,7 +173,7 @@ stages:
         displayName: 'Build release candidate docker image'
         steps:
           - task: Bash@3
-            displayName: "write github token file"
+            displayName: "Write GitHub token file"
             inputs:
               targetType: "inline"
               script: |
