@@ -1335,7 +1335,7 @@
       "artifactId": "pagopa-ecommerce-commons",
       "groupId": "it.pagopa",
       "version": "3.2.0",
-      "sha256": "QoDH72V7V77UKuNVZcP_Db6c-zXEddWrWHWXVn-cCls="
+      "sha256": "Ooxmn4epRIEmcApaHVcRQDsubhZn02hrvUFN0AJ9lCA="
     },
     {
       "id": "org.springframework.boot:spring-boot-starter-web-services:jar:3.4.5",
@@ -1524,7 +1524,7 @@
       "artifactId": "pagopa-ecommerce-commons",
       "groupId": "it.pagopa",
       "version": "3.2.0",
-      "sha256": "lv6xsT4CVGMGzJafiqE6lDC1YUwChH3M8IKxFYFjVE8="
+      "sha256": "LeYLB-MgSJMEK-0afPm9cyKNt08uXnNk688ytdNFF7g="
     },
     {
       "id": "com.squareup.okhttp3:okhttp:jar:4.12.0",
