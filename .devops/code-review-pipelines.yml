@@ -69,6 +69,7 @@ stages:
             env:
               GITHUB_TOKEN: $(GITHUB_RO_TOKEN)
 
+
           - task: Maven@4
             inputs:
               mavenPomFile: 'pom.xml'
@@ -79,9 +80,9 @@ stages:
               jdkArchitectureOption: 'x64'
               publishJUnitResults: false
               testResultsFiles: '**/surefire-reports/TEST-*.xml'
-              goals: 'validate'
+              goals: 'dependency:purge-local-repository -DmanualInclude=it.pagopa:pagopa-ecommerce-commons'
               sonarQubeRunAnalysis: false
-            displayName: "Maven validate"
+            displayName: 'purge local repo'
             env:
               GITHUB_TOKEN: $(GITHUB_RO_TOKEN)
 
