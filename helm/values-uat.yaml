@@ -142,7 +142,7 @@ microservice-chart:
     AUTHORIZATION_OUTCOME_FIRST_ATTEMPT_DELAY_SECONDS: "175"
     AUTHORIZATION_OUTCOME_WAITING_EVENT_BASE_INTERVAL_SECONDS: "80"
     AUTHORIZATION_OUTCOME_WAITING_EVENT_MAX_ATTEMPTS: "3"
-    NOTIFICATIONS_SERVICE_URI: https://api.uat.platform.pagopa.it/ecommerce/notifications-service/v1
+    NOTIFICATIONS_SERVICE_URI: https://weuuat.ecommerce.internal.uat.platform.pagopa.it/beta/pagopa-notifications-service/
     NOTIFICATIONS_SERVICE_READ_TIMEOUT: "10000"
     NOTIFICATIONS_SERVICE_CONNECTION_TIMEOUT: "10000"
     TRANSACTIONS_SERVICE_URI: https://weuuat.ecommerce.internal.uat.platform.pagopa.it/beta/pagopa-ecommerce-transactions-service/v2
