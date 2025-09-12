@@ -6,6 +6,7 @@ import it.pagopa.ecommerce.eventdispatcher.config.redis.EventDispatcherReceiverS
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoEventReceiverStatusFound
 import it.pagopa.ecommerce.eventdispatcher.redis.streams.commands.EventDispatcherReceiverCommand
 import it.pagopa.generated.eventdispatcher.server.model.*
+import kotlinx.coroutines.reactor.awaitSingle
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
@@ -34,12 +35,14 @@ class EventReceiverService(
     logger.info("Received event receiver command request, command: {}", commandToSend)
     // trim all events before adding new event to be processed
     val recordId =
-      eventDispatcherCommandsTemplateWrapper.writeEventToStreamTrimmingEvents(
-        redisStreamConf.streamKey,
-        EventDispatcherReceiverCommand(
-          receiverCommand = commandToSend,
-          version = eventReceiverCommandRequestDto.deploymentVersion),
-        0)
+      eventDispatcherCommandsTemplateWrapper
+        .writeEventToStreamTrimmingEvents(
+          redisStreamConf.streamKey,
+          EventDispatcherReceiverCommand(
+            receiverCommand = commandToSend,
+            version = eventReceiverCommandRequestDto.deploymentVersion),
+          0)
+        .awaitSingle()
 
     logger.info("Sent new event to Redis stream with id: [{}]", recordId)
   }
@@ -47,30 +50,29 @@ class EventReceiverService(
   suspend fun getReceiversStatus(
     deploymentVersionDto: DeploymentVersionDto?
   ): EventReceiverStatusResponseDto {
-    val lastStatuses =
-      eventDispatcherReceiverStatusTemplateWrapper.allValuesInKeySpace
-        .filter {
-          if (deploymentVersionDto != null) {
-            it.version == deploymentVersionDto
-          } else {
-            true
-          }
+    return eventDispatcherReceiverStatusTemplateWrapper.allValuesInKeySpace
+      .filter {
+        if (deploymentVersionDto != null) {
+          it.version == deploymentVersionDto
+        } else {
+          true
         }
-        .map { receiverStatuses ->
-          EventReceiverStatusDto(
-            receiverStatuses =
-              receiverStatuses.receiverStatuses.map { receiverStatus ->
-                ReceiverStatusDto(
-                  status =
-                    receiverStatus.status.let { ReceiverStatusDto.Status.valueOf(it.toString()) },
-                  name = receiverStatus.name)
-              },
-            instanceId = receiverStatuses.consumerInstanceId,
-            deploymentVersion = receiverStatuses.version)
-        }
-    if (lastStatuses.isEmpty()) {
-      throw NoEventReceiverStatusFound()
-    }
-    return EventReceiverStatusResponseDto(status = lastStatuses)
+      }
+      .map { receiverStatuses ->
+        EventReceiverStatusDto(
+          receiverStatuses =
+            receiverStatuses.receiverStatuses.map { receiverStatus ->
+              ReceiverStatusDto(
+                status =
+                  receiverStatus.status.let { ReceiverStatusDto.Status.valueOf(it.toString()) },
+                name = receiverStatus.name)
+            },
+          instanceId = receiverStatuses.consumerInstanceId,
+          deploymentVersion = receiverStatuses.version)
+      }
+      .switchIfEmpty { throw NoEventReceiverStatusFound() }
+      .collectList()
+      .map { EventReceiverStatusResponseDto(status = it) }
+      .awaitSingle()
   }
 }

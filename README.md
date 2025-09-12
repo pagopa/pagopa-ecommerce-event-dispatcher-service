@@ -122,6 +122,25 @@ see [docs](https://www.mongodb.com/docs/drivers/java/sync/v4.3/fundamentals/conn
 
 ## Run the application with `Docker`
 
+### Prerequisites
+Set up GitHub authentication for packages (required for pagopa-ecommerce-commons dependency):
+
+1. Configure Maven settings file:
+- **If you don't have ~/.m2/settings.xml:**
+	```sh
+	cp settings.xml.template ~/.m2/settings.xml
+	```
+- **If you already have ~/.m2/settings.xml:** Edit the file to add the GitHub server configuration from `settings.xml.template`, or replace the `${GITHUB_TOKEN}` placeholder with your actual token.
+
+
+2. Set your GitHub token:
+```sh
+export GITHUB_TOKEN=your_github_token_with_packages_read_permission
+```
+
+**Note:** The settings.xml file is required for Maven to authenticate with GitHub Packages. Without proper configuration, builds will fail with 401 Unauthorized errors.
+
+### Run with Docker Compose
 Create your environment typing :
 
 ```sh
@@ -134,12 +153,32 @@ Then from current project directory run :
 docker-compose up
 ```
 
+### Build Docker Image
+```sh
+docker build --secret id=GITHUB_TOKEN,env=GITHUB_TOKEN -t pagopa-ecommerce-event-dispatcher-service .
+```
+
 ## Run the application with `springboot-plugin`
 
-Create your environment:
+### Prerequisites
+Set up GitHub authentication for packages (required for pagopa-ecommerce-commons dependency):
 
+1. Configure Maven settings file:
+- **If you don't have ~/.m2/settings.xml:**
+	```sh
+	cp settings.xml.template ~/.m2/settings.xml
+	```
+- **If you already have ~/.m2/settings.xml:** Edit the file to add the GitHub server configuration from `settings.xml.template`, or replace the `${GITHUB_TOKEN}` placeholder with your actual token.
+
+
+2. Create your environment:
 ```sh
 export $(grep -v '^#' .env.local | xargs)
+```
+
+3. Set your GitHub token:
+```sh
+export GITHUB_TOKEN=your_github_token_with_packages_read_permission
 ```
 
 Then from current project directory run :
@@ -147,6 +186,8 @@ Then from current project directory run :
 ```sh
 mvn spring-boot:run
 ```
+
+**Note:** The application now uses pagopa-ecommerce-commons library directly from GitHub Packages. Make sure your GitHub token has `packages:read` permission for the `pagopa/pagopa-ecommerce-commons` repository.
 
 Note that with this method you would also need an active Redis instance on your local machine.
 We suggest you to use the [ecommerce-local](https://github.com/pagopa/pagopa-ecommerce-local) instead.
@@ -256,3 +297,55 @@ There is a postman with api request pre-configured to start/stop consumers and t
 UNKNOWN)
 
 The collection is stored into this repo at -> command-postman-collection/commands.postman_collection.json
+
+## Dependency Verification
+
+This project uses the [pagopa/depcheck](https://github.com/pagopa/depcheck) Maven plugin to verify SHA-256 hashes of all dependencies, ensuring supply chain integrity and preventing dependency tampering attacks.
+
+### How It Works
+The plugin maintains a JSON file containing SHA-256 hashes of all project dependencies. During verification, it compares the hashes of resolved artifacts against the stored values, failing the build if any mismatches are detected.
+
+### Configuration
+
+```xml
+<plugin>
+<groupId>it.pagopa.maven</groupId>
+<artifactId>depcheck</artifactId>
+<version>1.3.0</version>
+<configuration>
+	<fileName>dep-sha256.json</fileName>
+	<includePlugins>false</includePlugins>
+	<includeParent>false</includeParent>
+	<excludes>
+	<!-- Optional: Exclude specific dependencies -->
+	</excludes>
+</configuration>
+<executions>
+	<execution>
+	<phase>validate</phase>
+	<goals>
+		<goal>verify</goal>
+	</goals>
+	</execution>
+</executions>
+</plugin>
+```
+
+### Usage
+First of all, ensure your GitHub token and `settings.xml` are properly configured.
+
+1. **Generate hashes**: When adding new dependencies or updating existing ones:
+```sh
+mvn depcheck:generate
+```
+**NOTE**: Always commit the updated hash file to version control after adding or updating dependencies
+
+2. **Verify hashes**: This happens automatically during the `validate` phase, and so, automatically, in CI/CD pipelines.
+You can also explicitly run:
+```sh
+mvn depcheck:verify
+```
+
+### Important Notes
+
+- **Maven plugins** have empty SHA-256 values by default as they're not resolved as JAR files during the regular build. Right now `includePlugins=false` avoid empty hashes and plugin check.
