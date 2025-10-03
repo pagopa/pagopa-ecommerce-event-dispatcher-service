@@ -32,7 +32,7 @@ microservice-chart:
     envSecret: {}
   image:
     repository: pagopadcommonacr.azurecr.io/pagopaecommerceeventdispatcherservice
-    tag: "3.4.0"
+    tag: "3.5.0"
     pullPolicy: Always
   livenessProbe:
     handlerType: httpGet
