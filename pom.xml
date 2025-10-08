@@ -448,7 +448,7 @@
 							<goal>generate</goal>
 						</goals>
 						<configuration>
-							<inputSpec>https://raw.githubusercontent.com/pagopa/pagopa-infra/v1.474.0/src/domains/ecommerce-app/api/ecommerce-transaction-auth-requests-service/v2/_openapi.json.tpl</inputSpec>
+							<inputSpec>https://raw.githubusercontent.com/pagopa/pagopa-infra/CHK-4496-wallet-notification-from-ecommerce/src/domains/ecommerce-app/api/ecommerce-transaction-auth-requests-service/v2/_openapi.json.tpl</inputSpec>
 							<generatorName>java</generatorName>
 							<library>webclient</library>
 							<generateApiDocumentation>false</generateApiDocumentation>
