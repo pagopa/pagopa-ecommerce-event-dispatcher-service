@@ -351,7 +351,6 @@ fun patchAuthRequestByState(
                   errorCode = stateResponseDto.operation!!.additionalData!!["errorCode"] as String?
                   cardId4 = stateResponseDto.operation!!.additionalData!!["cardId4"] as String?
                 }
-                securityToken = stateResponseDto.fieldSet?.securityToken
                 paymentEndToEndId = NpgClientUtils.getPaymentEndToEndId(stateResponseDto.operation)
               }
             timestampOperation = getTimeStampOperation(stateResponseDto.operation!!.operationTime!!)
