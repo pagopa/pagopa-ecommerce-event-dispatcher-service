@@ -41,7 +41,8 @@ public class EventsUtil {
                         "NPG_CONFIRM_PAYMENT_SESSION_ID", // confirmSessionId
                         null // transactionData (nullable)
                 ),
-                "idBundle" // idBundle
+                "idBundle", // idBundle
+                false
         );
 
         // Set the event data

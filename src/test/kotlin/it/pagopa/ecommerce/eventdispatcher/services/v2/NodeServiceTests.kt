@@ -304,7 +304,8 @@ class NodeServiceTests {
           TransactionAuthorizationRequestData.PaymentGateway.REDIRECT,
           "paymentMethodDescription",
           authRequestedData,
-          null))
+          null,
+          false))
     val authCompletedEvent = transactionAuthorizationCompletedEvent(authCompletedData)
     val closureRequestedEvent = transactionClosureRequestedEvent()
     val closureError = transactionClosureErrorEvent()
@@ -1665,6 +1666,7 @@ class NodeServiceTests {
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
           "paymentMethodDescription",
           satispayTransactionGatewayAuthorizationRequestedData,
+          null,
           null))
     val authCompletedEvent =
       transactionAuthorizationCompletedEvent(satispayTransactionGatewayAuthorizationData)
@@ -1812,7 +1814,8 @@ class NodeServiceTests {
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
           "paymentMethodDescription",
           satispayTransactionGatewayAuthorizationRequestedData,
-          idBundle))
+          idBundle,
+          false))
 
     val authCompletedEvent =
       transactionAuthorizationCompletedEvent(satispayTransactionGatewayAuthorizationData)
@@ -1957,7 +1960,8 @@ class NodeServiceTests {
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
             paypalTransactionGatewayAuthorizationRequestedData,
-            null))
+            null,
+            false))
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(satispayTransactionGatewayAuthorizationData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -2079,7 +2083,8 @@ class NodeServiceTests {
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
             paypalTransactionGatewayAuthorizationRequestedData,
-            null))
+            null,
+            false))
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(satispayTransactionGatewayAuthorizationData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -2204,7 +2209,8 @@ class NodeServiceTests {
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
           "paymentMethodDescription",
           satispayTransactionGatewayAuthorizationRequestedData,
-          null))
+          null,
+          false))
     val authCompletedEvent =
       transactionAuthorizationCompletedEvent(applepayTransactionGatewayAuthorizationData)
     val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -2349,7 +2355,8 @@ class NodeServiceTests {
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
           "paymentMethodDescription",
           satispayTransactionGatewayAuthorizationRequestedData,
-          idBundle))
+          idBundle,
+          false))
     val authCompletedEvent =
       transactionAuthorizationCompletedEvent(applepayTransactionGatewayAuthorizationData)
     val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -2492,7 +2499,8 @@ class NodeServiceTests {
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
             paypalTransactionGatewayAuthorizationRequestedData,
-            null))
+            null,
+            false))
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(satispayTransactionGatewayAuthorizationData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -2614,7 +2622,8 @@ class NodeServiceTests {
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
             paypalTransactionGatewayAuthorizationRequestedData,
-            null))
+            null,
+            false))
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(satispayTransactionGatewayAuthorizationData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -2739,7 +2748,8 @@ class NodeServiceTests {
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
           "paymentMethodDescription",
           googlepayTransactionGatewayAuthorizationRequestedData,
-          null))
+          null,
+          false))
     val authCompletedEvent =
       transactionAuthorizationCompletedEvent(applepayTransactionGatewayAuthorizationData)
     val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -2884,7 +2894,8 @@ class NodeServiceTests {
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
           "paymentMethodDescription",
           googlepayTransactionGatewayAuthorizationRequestedData,
-          idBundle))
+          idBundle,
+          false))
     val authCompletedEvent =
       transactionAuthorizationCompletedEvent(applepayTransactionGatewayAuthorizationData)
     val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -3027,7 +3038,8 @@ class NodeServiceTests {
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
             googleTransactionGatewayAuthorizationRequestedData,
-            null))
+            null,
+            false))
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(satispayTransactionGatewayAuthorizationData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -3149,7 +3161,8 @@ class NodeServiceTests {
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
             paypalTransactionGatewayAuthorizationRequestedData,
-            null))
+            null,
+            false))
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(googlepayTransactionGatewayAuthorizationData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -3274,7 +3287,8 @@ class NodeServiceTests {
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
           "paymentMethodDescription",
           paypalTransactionGatewayAuthorizationRequestedData,
-          null))
+          null,
+          false))
     val authCompletedEvent =
       transactionAuthorizationCompletedEvent(paypalTransactionGatewayAuthorizationData)
     val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -3424,7 +3438,8 @@ class NodeServiceTests {
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
           "paymentMethodDescription",
           paypalTransactionGatewayAuthorizationRequestedData,
-          idBundle))
+          idBundle,
+          false))
     val authCompletedEvent =
       transactionAuthorizationCompletedEvent(paypalTransactionGatewayAuthorizationData)
     val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -3572,7 +3587,8 @@ class NodeServiceTests {
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
             paypalTransactionGatewayAuthorizationRequestedData,
-            null))
+            null,
+            false))
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(paypalTransactionGatewayAuthorizationData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -3694,7 +3710,8 @@ class NodeServiceTests {
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
             paypalTransactionGatewayAuthorizationRequestedData,
-            null))
+            null,
+            false))
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(paypalTransactionGatewayAuthorizationData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -3819,7 +3836,8 @@ class NodeServiceTests {
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
           "paymentMethodDescription",
           bancomatPayTransactionGatewayAuthorizationRequestedData,
-          null))
+          null,
+          false))
     val authCompletedEvent =
       transactionAuthorizationCompletedEvent(bancomatPayTransactionGatewayAuthorizationData)
     val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -3972,7 +3990,8 @@ class NodeServiceTests {
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
           "paymentMethodDescription",
           bancomatPayTransactionGatewayAuthorizationRequestedData,
-          idBundle))
+          idBundle,
+          false))
     val authCompletedEvent =
       transactionAuthorizationCompletedEvent(bancomatPayTransactionGatewayAuthorizationData)
     val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -4122,7 +4141,8 @@ class NodeServiceTests {
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
             bancomatPayTransactionGatewayAuthorizationRequestedData,
-            null))
+            null,
+            false))
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(bancomatPayTransactionGatewayAuthorizationData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -4244,7 +4264,8 @@ class NodeServiceTests {
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
             bancomatPayTransactionGatewayAuthorizationRequestedData,
-            null))
+            null,
+            false))
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(bancomatPayTransactionGatewayAuthorizationData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -4369,7 +4390,8 @@ class NodeServiceTests {
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
           "paymentMethodDescription",
           myBankTransactionGatewayAuthorizationRequestedData,
-          null))
+          null,
+          false))
     val authCompletedEvent =
       transactionAuthorizationCompletedEvent(myBankTransactionGatewayAuthorizationData)
     val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -4518,7 +4540,8 @@ class NodeServiceTests {
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
           "paymentMethodDescription",
           myBankTransactionGatewayAuthorizationRequestedData,
-          idBundle))
+          idBundle,
+          false))
     val authCompletedEvent =
       transactionAuthorizationCompletedEvent(myBankTransactionGatewayAuthorizationData)
     val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -4664,7 +4687,8 @@ class NodeServiceTests {
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
             myBankTransactionGatewayAuthorizationRequestedData,
-            null))
+            null,
+            false))
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(myBankTransactionGatewayAuthorizationData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -4786,7 +4810,8 @@ class NodeServiceTests {
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
             myBankTransactionGatewayAuthorizationRequestedData,
-            null))
+            null,
+            false))
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(myBankTransactionGatewayAuthorizationData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -4910,7 +4935,8 @@ class NodeServiceTests {
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
           "paymentMethodDescription",
           authRequestedData,
-          null))
+          null,
+          false))
     val authCompletedEvent = transactionAuthorizationCompletedEvent(authData)
     val closureRequestedEvent = transactionClosureRequestedEvent()
     val closureError = transactionClosureErrorEvent()
@@ -5054,7 +5080,8 @@ class NodeServiceTests {
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
             authRequestedData,
-            null))
+            null,
+            false))
       val authCompletedEvent = transactionAuthorizationCompletedEvent(authCompletedData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
       val closureError = transactionClosureErrorEvent()
@@ -5176,7 +5203,8 @@ class NodeServiceTests {
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
             authRequestedData,
-            null))
+            null,
+            false))
       val authCompletedEvent = transactionAuthorizationCompletedEvent(authCompletedData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
       val closureError = transactionClosureErrorEvent()
@@ -5301,7 +5329,8 @@ class NodeServiceTests {
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
           "paymentMethodDescription",
           authRequestedData,
-          null))
+          null,
+          false))
     val authCompletedEvent = transactionAuthorizationCompletedEvent(authData)
     val closureRequestedEvent = transactionClosureRequestedEvent()
     val closureError = transactionClosureErrorEvent()
@@ -5447,7 +5476,8 @@ class NodeServiceTests {
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
             authRequestedData,
-            null))
+            null,
+            false))
       val authCompletedEvent = transactionAuthorizationCompletedEvent(authCompletedData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
       val closureError = transactionClosureErrorEvent()
@@ -5568,7 +5598,8 @@ class NodeServiceTests {
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
             authRequestedData,
-            null))
+            null,
+            false))
       val authCompletedEvent = transactionAuthorizationCompletedEvent(authCompletedData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
       val closureError = transactionClosureErrorEvent()
@@ -6040,7 +6071,8 @@ class NodeServiceTests {
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
           "paymentMethodDescription",
           paypalTransactionGatewayAuthorizationRequestedData,
-          null))
+          null,
+          false))
     val authCompletedEvent =
       transactionAuthorizationCompletedEvent(paypalTransactionGatewayAuthorizationData)
     val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -6195,7 +6227,8 @@ class NodeServiceTests {
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
             paypalTransactionGatewayAuthorizationRequestedData,
-            null))
+            null,
+            false))
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(paypalTransactionGatewayAuthorizationData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -6318,7 +6351,8 @@ class NodeServiceTests {
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
             paypalTransactionGatewayAuthorizationRequestedData,
-            null))
+            null,
+            false))
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(paypalTransactionGatewayAuthorizationData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -6444,7 +6478,8 @@ class NodeServiceTests {
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
           "paymentMethodDescription",
           bancomatPayTransactionGatewayAuthorizationRequestedData,
-          null))
+          null,
+          false))
     val authCompletedEvent =
       transactionAuthorizationCompletedEvent(bancomatPayTransactionGatewayAuthorizationData)
     val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -6602,7 +6637,8 @@ class NodeServiceTests {
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
             bancomatPayTransactionGatewayAuthorizationRequestedData,
-            null))
+            null,
+            false))
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(bancomatPayTransactionGatewayAuthorizationData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -6725,7 +6761,8 @@ class NodeServiceTests {
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
             bancomatPayTransactionGatewayAuthorizationRequestedData,
-            null))
+            null,
+            false))
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(bancomatPayTransactionGatewayAuthorizationData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -6851,7 +6888,8 @@ class NodeServiceTests {
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
           "paymentMethodDescription",
           myBankTransactionGatewayAuthorizationRequestedData,
-          null))
+          null,
+          false))
     val authCompletedEvent =
       transactionAuthorizationCompletedEvent(myBankTransactionGatewayAuthorizationData)
     val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -7004,7 +7042,8 @@ class NodeServiceTests {
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
             myBankTransactionGatewayAuthorizationRequestedData,
-            null))
+            null,
+            false))
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(myBankTransactionGatewayAuthorizationData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -7127,7 +7166,8 @@ class NodeServiceTests {
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
             myBankTransactionGatewayAuthorizationRequestedData,
-            null))
+            null,
+            false))
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(myBankTransactionGatewayAuthorizationData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
@@ -7252,7 +7292,8 @@ class NodeServiceTests {
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
           "paymentMethodDescription",
           authRequestedData,
-          null))
+          null,
+          false))
     val authCompletedEvent = transactionAuthorizationCompletedEvent(authData)
     val closureRequestedEvent = transactionClosureRequestedEvent()
     val closureError = transactionClosureErrorEvent()
@@ -7403,7 +7444,8 @@ class NodeServiceTests {
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
             authRequestedData,
-            null))
+            null,
+            false))
       val authCompletedEvent = transactionAuthorizationCompletedEvent(authCompletedData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
       val closureError = transactionClosureErrorEvent()
@@ -7526,7 +7568,8 @@ class NodeServiceTests {
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
             authRequestedData,
-            null))
+            null,
+            false))
       val authCompletedEvent = transactionAuthorizationCompletedEvent(authCompletedData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
       val closureError = transactionClosureErrorEvent()
@@ -7650,7 +7693,8 @@ class NodeServiceTests {
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
             authRequestedData,
-            null))
+            null,
+            false))
       val authCompletedEvent = transactionAuthorizationCompletedEvent(authData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
       val closureError = transactionClosureErrorEvent()
@@ -7717,7 +7761,8 @@ class NodeServiceTests {
           TransactionAuthorizationRequestData.PaymentGateway.NPG,
           "paymentMethodDescription",
           authRequestedData,
-          null))
+          null,
+          false))
     val authCompletedEvent = transactionAuthorizationCompletedEvent(authData)
     val closureRequestedEvent = transactionClosureRequestedEvent()
     val closureError = transactionClosureErrorEvent()
@@ -7793,7 +7838,8 @@ class NodeServiceTests {
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
             authRequestedData,
-            null))
+            null,
+            false))
       val authCompletedEvent = transactionAuthorizationCompletedEvent(authData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
       val closureError = transactionClosureErrorEvent()
@@ -7946,7 +7992,8 @@ class NodeServiceTests {
             TransactionAuthorizationRequestData.PaymentGateway.NPG,
             "paymentMethodDescription",
             paypalTransactionGatewayAuthorizationRequestedData,
-            null))
+            null,
+            false))
       val authCompletedEvent =
         transactionAuthorizationCompletedEvent(paypalTransactionGatewayAuthorizationData)
       val closureRequestedEvent = transactionClosureRequestedEvent()
