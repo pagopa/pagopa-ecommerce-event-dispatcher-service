@@ -14,5 +14,6 @@ enum class PaymentCode {
   APPL,
   SATY,
   KLRN,
-  GOOG
+  GOOG,
+    RFBK
 }
