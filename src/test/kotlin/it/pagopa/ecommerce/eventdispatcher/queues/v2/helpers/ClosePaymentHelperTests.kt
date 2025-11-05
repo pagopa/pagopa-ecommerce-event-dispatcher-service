@@ -6417,6 +6417,127 @@ class ClosePaymentHelperTests {
       .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
   }
 
+  @ParameterizedTest
+  @ValueSource(strings = ["Invalid token"])
+  fun `consumer should skip retry and refund for Nodo close payment response 400 with specific description`(
+    nodoErrorDescription: String
+  ) = runTest {
+    whenever(mockedEnv.getProperty(ENV_TRANSACTIONS_VIEW_UPDATED_ENABLED_FLAG, "true"))
+      .thenReturn("true")
+    val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
+    val authorizationRequestEvent =
+      transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
+    val authorizationCompleteEvent =
+      transactionAuthorizationCompletedEvent(
+        NpgTransactionGatewayAuthorizationData(
+          OperationResultDto.EXECUTED, "operationId", "paymentEnd2EndId", null, null))
+        as TransactionEvent<Any>
+    val closureRequestedEvent = transactionClosureRequestedEvent() as TransactionEvent<Any>
+
+    val events =
+      listOf(
+        activationEvent,
+        authorizationRequestEvent,
+        authorizationCompleteEvent,
+        closureRequestedEvent)
+
+    /* preconditions */
+    given(checkpointer.success()).willReturn(Mono.empty())
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
+      .willReturn(events.toFlux())
+    given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+      .willReturnConsecutively(
+        listOf(
+          Mono.just(
+            transactionDocument(
+              TransactionStatusDto.CLOSURE_ERROR,
+              ZonedDateTime.parse(activationEvent.creationDate))),
+          Mono.just(
+            transactionDocument(
+              TransactionStatusDto.CLOSED, ZonedDateTime.parse(activationEvent.creationDate))),
+          Mono.just(
+            transactionDocument(
+              TransactionStatusDto.REFUND_REQUESTED,
+              ZonedDateTime.parse(activationEvent.creationDate)))))
+    given(transactionsViewRepository.save(viewArgumentCaptor.capture())).willAnswer {
+      Mono.just(it.arguments[0])
+    }
+    given(
+        transactionClosureErrorEventStoreRepository.save(
+          closureErrorEventStoreRepositoryCaptor.capture()))
+      .willAnswer { Mono.just(it.arguments[0]) }
+    given(transactionClosedEventRepository.save(closedEventStoreRepositoryCaptor.capture()))
+      .willAnswer { Mono.just(it.arguments[0]) }
+    given(
+        transactionsRefundedEventStoreRepository.save(refundedEventStoreRepositoryCaptor.capture()))
+      .willAnswer { Mono.just(it.arguments[0]) }
+    given(nodeService.closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK))
+      .willThrow(
+        ClosePaymentErrorResponseException(
+          statusCode = HttpStatus.BAD_REQUEST,
+          errorResponse = ErrorDto().outcome("KO").description(nodoErrorDescription)))
+    given(
+        refundQueueAsyncClient.sendMessageWithResponse(
+          any<QueueEvent<TransactionRefundRequestedEvent>>(), any(), any()))
+      .willReturn(queueSuccessfulResponse())
+
+    /* test */
+
+    StepVerifier.create(
+        closePaymentHelper.closePayment(
+          ClosePaymentEvent.requested(
+            QueueEvent(
+              closureRequestedEvent as TransactionClosureRequestedEvent, MOCK_TRACING_INFO)),
+          checkpointer,
+          EmptyTransaction()))
+      .expectNext(Unit)
+      .verifyComplete()
+
+    /* Asserts */
+    verify(checkpointer, Mockito.times(1)).success()
+    verify(nodeService, Mockito.times(1))
+      .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK)
+    verify(reactivePaymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never())
+      .deleteById(any())
+    verify(transactionClosedEventRepository, Mockito.times(0)).save(any())
+    verify(transactionClosureErrorEventStoreRepository, Mockito.times(1)).save(any())
+    verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).save(any())
+    verify(transactionsViewRepository, Mockito.times(1)).save(any())
+    verify(closureRetryService, times(0))
+      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
+    verify(refundQueueAsyncClient, times(0))
+      .sendMessageWithResponse(any<QueueEvent<TransactionRefundRequestedEvent>>(), any(), any())
+    verify(updateTransactionStatusTracerUtils, times(1))
+      .traceStatusUpdateOperation(
+        ClosePaymentNodoStatusUpdate(
+          UpdateTransactionStatusTracerUtils.UpdateTransactionStatusOutcome.PROCESSING_ERROR,
+          PSP_ID,
+          PAYMENT_TYPE_CODE,
+          ClientId.CHECKOUT,
+          false,
+          UpdateTransactionStatusTracerUtils.GatewayOutcomeResult(
+            ClosePaymentOutcome.KO.toString(),
+            Optional.of("HTTP code:[400] - descr:[$nodoErrorDescription]"))))
+    val expectedViewUpdateStatuses =
+      listOf(
+        TransactionStatusDto.CLOSURE_ERROR,
+      )
+    expectedViewUpdateStatuses.forEachIndexed { idx, transactionStatusDto ->
+      assertEquals(
+        transactionStatusDto,
+        viewArgumentCaptor.allValues[idx].status,
+        "Unexpected view status update at idx: $idx")
+    }
+    assertEquals(
+      TransactionEventCode.TRANSACTION_CLOSURE_ERROR_EVENT.name,
+      closureErrorEventStoreRepositoryCaptor.value.eventCode)
+    verify(transactionTracing, never())
+      .addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction(any(), any())
+    verify(mockOpenTelemetryUtils, never())
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
+  }
+
   private fun getTransactionTracingMock(): TransactionTracing {
     // Create a mock of OpenTelemetryUtils
     val mockOpenTelemetryUtils: OpenTelemetryUtils = mock()
