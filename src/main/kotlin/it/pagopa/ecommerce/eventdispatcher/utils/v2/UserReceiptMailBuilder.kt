@@ -125,7 +125,7 @@ class UserReceiptMailBuilder(@Autowired private val confidentialDataUtils: Confi
           PaymentCode.RICO.name,
           PaymentCode.RPIC.name,
           PaymentCode.KLRN.name,
-          PaymentCode.RFBK.name ->
+          PaymentCode.RFPB.name ->
             createSuccessTemplate(
               baseTransactionWithRequestedUserReceipt = baseTransactionWithRequestedUserReceipt,
               emailAddress = emailAddress,
