@@ -135,7 +135,7 @@ paths:
                 detail: There was an error processing the request
                 idTransaction: 3fa85f6457174562b3fc2c963f66afa6
 security:
-  - ApiKeyAuth: []
+  - PagopaApiKeyAuth: []
 components:
   schemas:
     ProblemJson:
