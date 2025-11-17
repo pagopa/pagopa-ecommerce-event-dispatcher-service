@@ -84,6 +84,21 @@ paths:
               example:
                 status: 401
                 detail: Unauthorized
+        '429':
+          description: Too many requests
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/RateLimitLimit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimitRemaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/RateLimitReset'
+            Retry-After:
+              $ref: '#/components/headers/RateLimitRetryAfter'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemJson'
         '500':
           description: Internal Server Error handling command
           content:
@@ -122,6 +137,22 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/EventReceiverStatusResponse'
+        '401':
+          description: Unauthorized
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/RateLimitLimit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimitRemaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/RateLimitReset'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemJson'
+              example:
+                status: 401
+                detail: Unauthorized
         '404':
           description: No receiver status information found
           headers:
@@ -139,7 +170,21 @@ paths:
                 title: Not found
                 status: 404
                 detail: No receiver status information could be found
-
+        '429':
+          description: Too many requests
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/RateLimitLimit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimitRemaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/RateLimitReset'
+            Retry-After:
+              $ref: '#/components/headers/RateLimitRetryAfter'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemJson'
         '500':
           description: Internal Server Error handling command
           content:
