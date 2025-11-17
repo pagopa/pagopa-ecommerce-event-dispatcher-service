@@ -92,6 +92,21 @@ paths:
                 status: 401
                 detail: Unauthorized
                 idTransaction: 3fa85f6457174562b3fc2c963f66afa6
+        '429':
+          description: Too many requests
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/RateLimitLimit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimitRemaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/RateLimitReset'
+            Retry-After:
+              $ref: '#/components/headers/RateLimitRetryAfter'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemJson'
         '404':
           description: Not found
           headers:
