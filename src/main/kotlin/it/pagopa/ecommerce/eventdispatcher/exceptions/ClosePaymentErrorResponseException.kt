@@ -15,20 +15,26 @@ class ClosePaymentErrorResponseException(
 
   companion object {
     const val NODE_DID_NOT_RECEIVE_RPT_YET_ERROR = "Node did not receive RPT yet"
+    const val INVALID_TOKEN = "Invalid token"
   }
 
   /**
    * Perform check against Node received HTTP response code and description to verify if refund is
-   * allowed for the current transaction or not. See https://pagopa.atlassian.net/browse/CHK-3553
+   * allowed for the current transaction or not. See
+   * https://pagopa.atlassian.net/wiki/spaces/I/pages/1196130326/eCommerce+-+Messaggi+in+fase+closePayment
    * for more info
    */
   fun isRefundableError() =
     // transaction is refundable iff
-    // http status code == 422 and description == Node did not receive RPT yet
-    if (statusCode == HttpStatus.UNPROCESSABLE_ENTITY) {
-      errorResponse?.description == NODE_DID_NOT_RECEIVE_RPT_YET_ERROR
-    } else {
-      // ...or http status code is 400 || 404 with any description
-      statusCode == HttpStatus.NOT_FOUND || statusCode == HttpStatus.BAD_REQUEST
+    when (statusCode) {
+      // http status code == 400 and description != Invalid token
+      HttpStatus.BAD_REQUEST -> errorResponse?.description != INVALID_TOKEN
+      // http status code == 422 and description == Node did not receive RPT yet
+      HttpStatus.UNPROCESSABLE_ENTITY ->
+        errorResponse?.description == NODE_DID_NOT_RECEIVE_RPT_YET_ERROR
+      // http status code == 404 with any description
+      HttpStatus.NOT_FOUND -> true
+      // no refund is done in all other cases
+      else -> false
     }
 }

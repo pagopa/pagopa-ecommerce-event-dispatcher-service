@@ -1,5 +1,8 @@
 # pagopa-ecommerce-event-dispatcher-service
 
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=pagopa_pagopa-ecommerce-event-dispatcher-service&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=pagopa_pagopa-ecommerce-event-dispatcher-service)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=pagopa_pagopa-ecommerce-event-dispatcher-service&metric=coverage)](https://sonarcloud.io/summary/new_code?id=pagopa_pagopa-ecommerce-event-dispatcher-service)
+
 ## What is this?
 
 This is a PagoPA microservice that handles scheduled retry mechanism for the eCommerce product.
