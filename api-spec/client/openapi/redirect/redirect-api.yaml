@@ -22,10 +22,11 @@ servers:
     variables:
       host:
           description: The hostname of the API server
-          default: api.dev.platform.pagopa.it
+          default: weuprod.ecommerce.internal.platform.pagopa.it
           enum:
-            - api.dev.platform.pagopa.it
-            - api.uat.platform.pagopa.it
+            - weudev.ecommerce.internal.dev.platform.pagopa.it
+            - weuuat.ecommerce.internal.uat.platform.pagopa.it
+            - weuprod.ecommerce.internal.platform.pagopa.it
 externalDocs:
   url: https://docs.pagopa.it/sanp/prestatore-di-servizi-di-pagamento/modalita-di-integrazione/integrazione-per-strumento-di-pagamento-tramite-redirect
   description: SANP
@@ -47,26 +48,12 @@ paths:
       responses:
         '200':
           description: Successful refund response
-          headers:
-            X-RateLimit-Limit:
-              $ref: '#/components/headers/RateLimitLimit'
-            X-RateLimit-Remaining:
-              $ref: '#/components/headers/RateLimitRemaining'
-            X-RateLimit-Reset:
-              $ref: '#/components/headers/RateLimitReset'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/RefundResponse'
         '400':
           description: Formally invalid input
-          headers:
-            X-RateLimit-Limit:
-              $ref: '#/components/headers/RateLimitLimit'
-            X-RateLimit-Remaining:
-              $ref: '#/components/headers/RateLimitRemaining'
-            X-RateLimit-Reset:
-              $ref: '#/components/headers/RateLimitReset'
           content:
             application/json:
               schema:
@@ -77,13 +64,6 @@ paths:
                 idTransaction: 3fa85f6457174562b3fc2c963f66afa6
         '401':
           description: Unauthorized
-          headers:
-            X-RateLimit-Limit:
-              $ref: '#/components/headers/RateLimitLimit'
-            X-RateLimit-Remaining:
-              $ref: '#/components/headers/RateLimitRemaining'
-            X-RateLimit-Reset:
-              $ref: '#/components/headers/RateLimitReset'
           content:
             application/json:
               schema:
@@ -94,28 +74,12 @@ paths:
                 idTransaction: 3fa85f6457174562b3fc2c963f66afa6
         '429':
           description: Too many requests
-          headers:
-            X-RateLimit-Limit:
-              $ref: '#/components/headers/RateLimitLimit'
-            X-RateLimit-Remaining:
-              $ref: '#/components/headers/RateLimitRemaining'
-            X-RateLimit-Reset:
-              $ref: '#/components/headers/RateLimitReset'
-            Retry-After:
-              $ref: '#/components/headers/RateLimitRetryAfter'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProblemJson'
         '404':
           description: Not found
-          headers:
-            X-RateLimit-Limit:
-              $ref: '#/components/headers/RateLimitLimit'
-            X-RateLimit-Remaining:
-              $ref: '#/components/headers/RateLimitRemaining'
-            X-RateLimit-Reset:
-              $ref: '#/components/headers/RateLimitReset'
           content:
             application/json:
               schema:
@@ -243,20 +207,3 @@ components:
       in: header
       name: Ocp-Apim-Subscription-Key
       description: pagoPA api key
-  headers:
-    RateLimitLimit:
-      description: The maximum number of requests allowed in the current time window.
-      schema:
-        type: integer
-    RateLimitRemaining:
-      description: The number of requests remaining in the current time window.
-      schema:
-        type: integer
-    RateLimitReset:
-      description: Seconds until the rate limit resets.
-      schema:
-        type: integer
-    RateLimitRetryAfter:
-      description: Seconds to wait before retrying after being rate limited.
-      schema:
-        type: integer
