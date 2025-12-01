@@ -72,12 +72,6 @@ paths:
                 status: 401
                 detail: Unauthorized
                 idTransaction: 3fa85f6457174562b3fc2c963f66afa6
-        '429':
-          description: Too many requests
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemJson'
         '404':
           description: Not found
           content:

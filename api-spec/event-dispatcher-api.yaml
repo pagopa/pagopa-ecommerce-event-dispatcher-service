@@ -63,12 +63,6 @@ paths:
               example:
                 status: 401
                 detail: Unauthorized
-        '429':
-          description: Too many requests
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemJson'
         '500':
           description: Internal Server Error handling command
           content:
