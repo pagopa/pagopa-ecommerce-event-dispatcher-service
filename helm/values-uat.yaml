@@ -31,7 +31,7 @@ microservice-chart:
     envSecret: {}
   image:
     repository: pagopaucommonacr.azurecr.io/pagopaecommerceeventdispatcherservice
-    tag: "3.6.2"
+    tag: "3.7.1"
     pullPolicy: Always
   livenessProbe:
     handlerType: httpGet
@@ -175,14 +175,14 @@ microservice-chart:
     NODE_FORWARDER_URL: "https://api.uat.platform.pagopa.it/ecommerce/mock/node-forwader/v1"
     NODE_FORWARDER_READ_TIMEOUT: "10000"
     NODE_FORWARDER_CONNECTION_TIMEOUT: "10000"
-    REDIRECT_PAYMENT_TYPE_CODES: "BPPIITRRXXX-RBPR,BPPIITRRXXX-RBPP,BPPIITRRXXX-RBPB,PPAYITR1XXX-RBPB,CHECKOUT-PPAYITR1XXX-RBPP,IO-PPAYITR1XXX-RBPP,PPAYITR1XXX-RBPR,RBPS,RPIC,RICO,KLRN"
+    REDIRECT_PAYMENT_TYPE_CODES: "BPPIITRRXXX-RBPR,BPPIITRRXXX-RBPP,BPPIITRRXXX-RBPB,PPAYITR1XXX-RBPB,CHECKOUT-PPAYITR1XXX-RBPP,IO-PPAYITR1XXX-RBPP,PPAYITR1XXX-RBPR,RBPS,RPIC,RICO,KLRN,RFPB"
     NPG_REFUND_DELAY_FROM_AUTH_REQUEST_MINUTES: "10"
     USER_STATS_URL: "https://weuuat.ecommerce.internal.uat.platform.pagopa.it/pagopa-ecommerce-user-stats-service/"
     USER_STATS_READ_TIMEOUT: "10000"
     USER_STATS_CONNECTION_TIMEOUT: "10000"
     NPG_REFUND_EVENT_PROCESSING_DELAY_SECONDS: "10"
     SECURITY_API_KEYS_SECURED_PATHS: "/event-dispatcher"
-    TRANSACTIONSVIEW_UPDATE_ENABLED: "true"
+    TRANSACTIONSVIEW_UPDATE_ENABLED: "false"
   envSecret:
     ECOMMERCE_STORAGE_TRANSIENT_QUEUE_KEY: ecommerce-storage-transient-account-key
     NODO_NODEFORECOMMERCE_API_KEY: node-for-ecommerce-api-v2-key

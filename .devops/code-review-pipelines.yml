@@ -2,7 +2,10 @@ variables:
   MAVEN_CACHE_FOLDER: $(Pipeline.Workspace)/.m2/repository
   MAVEN_OPTS: '-Dmaven.repo.local=$(MAVEN_CACHE_FOLDER)'
   BRANCH_NAME: $[ replace(variables['System.PullRequest.SourceBranch'], 'refs/heads/', '') ]
-trigger: none
+trigger:
+ branches:
+  include:
+    - main
 
 pool:
   vmImage: ubuntu-latest
