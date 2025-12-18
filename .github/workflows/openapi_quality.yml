@@ -19,7 +19,6 @@ jobs:
     strategy:
       matrix:
         spec:
-          - path: 'api-spec/client/openapi/redirect/redirect-api.yaml'
           - path: 'api-spec/event-dispatcher-api.yaml'
     steps:
       - name: Checkout code
