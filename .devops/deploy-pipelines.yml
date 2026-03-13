@@ -126,6 +126,8 @@ stages:
       - Deploy_for_DEV
     condition: |
       eq(dependencies.Deploy_for_DEV.result, 'Succeeded')
+    pool:
+      name: pagopa-dev-linux
     jobs:
       - job: execute_integration_tests
         steps:
