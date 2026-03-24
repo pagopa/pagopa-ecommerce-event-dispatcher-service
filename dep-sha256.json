@@ -1331,11 +1331,11 @@
       "sha256": "Hh5CfDb_Y8RP0w7yktnnc-oxVEYKtiZdP-1-b1vFD7k="
     },
     {
-      "id": "it.pagopa:pagopa-ecommerce-commons:jar:3.2.1",
+      "id": "it.pagopa:pagopa-ecommerce-commons:jar:3.3.1",
       "artifactId": "pagopa-ecommerce-commons",
       "groupId": "it.pagopa",
-      "version": "3.2.1",
-      "sha256": "mcglA3IeyZnVRbmfQM03iATXkmgEAkBOyZHlrrsdj8I="
+      "version": "3.3.1",
+      "sha256": "uCJDT2Y_KiNHqblx-LVcwVxnArKV7kRTeTuOt8RyI1o="
     },
     {
       "id": "org.springframework.boot:spring-boot-starter-web-services:jar:3.4.5",
@@ -1520,11 +1520,11 @@
       "sha256": "AkrT4OPFxXXeSRjo0CCtSv9NtDVjRcDXULlAC5irzZE="
     },
     {
-      "id": "it.pagopa:pagopa-ecommerce-commons:test-jar:tests:3.2.1",
+      "id": "it.pagopa:pagopa-ecommerce-commons:test-jar:tests:3.3.1",
       "artifactId": "pagopa-ecommerce-commons",
       "groupId": "it.pagopa",
-      "version": "3.2.1",
-      "sha256": "gACeHr-QskXYqjiJMwmmHCTYqSOPHEBNA8-dDBzMdj0="
+      "version": "3.3.1",
+      "sha256": "bG4DTXUtpuLNE3xccCRhTV1V7Gdi_-5QXf9ptYOxr-M="
     },
     {
       "id": "com.squareup.okhttp3:okhttp:jar:4.12.0",
