@@ -29,6 +29,8 @@ microservice-chart:
       OTEL_RESOURCE_ATTRIBUTES: "service.name=pagopa-ecommerce-event-dispatcher-service-blue,deployment.environment=dev"
       ECS_SERVICE_NAME: pagopa-ecommerce-event-dispatcher-service-blue
       NODO_URI: https://api.dev.platform.pagopa.it/nodo-auth/node-for-ecommerce/v2
+      REDIS_TIMEOUT: "1s"
+      REDIS_CONNECTION_TIMEOUT: "1s"
     envSecret: {}
   image:
     repository: pagopadcommonacr.azurecr.io/pagopaecommerceeventdispatcherservice
