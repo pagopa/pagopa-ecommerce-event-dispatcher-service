@@ -29,8 +29,6 @@ microservice-chart:
       OTEL_RESOURCE_ATTRIBUTES: "service.name=pagopa-ecommerce-event-dispatcher-service-blue,deployment.environment=dev"
       ECS_SERVICE_NAME: pagopa-ecommerce-event-dispatcher-service-blue
       NODO_URI: https://api.dev.platform.pagopa.it/nodo-auth/node-for-ecommerce/v2
-      REDIS_TIMEOUT: "2s"
-      REDIS_CONNECTION_TIMEOUT: "2s"
     envSecret: {}
   image:
     repository: pagopadcommonacr.azurecr.io/pagopaecommerceeventdispatcherservice
@@ -166,6 +164,8 @@ microservice-chart:
     NPG_APPLEPAY_PSP_LIST: "SIGPITM1XXX,CIPBITMM,MOONITMMXXX"
     NPG_GOOGLE_PAY_PSP_LIST: "CIPBITMM"
     REDIS_STREAM_EVENT_CONTROLLER_STREAM_KEY: "event-dispatcher-commands"
+    REDIS_TIMEOUT: "2s"
+    REDIS_CONNECTION_TIMEOUT: "2s"
     EVENT_CONTROLLER_STATUS_POLLING_CHRON: "*/10 * * * * *"
     NODE_FORWARDER_URL: "https://api.uat.platform.pagopa.it/pagopa-node-forwarder/api/v1"
     NODE_FORWARDER_READ_TIMEOUT: "10000"
