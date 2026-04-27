@@ -28,8 +28,6 @@ microservice-chart:
       NODO_ECOMMERCE_CLIENT_ID: ecomm-blue
       OTEL_RESOURCE_ATTRIBUTES: "service.name=pagopa-ecommerce-event-dispatcher-service-blue,deployment.environment=uat"
       ECS_SERVICE_NAME: pagopa-ecommerce-event-dispatcher-service-blue
-      REDIS_TIMEOUT: "2s"
-      REDIS_CONNECTION_TIMEOUT: "2s"
     envSecret: {}
   image:
     repository: pagopaucommonacr.azurecr.io/pagopaecommerceeventdispatcherservice
@@ -125,6 +123,8 @@ microservice-chart:
     MONGO_HEARTBEAT_FREQUENCY_MS: "5000"
     REDIS_PORT: "6380"
     REDIS_SSL_ENABLED: "true"
+    REDIS_TIMEOUT: "2s"
+    REDIS_CONNECTION_TIMEOUT: "2s"
     ECOMMERCE_STORAGE_TRANSIENT_QUEUE_ACCOUNT_NAME: pagopauweuecommercetrsa
     ECOMMERCE_STORAGE_TRANSIENT_QUEUE_ENDPOINT: https://pagopauweuecommercetrsa.queue.core.windows.net/pagopauweuecommercetrsa
     REFUND_RETRY_EVENT_BASE_INTERVAL_SECONDS: "600"
