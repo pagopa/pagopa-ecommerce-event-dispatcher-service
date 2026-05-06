@@ -75,7 +75,7 @@ class UserReceiptMailBuilder(@Autowired private val confidentialDataUtils: Confi
             amountToHumanReadableString(
               baseTransactionWithRequestedUserReceipt.paymentNotices
                 .stream()
-                .mapToInt { paymentNotice: PaymentNotice ->
+                .mapToLong { paymentNotice: PaymentNotice ->
                   paymentNotice.transactionAmount().value()
                 }
                 .sum()))))
@@ -168,7 +168,7 @@ class UserReceiptMailBuilder(@Autowired private val confidentialDataUtils: Confi
         amountToHumanReadableString(
           baseTransactionWithRequestedUserReceipt.paymentNotices
             .stream()
-            .mapToInt { paymentNotice: PaymentNotice -> paymentNotice.transactionAmount().value() }
+            .mapToLong { paymentNotice: PaymentNotice -> paymentNotice.transactionAmount().value() }
             .sum() + transactionAuthorizationRequestData.fee),
         PspTemplate(
           transactionAuthorizationRequestData.pspBusinessName,
@@ -201,22 +201,16 @@ class UserReceiptMailBuilder(@Autowired private val confidentialDataUtils: Confi
         amountToHumanReadableString(
           baseTransactionWithRequestedUserReceipt.paymentNotices
             .stream()
-            .mapToInt { paymentNotice -> paymentNotice.transactionAmount().value() }
+            .mapToLong { paymentNotice -> paymentNotice.transactionAmount().value() }
             .sum())))
   }
 
-  fun amountToHumanReadableString(amount: Int): String {
-    val repr = amount.toString()
-    val centsSeparationIndex = 0.coerceAtLeast(repr.length - 2)
-    var cents = repr.substring(centsSeparationIndex)
-    var euros = repr.substring(0, centsSeparationIndex)
-    if (euros.isEmpty()) {
-      euros = "0"
-    }
-    if (cents.length == 1) {
-      cents = "0$cents"
-    }
-    return "${euros},${cents}"
+  fun amountToHumanReadableString(amount: Number): String {
+    val totalCents = amount.toLong()
+    val euros = totalCents / 100
+    val cents = (totalCents % 100).toInt()
+
+    return "%d,%02d".format(euros, cents)
   }
 
   fun dateTimeToHumanReadableString(dateTime: ZonedDateTime, locale: Locale): String {
