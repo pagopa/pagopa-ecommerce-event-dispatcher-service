@@ -122,8 +122,8 @@ stages:
     displayName: 'UAT green deployment'
     dependsOn: [ Build_release_candidate ]
     variables:
-      app_version: soak-$(Build.SourceVersion) #chart app version, can differ from release for chart only version bumps
-      release_version: soak-test-uat #chart version, this version is the same of the github release/tag
+      app_version: $[ stageDependencies.Get_Release_Version.get_version.outputs['chart_current_version.appVersion'] ] #chart app version, can differ from release for chart only version bumps
+      release_version: $[ stageDependencies.Get_Release_Version.get_version.outputs['chart_current_version.version'] ] #chart version, this version is the same of the github release/tag
     jobs:
       - deployment: "Green_deployment"
         displayName: "Green deployment"

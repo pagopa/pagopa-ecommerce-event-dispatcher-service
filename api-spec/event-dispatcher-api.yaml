@@ -5,6 +5,10 @@ info:
   description: This microservice handles transaction's lifecycle and workflow processing async events.
   contact:
     name: pagoPA - Touchpoints team
+    url: https://www.pagopa.it/
+  license:
+    name: EUPL-1.2
+    url: https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
 tags:
   - name: event-receiver-controller
     description: Api's for handle events receivers status
@@ -15,7 +19,15 @@ externalDocs:
   url: https://pagopa.atlassian.net/wiki/spaces/I/pages/492339720/pagoPA+eCommerce+Design+Review
   description: Design review
 servers:
-  - url: https://api.platform.pagopa.it
+  - url: https://${host}
+    variables:
+      host:
+          description: The hostname of the API server
+          default: weuprod.ecommerce.internal.platform.pagopa.it
+          enum:
+            - weudev.ecommerce.internal.dev.platform.pagopa.it
+            - weuuat.ecommerce.internal.uat.platform.pagopa.it
+            - weuprod.ecommerce.internal.platform.pagopa.it
 security:
   - ApiKeyAuth: [ ]
 paths:
@@ -41,7 +53,15 @@ paths:
                 title: Bad request
                 status: 400
                 detail: Invalid input request
-
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemJson'
+              example:
+                status: 401
+                detail: Unauthorized
         '500':
           description: Internal Server Error handling command
           content:
@@ -73,6 +93,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/EventReceiverStatusResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemJson'
+              example:
+                status: 401
+                detail: Unauthorized
         '404':
           description: No receiver status information found
           content:
@@ -83,7 +112,6 @@ paths:
                 title: Not found
                 status: 404
                 detail: No receiver status information could be found
-
         '500':
           description: Internal Server Error handling command
           content:
