@@ -37,7 +37,7 @@ object TransactionsViewProjectionHandler {
     return updatedTransactionView
       .filter { _ -> saveEvent }
       .cast(BaseTransactionView::class.java)
-      .flatMap(transactionsViewRepository::save)
+      .flatMap(transactionsViewRepository::insert)
       .switchIfEmpty(updatedTransactionView)
   }
 }
