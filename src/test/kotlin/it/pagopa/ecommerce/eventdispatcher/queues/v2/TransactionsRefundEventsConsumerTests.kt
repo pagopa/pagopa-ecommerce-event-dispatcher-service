@@ -100,6 +100,8 @@ class TransactionsRefundEventsConsumerTests {
 
   @Captor private lateinit var queueArgumentCaptor: ArgumentCaptor<BinaryData>
 
+  @Captor private lateinit var viewRepositoryCaptor: ArgumentCaptor<Transaction>
+
   private val transactionsViewRepository: TransactionsViewRepository = mock()
 
   private val transactionTracing = getTransactionTracingMock()
@@ -180,7 +182,7 @@ class TransactionsRefundEventsConsumerTests {
           transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             TRANSACTION_ID))
         .willReturn(events.toFlux())
-      given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
+      given(transactionsViewRepository.insert(viewRepositoryCaptor.capture())).willAnswer { Mono.just(it.arguments[0]) }
 
       /* test */
 
@@ -197,7 +199,7 @@ class TransactionsRefundEventsConsumerTests {
       verify(checkpointer, Mockito.times(1)).success()
       verify(refundService, Mockito.times(0))
         .requestNpgRefund(any(), any(), any(), any(), any(), any())
-      verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).save(any())
+      verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).insert(refundEventStoreCaptor.capture())
       verify(refundRetryService, times(0))
         .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
       verify(transactionTracing, never()).addSpanAttributesRefundedFlowFromTransaction(any(), any())
@@ -247,8 +249,8 @@ class TransactionsRefundEventsConsumerTests {
           transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             TRANSACTION_ID))
         .willReturn(events.toFlux())
-      given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
-      given(transactionsRefundedEventStoreRepository.save(refundEventStoreCaptor.capture()))
+      given(transactionsViewRepository.insert(viewRepositoryCaptor.capture())).willAnswer { Mono.just(it.arguments[0]) }
+      given(transactionsRefundedEventStoreRepository.insert(refundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(
@@ -288,7 +290,7 @@ class TransactionsRefundEventsConsumerTests {
           correlationId = correlationId,
           paymentMethod =
             NpgClient.PaymentMethod.valueOf(authorizationRequestEvent.data.paymentMethodName))
-      verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
+      verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).insert(refundEventStoreCaptor.capture())
       verify(refundRetryService, times(1))
         .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
       val storedEvent = refundEventStoreCaptor.value
@@ -350,8 +352,8 @@ class TransactionsRefundEventsConsumerTests {
           transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             TRANSACTION_ID))
         .willReturn(events.toFlux())
-      given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
-      given(transactionsRefundedEventStoreRepository.save(refundEventStoreCaptor.capture()))
+      given(transactionsViewRepository.insert(viewRepositoryCaptor.capture())).willAnswer { Mono.just(it.arguments[0]) }
+      given(transactionsRefundedEventStoreRepository.insert(refundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(refundService.requestNpgRefund(any(), any(), any(), any(), any(), any()))
         .willReturn(Mono.just(refundServiceNpgResponse))
@@ -392,7 +394,7 @@ class TransactionsRefundEventsConsumerTests {
           correlationId = correlationId,
           paymentMethod =
             NpgClient.PaymentMethod.valueOf(authorizationRequestEvent.data.paymentMethodName))
-      verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
+      verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).insert(refundEventStoreCaptor.capture())
       verify(refundRetryService, times(0))
         .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
       val storedEvent = refundEventStoreCaptor.value
@@ -450,8 +452,8 @@ class TransactionsRefundEventsConsumerTests {
           transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             TRANSACTION_ID))
         .willReturn(events.toFlux())
-      given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
-      given(transactionsRefundedEventStoreRepository.save(refundEventStoreCaptor.capture()))
+      given(transactionsViewRepository.insert(viewRepositoryCaptor.capture())).willAnswer { Mono.just(it.arguments[0]) }
+      given(transactionsRefundedEventStoreRepository.insert(refundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(refundService.requestNpgRefund(any(), any(), any(), any(), any(), any()))
         .willThrow(RefundNotAllowedException(transaction.transactionId))
@@ -499,7 +501,7 @@ class TransactionsRefundEventsConsumerTests {
           correlationId = correlationId,
           paymentMethod =
             NpgClient.PaymentMethod.valueOf(authorizationRequestEvent.data.paymentMethodName))
-      verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
+      verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).insert(refundEventStoreCaptor.capture())
       verify(refundRetryService, times(0))
         .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
       verify(deadLetterTracedQueueAsyncClient, times(1))
@@ -710,8 +712,8 @@ class TransactionsRefundEventsConsumerTests {
     given(
         transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
       .willReturn(events.toFlux())
-    given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
-    given(transactionsRefundedEventStoreRepository.save(refundEventStoreCaptor.capture()))
+    given(transactionsViewRepository.insert(viewRepositoryCaptor.capture())).willAnswer { Mono.just(it.arguments[0]) }
+    given(transactionsRefundedEventStoreRepository.insert(refundEventStoreCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
     given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
       .willReturn(
@@ -731,7 +733,7 @@ class TransactionsRefundEventsConsumerTests {
     verifyNoInteractions(refundService)
     verify(refundService, times(0)).requestNpgRefund(any(), any(), any(), any(), any(), any())
     verify(refundService, times(0)).requestRedirectRefund(any(), any(), any(), any(), any())
-    verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).save(any())
+    verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).insert(refundEventStoreCaptor.capture())
     verify(refundRetryService, times(0))
       .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
     verify(transactionTracing, never()).addSpanAttributesRefundedFlowFromTransaction(any(), any())
@@ -786,8 +788,8 @@ class TransactionsRefundEventsConsumerTests {
     given(
         transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
       .willReturn(events.toFlux())
-    given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
-    given(transactionsRefundedEventStoreRepository.save(refundEventStoreCaptor.capture()))
+    given(transactionsViewRepository.insert(viewRepositoryCaptor.capture())).willAnswer { Mono.just(it.arguments[0]) }
+    given(transactionsRefundedEventStoreRepository.insert(refundEventStoreCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
     given(refundService.requestRedirectRefund(any(), any(), any(), any(), any()))
       .willReturn(Mono.just(refundRedirectResponse))
@@ -819,7 +821,7 @@ class TransactionsRefundEventsConsumerTests {
         pspTransactionId = expectedPspTransactionId,
         paymentTypeCode = expectedPaymentTypeCode,
         pspId = expectedPspId)
-    verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
+    verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).insert(refundEventStoreCaptor.capture())
     verify(refundRetryService, times(0))
       .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
     val storedEvent = refundEventStoreCaptor.value
@@ -867,8 +869,8 @@ class TransactionsRefundEventsConsumerTests {
     given(
         transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
       .willReturn(events.toFlux())
-    given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
-    given(transactionsRefundedEventStoreRepository.save(refundEventStoreCaptor.capture()))
+    given(transactionsViewRepository.insert(viewRepositoryCaptor.capture())).willAnswer { Mono.just(it.arguments[0]) }
+    given(transactionsRefundedEventStoreRepository.insert(refundEventStoreCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
     given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
       .willReturn(
@@ -895,7 +897,7 @@ class TransactionsRefundEventsConsumerTests {
         pspTransactionId = any(),
         paymentTypeCode = any(),
         pspId = any())
-    verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).save(any())
+    verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).insert(refundEventStoreCaptor.capture())
     verify(refundRetryService, times(1))
       .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
 
@@ -957,8 +959,8 @@ class TransactionsRefundEventsConsumerTests {
     given(
         transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
       .willReturn(events.toFlux())
-    given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
-    given(transactionsRefundedEventStoreRepository.save(refundEventStoreCaptor.capture()))
+    given(transactionsViewRepository.insert(viewRepositoryCaptor.capture())).willAnswer { Mono.just(it.arguments[0]) }
+    given(transactionsRefundedEventStoreRepository.insert(refundEventStoreCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
     given(refundService.requestNpgRefund(any(), any(), any(), any(), any(), any()))
       .willReturn(Mono.just(refundServiceNpgResponse))
@@ -1044,8 +1046,8 @@ class TransactionsRefundEventsConsumerTests {
     given(
         transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
       .willReturn(events.toFlux())
-    given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
-    given(transactionsRefundedEventStoreRepository.save(refundEventStoreCaptor.capture()))
+    given(transactionsViewRepository.insert(viewRepositoryCaptor.capture())).willAnswer { Mono.just(it.arguments[0]) }
+    given(transactionsRefundedEventStoreRepository.insert(refundEventStoreCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
     given(refundService.requestRedirectRefund(any(), any(), any(), any(), any()))
       .willReturn(Mono.just(refundRedirectResponse))
@@ -1081,7 +1083,7 @@ class TransactionsRefundEventsConsumerTests {
         pspTransactionId = expectedPspTransactionId,
         paymentTypeCode = expectedPaymentTypeCode,
         pspId = expectedPspId)
-    verify(transactionsRefundedEventStoreRepository, Mockito.times(2)).save(any())
+    verify(transactionsRefundedEventStoreRepository, Mockito.times(2)).insert(refundEventStoreCaptor.capture())
     verify(refundRetryService, times(0))
       .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
     val storedEvent = refundEventStoreCaptor.value
