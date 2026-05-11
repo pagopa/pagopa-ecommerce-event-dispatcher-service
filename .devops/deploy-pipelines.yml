@@ -66,28 +66,6 @@ pool:
 # --- START Deploy DEV --- #
 stages:
 
-  - stage: 'Build_for_DEV'
-    displayName: 'Build for DEV'
-    condition: and(succeeded(), not(${{ parameters.SKIP_BUILD }}), eq(${{parameters.DEV_DEPLOY}}, true))
-    jobs:
-      - job: Build_docker
-        displayName: Build docker with Build.SourceVersion as TAG
-        steps:
-          - task: Bash@3
-            displayName: "Write GitHub token file"
-            inputs:
-              targetType: "inline"
-              script: |
-                echo "$(GITHUB_RO_TOKEN)" > ./github_ro_token
-          - template: templates/docker-release/template.yaml@pagopaCommons
-            parameters:
-              CONTAINER_REGISTRY_SERVICE_CONN: $(DEV_CONTAINER_REGISTRY_SERVICE_CONN)
-              CONTAINER_REGISTRY_FQDN: $(DEV_CONTAINER_NAMESPACE)
-              DOCKER_IMAGE_NAME: $(K8S_IMAGE_REPOSITORY_NAME)
-              DOCKER_IMAGE_TAG: soak-$(Build.SourceVersion)
-              FORCE_REPLACE_DOCKER_IMAGE: ${{ parameters.FORCE_REPLACE_DOCKER_IMAGE }}
-              DOCKER_BUILD_ARGS: --secret id=GITHUB_TOKEN,src=./github_ro_token
-
   # --- START Deploy UAT --- #
   - stage: "Build_release_candidate"
     displayName: 'Build release candidate'
@@ -122,8 +100,7 @@ stages:
     displayName: 'UAT green deployment'
     dependsOn: [ Build_release_candidate ]
     variables:
-      app_version: $[ stageDependencies.Get_Release_Version.get_version.outputs['chart_current_version.appVersion'] ] #chart app version, can differ from release for chart only version bumps
-      release_version: $[ stageDependencies.Get_Release_Version.get_version.outputs['chart_current_version.version'] ] #chart version, this version is the same of the github release/tag
+      app_version: soak-$(Build.SourceVersion)
     jobs:
       - deployment: "Green_deployment"
         displayName: "Green deployment"
