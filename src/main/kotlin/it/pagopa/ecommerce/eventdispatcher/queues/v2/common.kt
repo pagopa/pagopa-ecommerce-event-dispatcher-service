@@ -63,7 +63,7 @@ fun updateTransactionToExpired(
 ): Mono<BaseTransaction> {
 
   return transactionsExpiredEventStoreRepository
-    .insert(
+    .save(
       TransactionExpiredEvent(
         transaction.transactionId.value(), TransactionExpiredData(transaction.status)))
     .map { ev ->
