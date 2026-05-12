@@ -167,9 +167,10 @@ class TransactionRefundRetryQueueConsumerTest {
           refundErrorEvent as TransactionEvent<Any>))
 
     given(
-        transactionsRefundedEventStoreRepository.insert(transactionRefundEventStoreCaptor.capture()))
+        transactionsRefundedEventStoreRepository.insert(
+          transactionRefundEventStoreCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
-    given(transactionsViewRepository.insert(transactionViewRepositoryCaptor.capture())).willAnswer {
+    given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
     given(refundService.requestNpgRefund(any(), any(), any(), any(), any(), any()))
@@ -342,9 +343,8 @@ class TransactionRefundRetryQueueConsumerTest {
           transactionsRefundedEventStoreRepository.insert(
             transactionRefundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
-      given(transactionsViewRepository.insert(transactionViewRepositoryCaptor.capture())).willAnswer {
-        Mono.just(it.arguments[0])
-      }
+      given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
       given(refundService.requestNpgRefund(any(), any(), any(), any(), any(), any()))
         .willReturn(Mono.error(BadGatewayException("mockError")))
       given(
@@ -368,8 +368,9 @@ class TransactionRefundRetryQueueConsumerTest {
       /* Asserts */
       verify(checkpointer, times(1)).success()
       verify(refundService, times(1)).requestNpgRefund(any(), any(), any(), any(), any(), any())
-      verify(transactionsRefundedEventStoreRepository, times(1)).insert(transactionRefundEventStoreCaptor.capture())
-      verify(transactionsViewRepository, times(1)).insert(transactionViewRepositoryCaptor.capture())
+      verify(transactionsRefundedEventStoreRepository, times(1))
+        .insert(transactionRefundEventStoreCaptor.capture())
+      verify(transactionsViewRepository, times(1)).save(transactionViewRepositoryCaptor.capture())
       verify(refundRetryService, times(1))
         .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
       assertEquals(retryCount, retryCountCaptor.value)
@@ -452,8 +453,9 @@ class TransactionRefundRetryQueueConsumerTest {
       /* Asserts */
       verify(checkpointer, times(1)).success()
       verify(refundService, times(1)).requestNpgRefund(any(), any(), any(), any(), any(), any())
-      verify(transactionsRefundedEventStoreRepository, times(1)).insert(transactionRefundEventStoreCaptor.capture())
-      verify(transactionsViewRepository, times(0)).insert(transactionViewRepositoryCaptor.capture())
+      verify(transactionsRefundedEventStoreRepository, times(1))
+        .insert(transactionRefundEventStoreCaptor.capture())
+      verify(transactionsViewRepository, times(0)).save(transactionViewRepositoryCaptor.capture())
       verify(refundRetryService, times(1))
         .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
       assertEquals(retryCount, retryCountCaptor.value)
@@ -512,9 +514,10 @@ class TransactionRefundRetryQueueConsumerTest {
           refundErrorEvent as TransactionEvent<Any>))
 
     given(
-        transactionsRefundedEventStoreRepository.insert(transactionRefundEventStoreCaptor.capture()))
+        transactionsRefundedEventStoreRepository.insert(
+          transactionRefundEventStoreCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
-    given(transactionsViewRepository.insert(transactionViewRepositoryCaptor.capture())).willAnswer {
+    given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
     given(refundService.requestNpgRefund(any(), any(), any(), any(), any(), any()))
@@ -693,9 +696,8 @@ class TransactionRefundRetryQueueConsumerTest {
           transactionsRefundedEventStoreRepository.insert(
             transactionRefundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
-      given(transactionsViewRepository.insert(transactionViewRepositoryCaptor.capture())).willAnswer {
-        Mono.just(it.arguments[0])
-      }
+      given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
       given(refundService.requestNpgRefund(any(), any(), any(), any(), any(), any()))
         .willReturn(Mono.error(BadGatewayException("mockError")))
       given(
@@ -719,8 +721,9 @@ class TransactionRefundRetryQueueConsumerTest {
       /* Asserts */
       verify(checkpointer, times(1)).success()
       verify(refundService, times(1)).requestNpgRefund(any(), any(), any(), any(), any(), any())
-      verify(transactionsRefundedEventStoreRepository, times(1)).insert(transactionRefundEventStoreCaptor.capture())
-      verify(transactionsViewRepository, times(1)).insert(transactionViewRepositoryCaptor.capture())
+      verify(transactionsRefundedEventStoreRepository, times(1))
+        .insert(transactionRefundEventStoreCaptor.capture())
+      verify(transactionsViewRepository, times(1)).save(transactionViewRepositoryCaptor.capture())
       verify(refundRetryService, times(1))
         .enqueueRetryEvent(any(), any(), isNull(), anyOrNull(), anyOrNull())
       assertEquals(retryCount, retryCountCaptor.value)
@@ -778,9 +781,8 @@ class TransactionRefundRetryQueueConsumerTest {
           transactionsRefundedEventStoreRepository.insert(
             transactionRefundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
-      given(transactionsViewRepository.insert(transactionViewRepositoryCaptor.capture())).willAnswer {
-        Mono.just(it.arguments[0])
-      }
+      given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
       given(refundService.requestNpgRefund(any(), any(), any(), any(), any(), any()))
         .willReturn(Mono.error(BadGatewayException("mockError")))
       given(
@@ -799,8 +801,9 @@ class TransactionRefundRetryQueueConsumerTest {
       /* Asserts */
       verify(checkpointer, times(1)).success()
       verify(refundService, times(1)).requestNpgRefund(any(), any(), any(), any(), any(), any())
-      verify(transactionsRefundedEventStoreRepository, times(0)).insert(transactionRefundEventStoreCaptor.capture())
-      verify(transactionsViewRepository, times(0)).insert(transactionViewRepositoryCaptor.capture())
+      verify(transactionsRefundedEventStoreRepository, times(0))
+        .insert(transactionRefundEventStoreCaptor.capture())
+      verify(transactionsViewRepository, times(0)).save(transactionViewRepositoryCaptor.capture())
       verify(refundRetryService, times(1))
         .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
       assertEquals(retryCount, retryCountCaptor.value)
@@ -839,9 +842,8 @@ class TransactionRefundRetryQueueConsumerTest {
           transactionsRefundedEventStoreRepository.insert(
             transactionRefundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
-      given(transactionsViewRepository.insert(transactionViewRepositoryCaptor.capture())).willAnswer {
-        Mono.just(it.arguments[0])
-      }
+      given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
       given(refundService.requestNpgRefund(any(), any(), any(), any(), any(), any()))
         .willReturn(Mono.just(gatewayClientResponse))
       given(
@@ -863,8 +865,9 @@ class TransactionRefundRetryQueueConsumerTest {
       /* Asserts */
       verify(checkpointer, times(1)).success()
       verify(refundService, times(0)).requestNpgRefund(any(), any(), any(), any(), any(), any())
-      verify(transactionsRefundedEventStoreRepository, times(0)).insert(transactionRefundEventStoreCaptor.capture())
-      verify(transactionsViewRepository, times(0)).insert(transactionViewRepositoryCaptor.capture())
+      verify(transactionsRefundedEventStoreRepository, times(0))
+        .insert(transactionRefundEventStoreCaptor.capture())
+      verify(transactionsViewRepository, times(0)).save(transactionViewRepositoryCaptor.capture())
       verify(refundRetryService, times(0))
         .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
       verify(deadLetterTracedQueueAsyncClient, times(1))
@@ -936,9 +939,8 @@ class TransactionRefundRetryQueueConsumerTest {
           transactionsRefundedEventStoreRepository.insert(
             transactionRefundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
-      given(transactionsViewRepository.insert(transactionViewRepositoryCaptor.capture())).willAnswer {
-        Mono.just(it.arguments[0])
-      }
+      given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
       given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
         .willReturn(
           Mono.just(
@@ -966,8 +968,9 @@ class TransactionRefundRetryQueueConsumerTest {
       /* Asserts */
       verify(checkpointer, times(1)).success()
       verify(refundService, times(1)).requestNpgRefund(any(), any(), any(), any(), any(), any())
-      verify(transactionsRefundedEventStoreRepository, times(0)).insert(transactionRefundEventStoreCaptor.capture())
-      verify(transactionsViewRepository, times(0)).insert(transactionViewRepositoryCaptor.capture())
+      verify(transactionsRefundedEventStoreRepository, times(0))
+        .insert(transactionRefundEventStoreCaptor.capture())
+      verify(transactionsViewRepository, times(0)).save(transactionViewRepositoryCaptor.capture())
       verify(refundRetryService, times(1))
         .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
       assertEquals(retryCount, retryCountCaptor.value)
@@ -1052,9 +1055,8 @@ class TransactionRefundRetryQueueConsumerTest {
           transactionsRefundedEventStoreRepository.insert(
             transactionRefundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
-      given(transactionsViewRepository.insert(transactionViewRepositoryCaptor.capture())).willAnswer {
-        Mono.just(it.arguments[0])
-      }
+      given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture()))
+        .willAnswer { Mono.just(it.arguments[0]) }
       given(refundService.requestNpgRefund(any(), any(), any(), any(), any(), any()))
         .willReturn(Mono.just(gatewayClientResponse))
       given(
