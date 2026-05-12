@@ -182,7 +182,7 @@ class TransactionsRefundEventsConsumerTests {
           transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             TRANSACTION_ID))
         .willReturn(events.toFlux())
-      given(transactionsViewRepository.insert(viewRepositoryCaptor.capture())).willAnswer {
+      given(transactionsViewRepository.save(viewRepositoryCaptor.capture())).willAnswer {
         Mono.just(it.arguments[0])
       }
 
@@ -252,7 +252,7 @@ class TransactionsRefundEventsConsumerTests {
           transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             TRANSACTION_ID))
         .willReturn(events.toFlux())
-      given(transactionsViewRepository.insert(viewRepositoryCaptor.capture())).willAnswer {
+      given(transactionsViewRepository.save(viewRepositoryCaptor.capture())).willAnswer {
         Mono.just(it.arguments[0])
       }
       given(transactionsRefundedEventStoreRepository.insert(refundEventStoreCaptor.capture()))
@@ -358,7 +358,7 @@ class TransactionsRefundEventsConsumerTests {
           transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             TRANSACTION_ID))
         .willReturn(events.toFlux())
-      given(transactionsViewRepository.insert(viewRepositoryCaptor.capture())).willAnswer {
+      given(transactionsViewRepository.save(viewRepositoryCaptor.capture())).willAnswer {
         Mono.just(it.arguments[0])
       }
       given(transactionsRefundedEventStoreRepository.insert(refundEventStoreCaptor.capture()))
@@ -461,7 +461,7 @@ class TransactionsRefundEventsConsumerTests {
           transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
             TRANSACTION_ID))
         .willReturn(events.toFlux())
-      given(transactionsViewRepository.insert(viewRepositoryCaptor.capture())).willAnswer {
+      given(transactionsViewRepository.save(viewRepositoryCaptor.capture())).willAnswer {
         Mono.just(it.arguments[0])
       }
       given(transactionsRefundedEventStoreRepository.insert(refundEventStoreCaptor.capture()))
@@ -724,7 +724,7 @@ class TransactionsRefundEventsConsumerTests {
     given(
         transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
       .willReturn(events.toFlux())
-    given(transactionsViewRepository.insert(viewRepositoryCaptor.capture())).willAnswer {
+    given(transactionsViewRepository.save(viewRepositoryCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
     given(transactionsRefundedEventStoreRepository.insert(refundEventStoreCaptor.capture()))
@@ -803,7 +803,7 @@ class TransactionsRefundEventsConsumerTests {
     given(
         transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
       .willReturn(events.toFlux())
-    given(transactionsViewRepository.insert(viewRepositoryCaptor.capture())).willAnswer {
+    given(transactionsViewRepository.save(viewRepositoryCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
     given(transactionsRefundedEventStoreRepository.insert(refundEventStoreCaptor.capture()))
@@ -887,7 +887,7 @@ class TransactionsRefundEventsConsumerTests {
     given(
         transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
       .willReturn(events.toFlux())
-    given(transactionsViewRepository.insert(viewRepositoryCaptor.capture())).willAnswer {
+    given(transactionsViewRepository.save(viewRepositoryCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
     given(transactionsRefundedEventStoreRepository.insert(refundEventStoreCaptor.capture()))
@@ -980,7 +980,7 @@ class TransactionsRefundEventsConsumerTests {
     given(
         transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
       .willReturn(events.toFlux())
-    given(transactionsViewRepository.insert(viewRepositoryCaptor.capture())).willAnswer {
+    given(transactionsViewRepository.save(viewRepositoryCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
     given(transactionsRefundedEventStoreRepository.insert(refundEventStoreCaptor.capture()))
@@ -1069,7 +1069,7 @@ class TransactionsRefundEventsConsumerTests {
     given(
         transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
       .willReturn(events.toFlux())
-    given(transactionsViewRepository.insert(viewRepositoryCaptor.capture())).willAnswer {
+    given(transactionsViewRepository.save(viewRepositoryCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
     given(transactionsRefundedEventStoreRepository.insert(refundEventStoreCaptor.capture()))

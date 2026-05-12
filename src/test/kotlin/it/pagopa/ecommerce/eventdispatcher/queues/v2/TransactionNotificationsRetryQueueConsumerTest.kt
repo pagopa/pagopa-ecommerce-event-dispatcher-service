@@ -170,7 +170,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
       .willReturn(Mono.just(NotificationEmailResponseDto().apply { outcome = "OK" }))
     given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
       .willReturn(Mono.just(document))
-    given(transactionsViewRepository.insert(capture(transactionViewRepositoryCaptor))).willAnswer {
+    given(transactionsViewRepository.save(capture(transactionViewRepositoryCaptor))).willAnswer {
       Mono.just(it.arguments[0])
     }
     given(transactionUserReceiptRepository.insert(capture(transactionUserReceiptCaptor)))
@@ -190,7 +190,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
       .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
     verify(refundRequestedAsyncClient, times(0))
       .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
-    verify(transactionsViewRepository, times(1)).insert(capture(transactionViewRepositoryCaptor))
+    verify(transactionsViewRepository, times(1)).save(capture(transactionViewRepositoryCaptor))
     verify(transactionRefundRepository, times(0)).insert(capture(transactionRefundEventStoreCaptor))
     verify(userReceiptMailBuilder, times(1)).buildNotificationEmailRequestDto(baseTransaction)
     assertEquals(TransactionStatusDto.NOTIFIED_OK, transactionViewRepositoryCaptor.value.status)
@@ -258,7 +258,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
         .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
       verify(refundRequestedAsyncClient, times(0))
         .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
-      verify(transactionsViewRepository, times(0)).insert(capture(transactionViewRepositoryCaptor))
+      verify(transactionsViewRepository, times(0)).save(capture(transactionViewRepositoryCaptor))
       verify(transactionRefundRepository, times(0))
         .insert(capture(transactionRefundEventStoreCaptor))
       verify(userReceiptMailBuilder, times(1)).buildNotificationEmailRequestDto(baseTransaction)
@@ -305,7 +305,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
       .willReturn(Mono.just(NotificationEmailResponseDto().apply { outcome = "OK" }))
     given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
       .willReturn(Mono.just(document))
-    given(transactionsViewRepository.insert(capture(transactionViewRepositoryCaptor))).willAnswer {
+    given(transactionsViewRepository.save(capture(transactionViewRepositoryCaptor))).willAnswer {
       Mono.just(it.arguments[0])
     }
     given(transactionUserReceiptRepository.insert(capture(transactionUserReceiptCaptor)))
@@ -334,7 +334,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
     verify(notificationsServiceClient, times(1)).sendNotificationEmail(any())
     verify(notificationRetryService, times(0))
       .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
-    verify(transactionsViewRepository, times(2)).insert(capture(transactionViewRepositoryCaptor))
+    verify(transactionsViewRepository, times(2)).save(capture(transactionViewRepositoryCaptor))
     verify(transactionRefundRepository, times(1)).insert(capture(transactionRefundEventStoreCaptor))
     verify(refundRequestedAsyncClient, times(1))
       .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
@@ -427,7 +427,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
       verify(notificationsServiceClient, times(1)).sendNotificationEmail(any())
       verify(notificationRetryService, times(0))
         .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
-      verify(transactionsViewRepository, times(0)).insert(capture(transactionViewRepositoryCaptor))
+      verify(transactionsViewRepository, times(0)).save(capture(transactionViewRepositoryCaptor))
       verify(transactionRefundRepository, times(1))
         .insert(capture(transactionRefundEventStoreCaptor))
       verify(refundRequestedAsyncClient, times(1))
@@ -494,7 +494,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
         .willReturn(Mono.just(NotificationEmailResponseDto().apply { outcome = "OK" }))
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(Mono.just(document))
-      given(transactionsViewRepository.insert(capture(transactionViewRepositoryCaptor)))
+      given(transactionsViewRepository.save(capture(transactionViewRepositoryCaptor)))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(transactionUserReceiptRepository.insert(capture(transactionUserReceiptCaptor)))
         .willAnswer { Mono.just(it.arguments[0]) }
@@ -512,7 +512,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
       verify(notificationsServiceClient, times(1)).sendNotificationEmail(any())
       verify(notificationRetryService, times(0))
         .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
-      verify(transactionsViewRepository, times(1)).insert(capture(transactionViewRepositoryCaptor))
+      verify(transactionsViewRepository, times(1)).save(capture(transactionViewRepositoryCaptor))
       verify(transactionRefundRepository, times(0))
         .insert(capture(transactionRefundEventStoreCaptor))
       verify(refundRequestedAsyncClient, times(0))
@@ -581,7 +581,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
       verify(notificationsServiceClient, times(1)).sendNotificationEmail(any())
       verify(notificationRetryService, times(0))
         .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
-      verify(transactionsViewRepository, times(0)).insert(capture(transactionViewRepositoryCaptor))
+      verify(transactionsViewRepository, times(0)).save(capture(transactionViewRepositoryCaptor))
       verify(transactionRefundRepository, times(0))
         .insert(capture(transactionRefundEventStoreCaptor))
       verify(refundRequestedAsyncClient, times(0))
@@ -634,7 +634,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
         .willReturn(Mono.error(RuntimeException("Error calling notification service")))
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(Mono.just(document))
-      given(transactionsViewRepository.insert(capture(transactionViewRepositoryCaptor)))
+      given(transactionsViewRepository.save(capture(transactionViewRepositoryCaptor)))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(transactionUserReceiptRepository.insert(capture(transactionUserReceiptCaptor)))
         .willAnswer { Mono.just(it.arguments[0]) }
@@ -653,7 +653,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
       verify(notificationsServiceClient, times(1)).sendNotificationEmail(any())
       verify(notificationRetryService, times(1))
         .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
-      verify(transactionsViewRepository, times(0)).insert(capture(transactionViewRepositoryCaptor))
+      verify(transactionsViewRepository, times(0)).save(capture(transactionViewRepositoryCaptor))
       verify(transactionRefundRepository, times(0))
         .insert(capture(transactionRefundEventStoreCaptor))
       verify(refundRequestedAsyncClient, times(0))
@@ -703,7 +703,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
         .willReturn(Mono.error(RuntimeException("Error calling notification service")))
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(Mono.just(document))
-      given(transactionsViewRepository.insert(capture(transactionViewRepositoryCaptor)))
+      given(transactionsViewRepository.save(capture(transactionViewRepositoryCaptor)))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(transactionUserReceiptRepository.insert(capture(transactionUserReceiptCaptor)))
         .willAnswer { Mono.just(it.arguments[0]) }
@@ -722,7 +722,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
       verify(notificationsServiceClient, times(1)).sendNotificationEmail(any())
       verify(notificationRetryService, times(1))
         .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
-      verify(transactionsViewRepository, times(0)).insert(capture(transactionViewRepositoryCaptor))
+      verify(transactionsViewRepository, times(0)).save(capture(transactionViewRepositoryCaptor))
       verify(transactionRefundRepository, times(0))
         .insert(capture(transactionRefundEventStoreCaptor))
       verify(refundRequestedAsyncClient, times(0))
@@ -774,7 +774,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
         .willReturn(Mono.error(RuntimeException("Error calling notification service")))
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(Mono.just(document))
-      given(transactionsViewRepository.insert(capture(transactionViewRepositoryCaptor)))
+      given(transactionsViewRepository.save(capture(transactionViewRepositoryCaptor)))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(transactionUserReceiptRepository.insert(capture(transactionUserReceiptCaptor)))
         .willAnswer { Mono.just(it.arguments[0]) }
@@ -793,7 +793,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
       verify(notificationsServiceClient, times(1)).sendNotificationEmail(any())
       verify(notificationRetryService, times(1))
         .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
-      verify(transactionsViewRepository, times(0)).insert(capture(transactionViewRepositoryCaptor))
+      verify(transactionsViewRepository, times(0)).save(capture(transactionViewRepositoryCaptor))
       verify(transactionRefundRepository, times(0))
         .insert(capture(transactionRefundEventStoreCaptor))
       verify(refundRequestedAsyncClient, times(0))
@@ -845,7 +845,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
         .willReturn(Mono.error(RuntimeException("Error calling notification service")))
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(Mono.just(document))
-      given(transactionsViewRepository.insert(capture(transactionViewRepositoryCaptor)))
+      given(transactionsViewRepository.save(capture(transactionViewRepositoryCaptor)))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(transactionUserReceiptRepository.insert(capture(transactionUserReceiptCaptor)))
         .willAnswer { Mono.just(it.arguments[0]) }
@@ -864,7 +864,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
       verify(notificationsServiceClient, times(1)).sendNotificationEmail(any())
       verify(notificationRetryService, times(1))
         .enqueueRetryEvent(any(), any(), isNull(), anyOrNull(), anyOrNull())
-      verify(transactionsViewRepository, times(0)).insert(capture(transactionViewRepositoryCaptor))
+      verify(transactionsViewRepository, times(0)).save(capture(transactionViewRepositoryCaptor))
       verify(transactionRefundRepository, times(0))
         .insert(capture(transactionRefundEventStoreCaptor))
       verify(refundRequestedAsyncClient, times(0))
@@ -916,7 +916,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
         .willReturn(Mono.error(RuntimeException("Error calling notification service")))
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(Mono.just(document))
-      given(transactionsViewRepository.insert(capture(transactionViewRepositoryCaptor)))
+      given(transactionsViewRepository.save(capture(transactionViewRepositoryCaptor)))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(transactionUserReceiptRepository.insert(capture(transactionUserReceiptCaptor)))
         .willAnswer { Mono.just(it.arguments[0]) }
@@ -944,7 +944,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
       verify(notificationsServiceClient, times(1)).sendNotificationEmail(any())
       verify(notificationRetryService, times(1))
         .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
-      verify(transactionsViewRepository, times(0)).insert(capture(transactionViewRepositoryCaptor))
+      verify(transactionsViewRepository, times(0)).save(capture(transactionViewRepositoryCaptor))
       verify(transactionRefundRepository, times(0))
         .insert(capture(transactionRefundEventStoreCaptor))
       verify(refundRequestedAsyncClient, times(0))
@@ -998,7 +998,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
         .willReturn(Mono.error(RuntimeException("Error calling notification service")))
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(Mono.just(document))
-      given(transactionsViewRepository.insert(capture(transactionViewRepositoryCaptor)))
+      given(transactionsViewRepository.save(capture(transactionViewRepositoryCaptor)))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(transactionUserReceiptRepository.insert(capture(transactionUserReceiptCaptor)))
         .willAnswer { Mono.just(it.arguments[0]) }
@@ -1035,7 +1035,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
       verify(notificationsServiceClient, times(1)).sendNotificationEmail(any())
       verify(notificationRetryService, times(1))
         .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
-      verify(transactionsViewRepository, times(0)).insert(capture(transactionViewRepositoryCaptor))
+      verify(transactionsViewRepository, times(0)).save(capture(transactionViewRepositoryCaptor))
       verify(transactionRefundRepository, times(0))
         .insert(capture(transactionRefundEventStoreCaptor))
       verify(transactionUserReceiptRepository, times(0))
@@ -1105,7 +1105,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
         .willReturn(Mono.error(RuntimeException("Error calling notification service")))
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(Mono.just(document))
-      given(transactionsViewRepository.insert(capture(transactionViewRepositoryCaptor)))
+      given(transactionsViewRepository.save(capture(transactionViewRepositoryCaptor)))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(transactionUserReceiptRepository.insert(capture(transactionUserReceiptCaptor)))
         .willAnswer { Mono.just(it.arguments[0]) }
@@ -1145,7 +1145,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
       verify(notificationsServiceClient, times(1)).sendNotificationEmail(any())
       verify(notificationRetryService, times(1))
         .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
-      verify(transactionsViewRepository, times(1)).insert(capture(transactionViewRepositoryCaptor))
+      verify(transactionsViewRepository, times(1)).save(capture(transactionViewRepositoryCaptor))
       verify(transactionRefundRepository, times(1))
         .insert(capture(transactionRefundEventStoreCaptor))
       verify(refundRequestedAsyncClient, times(1))
@@ -1268,7 +1268,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
       verify(notificationsServiceClient, times(1)).sendNotificationEmail(any())
       verify(notificationRetryService, times(1))
         .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
-      verify(transactionsViewRepository, times(0)).insert(capture(transactionViewRepositoryCaptor))
+      verify(transactionsViewRepository, times(0)).save(capture(transactionViewRepositoryCaptor))
       verify(transactionRefundRepository, times(1))
         .insert(capture(transactionRefundEventStoreCaptor))
       verify(refundRequestedAsyncClient, times(1))
@@ -1337,7 +1337,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
     verify(notificationsServiceClient, times(0)).sendNotificationEmail(any())
     verify(notificationRetryService, times(0))
       .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
-    verify(transactionsViewRepository, times(0)).insert(capture(transactionViewRepositoryCaptor))
+    verify(transactionsViewRepository, times(0)).save(capture(transactionViewRepositoryCaptor))
     verify(transactionRefundRepository, times(0)).insert(capture(transactionRefundEventStoreCaptor))
     verify(refundRequestedAsyncClient, times(0))
       .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
@@ -1404,7 +1404,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
         .willReturn(Mono.error(RuntimeException("Error calling notification service")))
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(Mono.just(document))
-      given(transactionsViewRepository.insert(capture(transactionViewRepositoryCaptor)))
+      given(transactionsViewRepository.save(capture(transactionViewRepositoryCaptor)))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(transactionUserReceiptRepository.insert(capture(transactionUserReceiptCaptor)))
         .willAnswer { Mono.just(it.arguments[0]) }
@@ -1444,7 +1444,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
       verify(notificationsServiceClient, times(1)).sendNotificationEmail(any())
       verify(notificationRetryService, times(1))
         .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
-      verify(transactionsViewRepository, times(1)).insert(capture(transactionViewRepositoryCaptor))
+      verify(transactionsViewRepository, times(1)).save(capture(transactionViewRepositoryCaptor))
       verify(transactionRefundRepository, times(1))
         .insert(capture(transactionRefundEventStoreCaptor))
       verify(refundRequestedAsyncClient, times(1))
@@ -1568,7 +1568,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
       verify(notificationsServiceClient, times(1)).sendNotificationEmail(any())
       verify(notificationRetryService, times(1))
         .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
-      verify(transactionsViewRepository, times(0)).insert(capture(transactionViewRepositoryCaptor))
+      verify(transactionsViewRepository, times(0)).save(capture(transactionViewRepositoryCaptor))
       verify(transactionRefundRepository, times(1))
         .insert(capture(transactionRefundEventStoreCaptor))
       verify(refundRequestedAsyncClient, times(1))
@@ -1662,7 +1662,7 @@ class TransactionNotificationsRetryQueueConsumerTest {
         .willReturn(Mono.just(NotificationEmailResponseDto().apply { outcome = "OK" }))
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(Mono.just(document))
-      given(transactionsViewRepository.insert(capture(transactionViewRepositoryCaptor)))
+      given(transactionsViewRepository.save(capture(transactionViewRepositoryCaptor)))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(transactionUserReceiptRepository.insert(capture(transactionUserReceiptCaptor)))
         .willAnswer { Mono.just(it.arguments[0]) }
