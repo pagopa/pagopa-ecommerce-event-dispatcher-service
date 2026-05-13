@@ -308,8 +308,9 @@ class TransactionNotificationsQueueConsumerTest {
         .willReturn(Mono.just(NotificationEmailResponseDto().apply { outcome = "OK" }))
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(Mono.just(document))
-      given(transactionsViewRepository.save(capture(transactionViewRepositoryCaptor)))
-        .willAnswer { Mono.just(it.arguments[0]) }
+      given(transactionsViewRepository.save(capture(transactionViewRepositoryCaptor))).willAnswer {
+        Mono.just(it.arguments[0])
+      }
       given(transactionUserReceiptRepository.insert(capture(transactionUserReceiptCaptor)))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(transactionRefundRepository.insert(capture(transactionRefundEventStoreCaptor)))
@@ -493,8 +494,9 @@ class TransactionNotificationsQueueConsumerTest {
         .willReturn(Mono.just(NotificationEmailResponseDto().apply { outcome = "OK" }))
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(Mono.just(document))
-      given(transactionsViewRepository.save(capture(transactionViewRepositoryCaptor)))
-        .willAnswer { Mono.just(it.arguments[0]) }
+      given(transactionsViewRepository.save(capture(transactionViewRepositoryCaptor))).willAnswer {
+        Mono.just(it.arguments[0])
+      }
       given(transactionUserReceiptRepository.insert(capture(transactionUserReceiptCaptor)))
         .willAnswer { Mono.just(it.arguments[0]) }
 
@@ -632,8 +634,9 @@ class TransactionNotificationsQueueConsumerTest {
         .willReturn(Mono.just(NotificationEmailResponseDto().apply { outcome = "OK" }))
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(Mono.just(document))
-      given(transactionsViewRepository.save(capture(transactionViewRepositoryCaptor)))
-        .willAnswer { Mono.just(it.arguments[0]) }
+      given(transactionsViewRepository.save(capture(transactionViewRepositoryCaptor))).willAnswer {
+        Mono.just(it.arguments[0])
+      }
       given(transactionUserReceiptRepository.insert(capture(transactionUserReceiptCaptor)))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(transactionRefundRepository.insert(capture(transactionRefundEventStoreCaptor)))
@@ -818,8 +821,9 @@ class TransactionNotificationsQueueConsumerTest {
         .willReturn(Mono.error(RuntimeException("Error calling notification service")))
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(Mono.just(document))
-      given(transactionsViewRepository.save(capture(transactionViewRepositoryCaptor)))
-        .willAnswer { Mono.just(it.arguments[0]) }
+      given(transactionsViewRepository.save(capture(transactionViewRepositoryCaptor))).willAnswer {
+        Mono.just(it.arguments[0])
+      }
       given(transactionUserReceiptRepository.insert(capture(transactionUserReceiptCaptor)))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(
@@ -968,8 +972,9 @@ class TransactionNotificationsQueueConsumerTest {
         .willReturn(Mono.error(RuntimeException("Error calling notification service")))
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(Mono.just(document))
-      given(transactionsViewRepository.save(capture(transactionViewRepositoryCaptor)))
-        .willAnswer { Mono.just(it.arguments[0]) }
+      given(transactionsViewRepository.save(capture(transactionViewRepositoryCaptor))).willAnswer {
+        Mono.just(it.arguments[0])
+      }
       given(transactionUserReceiptRepository.insert(capture(transactionUserReceiptCaptor)))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(
@@ -1127,8 +1132,9 @@ class TransactionNotificationsQueueConsumerTest {
         .willReturn(Mono.error(RuntimeException("Error calling notification service")))
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(Mono.just(document))
-      given(transactionsViewRepository.save(capture(transactionViewRepositoryCaptor)))
-        .willAnswer { Mono.just(it.arguments[0]) }
+      given(transactionsViewRepository.save(capture(transactionViewRepositoryCaptor))).willAnswer {
+        Mono.just(it.arguments[0])
+      }
       given(transactionUserReceiptRepository.insert(capture(transactionUserReceiptCaptor)))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(
@@ -1483,8 +1489,9 @@ class TransactionNotificationsQueueConsumerTest {
         .willReturn(Mono.just(NotificationEmailResponseDto().apply { outcome = "OK" }))
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturn(Mono.just(document))
-      given(transactionsViewRepository.save(capture(transactionViewRepositoryCaptor)))
-        .willAnswer { Mono.just(it.arguments[0]) }
+      given(transactionsViewRepository.save(capture(transactionViewRepositoryCaptor))).willAnswer {
+        Mono.just(it.arguments[0])
+      }
       given(transactionUserReceiptRepository.insert(capture(transactionUserReceiptCaptor)))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(

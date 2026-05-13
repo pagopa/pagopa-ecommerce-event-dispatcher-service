@@ -4,8 +4,6 @@ import com.azure.core.util.BinaryData
 import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import it.pagopa.ecommerce.commons.client.QueueAsyncClient
-import it.pagopa.ecommerce.commons.documents.BaseTransactionEvent
-import it.pagopa.ecommerce.commons.documents.v1.TransactionRefundedEvent
 import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.documents.v2.ClosureErrorData.ErrorType
 import it.pagopa.ecommerce.commons.documents.v2.Transaction.ClientId
@@ -16,7 +14,6 @@ import it.pagopa.ecommerce.commons.documents.v2.authorization.RedirectTransactio
 import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v2.TransactionEventCode
 import it.pagopa.ecommerce.commons.domain.v2.TransactionId
-import it.pagopa.ecommerce.commons.domain.v2.TransactionRefunded
 import it.pagopa.ecommerce.commons.domain.v2.TransactionWithClosureError
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
@@ -219,7 +216,8 @@ class ClosePaymentHelperTests {
       /* Asserts */
       verify(checkpointer, Mockito.times(1)).success()
       verify(nodeService, Mockito.times(0)).closePayment(any(), any())
-      verify(transactionClosedEventRepository, Mockito.times(0)).insert(any<TransactionClosedEvent>())
+      verify(transactionClosedEventRepository, Mockito.times(0))
+        .insert(any<TransactionClosedEvent>())
 
       verify(transactionsViewRepository, Mockito.times(0)).save(expectedUpdatedTransaction)
       verify(closureRetryService, times(0))
@@ -399,7 +397,8 @@ class ClosePaymentHelperTests {
         .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK)
       verify(transactionClosedEventRepository, Mockito.times(1))
         .insert(
-          any<TransactionClosedEvent>()) // FIXME: Unable to use better argument captor because of misbehaviour in static
+          any<TransactionClosedEvent>()) // FIXME: Unable to use better argument captor because of
+      // misbehaviour in static
       // mocking
       verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransaction)
       verify(closureRetryService, times(0))
@@ -495,7 +494,8 @@ class ClosePaymentHelperTests {
         .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK)
       verify(transactionClosedEventRepository, Mockito.times(1))
         .insert(
-          any<TransactionClosedEvent>()) // FIXME: Unable to use better argument captor because of misbehaviour in static
+          any<TransactionClosedEvent>()) // FIXME: Unable to use better argument captor because of
+      // misbehaviour in static
       // mocking
       verify(transactionsViewRepository, Mockito.times(0)).save(expectedUpdatedTransaction)
       verify(closureRetryService, times(0))
@@ -601,7 +601,9 @@ class ClosePaymentHelperTests {
         .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.KO)
       verify(transactionClosedEventRepository, Mockito.times(1))
         .insert(
-          any<TransactionClosureFailedEvent>()) // FIXME: Unable to use better argument captor because of misbehaviour in static
+          any<
+            TransactionClosureFailedEvent>()) // FIXME: Unable to use better argument captor because
+      // of misbehaviour in static
       // mocking
       verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransaction)
       verify(reactivePaymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never())
@@ -700,7 +702,9 @@ class ClosePaymentHelperTests {
         .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.KO)
       verify(transactionClosedEventRepository, Mockito.times(1))
         .insert(
-          any<TransactionClosureFailedEvent>()) // FIXME: Unable to use better argument captor because of misbehaviour in static
+          any<
+            TransactionClosureFailedEvent>()) // FIXME: Unable to use better argument captor because
+      // of misbehaviour in static
       // mocking
       verify(transactionsViewRepository, Mockito.times(0)).save(expectedUpdatedTransaction)
       verify(reactivePaymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never())
@@ -794,7 +798,8 @@ class ClosePaymentHelperTests {
         .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.KO)
       verify(transactionClosedEventRepository, Mockito.times(0))
         .insert(
-          any<TransactionClosedEvent>()) // FIXME: Unable to use better argument captor because of misbehaviour in static
+          any<TransactionClosedEvent>()) // FIXME: Unable to use better argument captor because of
+      // misbehaviour in static
       // mocking
       verify(transactionsViewRepository, Mockito.times(0)).save(expectedUpdatedTransaction)
       verify(reactivePaymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never())
@@ -867,7 +872,8 @@ class ClosePaymentHelperTests {
       verify(checkpointer, Mockito.times(1)).success()
       verify(nodeService, Mockito.times(0))
         .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.KO)
-      verify(transactionClosedEventRepository, Mockito.times(0)).insert(any<TransactionClosedEvent>())
+      verify(transactionClosedEventRepository, Mockito.times(0))
+        .insert(any<TransactionClosedEvent>())
       verify(closureRetryService, times(0))
         .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
       verify(reactivePaymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never())
@@ -944,7 +950,8 @@ class ClosePaymentHelperTests {
     given(transactionsViewRepository.save(viewArgumentCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
-    given(transactionClosedEventRepository.insert(any<TransactionClosedEvent>())).willReturn(Mono.just(expectedClosureEvent))
+    given(transactionClosedEventRepository.insert(any<TransactionClosedEvent>()))
+      .willReturn(Mono.just(expectedClosureEvent))
     given(nodeService.closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK))
       .willReturn(
         ClosePaymentResponseDto().apply { outcome = ClosePaymentResponseDto.OutcomeEnum.OK })
@@ -969,7 +976,9 @@ class ClosePaymentHelperTests {
     verify(reactivePaymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never())
       .deleteById(any())
     verify(transactionClosedEventRepository, Mockito.times(1))
-      .insert(any<TransactionClosedEvent>()) // FIXME: Unable to use better argument captor because of misbehaviour in static
+      .insert(
+        any<TransactionClosedEvent>()) // FIXME: Unable to use better argument captor because of
+    // misbehaviour in static
     // mocking
     verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransaction)
     verify(closureRetryService, times(0))
@@ -1065,7 +1074,8 @@ class ClosePaymentHelperTests {
         .deleteById(any())
       verify(transactionClosedEventRepository, Mockito.times(1))
         .insert(
-          any<TransactionClosedEvent>()) // FIXME: Unable to use better argument captor because of misbehaviour in static
+          any<TransactionClosedEvent>()) // FIXME: Unable to use better argument captor because of
+      // misbehaviour in static
       // mocking
       verify(transactionsViewRepository, Mockito.times(0)).save(expectedUpdatedTransaction)
       verify(closureRetryService, times(0))
@@ -1237,10 +1247,12 @@ class ClosePaymentHelperTests {
         .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK)
       verify(refundQueueAsyncClient, times(1))
         .sendMessageWithResponse(any<QueueEvent<TransactionRefundRequestedEvent>>(), any(), any())
-      verify(transactionClosedEventRepository, Mockito.times(1)).insert(any<TransactionClosedEvent>())
+      verify(transactionClosedEventRepository, Mockito.times(1))
+        .insert(any<TransactionClosedEvent>())
       verify(reactivePaymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never())
         .deleteById(any())
-      verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).insert(capture(refundedEventStoreRepositoryCaptor))
+      verify(transactionsRefundedEventStoreRepository, Mockito.times(1))
+        .insert(capture(refundedEventStoreRepositoryCaptor))
       verify(transactionsViewRepository, Mockito.times(2)).save(any())
       verify(closureRetryService, times(0))
         .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
@@ -1361,10 +1373,12 @@ class ClosePaymentHelperTests {
         .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK)
       verify(refundQueueAsyncClient, times(1))
         .sendMessageWithResponse(any<QueueEvent<TransactionRefundRequestedEvent>>(), any(), any())
-      verify(transactionClosedEventRepository, Mockito.times(1)).insert(any<TransactionClosedEvent>())
+      verify(transactionClosedEventRepository, Mockito.times(1))
+        .insert(any<TransactionClosedEvent>())
       verify(reactivePaymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never())
         .deleteById(any())
-      verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).insert(capture(refundedEventStoreRepositoryCaptor))
+      verify(transactionsRefundedEventStoreRepository, Mockito.times(1))
+        .insert(capture(refundedEventStoreRepositoryCaptor))
       verify(transactionsViewRepository, Mockito.times(0)).save(any())
       verify(closureRetryService, times(0))
         .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
@@ -1479,10 +1493,12 @@ class ClosePaymentHelperTests {
       verify(nodeService, Mockito.times(0)).closePayment(any(), any())
       verify(refundQueueAsyncClient, times(0))
         .sendMessageWithResponse(any<QueueEvent<TransactionRefundRequestedEvent>>(), any(), any())
-      verify(transactionClosedEventRepository, Mockito.times(0)).insert(any<TransactionClosedEvent>())
+      verify(transactionClosedEventRepository, Mockito.times(0))
+        .insert(any<TransactionClosedEvent>())
       verify(reactivePaymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never())
         .deleteById(any())
-      verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).insert(capture(refundedEventStoreRepositoryCaptor))
+      verify(transactionsRefundedEventStoreRepository, Mockito.times(0))
+        .insert(capture(refundedEventStoreRepositoryCaptor))
       verify(transactionsViewRepository, Mockito.times(0)).save(any())
       verify(closureRetryService, times(0))
         .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
@@ -1591,11 +1607,14 @@ class ClosePaymentHelperTests {
       verify(checkpointer, Mockito.times(1)).success()
       verify(nodeService, Mockito.times(1))
         .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK)
-      verify(transactionClosureErrorEventStoreRepository, Mockito.times(1)).insert(any<TransactionClosureErrorEvent>())
-      verify(transactionClosedEventRepository, Mockito.times(1)).insert(any<TransactionClosedEvent>())
+      verify(transactionClosureErrorEventStoreRepository, Mockito.times(1))
+        .insert(any<TransactionClosureErrorEvent>())
+      verify(transactionClosedEventRepository, Mockito.times(1))
+        .insert(any<TransactionClosedEvent>())
       verify(reactivePaymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never())
         .deleteById(any())
-      verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).save(capture(refundedEventStoreRepositoryCaptor))
+      verify(transactionsRefundedEventStoreRepository, Mockito.times(0))
+        .save(capture(refundedEventStoreRepositoryCaptor))
       verify(transactionsViewRepository, Mockito.times(2)).save(any())
 
       verify(closureRetryService, times(1))
@@ -1678,9 +1697,8 @@ class ClosePaymentHelperTests {
             transactionDocument(
               TransactionStatusDto.CLOSURE_ERROR,
               ZonedDateTime.parse(activationEvent.creationDate)))))
-    given(transactionClosureErrorEventStoreRepository.insert(any<TransactionClosureErrorEvent>())).willAnswer {
-      Mono.just(it.arguments[0])
-    }
+    given(transactionClosureErrorEventStoreRepository.insert(any<TransactionClosureErrorEvent>()))
+      .willAnswer { Mono.just(it.arguments[0]) }
     given(transactionsViewRepository.save(viewArgumentCaptor.capture()))
       .willReturnConsecutively(
         listOf(
@@ -1692,7 +1710,8 @@ class ClosePaymentHelperTests {
     given(transactionClosedEventRepository.insert(closedEventStoreRepositoryCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
     given(
-        transactionsRefundedEventStoreRepository.insert(refundedEventStoreRepositoryCaptor.capture()))
+        transactionsRefundedEventStoreRepository.insert(
+          refundedEventStoreRepositoryCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
     given(nodeService.closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK))
       .willReturn(
@@ -1720,7 +1739,8 @@ class ClosePaymentHelperTests {
     verify(transactionClosedEventRepository, Mockito.times(1)).insert(any<TransactionClosedEvent>())
     verify(reactivePaymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never())
       .deleteById(any())
-    verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).insert(capture(refundedEventStoreRepositoryCaptor))
+    verify(transactionsRefundedEventStoreRepository, Mockito.times(0))
+      .insert(capture(refundedEventStoreRepositoryCaptor))
     verify(transactionsViewRepository, Mockito.times(2)).save(any())
     verify(closureRetryService, times(1))
       .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
@@ -1818,7 +1838,8 @@ class ClosePaymentHelperTests {
     given(transactionClosedEventRepository.insert(closedEventStoreRepositoryCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
     given(
-        transactionsRefundedEventStoreRepository.insert(refundedEventStoreRepositoryCaptor.capture()))
+        transactionsRefundedEventStoreRepository.insert(
+          refundedEventStoreRepositoryCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
     given(nodeService.closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK))
       .willThrow(RuntimeException("Nodo error"))
@@ -1851,8 +1872,10 @@ class ClosePaymentHelperTests {
     verify(reactivePaymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never())
       .deleteById(any())
     verify(transactionClosedEventRepository, Mockito.times(0)).insert(any<TransactionClosedEvent>())
-    verify(transactionClosureErrorEventStoreRepository, Mockito.times(1)).insert(any<TransactionClosureErrorEvent>())
-    verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).insert(capture(refundedEventStoreRepositoryCaptor))
+    verify(transactionClosureErrorEventStoreRepository, Mockito.times(1))
+      .insert(any<TransactionClosureErrorEvent>())
+    verify(transactionsRefundedEventStoreRepository, Mockito.times(0))
+      .insert(capture(refundedEventStoreRepositoryCaptor))
     verify(transactionsViewRepository, Mockito.times(1)).save(any())
     verify(closureRetryService, times(1))
       .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
@@ -1966,9 +1989,12 @@ class ClosePaymentHelperTests {
         .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK)
       verify(reactivePaymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never())
         .deleteById(any())
-      verify(transactionClosedEventRepository, Mockito.times(0)).insert(any<TransactionClosedEvent>())
-      verify(transactionClosureErrorEventStoreRepository, Mockito.times(1)).insert(any<TransactionClosureErrorEvent>())
-      verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).insert(capture(refundedEventStoreRepositoryCaptor))
+      verify(transactionClosedEventRepository, Mockito.times(0))
+        .insert(any<TransactionClosedEvent>())
+      verify(transactionClosureErrorEventStoreRepository, Mockito.times(1))
+        .insert(any<TransactionClosureErrorEvent>())
+      verify(transactionsRefundedEventStoreRepository, Mockito.times(0))
+        .insert(capture(refundedEventStoreRepositoryCaptor))
       verify(transactionsViewRepository, Mockito.times(0)).save(any())
       verify(closureRetryService, times(1))
         .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
@@ -2028,9 +2054,8 @@ class ClosePaymentHelperTests {
       }
       given(transactionClosedEventRepository.insert(closedEventStoreRepositoryCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
-      given(transactionClosureErrorEventStoreRepository.insert(any<TransactionClosureErrorEvent>())).willAnswer {
-        Mono.just(it.arguments[0])
-      }
+      given(transactionClosureErrorEventStoreRepository.insert(any<TransactionClosureErrorEvent>()))
+        .willAnswer { Mono.just(it.arguments[0]) }
       given(
           transactionsRefundedEventStoreRepository.insert(
             refundedEventStoreRepositoryCaptor.capture()))
@@ -2065,8 +2090,10 @@ class ClosePaymentHelperTests {
         .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK)
       verify(reactivePaymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never())
         .deleteById(any())
-      verify(transactionClosedEventRepository, Mockito.times(0)).insert(any<TransactionClosedEvent>())
-      verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).insert(capture(refundedEventStoreRepositoryCaptor))
+      verify(transactionClosedEventRepository, Mockito.times(0))
+        .insert(any<TransactionClosedEvent>())
+      verify(transactionsRefundedEventStoreRepository, Mockito.times(0))
+        .insert(capture(refundedEventStoreRepositoryCaptor))
       verify(transactionsViewRepository, Mockito.times(1))
         .save(argThat { it -> (it as Transaction).status == TransactionStatusDto.CLOSURE_ERROR })
       verify(closureRetryService, times(1))
@@ -2148,9 +2175,8 @@ class ClosePaymentHelperTests {
         .willReturn(Mono.just(transactionDocument))
       given(transactionClosedEventRepository.insert(closedEventStoreRepositoryCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
-      given(transactionClosureErrorEventStoreRepository.insert(any<TransactionClosureErrorEvent>())).willAnswer {
-        Mono.just(it.arguments[0])
-      }
+      given(transactionClosureErrorEventStoreRepository.insert(any<TransactionClosureErrorEvent>()))
+        .willAnswer { Mono.just(it.arguments[0]) }
       given(
           transactionsRefundedEventStoreRepository.insert(
             refundedEventStoreRepositoryCaptor.capture()))
@@ -2185,8 +2211,10 @@ class ClosePaymentHelperTests {
         .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK)
       verify(reactivePaymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never())
         .deleteById(any())
-      verify(transactionClosedEventRepository, Mockito.times(0)).insert(any<TransactionClosedEvent>())
-      verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).insert(capture(refundedEventStoreRepositoryCaptor))
+      verify(transactionClosedEventRepository, Mockito.times(0))
+        .insert(any<TransactionClosedEvent>())
+      verify(transactionsRefundedEventStoreRepository, Mockito.times(0))
+        .insert(capture(refundedEventStoreRepositoryCaptor))
       verify(closureRetryService, times(1))
         .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
       verify(deadLetterTracedQueueAsyncClient, times(1))
@@ -2283,7 +2311,9 @@ class ClosePaymentHelperTests {
     verify(checkpointer, Mockito.times(1)).success()
     verify(nodeService, Mockito.times(1)).closePayment(transactionId, ClosePaymentOutcome.KO)
     verify(transactionClosedEventRepository, Mockito.times(1))
-      .insert(any<TransactionClosedEvent>()) // FIXME: Unable to use better argument captor because of misbehaviour in static
+      .insert(
+        any<TransactionClosedEvent>()) // FIXME: Unable to use better argument captor because of
+    // misbehaviour in static
     // mocking
     verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransactionCanceled)
     verify(closureRetryService, times(0))
@@ -2367,7 +2397,8 @@ class ClosePaymentHelperTests {
       verify(nodeService, Mockito.times(1)).closePayment(transactionId, ClosePaymentOutcome.KO)
       verify(transactionClosedEventRepository, Mockito.times(1))
         .insert(
-          any<TransactionClosedEvent>()) // FIXME: Unable to use better argument captor because of misbehaviour in static
+          any<TransactionClosedEvent>()) // FIXME: Unable to use better argument captor because of
+      // misbehaviour in static
       // mocking
       verify(transactionsViewRepository, Mockito.times(0)).save(expectedUpdatedTransactionCanceled)
       verify(closureRetryService, times(0))
@@ -2450,7 +2481,9 @@ class ClosePaymentHelperTests {
     verify(checkpointer, Mockito.times(1)).success()
     verify(nodeService, Mockito.times(1)).closePayment(transactionId, ClosePaymentOutcome.KO)
     verify(transactionClosedEventRepository, Mockito.times(1))
-      .insert(any<TransactionClosedEvent>()) // FIXME: Unable to use better argument captor because of misbehaviour in static
+      .insert(
+        any<TransactionClosedEvent>()) // FIXME: Unable to use better argument captor because of
+    // misbehaviour in static
     // mocking
     verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransactionCanceled)
     verify(closureRetryService, times(0))
@@ -2530,7 +2563,8 @@ class ClosePaymentHelperTests {
       verify(nodeService, Mockito.times(1)).closePayment(transactionId, ClosePaymentOutcome.KO)
       verify(transactionClosedEventRepository, Mockito.times(1))
         .insert(
-          any<TransactionClosedEvent>()) // FIXME: Unable to use better argument captor because of misbehaviour in static
+          any<TransactionClosedEvent>()) // FIXME: Unable to use better argument captor because of
+      // misbehaviour in static
       // mocking
       verify(transactionsViewRepository, Mockito.times(0)).save(expectedUpdatedTransactionCanceled)
       verify(closureRetryService, times(0))
@@ -2614,7 +2648,9 @@ class ClosePaymentHelperTests {
     verify(checkpointer, Mockito.times(1)).success()
     verify(nodeService, Mockito.times(1)).closePayment(any(), any())
     verify(transactionClosedEventRepository, Mockito.times(0))
-      .insert(any<TransactionClosedEvent>()) // FIXME: Unable to use better argument captor because of misbehaviour in static
+      .insert(
+        any<TransactionClosedEvent>()) // FIXME: Unable to use better argument captor because of
+    // misbehaviour in static
     verify(reactivePaymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).times(1))
       .deleteById(any())
     // mocking
@@ -2701,10 +2737,12 @@ class ClosePaymentHelperTests {
         .deleteById(any())
       verify(transactionClosedEventRepository, Mockito.times(0))
         .insert(
-          any<TransactionClosedEvent>()) // FIXME: Unable to use better argument captor because of misbehaviour in static
+          any<TransactionClosedEvent>()) // FIXME: Unable to use better argument captor because of
+      // misbehaviour in static
       // mocking
       verify(transactionsViewRepository, Mockito.times(1)).save(any())
-      verify(transactionClosureErrorEventStoreRepository, Mockito.times(1)).insert(any<TransactionClosureErrorEvent>())
+      verify(transactionClosureErrorEventStoreRepository, Mockito.times(1))
+        .insert(any<TransactionClosureErrorEvent>())
       verify(closureRetryService, times(0))
         .enqueueRetryEvent(any(), any(), eq(MOCK_TRACING_INFO), anyOrNull(), anyOrNull())
       assertEquals(
@@ -2783,10 +2821,12 @@ class ClosePaymentHelperTests {
         .deleteById(any())
       verify(transactionClosedEventRepository, Mockito.times(0))
         .insert(
-          any<TransactionClosedEvent>()) // FIXME: Unable to use better argument captor because of misbehaviour in static
+          any<TransactionClosedEvent>()) // FIXME: Unable to use better argument captor because of
+      // misbehaviour in static
       // mocking
       verify(transactionsViewRepository, Mockito.times(0)).save(any())
-      verify(transactionClosureErrorEventStoreRepository, Mockito.times(1)).insert(any<TransactionClosureErrorEvent>())
+      verify(transactionClosureErrorEventStoreRepository, Mockito.times(1))
+        .insert(any<TransactionClosureErrorEvent>())
       verify(closureRetryService, times(0))
         .enqueueRetryEvent(any(), any(), eq(MOCK_TRACING_INFO), anyOrNull(), anyOrNull())
       assertEquals(
@@ -2864,10 +2904,12 @@ class ClosePaymentHelperTests {
         .deleteById(any())
       verify(transactionClosedEventRepository, Mockito.times(0))
         .insert(
-          any<TransactionClosedEvent>()) // FIXME: Unable to use better argument captor because of misbehaviour in static
+          any<TransactionClosedEvent>()) // FIXME: Unable to use better argument captor because of
+      // misbehaviour in static
       // mocking
       verify(transactionsViewRepository, Mockito.times(1)).save(any())
-      verify(transactionClosureErrorEventStoreRepository, Mockito.times(1)).insert(any<TransactionClosureErrorEvent>())
+      verify(transactionClosureErrorEventStoreRepository, Mockito.times(1))
+        .insert(any<TransactionClosureErrorEvent>())
       verify(closureRetryService, times(0))
         .enqueueRetryEvent(any(), any(), eq(MOCK_TRACING_INFO), anyOrNull(), anyOrNull())
       assertEquals(
@@ -2942,10 +2984,12 @@ class ClosePaymentHelperTests {
         .deleteById(any())
       verify(transactionClosedEventRepository, Mockito.times(0))
         .insert(
-          any<TransactionClosedEvent>()) // FIXME: Unable to use better argument captor because of misbehaviour in static
+          any<TransactionClosedEvent>()) // FIXME: Unable to use better argument captor because of
+      // misbehaviour in static
       // mocking
       verify(transactionsViewRepository, Mockito.times(0)).save(any())
-      verify(transactionClosureErrorEventStoreRepository, Mockito.times(1)).insert(any<TransactionClosureErrorEvent>())
+      verify(transactionClosureErrorEventStoreRepository, Mockito.times(1))
+        .insert(any<TransactionClosureErrorEvent>())
       verify(closureRetryService, times(0))
         .enqueueRetryEvent(any(), any(), eq(MOCK_TRACING_INFO), anyOrNull(), anyOrNull())
       assertEquals(
@@ -3039,7 +3083,8 @@ class ClosePaymentHelperTests {
       verify(checkpointer, Mockito.times(1)).success()
       verify(nodeService, Mockito.times(1))
         .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK)
-      verify(transactionClosedEventRepository, Mockito.times(1)).insert(any<TransactionClosedEvent>())
+      verify(transactionClosedEventRepository, Mockito.times(1))
+        .insert(any<TransactionClosedEvent>())
       verify(reactivePaymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never())
         .deleteById(any())
       verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransaction)
@@ -3134,7 +3179,8 @@ class ClosePaymentHelperTests {
       verify(checkpointer, Mockito.times(1)).success()
       verify(nodeService, Mockito.times(1))
         .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK)
-      verify(transactionClosedEventRepository, Mockito.times(1)).insert(any<TransactionClosedEvent>())
+      verify(transactionClosedEventRepository, Mockito.times(1))
+        .insert(any<TransactionClosedEvent>())
       verify(reactivePaymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never())
         .deleteById(any())
       verify(transactionsViewRepository, Mockito.times(0)).save(expectedUpdatedTransaction)
@@ -3237,7 +3283,8 @@ class ClosePaymentHelperTests {
         .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.KO)
       verify(reactivePaymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never())
         .deleteById(any())
-      verify(transactionClosedEventRepository, Mockito.times(1)).insert(any<TransactionClosureFailedEvent>())
+      verify(transactionClosedEventRepository, Mockito.times(1))
+        .insert(any<TransactionClosureFailedEvent>())
       verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransaction)
       verify(closureRetryService, times(0))
         .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
@@ -3331,7 +3378,8 @@ class ClosePaymentHelperTests {
         .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.KO)
       verify(reactivePaymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never())
         .deleteById(any())
-      verify(transactionClosedEventRepository, Mockito.times(1)).insert(any<TransactionClosureFailedEvent>())
+      verify(transactionClosedEventRepository, Mockito.times(1))
+        .insert(any<TransactionClosureFailedEvent>())
       verify(transactionsViewRepository, Mockito.times(0)).save(expectedUpdatedTransaction)
       verify(closureRetryService, times(0))
         .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
@@ -3443,9 +3491,12 @@ class ClosePaymentHelperTests {
         .sendMessageWithResponse(any<QueueEvent<TransactionRefundRequestedEvent>>(), any(), any())
       verify(reactivePaymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never())
         .deleteById(any())
-      verify(transactionClosureErrorEventStoreRepository, Mockito.times(1)).insert(any<TransactionClosureErrorEvent>())
-      verify(transactionClosedEventRepository, Mockito.times(0)).insert(any<TransactionClosedEvent>())
-      verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).insert(capture(refundedEventStoreRepositoryCaptor))
+      verify(transactionClosureErrorEventStoreRepository, Mockito.times(1))
+        .insert(any<TransactionClosureErrorEvent>())
+      verify(transactionClosedEventRepository, Mockito.times(0))
+        .insert(any<TransactionClosedEvent>())
+      verify(transactionsRefundedEventStoreRepository, Mockito.times(1))
+        .insert(capture(refundedEventStoreRepositoryCaptor))
       verify(transactionsViewRepository, Mockito.times(2)).save(any())
       verify(closureRetryService, times(0))
         .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
@@ -3574,9 +3625,12 @@ class ClosePaymentHelperTests {
         .sendMessageWithResponse(any<QueueEvent<TransactionRefundRequestedEvent>>(), any(), any())
       verify(reactivePaymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never())
         .deleteById(any())
-      verify(transactionClosedEventRepository, Mockito.times(0)).insert(any<TransactionClosedEvent>())
-      verify(transactionClosureErrorEventStoreRepository, Mockito.times(1)).insert(any<TransactionClosureErrorEvent>())
-      verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).insert(capture(refundedEventStoreRepositoryCaptor))
+      verify(transactionClosedEventRepository, Mockito.times(0))
+        .insert(any<TransactionClosedEvent>())
+      verify(transactionClosureErrorEventStoreRepository, Mockito.times(1))
+        .insert(any<TransactionClosureErrorEvent>())
+      verify(transactionsRefundedEventStoreRepository, Mockito.times(1))
+        .insert(capture(refundedEventStoreRepositoryCaptor))
       verify(transactionsViewRepository, Mockito.times(0)).save(any())
       verify(closureRetryService, times(0))
         .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
@@ -3672,7 +3726,8 @@ class ClosePaymentHelperTests {
           closureErrorEventStoreRepositoryCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
     given(
-        transactionsRefundedEventStoreRepository.insert(refundedEventStoreRepositoryCaptor.capture()))
+        transactionsRefundedEventStoreRepository.insert(
+          refundedEventStoreRepositoryCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
     given(nodeService.closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK))
       .willThrow(
@@ -3698,8 +3753,10 @@ class ClosePaymentHelperTests {
     verify(reactivePaymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never())
       .deleteById(any())
     verify(transactionClosedEventRepository, Mockito.times(0)).insert(any<TransactionClosedEvent>())
-    verify(transactionClosureErrorEventStoreRepository, Mockito.times(1)).insert(any<TransactionClosureErrorEvent>())
-    verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).insert(capture(refundedEventStoreRepositoryCaptor))
+    verify(transactionClosureErrorEventStoreRepository, Mockito.times(1))
+      .insert(any<TransactionClosureErrorEvent>())
+    verify(transactionsRefundedEventStoreRepository, Mockito.times(0))
+      .insert(capture(refundedEventStoreRepositoryCaptor))
     verify(transactionsViewRepository, Mockito.times(1)).save(any())
     verify(closureRetryService, times(0))
       .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
@@ -3780,7 +3837,8 @@ class ClosePaymentHelperTests {
           closureErrorEventStoreRepositoryCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
     given(
-        transactionsRefundedEventStoreRepository.insert(refundedEventStoreRepositoryCaptor.capture()))
+        transactionsRefundedEventStoreRepository.insert(
+          refundedEventStoreRepositoryCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
     given(nodeService.closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK))
       .willThrow(
@@ -3806,8 +3864,10 @@ class ClosePaymentHelperTests {
     verify(reactivePaymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never())
       .deleteById(any())
     verify(transactionClosedEventRepository, Mockito.times(0)).insert(any<TransactionClosedEvent>())
-    verify(transactionClosureErrorEventStoreRepository, Mockito.times(1)).insert(any<TransactionClosureErrorEvent>())
-    verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).insert(capture(refundedEventStoreRepositoryCaptor))
+    verify(transactionClosureErrorEventStoreRepository, Mockito.times(1))
+      .insert(any<TransactionClosureErrorEvent>())
+    verify(transactionsRefundedEventStoreRepository, Mockito.times(0))
+      .insert(capture(refundedEventStoreRepositoryCaptor))
     verify(transactionsViewRepository, Mockito.times(0)).save(any())
     verify(closureRetryService, times(0))
       .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
@@ -3882,7 +3942,8 @@ class ClosePaymentHelperTests {
           closureErrorEventStoreRepositoryCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
     given(
-        transactionsRefundedEventStoreRepository.insert(refundedEventStoreRepositoryCaptor.capture()))
+        transactionsRefundedEventStoreRepository.insert(
+          refundedEventStoreRepositoryCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
     given(nodeService.closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK))
       .willThrow(
@@ -3909,9 +3970,11 @@ class ClosePaymentHelperTests {
     verify(reactivePaymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never())
       .deleteById(any())
     verify(transactionClosedEventRepository, Mockito.times(0)).insert(any<TransactionClosedEvent>())
-    verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).insert(capture(refundedEventStoreRepositoryCaptor))
+    verify(transactionsRefundedEventStoreRepository, Mockito.times(0))
+      .insert(capture(refundedEventStoreRepositoryCaptor))
     verify(transactionsViewRepository, Mockito.times(1)).save(any())
-    verify(transactionClosureErrorEventStoreRepository, Mockito.times(1)).insert(any<TransactionClosureErrorEvent>())
+    verify(transactionClosureErrorEventStoreRepository, Mockito.times(1))
+      .insert(any<TransactionClosureErrorEvent>())
     verify(closureRetryService, times(0))
       .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
     assertEquals(TransactionStatusDto.CLOSURE_ERROR, viewArgumentCaptor.value.status)
@@ -3986,7 +4049,8 @@ class ClosePaymentHelperTests {
           closureErrorEventStoreRepositoryCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
     given(
-        transactionsRefundedEventStoreRepository.insert(refundedEventStoreRepositoryCaptor.capture()))
+        transactionsRefundedEventStoreRepository.insert(
+          refundedEventStoreRepositoryCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
     given(nodeService.closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK))
       .willThrow(
@@ -4013,9 +4077,11 @@ class ClosePaymentHelperTests {
     verify(reactivePaymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never())
       .deleteById(any())
     verify(transactionClosedEventRepository, Mockito.times(0)).insert(any<TransactionClosedEvent>())
-    verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).insert(capture(refundedEventStoreRepositoryCaptor))
+    verify(transactionsRefundedEventStoreRepository, Mockito.times(0))
+      .insert(capture(refundedEventStoreRepositoryCaptor))
     verify(transactionsViewRepository, Mockito.times(0)).save(any())
-    verify(transactionClosureErrorEventStoreRepository, Mockito.times(1)).insert(any<TransactionClosureErrorEvent>())
+    verify(transactionClosureErrorEventStoreRepository, Mockito.times(1))
+      .insert(any<TransactionClosureErrorEvent>())
     verify(closureRetryService, times(0))
       .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
     assertEquals(
@@ -4093,7 +4159,8 @@ class ClosePaymentHelperTests {
           closureErrorEventStoreRepositoryCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
     given(
-        transactionsRefundedEventStoreRepository.insert(refundedEventStoreRepositoryCaptor.capture()))
+        transactionsRefundedEventStoreRepository.insert(
+          refundedEventStoreRepositoryCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
     given(
         refundQueueAsyncClient.sendMessageWithResponse(
@@ -4123,8 +4190,10 @@ class ClosePaymentHelperTests {
     verify(reactivePaymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never())
       .deleteById(any())
     verify(transactionClosedEventRepository, Mockito.times(0)).insert(any<TransactionClosedEvent>())
-    verify(transactionClosureErrorEventStoreRepository, Mockito.times(1)).insert(any<TransactionClosureErrorEvent>())
-    verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).insert(capture(refundedEventStoreRepositoryCaptor))
+    verify(transactionClosureErrorEventStoreRepository, Mockito.times(1))
+      .insert(any<TransactionClosureErrorEvent>())
+    verify(transactionsRefundedEventStoreRepository, Mockito.times(1))
+      .insert(capture(refundedEventStoreRepositoryCaptor))
     verify(transactionsViewRepository, Mockito.times(2)).save(any())
     verify(closureRetryService, times(0))
       .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
@@ -4224,7 +4293,8 @@ class ClosePaymentHelperTests {
           closureErrorEventStoreRepositoryCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
     given(
-        transactionsRefundedEventStoreRepository.insert(refundedEventStoreRepositoryCaptor.capture()))
+        transactionsRefundedEventStoreRepository.insert(
+          refundedEventStoreRepositoryCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
     given(
         refundQueueAsyncClient.sendMessageWithResponse(
@@ -4254,8 +4324,10 @@ class ClosePaymentHelperTests {
     verify(reactivePaymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never())
       .deleteById(any())
     verify(transactionClosedEventRepository, Mockito.times(0)).insert(any<TransactionClosedEvent>())
-    verify(transactionClosureErrorEventStoreRepository, Mockito.times(1)).insert(any<TransactionClosureErrorEvent>())
-    verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).insert(capture(refundedEventStoreRepositoryCaptor))
+    verify(transactionClosureErrorEventStoreRepository, Mockito.times(1))
+      .insert(any<TransactionClosureErrorEvent>())
+    verify(transactionsRefundedEventStoreRepository, Mockito.times(1))
+      .insert(capture(refundedEventStoreRepositoryCaptor))
     verify(transactionsViewRepository, Mockito.times(0)).save(any())
     verify(closureRetryService, times(0))
       .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
@@ -4363,7 +4435,8 @@ class ClosePaymentHelperTests {
           closureErrorEventStoreRepositoryCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
     given(
-        transactionsRefundedEventStoreRepository.insert(refundedEventStoreRepositoryCaptor.capture()))
+        transactionsRefundedEventStoreRepository.insert(
+          refundedEventStoreRepositoryCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
     given(nodeService.closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK))
       .willThrow(throwable)
@@ -4391,8 +4464,10 @@ class ClosePaymentHelperTests {
     verify(reactivePaymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never())
       .deleteById(any())
     verify(transactionClosedEventRepository, Mockito.times(0)).insert(any<TransactionClosedEvent>())
-    verify(transactionClosureErrorEventStoreRepository, Mockito.times(1)).insert(any<TransactionClosureErrorEvent>())
-    verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).insert(capture(refundedEventStoreRepositoryCaptor))
+    verify(transactionClosureErrorEventStoreRepository, Mockito.times(1))
+      .insert(any<TransactionClosureErrorEvent>())
+    verify(transactionsRefundedEventStoreRepository, Mockito.times(0))
+      .insert(capture(refundedEventStoreRepositoryCaptor))
     verify(transactionsViewRepository, Mockito.times(1)).save(any())
 
     verify(closureRetryService, times(1))
@@ -4467,7 +4542,8 @@ class ClosePaymentHelperTests {
           closureErrorEventStoreRepositoryCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
     given(
-        transactionsRefundedEventStoreRepository.insert(refundedEventStoreRepositoryCaptor.capture()))
+        transactionsRefundedEventStoreRepository.insert(
+          refundedEventStoreRepositoryCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
     given(nodeService.closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK))
       .willThrow(throwable)
@@ -4495,8 +4571,10 @@ class ClosePaymentHelperTests {
     verify(reactivePaymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never())
       .deleteById(any())
     verify(transactionClosedEventRepository, Mockito.times(0)).insert(any<TransactionClosedEvent>())
-    verify(transactionClosureErrorEventStoreRepository, Mockito.times(1)).insert(any<TransactionClosureErrorEvent>())
-    verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).insert(capture(refundedEventStoreRepositoryCaptor))
+    verify(transactionClosureErrorEventStoreRepository, Mockito.times(1))
+      .insert(any<TransactionClosureErrorEvent>())
+    verify(transactionsRefundedEventStoreRepository, Mockito.times(0))
+      .insert(capture(refundedEventStoreRepositoryCaptor))
     verify(transactionsViewRepository, Mockito.times(0)).save(any())
 
     verify(closureRetryService, times(1))
@@ -4605,9 +4683,12 @@ class ClosePaymentHelperTests {
         .sendMessageWithResponse(any<QueueEvent<TransactionRefundRequestedEvent>>(), any(), any())
       verify(reactivePaymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never())
         .deleteById(any())
-      verify(transactionClosedEventRepository, Mockito.times(0)).insert(any<TransactionClosedEvent>())
-      verify(transactionClosureErrorEventStoreRepository, Mockito.times(1)).insert(any<TransactionClosureErrorEvent>())
-      verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).insert(capture(refundedEventStoreRepositoryCaptor))
+      verify(transactionClosedEventRepository, Mockito.times(0))
+        .insert(any<TransactionClosedEvent>())
+      verify(transactionClosureErrorEventStoreRepository, Mockito.times(1))
+        .insert(any<TransactionClosureErrorEvent>())
+      verify(transactionsRefundedEventStoreRepository, Mockito.times(1))
+        .insert(capture(refundedEventStoreRepositoryCaptor))
       verify(transactionsViewRepository, Mockito.times(2)).save(any())
       verify(closureRetryService, times(0))
         .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
@@ -4733,9 +4814,12 @@ class ClosePaymentHelperTests {
         .sendMessageWithResponse(any<QueueEvent<TransactionRefundRequestedEvent>>(), any(), any())
       verify(reactivePaymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never())
         .deleteById(any())
-      verify(transactionClosedEventRepository, Mockito.times(0)).insert(any<TransactionClosedEvent>())
-      verify(transactionClosureErrorEventStoreRepository, Mockito.times(1)).insert(any<TransactionClosureErrorEvent>())
-      verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).insert(capture(refundedEventStoreRepositoryCaptor))
+      verify(transactionClosedEventRepository, Mockito.times(0))
+        .insert(any<TransactionClosedEvent>())
+      verify(transactionClosureErrorEventStoreRepository, Mockito.times(1))
+        .insert(any<TransactionClosureErrorEvent>())
+      verify(transactionsRefundedEventStoreRepository, Mockito.times(1))
+        .insert(capture(refundedEventStoreRepositoryCaptor))
       verify(transactionsViewRepository, Mockito.times(0)).save(any())
       verify(closureRetryService, times(0))
         .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
@@ -4852,9 +4936,12 @@ class ClosePaymentHelperTests {
         .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK)
       verify(reactivePaymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never())
         .deleteById(any())
-      verify(transactionClosedEventRepository, Mockito.times(0)).insert(any<TransactionClosedEvent>())
-      verify(transactionClosureErrorEventStoreRepository, Mockito.times(1)).insert(any<TransactionClosureErrorEvent>())
-      verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).insert(capture(refundedEventStoreRepositoryCaptor))
+      verify(transactionClosedEventRepository, Mockito.times(0))
+        .insert(any<TransactionClosedEvent>())
+      verify(transactionClosureErrorEventStoreRepository, Mockito.times(1))
+        .insert(any<TransactionClosureErrorEvent>())
+      verify(transactionsRefundedEventStoreRepository, Mockito.times(0))
+        .insert(capture(refundedEventStoreRepositoryCaptor))
       verify(transactionsViewRepository, Mockito.times(1)).save(any())
       verify(closureRetryService, times(0))
         .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
@@ -4955,9 +5042,12 @@ class ClosePaymentHelperTests {
         .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK)
       verify(reactivePaymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never())
         .deleteById(any())
-      verify(transactionClosedEventRepository, Mockito.times(0)).insert(any<TransactionClosedEvent>())
-      verify(transactionClosureErrorEventStoreRepository, Mockito.times(1)).insert(any<TransactionClosureErrorEvent>())
-      verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).insert(capture(refundedEventStoreRepositoryCaptor))
+      verify(transactionClosedEventRepository, Mockito.times(0))
+        .insert(any<TransactionClosedEvent>())
+      verify(transactionClosureErrorEventStoreRepository, Mockito.times(1))
+        .insert(any<TransactionClosureErrorEvent>())
+      verify(transactionsRefundedEventStoreRepository, Mockito.times(0))
+        .insert(capture(refundedEventStoreRepositoryCaptor))
       verify(transactionsViewRepository, Mockito.times(0)).save(any())
       verify(closureRetryService, times(0))
         .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
@@ -5060,9 +5150,12 @@ class ClosePaymentHelperTests {
         .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK)
       verify(reactivePaymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never())
         .deleteById(any())
-      verify(transactionClosedEventRepository, Mockito.times(0)).insert(any<TransactionClosedEvent>())
-      verify(transactionClosureErrorEventStoreRepository, Mockito.times(1)).insert(any<TransactionClosureErrorEvent>())
-      verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).insert(capture(refundedEventStoreRepositoryCaptor))
+      verify(transactionClosedEventRepository, Mockito.times(0))
+        .insert(any<TransactionClosedEvent>())
+      verify(transactionClosureErrorEventStoreRepository, Mockito.times(1))
+        .insert(any<TransactionClosureErrorEvent>())
+      verify(transactionsRefundedEventStoreRepository, Mockito.times(0))
+        .insert(capture(refundedEventStoreRepositoryCaptor))
       verify(transactionsViewRepository, Mockito.times(1)).save(any())
       verify(closureRetryService, times(0))
         .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
@@ -5161,9 +5254,12 @@ class ClosePaymentHelperTests {
         .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK)
       verify(reactivePaymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never())
         .deleteById(any())
-      verify(transactionClosedEventRepository, Mockito.times(0)).insert(any<TransactionClosedEvent>())
-      verify(transactionClosureErrorEventStoreRepository, Mockito.times(1)).insert(any<TransactionClosureErrorEvent>())
-      verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).insert(capture(refundedEventStoreRepositoryCaptor))
+      verify(transactionClosedEventRepository, Mockito.times(0))
+        .insert(any<TransactionClosedEvent>())
+      verify(transactionClosureErrorEventStoreRepository, Mockito.times(1))
+        .insert(any<TransactionClosureErrorEvent>())
+      verify(transactionsRefundedEventStoreRepository, Mockito.times(0))
+        .insert(capture(refundedEventStoreRepositoryCaptor))
       verify(transactionsViewRepository, Mockito.times(0)).save(any())
       verify(closureRetryService, times(0))
         .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
@@ -5239,7 +5335,8 @@ class ClosePaymentHelperTests {
     given(transactionClosedEventRepository.insert(closedEventStoreRepositoryCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
     given(
-        transactionsRefundedEventStoreRepository.insert(refundedEventStoreRepositoryCaptor.capture()))
+        transactionsRefundedEventStoreRepository.insert(
+          refundedEventStoreRepositoryCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
     given(nodeService.closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK))
       .willThrow(
@@ -5270,8 +5367,10 @@ class ClosePaymentHelperTests {
     verify(reactivePaymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never())
       .deleteById(any())
     verify(transactionClosedEventRepository, Mockito.times(0)).insert(any<TransactionClosedEvent>())
-    verify(transactionClosureErrorEventStoreRepository, Mockito.times(1)).insert(any<TransactionClosureErrorEvent>())
-    verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).insert(capture(refundedEventStoreRepositoryCaptor))
+    verify(transactionClosureErrorEventStoreRepository, Mockito.times(1))
+      .insert(any<TransactionClosureErrorEvent>())
+    verify(transactionsRefundedEventStoreRepository, Mockito.times(1))
+      .insert(capture(refundedEventStoreRepositoryCaptor))
     verify(transactionsViewRepository, Mockito.times(2)).save(any())
     verify(closureRetryService, times(0))
       .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
@@ -5365,7 +5464,8 @@ class ClosePaymentHelperTests {
     given(transactionClosedEventRepository.insert(closedEventStoreRepositoryCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
     given(
-        transactionsRefundedEventStoreRepository.insert(refundedEventStoreRepositoryCaptor.capture()))
+        transactionsRefundedEventStoreRepository.insert(
+          refundedEventStoreRepositoryCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
     given(nodeService.closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK))
       .willThrow(
@@ -5396,8 +5496,10 @@ class ClosePaymentHelperTests {
     verify(reactivePaymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never())
       .deleteById(any())
     verify(transactionClosedEventRepository, Mockito.times(0)).insert(any<TransactionClosedEvent>())
-    verify(transactionClosureErrorEventStoreRepository, Mockito.times(1)).insert(any<TransactionClosureErrorEvent>())
-    verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).insert(capture(refundedEventStoreRepositoryCaptor))
+    verify(transactionClosureErrorEventStoreRepository, Mockito.times(1))
+      .insert(any<TransactionClosureErrorEvent>())
+    verify(transactionsRefundedEventStoreRepository, Mockito.times(1))
+      .insert(capture(refundedEventStoreRepositoryCaptor))
     verify(transactionsViewRepository, Mockito.times(0)).save(any())
     verify(closureRetryService, times(0))
       .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
@@ -5479,7 +5581,8 @@ class ClosePaymentHelperTests {
           closureErrorEventStoreRepositoryCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
     given(
-        transactionsRefundedEventStoreRepository.insert(refundedEventStoreRepositoryCaptor.capture()))
+        transactionsRefundedEventStoreRepository.insert(
+          refundedEventStoreRepositoryCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
     given(nodeService.closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK))
       .willThrow(throwable)
@@ -5513,8 +5616,10 @@ class ClosePaymentHelperTests {
     verify(reactivePaymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never())
       .deleteById(any())
     verify(transactionClosedEventRepository, Mockito.times(0)).insert(any<TransactionClosedEvent>())
-    verify(transactionClosureErrorEventStoreRepository, Mockito.times(1)).insert(any<TransactionClosureErrorEvent>())
-    verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).insert(capture(refundedEventStoreRepositoryCaptor))
+    verify(transactionClosureErrorEventStoreRepository, Mockito.times(1))
+      .insert(any<TransactionClosureErrorEvent>())
+    verify(transactionsRefundedEventStoreRepository, Mockito.times(0))
+      .insert(capture(refundedEventStoreRepositoryCaptor))
     verify(transactionsViewRepository, Mockito.times(1)).save(any())
 
     verify(closureRetryService, times(1))
@@ -5582,7 +5687,8 @@ class ClosePaymentHelperTests {
           closureErrorEventStoreRepositoryCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
     given(
-        transactionsRefundedEventStoreRepository.insert(refundedEventStoreRepositoryCaptor.capture()))
+        transactionsRefundedEventStoreRepository.insert(
+          refundedEventStoreRepositoryCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
     given(nodeService.closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK))
       .willThrow(throwable)
@@ -5616,8 +5722,10 @@ class ClosePaymentHelperTests {
     verify(reactivePaymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never())
       .deleteById(any())
     verify(transactionClosedEventRepository, Mockito.times(0)).insert(any<TransactionClosedEvent>())
-    verify(transactionClosureErrorEventStoreRepository, Mockito.times(1)).insert(any<TransactionClosureErrorEvent>())
-    verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).insert(capture(refundedEventStoreRepositoryCaptor))
+    verify(transactionClosureErrorEventStoreRepository, Mockito.times(1))
+      .insert(any<TransactionClosureErrorEvent>())
+    verify(transactionsRefundedEventStoreRepository, Mockito.times(0))
+      .insert(capture(refundedEventStoreRepositoryCaptor))
     verify(transactionsViewRepository, Mockito.times(0)).save(any())
 
     verify(closureRetryService, times(1))
@@ -5725,10 +5833,12 @@ class ClosePaymentHelperTests {
         .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK)
       verify(refundQueueAsyncClient, times(1))
         .sendMessageWithResponse(any<QueueEvent<TransactionRefundRequestedEvent>>(), any(), any())
-      verify(transactionClosedEventRepository, Mockito.times(1)).insert(any<TransactionClosedEvent>())
+      verify(transactionClosedEventRepository, Mockito.times(1))
+        .insert(any<TransactionClosedEvent>())
       verify(reactivePaymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never())
         .deleteById(any())
-      verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).insert(capture(refundedEventStoreRepositoryCaptor))
+      verify(transactionsRefundedEventStoreRepository, Mockito.times(1))
+        .insert(capture(refundedEventStoreRepositoryCaptor))
       verify(transactionsViewRepository, Mockito.times(2)).save(any())
       verify(closureRetryService, times(0))
         .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
@@ -5849,10 +5959,12 @@ class ClosePaymentHelperTests {
         .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK)
       verify(refundQueueAsyncClient, times(1))
         .sendMessageWithResponse(any<QueueEvent<TransactionRefundRequestedEvent>>(), any(), any())
-      verify(transactionClosedEventRepository, Mockito.times(1)).insert(any<TransactionClosedEvent>())
+      verify(transactionClosedEventRepository, Mockito.times(1))
+        .insert(any<TransactionClosedEvent>())
       verify(reactivePaymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never())
         .deleteById(any())
-      verify(transactionsRefundedEventStoreRepository, Mockito.times(1)).insert(capture(refundedEventStoreRepositoryCaptor))
+      verify(transactionsRefundedEventStoreRepository, Mockito.times(1))
+        .insert(capture(refundedEventStoreRepositoryCaptor))
       verify(transactionsViewRepository, Mockito.times(0)).save(any())
       verify(closureRetryService, times(0))
         .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
@@ -5964,11 +6076,14 @@ class ClosePaymentHelperTests {
       verify(checkpointer, Mockito.times(1)).success()
       verify(nodeService, Mockito.times(1))
         .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK)
-      verify(transactionClosureErrorEventStoreRepository, Mockito.times(1)).insert(any<TransactionClosureErrorEvent>())
-      verify(transactionClosedEventRepository, Mockito.times(1)).insert(any<TransactionClosedEvent>())
+      verify(transactionClosureErrorEventStoreRepository, Mockito.times(1))
+        .insert(any<TransactionClosureErrorEvent>())
+      verify(transactionClosedEventRepository, Mockito.times(1))
+        .insert(any<TransactionClosedEvent>())
       verify(reactivePaymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never())
         .deleteById(any())
-      verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).insert(capture(refundedEventStoreRepositoryCaptor))
+      verify(transactionsRefundedEventStoreRepository, Mockito.times(0))
+        .insert(capture(refundedEventStoreRepositoryCaptor))
       verify(transactionsViewRepository, Mockito.times(2)).save(any())
 
       verify(closureRetryService, times(0))
@@ -6092,7 +6207,8 @@ class ClosePaymentHelperTests {
         .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK)
       verify(transactionClosedEventRepository, Mockito.times(1))
         .insert(
-          any<TransactionClosedEvent>()) // FIXME: Unable to use better argument captor because of misbehaviour in static
+          any<TransactionClosedEvent>()) // FIXME: Unable to use better argument captor because of
+      // misbehaviour in static
       // mocking
       verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransaction)
       verify(closureRetryService, times(0))
@@ -6189,7 +6305,8 @@ class ClosePaymentHelperTests {
         .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK)
       verify(transactionClosedEventRepository, Mockito.times(1))
         .insert(
-          any<TransactionClosedEvent>()) // FIXME: Unable to use better argument captor because of misbehaviour in static
+          any<TransactionClosedEvent>()) // FIXME: Unable to use better argument captor because of
+      // misbehaviour in static
       // mocking
       verify(transactionsViewRepository, Mockito.times(0)).save(expectedUpdatedTransaction)
       verify(closureRetryService, times(0))
@@ -6293,7 +6410,9 @@ class ClosePaymentHelperTests {
     verify(nodeService, Mockito.times(1))
       .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK)
     verify(transactionClosedEventRepository, Mockito.times(1))
-      .insert(any<TransactionClosedEvent>()) // FIXME: Unable to use better argument captor because of misbehaviour in static
+      .insert(
+        any<TransactionClosedEvent>()) // FIXME: Unable to use better argument captor because of
+    // misbehaviour in static
     // mocking
     verify(transactionsViewRepository, Mockito.times(1)).save(expectedUpdatedTransaction)
     verify(closureRetryService, times(0))
@@ -6390,7 +6509,9 @@ class ClosePaymentHelperTests {
     verify(nodeService, Mockito.times(1))
       .closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK)
     verify(transactionClosedEventRepository, Mockito.times(1))
-      .insert(any<TransactionClosedEvent>()) // FIXME: Unable to use better argument captor because of misbehaviour in static
+      .insert(
+        any<TransactionClosedEvent>()) // FIXME: Unable to use better argument captor because of
+    // misbehaviour in static
     // mocking
     verify(transactionsViewRepository, Mockito.times(0)).save(expectedUpdatedTransaction)
     verify(closureRetryService, times(0))
@@ -6473,7 +6594,8 @@ class ClosePaymentHelperTests {
     given(transactionClosedEventRepository.insert(closedEventStoreRepositoryCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
     given(
-        transactionsRefundedEventStoreRepository.insert(refundedEventStoreRepositoryCaptor.capture()))
+        transactionsRefundedEventStoreRepository.insert(
+          refundedEventStoreRepositoryCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
     given(nodeService.closePayment(TransactionId(TRANSACTION_ID), ClosePaymentOutcome.OK))
       .willThrow(
@@ -6504,8 +6626,10 @@ class ClosePaymentHelperTests {
     verify(reactivePaymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never())
       .deleteById(any())
     verify(transactionClosedEventRepository, Mockito.times(0)).insert(any<TransactionClosedEvent>())
-    verify(transactionClosureErrorEventStoreRepository, Mockito.times(1)).insert(any<TransactionClosureErrorEvent>())
-    verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).insert(capture(refundedEventStoreRepositoryCaptor))
+    verify(transactionClosureErrorEventStoreRepository, Mockito.times(1))
+      .insert(any<TransactionClosureErrorEvent>())
+    verify(transactionsRefundedEventStoreRepository, Mockito.times(0))
+      .insert(capture(refundedEventStoreRepositoryCaptor))
     verify(transactionsViewRepository, Mockito.times(1)).save(any())
     verify(closureRetryService, times(0))
       .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())

@@ -126,7 +126,8 @@ class NotificationRetryServiceTests {
       .expectNext()
       .verifyComplete()
 
-    verify(eventStoreRepository, times(1)).insert(any<TransactionEvent<BaseTransactionRetriedData>>())
+    verify(eventStoreRepository, times(1))
+      .insert(any<TransactionEvent<BaseTransactionRetriedData>>())
     verify(transactionsViewRepository, times(1))
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(1)).save(any())
@@ -191,7 +192,8 @@ class NotificationRetryServiceTests {
       .expectNext()
       .verifyComplete()
 
-    verify(eventStoreRepository, times(1)).insert(any<TransactionEvent<BaseTransactionRetriedData>>())
+    verify(eventStoreRepository, times(1))
+      .insert(any<TransactionEvent<BaseTransactionRetriedData>>())
     verify(transactionsViewRepository, times(1))
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(0)).save(any())
@@ -254,7 +256,8 @@ class NotificationRetryServiceTests {
       .expectNext()
       .verifyComplete()
 
-    verify(eventStoreRepository, times(1)).insert(any<TransactionEvent<BaseTransactionRetriedData>>())
+    verify(eventStoreRepository, times(1))
+      .insert(any<TransactionEvent<BaseTransactionRetriedData>>())
     verify(transactionsViewRepository, times(1))
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(1)).save(any())
@@ -317,7 +320,8 @@ class NotificationRetryServiceTests {
       .expectNext()
       .verifyComplete()
 
-    verify(eventStoreRepository, times(1)).insert(any<TransactionEvent<BaseTransactionRetriedData>>())
+    verify(eventStoreRepository, times(1))
+      .insert(any<TransactionEvent<BaseTransactionRetriedData>>())
     verify(transactionsViewRepository, times(1))
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(0)).save(any())
@@ -379,7 +383,8 @@ class NotificationRetryServiceTests {
       .expectError(NoRetryAttemptsLeftException::class.java)
       .verify()
 
-    verify(eventStoreRepository, times(0)).insert(any<TransactionEvent<BaseTransactionRetriedData>>())
+    verify(eventStoreRepository, times(0))
+      .insert(any<TransactionEvent<BaseTransactionRetriedData>>())
     verify(transactionsViewRepository, times(0))
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(0)).save(any())
@@ -427,7 +432,8 @@ class NotificationRetryServiceTests {
       .expectError(java.lang.RuntimeException::class.java)
       .verify()
 
-    verify(eventStoreRepository, times(1)).insert(any<TransactionEvent<BaseTransactionRetriedData>>())
+    verify(eventStoreRepository, times(1))
+      .insert(any<TransactionEvent<BaseTransactionRetriedData>>())
     verify(transactionsViewRepository, times(0))
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(0)).save(any())
@@ -473,7 +479,8 @@ class NotificationRetryServiceTests {
       .expectError(java.lang.RuntimeException::class.java)
       .verify()
 
-    verify(eventStoreRepository, times(1)).insert(any<TransactionEvent<BaseTransactionRetriedData>>())
+    verify(eventStoreRepository, times(1))
+      .insert(any<TransactionEvent<BaseTransactionRetriedData>>())
     verify(transactionsViewRepository, times(1))
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(0)).save(any())
@@ -523,7 +530,8 @@ class NotificationRetryServiceTests {
       .expectError(java.lang.RuntimeException::class.java)
       .verify()
 
-    verify(eventStoreRepository, times(1)).insert(any<TransactionEvent<BaseTransactionRetriedData>>())
+    verify(eventStoreRepository, times(1))
+      .insert(any<TransactionEvent<BaseTransactionRetriedData>>())
     verify(transactionsViewRepository, times(1))
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(1)).save(any())

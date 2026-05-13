@@ -343,8 +343,9 @@ class TransactionRefundRetryQueueConsumerTest {
           transactionsRefundedEventStoreRepository.insert(
             transactionRefundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
-      given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture()))
-        .willAnswer { Mono.just(it.arguments[0]) }
+      given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
+        Mono.just(it.arguments[0])
+      }
       given(refundService.requestNpgRefund(any(), any(), any(), any(), any(), any()))
         .willReturn(Mono.error(BadGatewayException("mockError")))
       given(
@@ -696,8 +697,9 @@ class TransactionRefundRetryQueueConsumerTest {
           transactionsRefundedEventStoreRepository.insert(
             transactionRefundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
-      given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture()))
-        .willAnswer { Mono.just(it.arguments[0]) }
+      given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
+        Mono.just(it.arguments[0])
+      }
       given(refundService.requestNpgRefund(any(), any(), any(), any(), any(), any()))
         .willReturn(Mono.error(BadGatewayException("mockError")))
       given(
@@ -781,8 +783,9 @@ class TransactionRefundRetryQueueConsumerTest {
           transactionsRefundedEventStoreRepository.insert(
             transactionRefundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
-      given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture()))
-        .willAnswer { Mono.just(it.arguments[0]) }
+      given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
+        Mono.just(it.arguments[0])
+      }
       given(refundService.requestNpgRefund(any(), any(), any(), any(), any(), any()))
         .willReturn(Mono.error(BadGatewayException("mockError")))
       given(
@@ -842,8 +845,9 @@ class TransactionRefundRetryQueueConsumerTest {
           transactionsRefundedEventStoreRepository.insert(
             transactionRefundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
-      given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture()))
-        .willAnswer { Mono.just(it.arguments[0]) }
+      given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
+        Mono.just(it.arguments[0])
+      }
       given(refundService.requestNpgRefund(any(), any(), any(), any(), any(), any()))
         .willReturn(Mono.just(gatewayClientResponse))
       given(
@@ -939,8 +943,9 @@ class TransactionRefundRetryQueueConsumerTest {
           transactionsRefundedEventStoreRepository.insert(
             transactionRefundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
-      given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture()))
-        .willAnswer { Mono.just(it.arguments[0]) }
+      given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
+        Mono.just(it.arguments[0])
+      }
       given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
         .willReturn(
           Mono.just(
@@ -1055,8 +1060,9 @@ class TransactionRefundRetryQueueConsumerTest {
           transactionsRefundedEventStoreRepository.insert(
             transactionRefundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
-      given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture()))
-        .willAnswer { Mono.just(it.arguments[0]) }
+      given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
+        Mono.just(it.arguments[0])
+      }
       given(refundService.requestNpgRefund(any(), any(), any(), any(), any(), any()))
         .willReturn(Mono.just(gatewayClientResponse))
       given(
