@@ -4306,6 +4306,15 @@ class ClosePaymentHelperTests {
         Arguments.of(
           RuntimeException("Unexpected error while communicating with Nodo"),
           ClosureErrorData(null, null, ErrorType.COMMUNICATION_ERROR)))
+
+    @JvmStatic
+    fun `consumer skip event processing for transaction which close payment have already been processed method source`():
+      Stream<Arguments> =
+      Stream.of(
+        Arguments.of(TransactionClosureData.Outcome.OK, OperationResultDto.EXECUTED),
+        Arguments.of(TransactionClosureData.Outcome.KO, OperationResultDto.EXECUTED),
+        Arguments.of(TransactionClosureData.Outcome.OK, OperationResultDto.CANCELED),
+        Arguments.of(TransactionClosureData.Outcome.KO, OperationResultDto.CANCELED))
   }
 
   @ParameterizedTest
@@ -6554,9 +6563,11 @@ class ClosePaymentHelperTests {
   }
 
   @ParameterizedTest
-  @EnumSource(TransactionClosureData.Outcome::class)
+  @MethodSource(
+    "consumer skip event processing for transaction which close payment have already been processed method source")
   fun `consumer skip event processing for transaction which close payment have already been processed`(
-    closePaymentOutcome: TransactionClosureData.Outcome
+    closePaymentOutcome: TransactionClosureData.Outcome,
+    authOutcome: OperationResultDto
   ) = runTest {
     whenever(mockedEnv.getProperty(ENV_TRANSACTIONS_VIEW_UPDATED_ENABLED_FLAG, "true"))
       .thenReturn("true")
@@ -6566,7 +6577,7 @@ class ClosePaymentHelperTests {
     val authorizationCompleteEvent =
       transactionAuthorizationCompletedEvent(
         NpgTransactionGatewayAuthorizationData(
-          OperationResultDto.EXECUTED, "operationId", "paymentEnd2EndId", null, null))
+          authOutcome, "operationId", "paymentEnd2EndId", null, null))
         as TransactionEvent<Any>
     val closureRequestedEvent = transactionClosureRequestedEvent() as TransactionEvent<Any>
     val closedEvent = transactionClosedEvent(closePaymentOutcome) as TransactionEvent<Any>
