@@ -6555,7 +6555,7 @@ class ClosePaymentHelperTests {
 
   @ParameterizedTest
   @EnumSource(TransactionClosureData.Outcome::class)
-  fun `consumer skip event processing for transaction which close payment have already been processed`(
+  fun `consumer skip event processing for transaction which close payment have already been processed for authorized transactions`(
     closePaymentOutcome: TransactionClosureData.Outcome
   ) = runTest {
     whenever(mockedEnv.getProperty(ENV_TRANSACTIONS_VIEW_UPDATED_ENABLED_FLAG, "true"))
@@ -6578,7 +6578,7 @@ class ClosePaymentHelperTests {
         authorizationCompleteEvent,
         closureRequestedEvent,
         closedEvent)
-
+    val transaction = reduceEvents(*events.toTypedArray())
     /* preconditions */
     given(checkpointer.success()).willReturn(Mono.empty())
     given(
@@ -6598,6 +6598,128 @@ class ClosePaymentHelperTests {
       .verifyComplete()
 
     /* Asserts */
+    assertEquals(TransactionStatusDto.CLOSED, transaction.status)
+    verify(checkpointer, Mockito.times(1)).success()
+    verify(nodeService, never()).closePayment(any(), any())
+    verify(refundQueueAsyncClient, never())
+      .sendMessageWithResponse(any<QueueEvent<TransactionRefundRequestedEvent>>(), any(), any())
+    verify(reactivePaymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never())
+      .deleteById(any())
+    verify(transactionClosureErrorEventStoreRepository, never()).save(any())
+    verify(transactionClosedEventRepository, never()).save(any())
+    verify(transactionsRefundedEventStoreRepository, never()).save(any())
+    verify(transactionsViewRepository, never()).save(any())
+    verify(closureRetryService, never())
+      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
+
+    verify(updateTransactionStatusTracerUtils, never()).traceStatusUpdateOperation(any())
+
+    verify(transactionTracing, never())
+      .addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction(any(), any())
+    verify(mockOpenTelemetryUtils, never())
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
+  }
+
+  @ParameterizedTest
+  @EnumSource(TransactionClosureData.Outcome::class)
+  fun `consumer skip event processing for transaction which close payment have already been processed for unauthorized transactions`(
+    closePaymentOutcome: TransactionClosureData.Outcome
+  ) = runTest {
+    whenever(mockedEnv.getProperty(ENV_TRANSACTIONS_VIEW_UPDATED_ENABLED_FLAG, "true"))
+      .thenReturn("true")
+    val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
+    val authorizationRequestEvent =
+      transactionAuthorizationRequestedEvent() as TransactionEvent<Any>
+    val authorizationCompleteEvent =
+      transactionAuthorizationCompletedEvent(
+        NpgTransactionGatewayAuthorizationData(
+          OperationResultDto.CANCELED, "operationId", "paymentEnd2EndId", null, null))
+        as TransactionEvent<Any>
+    val closureRequestedEvent = transactionClosureRequestedEvent() as TransactionEvent<Any>
+    val closedEvent = transactionClosureFailedEvent(closePaymentOutcome) as TransactionEvent<Any>
+    val events =
+      listOf(
+        activationEvent,
+        authorizationRequestEvent,
+        authorizationCompleteEvent,
+        closureRequestedEvent,
+        closedEvent)
+
+    val transaction = reduceEvents(*events.toTypedArray())
+    /* preconditions */
+    given(checkpointer.success()).willReturn(Mono.empty())
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
+      .willReturn(events.toFlux())
+
+    /* test */
+
+    StepVerifier.create(
+        closePaymentHelper.closePayment(
+          ClosePaymentEvent.requested(
+            QueueEvent(
+              closureRequestedEvent as TransactionClosureRequestedEvent, MOCK_TRACING_INFO)),
+          checkpointer,
+          EmptyTransaction()))
+      .expectNext(Unit)
+      .verifyComplete()
+
+    /* Asserts */
+    assertEquals(TransactionStatusDto.UNAUTHORIZED, transaction.status)
+    verify(checkpointer, Mockito.times(1)).success()
+    verify(nodeService, never()).closePayment(any(), any())
+    verify(refundQueueAsyncClient, never())
+      .sendMessageWithResponse(any<QueueEvent<TransactionRefundRequestedEvent>>(), any(), any())
+    verify(reactivePaymentRequestInfoRedisTemplateWrapper, Mockito.after(1000).never())
+      .deleteById(any())
+    verify(transactionClosureErrorEventStoreRepository, never()).save(any())
+    verify(transactionClosedEventRepository, never()).save(any())
+    verify(transactionsRefundedEventStoreRepository, never()).save(any())
+    verify(transactionsViewRepository, never()).save(any())
+    verify(closureRetryService, never())
+      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
+
+    verify(updateTransactionStatusTracerUtils, never()).traceStatusUpdateOperation(any())
+
+    verify(transactionTracing, never())
+      .addSpanAttributesCanceledOrUnauthorizedFlowFromTransaction(any(), any())
+    verify(mockOpenTelemetryUtils, never())
+      .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
+  }
+
+  @ParameterizedTest
+  @EnumSource(TransactionClosureData.Outcome::class)
+  fun `consumer skip event processing for transaction which close payment have already been processed for user canceled transactions`(
+    closePaymentOutcome: TransactionClosureData.Outcome
+  ) = runTest {
+    whenever(mockedEnv.getProperty(ENV_TRANSACTIONS_VIEW_UPDATED_ENABLED_FLAG, "true"))
+      .thenReturn("true")
+    val activationEvent = transactionActivateEvent() as TransactionEvent<Any>
+    val userCanceledEvent = transactionUserCanceledEvent() as TransactionEvent<Any>
+    val closedEvent = transactionClosedEvent(closePaymentOutcome) as TransactionEvent<Any>
+
+    val events = listOf(activationEvent, userCanceledEvent, closedEvent)
+
+    val transaction = reduceEvents(*events.toTypedArray())
+    /* preconditions */
+    given(checkpointer.success()).willReturn(Mono.empty())
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
+      .willReturn(events.toFlux())
+
+    /* test */
+
+    StepVerifier.create(
+        closePaymentHelper.closePayment(
+          ClosePaymentEvent.canceled(
+            QueueEvent(userCanceledEvent as TransactionUserCanceledEvent, MOCK_TRACING_INFO)),
+          checkpointer,
+          EmptyTransaction()))
+      .expectNext(Unit)
+      .verifyComplete()
+
+    /* Asserts */
+    assertEquals(TransactionStatusDto.CANCELED, transaction.status)
     verify(checkpointer, Mockito.times(1)).success()
     verify(nodeService, never()).closePayment(any(), any())
     verify(refundQueueAsyncClient, never())
