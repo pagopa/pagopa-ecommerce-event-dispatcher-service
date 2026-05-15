@@ -184,11 +184,7 @@ class ClosePaymentHelper(
       events
         .collectList()
         .filterWhen { eventList ->
-          mono {
-              !(eventList.any {
-                it is BaseTransactionClosureEvent
-              })
-            }
+          mono { !(eventList.any { it is BaseTransactionClosureEvent }) }
             .doOnNext {
               logger.info("Transaction with id {} skip close payment: {}", transactionId, !it)
             }
