@@ -375,7 +375,7 @@ class ClosePaymentHelper(
       TransactionClosureErrorEvent(baseTransaction.transactionId.value(), closureErrorData)
 
     return transactionClosureErrorEventStoreRepository
-      .insert(event)
+      .save(event)
       .flatMap {
         TransactionsViewProjectionHandler.updateTransactionView(
           transactionId = baseTransaction.transactionId,
@@ -447,7 +447,7 @@ class ClosePaymentHelper(
     val saveEvent =
       event.bimap(
         {
-          transactionClosureSentEventRepository.insert(it).flatMap { closedEvent ->
+          transactionClosureSentEventRepository.save(it).flatMap { closedEvent ->
             TransactionsViewProjectionHandler.updateTransactionView(
                 transactionId = transaction.transactionId,
                 transactionsViewRepository = transactionsViewRepository,
@@ -466,7 +466,7 @@ class ClosePaymentHelper(
           }
         },
         {
-          transactionClosureSentEventRepository.insert(it).flatMap { closedEvent ->
+          transactionClosureSentEventRepository.save(it).flatMap { closedEvent ->
             TransactionsViewProjectionHandler.updateTransactionView(
                 transactionId = transaction.transactionId,
                 transactionsViewRepository = transactionsViewRepository,

@@ -106,7 +106,7 @@ class NotificationRetryServiceTests {
     val transactionDocument =
       TransactionTestUtils.transactionDocument(
         TransactionStatusDto.NOTIFICATION_REQUESTED, ZonedDateTime.now())
-    given(eventStoreRepository.insert(eventStoreCaptor.capture())).willAnswer {
+    given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
     given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
@@ -126,8 +126,7 @@ class NotificationRetryServiceTests {
       .expectNext()
       .verifyComplete()
 
-    verify(eventStoreRepository, times(1))
-      .insert(any<TransactionEvent<BaseTransactionRetriedData>>())
+    verify(eventStoreRepository, times(1)).save(any())
     verify(transactionsViewRepository, times(1))
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(1)).save(any())
@@ -175,7 +174,7 @@ class NotificationRetryServiceTests {
     val transactionDocument =
       TransactionTestUtils.transactionDocument(
         TransactionStatusDto.NOTIFICATION_REQUESTED, ZonedDateTime.now())
-    given(eventStoreRepository.insert(eventStoreCaptor.capture())).willAnswer {
+    given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
     given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
@@ -192,8 +191,7 @@ class NotificationRetryServiceTests {
       .expectNext()
       .verifyComplete()
 
-    verify(eventStoreRepository, times(1))
-      .insert(any<TransactionEvent<BaseTransactionRetriedData>>())
+    verify(eventStoreRepository, times(1)).save(any())
     verify(transactionsViewRepository, times(1))
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(0)).save(any())
@@ -239,7 +237,7 @@ class NotificationRetryServiceTests {
     val transactionDocument =
       TransactionTestUtils.transactionDocument(
         TransactionStatusDto.NOTIFICATION_REQUESTED, ZonedDateTime.now())
-    given(eventStoreRepository.insert(eventStoreCaptor.capture())).willAnswer {
+    given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
     given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
@@ -256,8 +254,7 @@ class NotificationRetryServiceTests {
       .expectNext()
       .verifyComplete()
 
-    verify(eventStoreRepository, times(1))
-      .insert(any<TransactionEvent<BaseTransactionRetriedData>>())
+    verify(eventStoreRepository, times(1)).save(any())
     verify(transactionsViewRepository, times(1))
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(1)).save(any())
@@ -306,7 +303,7 @@ class NotificationRetryServiceTests {
     val transactionDocument =
       TransactionTestUtils.transactionDocument(
         TransactionStatusDto.NOTIFICATION_REQUESTED, ZonedDateTime.now())
-    given(eventStoreRepository.insert(eventStoreCaptor.capture())).willAnswer {
+    given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
     given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
@@ -320,8 +317,7 @@ class NotificationRetryServiceTests {
       .expectNext()
       .verifyComplete()
 
-    verify(eventStoreRepository, times(1))
-      .insert(any<TransactionEvent<BaseTransactionRetriedData>>())
+    verify(eventStoreRepository, times(1)).save(any())
     verify(transactionsViewRepository, times(1))
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(0)).save(any())
@@ -366,7 +362,7 @@ class NotificationRetryServiceTests {
     val transactionDocument =
       TransactionTestUtils.transactionDocument(
         TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now())
-    given(eventStoreRepository.insert(eventStoreCaptor.capture())).willAnswer {
+    given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
     given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
@@ -383,8 +379,7 @@ class NotificationRetryServiceTests {
       .expectError(NoRetryAttemptsLeftException::class.java)
       .verify()
 
-    verify(eventStoreRepository, times(0))
-      .insert(any<TransactionEvent<BaseTransactionRetriedData>>())
+    verify(eventStoreRepository, times(0)).save(any())
     verify(transactionsViewRepository, times(0))
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(0)).save(any())
@@ -414,7 +409,7 @@ class NotificationRetryServiceTests {
     val transactionDocument =
       TransactionTestUtils.transactionDocument(
         TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now())
-    given(eventStoreRepository.insert(eventStoreCaptor.capture())).willAnswer {
+    given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
       Mono.error<TransactionEvent<Any>>(RuntimeException("Error saving event into event store"))
     }
     given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
@@ -432,8 +427,7 @@ class NotificationRetryServiceTests {
       .expectError(java.lang.RuntimeException::class.java)
       .verify()
 
-    verify(eventStoreRepository, times(1))
-      .insert(any<TransactionEvent<BaseTransactionRetriedData>>())
+    verify(eventStoreRepository, times(1)).save(any())
     verify(transactionsViewRepository, times(0))
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(0)).save(any())
@@ -461,7 +455,7 @@ class NotificationRetryServiceTests {
         TransactionTestUtils.reduceEvents(*events.toTypedArray())) as TransactionEvent<Any>)
     val baseTransaction = TransactionTestUtils.reduceEvents(*events.toTypedArray())
 
-    given(eventStoreRepository.insert(eventStoreCaptor.capture())).willAnswer {
+    given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
     given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
@@ -479,8 +473,7 @@ class NotificationRetryServiceTests {
       .expectError(java.lang.RuntimeException::class.java)
       .verify()
 
-    verify(eventStoreRepository, times(1))
-      .insert(any<TransactionEvent<BaseTransactionRetriedData>>())
+    verify(eventStoreRepository, times(1)).save(any())
     verify(transactionsViewRepository, times(1))
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(0)).save(any())
@@ -512,7 +505,7 @@ class NotificationRetryServiceTests {
     val transactionDocument =
       TransactionTestUtils.transactionDocument(
         TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now())
-    given(eventStoreRepository.insert(eventStoreCaptor.capture())).willAnswer {
+    given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
     given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
@@ -530,8 +523,7 @@ class NotificationRetryServiceTests {
       .expectError(java.lang.RuntimeException::class.java)
       .verify()
 
-    verify(eventStoreRepository, times(1))
-      .insert(any<TransactionEvent<BaseTransactionRetriedData>>())
+    verify(eventStoreRepository, times(1)).save(any())
     verify(transactionsViewRepository, times(1))
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(1)).save(any())

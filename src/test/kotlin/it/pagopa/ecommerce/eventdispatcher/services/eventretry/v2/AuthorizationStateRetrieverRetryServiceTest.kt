@@ -99,7 +99,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
     val transactionDocument =
       TransactionTestUtils.transactionDocument(
         TransactionStatusDto.AUTHORIZATION_REQUESTED, ZonedDateTime.now())
-    given(eventStoreRepository.insert(eventStoreCaptor.capture())).willAnswer {
+    given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
     given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
@@ -118,7 +118,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
       .expectNext()
       .verifyComplete()
 
-    verify(eventStoreRepository, times(1)).insert(capture(eventStoreCaptor))
+    verify(eventStoreRepository, times(1)).save(any())
     verify(transactionsViewRepository, times(1))
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(1)).save(any())
@@ -155,7 +155,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
     val transactionDocument =
       TransactionTestUtils.transactionDocument(
         TransactionStatusDto.AUTHORIZATION_REQUESTED, ZonedDateTime.now())
-    given(eventStoreRepository.insert(capture(eventStoreCaptor))).willAnswer {
+    given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
     given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
@@ -171,7 +171,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
       .expectNext()
       .verifyComplete()
 
-    verify(eventStoreRepository, times(1)).insert(capture(eventStoreCaptor))
+    verify(eventStoreRepository, times(1)).save(any())
     verify(transactionsViewRepository, times(1))
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(0)).save(any())
@@ -206,7 +206,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
     val transactionDocument =
       TransactionTestUtils.transactionDocument(
         TransactionStatusDto.AUTHORIZATION_REQUESTED, ZonedDateTime.now())
-    given(eventStoreRepository.insert(eventStoreCaptor.capture())).willAnswer {
+    given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
     given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
@@ -224,7 +224,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
       .expectNext()
       .verifyComplete()
 
-    verify(eventStoreRepository, times(1)).insert(capture(eventStoreCaptor))
+    verify(eventStoreRepository, times(1)).save(any())
     verify(transactionsViewRepository, times(1))
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(1)).save(any())
@@ -262,7 +262,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
     val transactionDocument =
       TransactionTestUtils.transactionDocument(
         TransactionStatusDto.AUTHORIZATION_REQUESTED, ZonedDateTime.now())
-    given(eventStoreRepository.insert(eventStoreCaptor.capture())).willAnswer {
+    given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
     given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
@@ -277,7 +277,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
       .expectNext()
       .verifyComplete()
 
-    verify(eventStoreRepository, times(1)).insert(capture(eventStoreCaptor))
+    verify(eventStoreRepository, times(1)).save(any())
     verify(transactionsViewRepository, times(1))
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(0)).save(any())
@@ -314,7 +314,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
     val transactionDocument =
       TransactionTestUtils.transactionDocument(
         TransactionStatusDto.AUTHORIZATION_REQUESTED, ZonedDateTime.now())
-    given(eventStoreRepository.insert(eventStoreCaptor.capture())).willAnswer {
+    given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
     given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
@@ -332,7 +332,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
       .expectError(NoRetryAttemptsLeftException::class.java)
       .verify()
 
-    verify(eventStoreRepository, times(0)).insert(capture(eventStoreCaptor))
+    verify(eventStoreRepository, times(0)).save(any())
     verify(transactionsViewRepository, times(0))
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(0)).save(any())
@@ -353,7 +353,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
     val transactionDocument =
       TransactionTestUtils.transactionDocument(
         TransactionStatusDto.AUTHORIZATION_REQUESTED, ZonedDateTime.now())
-    given(eventStoreRepository.insert(eventStoreCaptor.capture())).willAnswer {
+    given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
     given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
@@ -371,7 +371,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
       .expectError(TooLateRetryAttemptException::class.java)
       .verify()
 
-    verify(eventStoreRepository, times(0)).insert(capture(eventStoreCaptor))
+    verify(eventStoreRepository, times(0)).save(any())
     verify(transactionsViewRepository, times(0))
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(0)).save(any())
@@ -389,7 +389,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
     val transactionDocument =
       TransactionTestUtils.transactionDocument(
         TransactionStatusDto.AUTHORIZATION_REQUESTED, ZonedDateTime.now())
-    given(eventStoreRepository.insert(eventStoreCaptor.capture())).willAnswer {
+    given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
       Mono.error<TransactionEvent<Any>>(RuntimeException("Error saving event into event store"))
     }
     given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
@@ -407,7 +407,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
       .expectError(java.lang.RuntimeException::class.java)
       .verify()
 
-    verify(eventStoreRepository, times(1)).insert(capture(eventStoreCaptor))
+    verify(eventStoreRepository, times(1)).save(any())
     verify(transactionsViewRepository, times(0))
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(0)).save(any())
@@ -461,7 +461,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
         TransactionTestUtils.transactionAuthorizationRequestedEvent() as TransactionEvent<Any>)
     val baseTransaction = TransactionTestUtils.reduceEvents(*events.toTypedArray())
 
-    given(eventStoreRepository.insert(eventStoreCaptor.capture())).willAnswer {
+    given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
     given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
@@ -479,7 +479,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
       .expectError(java.lang.RuntimeException::class.java)
       .verify()
 
-    verify(eventStoreRepository, times(1)).insert(capture(eventStoreCaptor))
+    verify(eventStoreRepository, times(1)).save(any())
     verify(transactionsViewRepository, times(1))
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(0)).save(any())
@@ -499,7 +499,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
     val transactionDocument =
       TransactionTestUtils.transactionDocument(
         TransactionStatusDto.AUTHORIZATION_REQUESTED, ZonedDateTime.now())
-    given(eventStoreRepository.insert(eventStoreCaptor.capture())).willAnswer {
+    given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
     given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
@@ -517,7 +517,7 @@ class AuthorizationStateRetrieverRetryServiceTest {
       .expectError(java.lang.RuntimeException::class.java)
       .verify()
 
-    verify(eventStoreRepository, times(1)).insert(capture(eventStoreCaptor))
+    verify(eventStoreRepository, times(1)).save(any())
     verify(transactionsViewRepository, times(1))
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(1)).save(any())

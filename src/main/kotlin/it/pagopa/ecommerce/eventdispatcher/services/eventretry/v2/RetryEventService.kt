@@ -89,7 +89,7 @@ abstract class RetryEventService<E>(
 
   private fun storeEventAndUpdateView(event: E, newStatus: TransactionStatusDto): Mono<E> =
     Mono.just(event)
-      .flatMap { retryEventStoreRepository.insert(it) }
+      .flatMap { retryEventStoreRepository.save(it) }
       .flatMap {
         TransactionsViewProjectionHandler.updateTransactionView(
             transactionId = TransactionId(it.transactionId),

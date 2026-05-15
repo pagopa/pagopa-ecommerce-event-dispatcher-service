@@ -152,12 +152,10 @@ class TransactionExpirationQueueConsumerTests {
           transactionId,
         ))
       .willReturn(Flux.just(activatedEvent as TransactionEvent<Any>))
-    given(transactionsViewRepository.save(capture(transactionViewRepositoryCaptor))).willAnswer {
+    given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
+    given(transactionsExpiredEventStoreRepository.save(any())).willAnswer {
       Mono.just(it.arguments[0])
     }
-    given(
-        transactionsExpiredEventStoreRepository.insert(capture(transactionExpiredEventStoreCaptor)))
-      .willAnswer { Mono.just(it.arguments[0]) }
 
     given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
       .willReturn(
@@ -193,12 +191,10 @@ class TransactionExpirationQueueConsumerTests {
           transactionId,
         ))
       .willReturn(Flux.just(activatedEvent as TransactionEvent<Any>))
-    given(transactionsViewRepository.save(capture(transactionViewRepositoryCaptor))).willAnswer {
+    given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
+    given(transactionsExpiredEventStoreRepository.save(any())).willAnswer {
       Mono.just(it.arguments[0])
     }
-    given(
-        transactionsExpiredEventStoreRepository.insert(capture(transactionExpiredEventStoreCaptor)))
-      .willAnswer { Mono.just(it.arguments[0]) }
 
     given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
       .willReturn(
@@ -237,12 +233,10 @@ class TransactionExpirationQueueConsumerTests {
         ))
       .willReturn(
         Flux.just(activatedEvent as TransactionEvent<Any>, expiredEvent as TransactionEvent<Any>))
-    given(transactionsViewRepository.save(capture(transactionViewRepositoryCaptor))).willAnswer {
+    given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
+    given(transactionsExpiredEventStoreRepository.save(any())).willAnswer {
       Mono.just(it.arguments[0])
     }
-    given(
-        transactionsExpiredEventStoreRepository.insert(capture(transactionExpiredEventStoreCaptor)))
-      .willAnswer { Mono.just(it.arguments[0]) }
 
     given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
       .willReturn(
@@ -288,14 +282,9 @@ class TransactionExpirationQueueConsumerTests {
           activatedEvent as TransactionEvent<Any>,
           authorizationRequestedEvent as TransactionEvent<Any>))
 
-    given(
-        transactionsExpiredEventStoreRepository.insert(capture(transactionExpiredEventStoreCaptor)))
-      .willReturn(Mono.just(expiredEvent))
-    given(
-        transactionsRefundedEventStoreRepository.insert(capture(transactionRefundEventStoreCaptor)))
-      .willReturn(Mono.just(refundedEvent))
-    given(transactionsViewRepository.save(capture(transactionViewRepositoryCaptor)))
-      .willReturn(Mono.just(transaction))
+    given(transactionsExpiredEventStoreRepository.save(any())).willReturn(Mono.just(expiredEvent))
+    given(transactionsRefundedEventStoreRepository.save(any())).willReturn(Mono.just(refundedEvent))
+    given(transactionsViewRepository.save(any())).willReturn(Mono.just(transaction))
     given(refundRequestedAsyncClient.sendMessageWithResponse(any<QueueEvent<*>>(), any(), any()))
       .willReturn(queueSuccessfulResponse())
     given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
@@ -336,15 +325,9 @@ class TransactionExpirationQueueConsumerTests {
         ))
       .willReturn(Flux.just(activatedEvent as TransactionEvent<Any>))
 
-    given(
-        transactionsExpiredEventStoreRepository.insert(capture(transactionExpiredEventStoreCaptor)))
-      .willReturn(Mono.just(expiredEvent))
-    given(
-        transactionsRefundedEventStoreRepository.insert(capture(transactionRefundEventStoreCaptor)))
-      .willReturn(Mono.empty())
-    given(transactionsViewRepository.save(capture(transactionViewRepositoryCaptor))).willAnswer {
-      Mono.just(it.arguments[0])
-    }
+    given(transactionsExpiredEventStoreRepository.save(any())).willReturn(Mono.just(expiredEvent))
+    given(transactionsRefundedEventStoreRepository.save(any())).willReturn(Mono.empty())
+    given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
     given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
       .willReturn(
         Mono.just(
@@ -388,16 +371,12 @@ class TransactionExpirationQueueConsumerTests {
           activatedEvent as TransactionEvent<Any>,
           authorizationRequestedEvent as TransactionEvent<Any>))
 
-    given(
-        transactionsExpiredEventStoreRepository.insert(capture(transactionExpiredEventStoreCaptor)))
-      .willReturn(Mono.just(expiredEvent))
-    given(
-        transactionsRefundedEventStoreRepository.insert(capture(transactionRefundEventStoreCaptor)))
-      .willReturn(Mono.just(refundedEvent))
+    given(transactionsExpiredEventStoreRepository.save(any())).willReturn(Mono.just(expiredEvent))
+    given(transactionsRefundedEventStoreRepository.save(any())).willReturn(Mono.just(refundedEvent))
     given(transactionsViewRepository.findByTransactionId(any()))
       .willReturn(
         Mono.just(transactionDocument(TransactionStatusDto.ACTIVATED, ZonedDateTime.now())))
-    given(transactionsViewRepository.save(capture(transactionViewRepositoryCaptor)))
+    given(transactionsViewRepository.save(any()))
       .willReturn(Mono.error(RuntimeException("error while trying to save event")))
     given(
         deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(any<BinaryData>(), any()))
@@ -454,16 +433,12 @@ class TransactionExpirationQueueConsumerTests {
           activatedEvent as TransactionEvent<Any>,
           authorizationRequestedEvent as TransactionEvent<Any>))
 
-    given(
-        transactionsExpiredEventStoreRepository.insert(capture(transactionExpiredEventStoreCaptor)))
-      .willReturn(Mono.just(expiredEvent))
-    given(
-        transactionsRefundedEventStoreRepository.insert(capture(transactionRefundEventStoreCaptor)))
-      .willReturn(Mono.just(refundedEvent))
+    given(transactionsExpiredEventStoreRepository.save(any())).willReturn(Mono.just(expiredEvent))
+    given(transactionsRefundedEventStoreRepository.save(any())).willReturn(Mono.just(refundedEvent))
     given(transactionsViewRepository.findByTransactionId(any()))
       .willReturn(
         Mono.just(transactionDocument(TransactionStatusDto.ACTIVATED, ZonedDateTime.now())))
-    given(transactionsViewRepository.save(capture(transactionViewRepositoryCaptor)))
+    given(transactionsViewRepository.save(any()))
       .willReturn(Mono.error(RuntimeException("error while saving data")))
     given(
         deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(any<BinaryData>(), any()))
@@ -513,10 +488,12 @@ class TransactionExpirationQueueConsumerTests {
           ))
         .willReturn(Flux.just(activatedEvent as TransactionEvent<Any>))
 
-      given(transactionsExpiredEventStoreRepository.insert(any<TransactionExpiredEvent>()))
+      given(
+          transactionsExpiredEventStoreRepository.save(
+            transactionExpiredEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(
-          transactionsRefundedEventStoreRepository.insert(
+          transactionsRefundedEventStoreRepository.save(
             transactionRefundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
@@ -541,15 +518,12 @@ class TransactionExpirationQueueConsumerTests {
 
       /* Asserts */
       verify(checkpointer, times(1)).success()
-      verify(transactionsExpiredEventStoreRepository, times(1))
-        .insert(capture(transactionExpiredEventStoreCaptor))
+      verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
       verify(refundRequestedAsyncClient, times(0))
         .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
-      verify(transactionsRefundedEventStoreRepository, times(0))
-        .insert(capture(transactionRefundEventStoreCaptor))
+      verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
       verify(transactionsViewRepository, times(1)).save(any())
-      verify(transactionsExpiredEventStoreRepository, times(1))
-        .insert(capture(transactionExpiredEventStoreCaptor))
+      verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
       assertEquals(
         TransactionEventCode.TRANSACTION_EXPIRED_EVENT,
         TransactionEventCode.valueOf(transactionExpiredEventStoreCaptor.value.eventCode))
@@ -579,10 +553,12 @@ class TransactionExpirationQueueConsumerTests {
             activatedEvent as TransactionEvent<Any>,
             transactionExpiredEvent as TransactionEvent<Any>))
 
-      given(transactionsExpiredEventStoreRepository.insert(any<TransactionExpiredEvent>()))
+      given(
+          transactionsExpiredEventStoreRepository.save(
+            transactionExpiredEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(
-          transactionsRefundedEventStoreRepository.insert(
+          transactionsRefundedEventStoreRepository.save(
             transactionRefundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
@@ -605,15 +581,12 @@ class TransactionExpirationQueueConsumerTests {
 
       /* Asserts */
       verify(checkpointer, times(1)).success()
-      verify(transactionsExpiredEventStoreRepository, times(0))
-        .insert(capture(transactionExpiredEventStoreCaptor))
+      verify(transactionsExpiredEventStoreRepository, times(0)).save(any())
       verify(refundRequestedAsyncClient, times(0))
         .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
-      verify(transactionsRefundedEventStoreRepository, times(0))
-        .insert(capture(transactionRefundEventStoreCaptor))
+      verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
       verify(transactionsViewRepository, times(0)).save(any())
-      verify(transactionsExpiredEventStoreRepository, times(0))
-        .insert(capture(transactionExpiredEventStoreCaptor))
+      verify(transactionsExpiredEventStoreRepository, times(0)).save(any())
       verify(transactionTracing, never()).addSpanAttributesExpiredFlowFromTransaction(any(), any())
       verify(mockOpenTelemetryUtils, never())
         .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
@@ -638,10 +611,12 @@ class TransactionExpirationQueueConsumerTests {
             authorizationRequestedEvent as TransactionEvent<Any>,
             expiredEvent as TransactionEvent<Any>))
 
-      given(transactionsExpiredEventStoreRepository.insert(any<TransactionExpiredEvent>()))
+      given(
+          transactionsExpiredEventStoreRepository.save(
+            transactionExpiredEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(
-          transactionsRefundedEventStoreRepository.insert(
+          transactionsRefundedEventStoreRepository.save(
             transactionRefundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
@@ -671,12 +646,10 @@ class TransactionExpirationQueueConsumerTests {
 
       /* Asserts */
       verify(checkpointer, times(1)).success()
-      verify(transactionsExpiredEventStoreRepository, times(0))
-        .insert(capture(transactionExpiredEventStoreCaptor))
+      verify(transactionsExpiredEventStoreRepository, times(0)).save(any())
       verify(refundRequestedAsyncClient, times(1))
         .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
-      verify(transactionsRefundedEventStoreRepository, times(1))
-        .insert(any<TransactionEvent<BaseTransactionRefundedData>>())
+      verify(transactionsRefundedEventStoreRepository, times(1)).save(any())
       verify(transactionsViewRepository, times(1)).save(any())
       /*
        * check view update statuses and events stored into event store
@@ -747,12 +720,10 @@ class TransactionExpirationQueueConsumerTests {
         ))
 
     given(
-        transactionsExpiredEventStoreRepository.insert(
-          transactionExpiredEventStoreCaptor.capture()))
+        transactionsExpiredEventStoreRepository.save(transactionExpiredEventStoreCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
     given(
-        transactionsRefundedEventStoreRepository.insert(
-          transactionRefundEventStoreCaptor.capture()))
+        transactionsRefundedEventStoreRepository.save(transactionRefundEventStoreCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
     given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
@@ -779,12 +750,10 @@ class TransactionExpirationQueueConsumerTests {
 
     /* Asserts */
     verify(checkpointer, times(1)).success()
-    verify(transactionsExpiredEventStoreRepository, times(0))
-      .insert(capture(transactionExpiredEventStoreCaptor))
+    verify(transactionsExpiredEventStoreRepository, times(0)).save(any())
     verify(refundRequestedAsyncClient, times(1))
       .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
-    verify(transactionsRefundedEventStoreRepository, times(1))
-      .insert(capture(transactionRefundEventStoreCaptor))
+    verify(transactionsRefundedEventStoreRepository, times(1)).save(any())
     verify(transactionsViewRepository, times(1)).save(any())
     /*
      * check view update statuses and events stored into event store
@@ -844,10 +813,12 @@ class TransactionExpirationQueueConsumerTests {
             userReceiptRequestedEvent as TransactionEvent<Any>,
             userReceiptErrorEvent as TransactionEvent<Any>))
 
-      given(transactionsExpiredEventStoreRepository.insert(any<TransactionExpiredEvent>()))
+      given(
+          transactionsExpiredEventStoreRepository.save(
+            transactionExpiredEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(
-          transactionsRefundedEventStoreRepository.insert(
+          transactionsRefundedEventStoreRepository.save(
             transactionRefundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
@@ -885,12 +856,10 @@ class TransactionExpirationQueueConsumerTests {
 
       /* Asserts */
       verify(checkpointer, times(1)).success()
-      verify(transactionsExpiredEventStoreRepository, times(1))
-        .insert(capture(transactionExpiredEventStoreCaptor))
+      verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
       verify(refundRequestedAsyncClient, times(1))
         .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
-      verify(transactionsRefundedEventStoreRepository, times(1))
-        .insert(any<TransactionEvent<BaseTransactionRefundedData>>())
+      verify(transactionsRefundedEventStoreRepository, times(1)).save(any())
       verify(transactionsViewRepository, times(2)).save(any())
       /*
        * check view update statuses and events stored into event store
@@ -957,10 +926,12 @@ class TransactionExpirationQueueConsumerTests {
             userReceiptRequestedEvent as TransactionEvent<Any>,
             userReceiptErrorEvent as TransactionEvent<Any>))
 
-      given(transactionsExpiredEventStoreRepository.insert(any<TransactionExpiredEvent>()))
+      given(
+          transactionsExpiredEventStoreRepository.save(
+            transactionExpiredEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(
-          transactionsRefundedEventStoreRepository.insert(
+          transactionsRefundedEventStoreRepository.save(
             transactionRefundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
@@ -990,12 +961,10 @@ class TransactionExpirationQueueConsumerTests {
 
       /* Asserts */
       verify(checkpointer, times(1)).success()
-      verify(transactionsExpiredEventStoreRepository, times(1))
-        .insert(capture(transactionExpiredEventStoreCaptor))
+      verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
       verify(refundRequestedAsyncClient, times(0))
         .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
-      verify(transactionsRefundedEventStoreRepository, times(0))
-        .insert(capture(transactionRefundEventStoreCaptor))
+      verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
       verify(transactionsViewRepository, times(1)).save(any())
       /*
        * check view update statuses and events stored into event store
@@ -1056,10 +1025,12 @@ class TransactionExpirationQueueConsumerTests {
             userReceiptErrorEvent as TransactionEvent<Any>,
             expiredEvent as TransactionEvent<Any>))
 
-      given(transactionsExpiredEventStoreRepository.insert(any<TransactionExpiredEvent>()))
+      given(
+          transactionsExpiredEventStoreRepository.save(
+            transactionExpiredEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(
-          transactionsRefundedEventStoreRepository.insert(
+          transactionsRefundedEventStoreRepository.save(
             transactionRefundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
@@ -1097,12 +1068,10 @@ class TransactionExpirationQueueConsumerTests {
 
       /* Asserts */
       verify(checkpointer, times(1)).success()
-      verify(transactionsExpiredEventStoreRepository, times(0))
-        .insert(capture(transactionExpiredEventStoreCaptor))
+      verify(transactionsExpiredEventStoreRepository, times(0)).save(any())
       verify(refundRequestedAsyncClient, times(1))
         .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
-      verify(transactionsRefundedEventStoreRepository, times(1))
-        .insert(any<TransactionEvent<BaseTransactionRefundedData>>())
+      verify(transactionsRefundedEventStoreRepository, times(1)).save(any())
       verify(transactionsViewRepository, times(1)).save(any())
       /*
        * check view update statuses and events stored into event store
@@ -1172,10 +1141,12 @@ class TransactionExpirationQueueConsumerTests {
             userReceiptErrorEvent as TransactionEvent<Any>,
             expiredEvent as TransactionEvent<Any>))
 
-      given(transactionsExpiredEventStoreRepository.insert(any<TransactionExpiredEvent>()))
+      given(
+          transactionsExpiredEventStoreRepository.save(
+            transactionExpiredEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(
-          transactionsRefundedEventStoreRepository.insert(
+          transactionsRefundedEventStoreRepository.save(
             transactionRefundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
@@ -1205,12 +1176,10 @@ class TransactionExpirationQueueConsumerTests {
 
       /* Asserts */
       verify(checkpointer, times(1)).success()
-      verify(transactionsExpiredEventStoreRepository, times(0))
-        .insert(capture(transactionExpiredEventStoreCaptor))
+      verify(transactionsExpiredEventStoreRepository, times(0)).save(any())
       verify(refundRequestedAsyncClient, times(0))
         .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
-      verify(transactionsRefundedEventStoreRepository, times(0))
-        .insert(capture(transactionRefundEventStoreCaptor))
+      verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
       verify(transactionsViewRepository, times(0)).save(any())
       verify(transactionTracing, never()).addSpanAttributesExpiredFlowFromTransaction(any(), any())
       verify(mockOpenTelemetryUtils, never())
@@ -1261,12 +1230,10 @@ class TransactionExpirationQueueConsumerTests {
           refundRequestedEvent as TransactionEvent<Any>))
 
     given(
-        transactionsExpiredEventStoreRepository.insert(
-          transactionExpiredEventStoreCaptor.capture()))
+        transactionsExpiredEventStoreRepository.save(transactionExpiredEventStoreCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
     given(
-        transactionsRefundedEventStoreRepository.insert(
-          transactionRefundEventStoreCaptor.capture()))
+        transactionsRefundedEventStoreRepository.save(transactionRefundEventStoreCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
     given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
@@ -1286,12 +1253,10 @@ class TransactionExpirationQueueConsumerTests {
 
     /* Asserts */
     verify(checkpointer, times(1)).success()
-    verify(transactionsExpiredEventStoreRepository, times(0))
-      .insert(capture(transactionExpiredEventStoreCaptor))
+    verify(transactionsExpiredEventStoreRepository, times(0)).save(any())
     verify(refundRequestedAsyncClient, times(0))
       .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
-    verify(transactionsRefundedEventStoreRepository, times(0))
-      .insert(capture(transactionRefundEventStoreCaptor))
+    verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
     verify(transactionsViewRepository, times(0)).save(any())
     verify(transactionTracing, never()).addSpanAttributesExpiredFlowFromTransaction(any(), any())
     verify(mockOpenTelemetryUtils, never())
@@ -1355,12 +1320,10 @@ class TransactionExpirationQueueConsumerTests {
           refundErrorEvent as TransactionEvent<Any>))
 
     given(
-        transactionsExpiredEventStoreRepository.insert(
-          transactionExpiredEventStoreCaptor.capture()))
+        transactionsExpiredEventStoreRepository.save(transactionExpiredEventStoreCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
     given(
-        transactionsRefundedEventStoreRepository.insert(
-          transactionRefundEventStoreCaptor.capture()))
+        transactionsRefundedEventStoreRepository.save(transactionRefundEventStoreCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
     given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
@@ -1380,12 +1343,10 @@ class TransactionExpirationQueueConsumerTests {
 
     /* Asserts */
     verify(checkpointer, times(1)).success()
-    verify(transactionsExpiredEventStoreRepository, times(0))
-      .insert(capture(transactionExpiredEventStoreCaptor))
+    verify(transactionsExpiredEventStoreRepository, times(0)).save(any())
     verify(refundRequestedAsyncClient, times(0))
       .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
-    verify(transactionsRefundedEventStoreRepository, times(0))
-      .insert(capture(transactionRefundEventStoreCaptor))
+    verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
     verify(transactionsViewRepository, times(0)).save(any())
     verify(transactionTracing, never()).addSpanAttributesExpiredFlowFromTransaction(any(), any())
     verify(mockOpenTelemetryUtils, never())
@@ -1409,10 +1370,12 @@ class TransactionExpirationQueueConsumerTests {
             activatedEvent as TransactionEvent<Any>,
             cancellationRequested as TransactionEvent<Any>))
 
-      given(transactionsExpiredEventStoreRepository.insert(any<TransactionExpiredEvent>()))
+      given(
+          transactionsExpiredEventStoreRepository.save(
+            transactionExpiredEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(
-          transactionsRefundedEventStoreRepository.insert(
+          transactionsRefundedEventStoreRepository.save(
             transactionRefundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
@@ -1435,15 +1398,12 @@ class TransactionExpirationQueueConsumerTests {
 
       /* Asserts */
       verify(checkpointer, times(1)).success()
-      verify(transactionsExpiredEventStoreRepository, times(1))
-        .insert(capture(transactionExpiredEventStoreCaptor))
+      verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
       verify(refundRequestedAsyncClient, times(0))
         .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
-      verify(transactionsRefundedEventStoreRepository, times(0))
-        .insert(capture(transactionRefundEventStoreCaptor))
+      verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
       verify(transactionsViewRepository, times(1)).save(any())
-      verify(transactionsExpiredEventStoreRepository, times(1))
-        .insert(capture(transactionExpiredEventStoreCaptor))
+      verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
       assertEquals(
         TransactionEventCode.TRANSACTION_EXPIRED_EVENT,
         TransactionEventCode.valueOf(transactionExpiredEventStoreCaptor.value.eventCode))
@@ -1475,10 +1435,12 @@ class TransactionExpirationQueueConsumerTests {
             cancellationRequested as TransactionEvent<Any>,
             closureError as TransactionEvent<Any>))
 
-      given(transactionsExpiredEventStoreRepository.insert(any<TransactionExpiredEvent>()))
+      given(
+          transactionsExpiredEventStoreRepository.save(
+            transactionExpiredEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(
-          transactionsRefundedEventStoreRepository.insert(
+          transactionsRefundedEventStoreRepository.save(
             transactionRefundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
@@ -1501,15 +1463,12 @@ class TransactionExpirationQueueConsumerTests {
 
       /* Asserts */
       verify(checkpointer, times(1)).success()
-      verify(transactionsExpiredEventStoreRepository, times(1))
-        .insert(capture(transactionExpiredEventStoreCaptor))
+      verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
       verify(refundRequestedAsyncClient, times(0))
         .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
-      verify(transactionsRefundedEventStoreRepository, times(0))
-        .insert(capture(transactionRefundEventStoreCaptor))
+      verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
       verify(transactionsViewRepository, times(1)).save(any())
-      verify(transactionsExpiredEventStoreRepository, times(1))
-        .insert(capture(transactionExpiredEventStoreCaptor))
+      verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
       assertEquals(
         TransactionEventCode.TRANSACTION_EXPIRED_EVENT,
         TransactionEventCode.valueOf(transactionExpiredEventStoreCaptor.value.eventCode))
@@ -1541,10 +1500,12 @@ class TransactionExpirationQueueConsumerTests {
             cancellationEvent as TransactionEvent<Any>,
             transactionExpiredEvent as TransactionEvent<Any>))
 
-      given(transactionsExpiredEventStoreRepository.insert(any<TransactionExpiredEvent>()))
+      given(
+          transactionsExpiredEventStoreRepository.save(
+            transactionExpiredEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(
-          transactionsRefundedEventStoreRepository.insert(
+          transactionsRefundedEventStoreRepository.save(
             transactionRefundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
@@ -1567,15 +1528,12 @@ class TransactionExpirationQueueConsumerTests {
 
       /* Asserts */
       verify(checkpointer, times(1)).success()
-      verify(transactionsExpiredEventStoreRepository, times(0))
-        .insert(capture(transactionExpiredEventStoreCaptor))
+      verify(transactionsExpiredEventStoreRepository, times(0)).save(any())
       verify(refundRequestedAsyncClient, times(0))
         .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
-      verify(transactionsRefundedEventStoreRepository, times(0))
-        .insert(capture(transactionRefundEventStoreCaptor))
+      verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
       verify(transactionsViewRepository, times(0)).save(any())
-      verify(transactionsExpiredEventStoreRepository, times(0))
-        .insert(capture(transactionExpiredEventStoreCaptor))
+      verify(transactionsExpiredEventStoreRepository, times(0)).save(any())
       verify(transactionTracing, never()).addSpanAttributesExpiredFlowFromTransaction(any(), any())
       verify(mockOpenTelemetryUtils, never())
         .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
@@ -1607,10 +1565,12 @@ class TransactionExpirationQueueConsumerTests {
             closureRequestedEvent as TransactionEvent<Any>,
             closureErrorEvent as TransactionEvent<Any>))
 
-      given(transactionsExpiredEventStoreRepository.insert(any<TransactionExpiredEvent>()))
+      given(
+          transactionsExpiredEventStoreRepository.save(
+            transactionExpiredEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(
-          transactionsRefundedEventStoreRepository.insert(
+          transactionsRefundedEventStoreRepository.save(
             transactionRefundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
@@ -1642,12 +1602,10 @@ class TransactionExpirationQueueConsumerTests {
 
       /* Asserts */
       verify(checkpointer, times(1)).success()
-      verify(transactionsExpiredEventStoreRepository, times(1))
-        .insert(capture(transactionExpiredEventStoreCaptor))
+      verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
       verify(refundRequestedAsyncClient, times(0))
         .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
-      verify(transactionsRefundedEventStoreRepository, times(0))
-        .insert(capture(transactionRefundEventStoreCaptor))
+      verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
       verify(transactionsViewRepository, times(1)).save(any())
       /*
        * check view update statuses and events stored into event store
@@ -1725,10 +1683,12 @@ class TransactionExpirationQueueConsumerTests {
             closureErrorEvent as TransactionEvent<Any>,
             expiredEvent as TransactionEvent<Any>))
 
-      given(transactionsExpiredEventStoreRepository.insert(any<TransactionExpiredEvent>()))
+      given(
+          transactionsExpiredEventStoreRepository.save(
+            transactionExpiredEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(
-          transactionsRefundedEventStoreRepository.insert(
+          transactionsRefundedEventStoreRepository.save(
             transactionRefundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
@@ -1760,12 +1720,10 @@ class TransactionExpirationQueueConsumerTests {
 
       /* Asserts */
       verify(checkpointer, times(1)).success()
-      verify(transactionsExpiredEventStoreRepository, times(0))
-        .insert(capture(transactionExpiredEventStoreCaptor))
+      verify(transactionsExpiredEventStoreRepository, times(0)).save(any())
       verify(refundRequestedAsyncClient, times(0))
         .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
-      verify(transactionsRefundedEventStoreRepository, times(0))
-        .insert(capture(transactionRefundEventStoreCaptor))
+      verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
       verify(transactionsViewRepository, times(0)).save(any())
       verify(deadLetterTracedQueueAsyncClient, times(1))
         .sendAndTraceDeadLetterQueueEvent(
@@ -1807,10 +1765,12 @@ class TransactionExpirationQueueConsumerTests {
             userCanceledEvent as TransactionEvent<Any>,
             closureErrorEvent as TransactionEvent<Any>))
 
-      given(transactionsExpiredEventStoreRepository.insert(any<TransactionExpiredEvent>()))
+      given(
+          transactionsExpiredEventStoreRepository.save(
+            transactionExpiredEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(
-          transactionsRefundedEventStoreRepository.insert(
+          transactionsRefundedEventStoreRepository.save(
             transactionRefundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
@@ -1837,12 +1797,10 @@ class TransactionExpirationQueueConsumerTests {
 
       /* Asserts */
       verify(checkpointer, times(1)).success()
-      verify(transactionsExpiredEventStoreRepository, times(1))
-        .insert(capture(transactionExpiredEventStoreCaptor))
+      verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
       verify(refundRequestedAsyncClient, times(0))
         .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
-      verify(transactionsRefundedEventStoreRepository, times(0))
-        .insert(capture(transactionRefundEventStoreCaptor))
+      verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
       verify(transactionsViewRepository, times(1)).save(any())
       /*
        * check view update statuses and events stored into event store
@@ -1890,10 +1848,12 @@ class TransactionExpirationQueueConsumerTests {
             closureRequestedEvent as TransactionEvent<Any>,
             closureErrorEvent as TransactionEvent<Any>))
 
-      given(transactionsExpiredEventStoreRepository.insert(any<TransactionExpiredEvent>()))
+      given(
+          transactionsExpiredEventStoreRepository.save(
+            transactionExpiredEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(
-          transactionsRefundedEventStoreRepository.insert(
+          transactionsRefundedEventStoreRepository.save(
             transactionRefundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
@@ -1920,12 +1880,10 @@ class TransactionExpirationQueueConsumerTests {
 
       /* Asserts */
       verify(checkpointer, times(1)).success()
-      verify(transactionsExpiredEventStoreRepository, times(1))
-        .insert(capture(transactionExpiredEventStoreCaptor))
+      verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
       verify(refundRequestedAsyncClient, times(0))
         .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
-      verify(transactionsRefundedEventStoreRepository, times(0))
-        .insert(capture(transactionRefundEventStoreCaptor))
+      verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
       verify(transactionsViewRepository, times(1)).save(any())
       /*
        * check view update statuses and events stored into event store
@@ -1984,10 +1942,12 @@ class TransactionExpirationQueueConsumerTests {
             closureErrorEvent as TransactionEvent<Any>,
             expiredEvent as TransactionEvent<Any>))
 
-      given(transactionsExpiredEventStoreRepository.insert(any<TransactionExpiredEvent>()))
+      given(
+          transactionsExpiredEventStoreRepository.save(
+            transactionExpiredEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(
-          transactionsRefundedEventStoreRepository.insert(
+          transactionsRefundedEventStoreRepository.save(
             transactionRefundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
@@ -2014,12 +1974,10 @@ class TransactionExpirationQueueConsumerTests {
 
       /* Asserts */
       verify(checkpointer, times(1)).success()
-      verify(transactionsExpiredEventStoreRepository, times(0))
-        .insert(capture(transactionExpiredEventStoreCaptor))
+      verify(transactionsExpiredEventStoreRepository, times(0)).save(any())
       verify(refundRequestedAsyncClient, times(0))
         .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
-      verify(transactionsRefundedEventStoreRepository, times(0))
-        .insert(capture(transactionRefundEventStoreCaptor))
+      verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
       verify(transactionsViewRepository, times(0)).save(any())
       verify(transactionTracing, never()).addSpanAttributesExpiredFlowFromTransaction(any(), any())
       verify(mockOpenTelemetryUtils, never())
@@ -2048,10 +2006,12 @@ class TransactionExpirationQueueConsumerTests {
             authorizationRequestedEvent as TransactionEvent<Any>,
             authorizationCompletedEvent as TransactionEvent<Any>))
 
-      given(transactionsExpiredEventStoreRepository.insert(any<TransactionExpiredEvent>()))
+      given(
+          transactionsExpiredEventStoreRepository.save(
+            transactionExpiredEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(
-          transactionsRefundedEventStoreRepository.insert(
+          transactionsRefundedEventStoreRepository.save(
             transactionRefundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
@@ -2077,12 +2037,10 @@ class TransactionExpirationQueueConsumerTests {
 
       /* Asserts */
       verify(checkpointer, times(1)).success()
-      verify(transactionsExpiredEventStoreRepository, times(1))
-        .insert(capture(transactionExpiredEventStoreCaptor))
+      verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
       verify(refundRequestedAsyncClient, times(0))
         .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
-      verify(transactionsRefundedEventStoreRepository, times(0))
-        .insert(capture(transactionRefundEventStoreCaptor))
+      verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
       verify(transactionsViewRepository, times(1)).save(any())
       /*
        * check view update statuses and events stored into event store
@@ -2136,10 +2094,12 @@ class TransactionExpirationQueueConsumerTests {
             authorizationCompletedEvent as TransactionEvent<Any>,
             expiredEvent as TransactionEvent<Any>))
 
-      given(transactionsExpiredEventStoreRepository.insert(any<TransactionExpiredEvent>()))
+      given(
+          transactionsExpiredEventStoreRepository.save(
+            transactionExpiredEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(
-          transactionsRefundedEventStoreRepository.insert(
+          transactionsRefundedEventStoreRepository.save(
             transactionRefundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
@@ -2164,12 +2124,10 @@ class TransactionExpirationQueueConsumerTests {
 
       /* Asserts */
       verify(checkpointer, times(1)).success()
-      verify(transactionsExpiredEventStoreRepository, times(0))
-        .insert(capture(transactionExpiredEventStoreCaptor))
+      verify(transactionsExpiredEventStoreRepository, times(0)).save(any())
       verify(refundRequestedAsyncClient, times(0))
         .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
-      verify(transactionsRefundedEventStoreRepository, times(0))
-        .insert(capture(transactionRefundEventStoreCaptor))
+      verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
       verify(transactionsViewRepository, times(0)).save(any())
 
       verify(transactionTracing, never()).addSpanAttributesExpiredFlowFromTransaction(any(), any())
@@ -2300,10 +2258,12 @@ class TransactionExpirationQueueConsumerTests {
             authorizationRequestedEvent as TransactionEvent<Any>,
             authorizationCompletedEvent as TransactionEvent<Any>))
 
-      given(transactionsExpiredEventStoreRepository.insert(any<TransactionExpiredEvent>()))
+      given(
+          transactionsExpiredEventStoreRepository.save(
+            transactionExpiredEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(
-          transactionsRefundedEventStoreRepository.insert(
+          transactionsRefundedEventStoreRepository.save(
             transactionRefundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(
@@ -2354,12 +2314,10 @@ class TransactionExpirationQueueConsumerTests {
               transactionEventCode = TransactionEventCode.TRANSACTION_ACTIVATED_EVENT.toString(),
               errorCategory =
                 DeadLetterTracedQueueAsyncClient.ErrorCategory.REFUND_MANUAL_CHECK_REQUIRED)))
-      verify(transactionsExpiredEventStoreRepository, times(1))
-        .insert(capture(transactionExpiredEventStoreCaptor))
+      verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
       verify(refundRequestedAsyncClient, times(0))
         .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
-      verify(transactionsRefundedEventStoreRepository, times(0))
-        .insert(capture(transactionRefundEventStoreCaptor))
+      verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
       verify(transactionsViewRepository, times(1)).save(any())
       /*
        * check view update statuses and events stored into event store
@@ -2410,12 +2368,10 @@ class TransactionExpirationQueueConsumerTests {
             expiredEvent as TransactionEvent<Any>))
 
       given(
-          transactionsExpiredEventStoreRepository.insert(
-            capture(transactionExpiredEventStoreCaptor)))
+          transactionsExpiredEventStoreRepository.save(capture(transactionExpiredEventStoreCaptor)))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(
-          transactionsRefundedEventStoreRepository.insert(
-            capture(transactionRefundEventStoreCaptor)))
+          transactionsRefundedEventStoreRepository.save(capture(transactionRefundEventStoreCaptor)))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
         .willReturnConsecutively(
@@ -2464,12 +2420,10 @@ class TransactionExpirationQueueConsumerTests {
               transactionEventCode = TransactionEventCode.TRANSACTION_ACTIVATED_EVENT.toString(),
               errorCategory =
                 DeadLetterTracedQueueAsyncClient.ErrorCategory.REFUND_MANUAL_CHECK_REQUIRED)))
-      verify(transactionsExpiredEventStoreRepository, times(0))
-        .insert(capture(transactionExpiredEventStoreCaptor))
+      verify(transactionsExpiredEventStoreRepository, times(0)).save(any())
       verify(refundRequestedAsyncClient, times(0))
         .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
-      verify(transactionsRefundedEventStoreRepository, times(0))
-        .insert(capture(transactionRefundEventStoreCaptor))
+      verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
       verify(transactionsViewRepository, times(0)).save(any())
       verify(transactionTracing, never()).addSpanAttributesExpiredFlowFromTransaction(any(), any())
       verify(mockOpenTelemetryUtils, never())
@@ -2501,10 +2455,12 @@ class TransactionExpirationQueueConsumerTests {
             closureRequestedEvent as TransactionEvent<Any>,
             closedEvent as TransactionEvent<Any>))
 
-      given(transactionsExpiredEventStoreRepository.insert(any<TransactionExpiredEvent>()))
+      given(
+          transactionsExpiredEventStoreRepository.save(
+            transactionExpiredEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(
-          transactionsRefundedEventStoreRepository.insert(
+          transactionsRefundedEventStoreRepository.save(
             transactionRefundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
@@ -2533,12 +2489,10 @@ class TransactionExpirationQueueConsumerTests {
 
       /* Asserts */
       verify(checkpointer, times(1)).success()
-      verify(transactionsExpiredEventStoreRepository, times(1))
-        .insert(capture(transactionExpiredEventStoreCaptor))
+      verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
       verify(refundRequestedAsyncClient, times(1))
         .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
-      verify(transactionsRefundedEventStoreRepository, times(1))
-        .insert(any<TransactionEvent<BaseTransactionRefundedData>>())
+      verify(transactionsRefundedEventStoreRepository, times(1)).save(any())
       verify(transactionsViewRepository, times(2)).save(any())
       /*
        * check view update statuses and events stored into event store
@@ -2605,10 +2559,12 @@ class TransactionExpirationQueueConsumerTests {
             closedEvent as TransactionEvent<Any>,
             expiredEvent as TransactionEvent<Any>))
 
-      given(transactionsExpiredEventStoreRepository.insert(any<TransactionExpiredEvent>()))
+      given(
+          transactionsExpiredEventStoreRepository.save(
+            transactionExpiredEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(
-          transactionsRefundedEventStoreRepository.insert(
+          transactionsRefundedEventStoreRepository.save(
             transactionRefundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
@@ -2636,12 +2592,10 @@ class TransactionExpirationQueueConsumerTests {
 
       /* Asserts */
       verify(checkpointer, times(1)).success()
-      verify(transactionsExpiredEventStoreRepository, times(0))
-        .insert(capture(transactionExpiredEventStoreCaptor))
+      verify(transactionsExpiredEventStoreRepository, times(0)).save(any())
       verify(refundRequestedAsyncClient, times(1))
         .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
-      verify(transactionsRefundedEventStoreRepository, times(1))
-        .insert(any<TransactionEvent<BaseTransactionRefundedData>>())
+      verify(transactionsRefundedEventStoreRepository, times(1)).save(any())
       verify(transactionsViewRepository, times(1)).save(any())
       /*
        * check view update statuses and events stored into event store
@@ -2695,10 +2649,12 @@ class TransactionExpirationQueueConsumerTests {
             closureRequestedEvent as TransactionEvent<Any>,
             closedEvent as TransactionEvent<Any>))
 
-      given(transactionsExpiredEventStoreRepository.insert(any<TransactionExpiredEvent>()))
+      given(
+          transactionsExpiredEventStoreRepository.save(
+            transactionExpiredEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(
-          transactionsRefundedEventStoreRepository.insert(
+          transactionsRefundedEventStoreRepository.save(
             transactionRefundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
@@ -2725,12 +2681,10 @@ class TransactionExpirationQueueConsumerTests {
 
       /* Asserts */
       verify(checkpointer, times(1)).success()
-      verify(transactionsExpiredEventStoreRepository, times(1))
-        .insert(capture(transactionExpiredEventStoreCaptor))
+      verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
       verify(refundRequestedAsyncClient, times(0))
         .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
-      verify(transactionsRefundedEventStoreRepository, times(0))
-        .insert(capture(transactionRefundEventStoreCaptor))
+      verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
       verify(deadLetterTracedQueueAsyncClient, times(1))
         .sendAndTraceDeadLetterQueueEvent(
           argThat<BinaryData> {
@@ -2806,10 +2760,12 @@ class TransactionExpirationQueueConsumerTests {
             closedEvent as TransactionEvent<Any>,
             expiredEvent as TransactionEvent<Any>))
 
-      given(transactionsExpiredEventStoreRepository.insert(any<TransactionExpiredEvent>()))
+      given(
+          transactionsExpiredEventStoreRepository.save(
+            transactionExpiredEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(
-          transactionsRefundedEventStoreRepository.insert(
+          transactionsRefundedEventStoreRepository.save(
             transactionRefundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
@@ -2832,12 +2788,10 @@ class TransactionExpirationQueueConsumerTests {
 
       /* Asserts */
       verify(checkpointer, times(1)).success()
-      verify(transactionsExpiredEventStoreRepository, times(0))
-        .insert(capture(transactionExpiredEventStoreCaptor))
+      verify(transactionsExpiredEventStoreRepository, times(0)).save(any())
       verify(refundRequestedAsyncClient, times(0))
         .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
-      verify(transactionsRefundedEventStoreRepository, times(0))
-        .insert(capture(transactionRefundEventStoreCaptor))
+      verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
       verify(transactionsViewRepository, times(0)).save(any())
 
       verify(transactionTracing, never()).addSpanAttributesExpiredFlowFromTransaction(any(), any())
@@ -2893,12 +2847,10 @@ class TransactionExpirationQueueConsumerTests {
 
       /* Asserts */
       verify(checkpointer, times(1)).success()
-      verify(transactionsExpiredEventStoreRepository, times(0))
-        .insert(capture(transactionExpiredEventStoreCaptor))
+      verify(transactionsExpiredEventStoreRepository, times(0)).save(any())
       verify(refundRequestedAsyncClient, times(0))
         .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
-      verify(transactionsRefundedEventStoreRepository, times(0))
-        .insert(capture(transactionRefundEventStoreCaptor))
+      verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
       verify(transactionsViewRepository, times(0)).save(any())
       verify(expirationQueueAsyncClient, times(1))
         .sendMessageWithResponse(
@@ -2950,10 +2902,12 @@ class TransactionExpirationQueueConsumerTests {
             closureRequestedEvent as TransactionEvent<Any>,
             closedEvent as TransactionEvent<Any>))
 
-      given(transactionsExpiredEventStoreRepository.insert(any<TransactionExpiredEvent>()))
+      given(
+          transactionsExpiredEventStoreRepository.save(
+            transactionExpiredEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(
-          transactionsRefundedEventStoreRepository.insert(
+          transactionsRefundedEventStoreRepository.save(
             transactionRefundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
@@ -2981,12 +2935,10 @@ class TransactionExpirationQueueConsumerTests {
 
       /* Asserts */
       verify(checkpointer, times(1)).success()
-      verify(transactionsExpiredEventStoreRepository, times(1))
-        .insert(capture(transactionExpiredEventStoreCaptor))
+      verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
       verify(refundRequestedAsyncClient, times(0))
         .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
-      verify(transactionsRefundedEventStoreRepository, times(0))
-        .insert(capture(transactionRefundEventStoreCaptor))
+      verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
       verify(transactionsViewRepository, times(1)).save(any())
       verify(deadLetterTracedQueueAsyncClient, times(1))
         .sendAndTraceDeadLetterQueueEvent(
@@ -3052,10 +3004,12 @@ class TransactionExpirationQueueConsumerTests {
             authorizationCompletedEvent as TransactionEvent<Any>,
             closureRequestedEvent as TransactionEvent<Any>))
 
-      given(transactionsExpiredEventStoreRepository.insert(any<TransactionExpiredEvent>()))
+      given(
+          transactionsExpiredEventStoreRepository.save(
+            transactionExpiredEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(
-          transactionsRefundedEventStoreRepository.insert(
+          transactionsRefundedEventStoreRepository.save(
             transactionRefundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
@@ -3088,12 +3042,10 @@ class TransactionExpirationQueueConsumerTests {
 
       /* Asserts */
       verify(checkpointer, times(1)).success()
-      verify(transactionsExpiredEventStoreRepository, times(1))
-        .insert(capture(transactionExpiredEventStoreCaptor))
+      verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
       verify(refundRequestedAsyncClient, times(0))
         .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
-      verify(transactionsRefundedEventStoreRepository, times(0))
-        .insert(capture(transactionRefundEventStoreCaptor))
+      verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
       verify(transactionsViewRepository, times(1)).save(any())
       /*
        * check view update statuses and events stored into event store
@@ -3170,10 +3122,12 @@ class TransactionExpirationQueueConsumerTests {
             closureRequestedEvent as TransactionEvent<Any>,
             expiredEvent as TransactionEvent<Any>))
 
-      given(transactionsExpiredEventStoreRepository.insert(any<TransactionExpiredEvent>()))
+      given(
+          transactionsExpiredEventStoreRepository.save(
+            transactionExpiredEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(
-          transactionsRefundedEventStoreRepository.insert(
+          transactionsRefundedEventStoreRepository.save(
             transactionRefundEventStoreCaptor.capture()))
         .willAnswer { Mono.just(it.arguments[0]) }
       given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
@@ -3206,12 +3160,10 @@ class TransactionExpirationQueueConsumerTests {
 
       /* Asserts */
       verify(checkpointer, times(1)).success()
-      verify(transactionsExpiredEventStoreRepository, times(0))
-        .insert(capture(transactionExpiredEventStoreCaptor))
+      verify(transactionsExpiredEventStoreRepository, times(0)).save(any())
       verify(refundRequestedAsyncClient, times(0))
         .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
-      verify(transactionsRefundedEventStoreRepository, times(0))
-        .insert(capture(transactionRefundEventStoreCaptor))
+      verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
       verify(transactionsViewRepository, times(0)).save(any())
       verify(deadLetterTracedQueueAsyncClient, times(1))
         .sendAndTraceDeadLetterQueueEvent(
@@ -3248,11 +3200,10 @@ class TransactionExpirationQueueConsumerTests {
     given(
         transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID))
       .willReturn(events.toFlux())
-    given(transactionsExpiredEventStoreRepository.insert(any<TransactionExpiredEvent>()))
+    given(
+        transactionsExpiredEventStoreRepository.save(transactionExpiredEventStoreCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
-    given(transactionsViewRepository.save(capture(transactionViewRepositoryCaptor))).willAnswer {
-      Mono.just(it.arguments[0])
-    }
+    given(transactionsViewRepository.save(any())).willAnswer { Mono.just(it.arguments[0]) }
     given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
       .willReturn(
         mono { transactionDocument(TransactionStatusDto.REFUND_REQUESTED, ZonedDateTime.now()) })
@@ -3270,21 +3221,17 @@ class TransactionExpirationQueueConsumerTests {
     verify(checkpointer, Mockito.times(1)).success()
     verify(refundRequestedAsyncClient, times(0))
       .sendMessageWithResponse(any<QueueEvent<*>>(), any(), any())
-    verify(transactionsRefundedEventStoreRepository, Mockito.times(0))
-      .insert(capture(transactionRefundEventStoreCaptor))
+    verify(transactionsRefundedEventStoreRepository, Mockito.times(0)).save(any())
 
-    verify(transactionsExpiredEventStoreRepository, times(1))
-      .insert(capture(transactionExpiredEventStoreCaptor))
-    transactionExpiredEventStoreCaptor.allValues.forEach { t -> print(t.transactionId + "\n") }
-    print(transactionExpiredEventStoreCaptor.allValues.size)
+    verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
     assertEventCodesEquals(
       listOf(TransactionEventCode.TRANSACTION_EXPIRED_EVENT),
       transactionExpiredEventStoreCaptor.allValues)
 
     verify(transactionsViewRepository, times(1)).save(transactionViewRepositoryCaptor.capture())
-    //    assetTransactionStatusEquals(
-    //      listOf(TransactionStatusDto.EXPIRED_NOT_AUTHORIZED),
-    //      transactionViewRepositoryCaptor.allValues)
+    assetTransactionStatusEquals(
+      listOf(TransactionStatusDto.EXPIRED_NOT_AUTHORIZED),
+      transactionViewRepositoryCaptor.allValues)
 
     verify(transactionTracing, times(1)).addSpanAttributesExpiredFlowFromTransaction(any(), any())
     verify(mockOpenTelemetryUtils, times(1))
@@ -3349,11 +3296,9 @@ class TransactionExpirationQueueConsumerTests {
       )
       .block()
 
-    verify(transactionsRefundedEventStoreRepository, times(0))
-      .insert(capture(transactionRefundEventStoreCaptor))
+    verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
 
-    verify(transactionsExpiredEventStoreRepository, times(1))
-      .insert(any<TransactionEvent<TransactionExpiredData>>())
+    verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
     assertEventCodesEquals(
       listOf(TransactionEventCode.TRANSACTION_EXPIRED_EVENT),
       transactionExpiredEventStoreCaptor.allValues)
@@ -3419,8 +3364,7 @@ class TransactionExpirationQueueConsumerTests {
         )
         .block()
 
-      verify(transactionsRefundedEventStoreRepository, times(1))
-        .insert(any<TransactionEvent<BaseTransactionRefundedData>>())
+      verify(transactionsRefundedEventStoreRepository, times(1)).save(any())
       assertEventCodesEquals(
         listOf(TransactionEventCode.TRANSACTION_REFUND_REQUESTED_EVENT),
         transactionRefundEventStoreCaptor.allValues)
@@ -3441,8 +3385,7 @@ class TransactionExpirationQueueConsumerTests {
       assertEquals(authorizationData.paymentEndToEndId, paymentEndToEndId)
       assertEquals(gatewayAuthorizationData.operationId, operationId)
 
-      verify(transactionsExpiredEventStoreRepository, times(1))
-        .insert(any<TransactionEvent<TransactionExpiredData>>())
+      verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
       assertEventCodesEquals(
         listOf(TransactionEventCode.TRANSACTION_EXPIRED_EVENT),
         transactionExpiredEventStoreCaptor.allValues)
@@ -3497,8 +3440,7 @@ class TransactionExpirationQueueConsumerTests {
         )
         .block()
 
-      verify(transactionsRefundedEventStoreRepository, times(1))
-        .insert(any<TransactionEvent<BaseTransactionRefundedData>>())
+      verify(transactionsRefundedEventStoreRepository, times(1)).save(any())
       assertEventCodesEquals(
         listOf(TransactionEventCode.TRANSACTION_REFUND_REQUESTED_EVENT),
         transactionRefundEventStoreCaptor.allValues)
@@ -3568,10 +3510,8 @@ class TransactionExpirationQueueConsumerTests {
         .expectNext(Unit)
         .verifyComplete()
 
-      verify(transactionsExpiredEventStoreRepository, times(1))
-        .insert(any<TransactionEvent<TransactionExpiredData>>())
-      verify(transactionsRefundedEventStoreRepository, times(0))
-        .insert(capture(transactionRefundEventStoreCaptor))
+      verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
+      verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
       verify(transactionsViewRepository, times(1)).save(any())
 
       assertEventCodesEquals(
@@ -3626,10 +3566,8 @@ class TransactionExpirationQueueConsumerTests {
         )
         .block()
 
-      verify(transactionsExpiredEventStoreRepository, times(1))
-        .insert(any<TransactionEvent<TransactionExpiredData>>())
-      verify(transactionsRefundedEventStoreRepository, times(0))
-        .insert(capture(transactionRefundEventStoreCaptor))
+      verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
+      verify(transactionsRefundedEventStoreRepository, times(0)).save(any())
       verify(transactionsViewRepository, times(1)).save(any())
 
       assertEventCodesEquals(
@@ -3693,14 +3631,8 @@ class TransactionExpirationQueueConsumerTests {
       )
       .block()
 
-    //    verify(transactionsExpiredEventStoreRepository, times(1))
-    //      .insert(capture(transactionExpiredEventStoreCaptor))
-    verify(transactionsExpiredEventStoreRepository, times(1))
-      .insert(any<TransactionEvent<TransactionExpiredData>>())
-    //    verify(transactionsRefundedEventStoreRepository, times(1))
-    //      .insert(capture(transactionRefundEventStoreCaptor))
-    verify(transactionsRefundedEventStoreRepository, times(1))
-      .insert(any<TransactionEvent<BaseTransactionRefundedData>>())
+    verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
+    verify(transactionsRefundedEventStoreRepository, times(1)).save(any())
     verify(transactionsViewRepository, times(2)).save(any())
 
     assertEventCodesEquals(
@@ -3765,10 +3697,8 @@ class TransactionExpirationQueueConsumerTests {
       )
       .block()
 
-    verify(transactionsExpiredEventStoreRepository, times(1))
-      .insert(any<TransactionEvent<TransactionExpiredData>>())
-    verify(transactionsRefundedEventStoreRepository, times(2))
-      .insert(any<TransactionEvent<BaseTransactionRefundedData>>())
+    verify(transactionsExpiredEventStoreRepository, times(1)).save(any())
+    verify(transactionsRefundedEventStoreRepository, times(2)).save(any())
     verify(transactionsViewRepository, times(3)).save(any())
 
     assertEventCodesEquals(
@@ -3810,12 +3740,10 @@ class TransactionExpirationQueueConsumerTests {
         ))
       .willReturn(events.map { it as TransactionEvent<Any> }.toFlux())
     given(
-        transactionsExpiredEventStoreRepository.insert(
-          transactionExpiredEventStoreCaptor.capture()))
+        transactionsExpiredEventStoreRepository.save(transactionExpiredEventStoreCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
     given(
-        transactionsRefundedEventStoreRepository.insert(
-          transactionRefundEventStoreCaptor.capture()))
+        transactionsRefundedEventStoreRepository.save(transactionRefundEventStoreCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
     given(transactionsViewRepository.save(transactionViewRepositoryCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
