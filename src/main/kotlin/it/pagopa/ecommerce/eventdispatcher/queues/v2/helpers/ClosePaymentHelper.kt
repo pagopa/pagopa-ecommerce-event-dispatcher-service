@@ -186,7 +186,7 @@ class ClosePaymentHelper(
         .filterWhen { eventList ->
           mono {
               !(eventList.any {
-                it is TransactionClosureFailedEvent || it is TransactionClosedEvent
+                it is BaseTransactionClosureEvent
               })
             }
             .doOnNext {
