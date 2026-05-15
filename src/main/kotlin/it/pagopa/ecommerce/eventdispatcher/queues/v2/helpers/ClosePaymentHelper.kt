@@ -183,16 +183,19 @@ class ClosePaymentHelper(
       baseTransaction
         .flatMap {
           logger.info("Status for transaction ${it.transactionId.value()}: ${it.status}")
-
+          if (it is BaseTransactionClosed) {
+            logger.info(
+              "Close payment already processed for transaction with id ${it.transactionId.value()}, skipping event")
+            return@flatMap Mono.empty()
+          }
           if (!closureRequestedValidStatuses.contains(it.status)) {
-            Mono.error(
+            return@flatMap Mono.error(
               BadTransactionStatusException(
                 transactionId = it.transactionId,
                 expected = closureRequestedValidStatuses.toList(),
                 actual = it.status))
-          } else {
-            Mono.just(it)
           }
+          Mono.just(it)
         }
         .flatMap { tx ->
           val closePaymentTransactionData =
