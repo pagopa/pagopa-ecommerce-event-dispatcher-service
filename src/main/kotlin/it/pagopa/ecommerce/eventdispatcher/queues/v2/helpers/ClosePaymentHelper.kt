@@ -176,11 +176,20 @@ class ClosePaymentHelper(
       transactionsEventStoreRepository
         .findByTransactionIdOrderByCreationDateAsc(transactionId)
         .map { it as TransactionEvent<Any> }
+        .cache()
 
     val baseTransaction = reduceEvents(events, emptyTransaction)
 
     val closurePipeline =
-      baseTransaction
+      events
+        .collectList()
+        .filterWhen { eventList ->
+          mono { !(eventList.any { it is BaseTransactionClosureEvent }) }
+            .doOnNext {
+              logger.info("Transaction with id {} skip close payment: {}", transactionId, !it)
+            }
+        }
+        .flatMap { reduceEvents(events, emptyTransaction) }
         .flatMap {
           logger.info("Status for transaction ${it.transactionId.value()}: ${it.status}")
 
