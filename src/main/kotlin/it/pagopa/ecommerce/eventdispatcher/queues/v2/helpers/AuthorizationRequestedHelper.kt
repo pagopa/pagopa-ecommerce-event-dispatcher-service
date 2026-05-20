@@ -114,7 +114,8 @@ class AuthorizationRequestedHelper(
       transaction
         .flatMap { baseTransactionWithRequestedAuthorization ->
           if (saveLastUsage &&
-            isAuthenticatedTransaction(baseTransactionWithRequestedAuthorization)) {
+            isAuthenticatedTransaction(baseTransactionWithRequestedAuthorization) &&
+            isAuthorizationRequestedStatus(baseTransactionWithRequestedAuthorization)) {
             userStatsServiceClient
               .saveLastUsage(
                 UUID.fromString(
@@ -137,7 +138,8 @@ class AuthorizationRequestedHelper(
           // gateway is NPG
           val performGetState =
             (transactionStatus == TransactionStatusDto.AUTHORIZATION_REQUESTED ||
-              transactionStatus == TransactionStatusDto.AUTHORIZATION_COMPLETED) &&
+              transactionStatus == TransactionStatusDto.AUTHORIZATION_COMPLETED ||
+              transactionStatus == TransactionStatusDto.CLOSURE_REQUESTED) &&
               gateway == TransactionAuthorizationRequestData.PaymentGateway.NPG
 
           logger.info(
@@ -170,13 +172,22 @@ class AuthorizationRequestedHelper(
               Duration.ofSeconds(transientQueueTTLSeconds.toLong()), // ttl
             )
           } else {
-            handleGetStateByPatchTransactionService(
-              tx = tx,
-              authorizationStateRetrieverRetryService = authorizationStateRetrieverRetryService,
-              authorizationStateRetrieverService = authorizationStateRetrieverService,
-              transactionsServiceClient = transactionsServiceClient,
-              tracingInfo = tracingInfo,
-              retryCount = 0)
+            if (tx.status == TransactionStatusDto.AUTHORIZATION_REQUESTED) {
+              handleGetStateByPatchTransactionService(
+                tx = tx,
+                authorizationStateRetrieverRetryService = authorizationStateRetrieverRetryService,
+                authorizationStateRetrieverService = authorizationStateRetrieverService,
+                transactionsServiceClient = transactionsServiceClient,
+                tracingInfo = tracingInfo,
+                retryCount = 0)
+            } else {
+              handlePatchTransactionService(
+                tx = tx,
+                authorizationStateRetrieverRetryService = authorizationStateRetrieverRetryService,
+                transactionsServiceClient = transactionsServiceClient,
+                tracingInfo = tracingInfo,
+                retryCount = 0)
+            }
           }
         }
     return runTracedPipelineWithDeadLetterQueue(
@@ -266,4 +277,9 @@ class AuthorizationRequestedHelper(
   private fun isAuthenticatedTransaction(
     baseTransactionWithRequestedAuthorization: BaseTransactionWithRequestedAuthorization
   ) = baseTransactionWithRequestedAuthorization.transactionActivatedData.userId != null
+
+  private fun isAuthorizationRequestedStatus(
+    baseTransactionWithRequestedAuthorization: BaseTransactionWithRequestedAuthorization
+  ) =
+    baseTransactionWithRequestedAuthorization.status == TransactionStatusDto.AUTHORIZATION_REQUESTED
 }

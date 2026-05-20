@@ -211,6 +211,43 @@ fun updateTransactionWithRefundEvent(
     .thenReturn(transaction)
 }
 
+fun getAuthorizationData(
+  trx: BaseTransaction,
+): Mono<UpdateAuthorizationRequestDto> {
+  return Mono.just(trx)
+    .cast(BaseTransactionWithCompletedAuthorization::class.java)
+    .filter { transaction ->
+      transaction.transactionAuthorizationRequestData.paymentGateway ==
+        TransactionAuthorizationRequestData.PaymentGateway.NPG
+    }
+    .switchIfEmpty(Mono.error(InvalidNPGPaymentGatewayException(trx.transactionId)))
+    .map { transaction ->
+      val authData = transaction.transactionAuthorizationCompletedData
+      val gatewayAuthData =
+        transaction.transactionAuthorizationCompletedData.transactionGatewayAuthorizationData
+          as NpgTransactionGatewayAuthorizationData
+      UpdateAuthorizationRequestDto().apply {
+        outcomeGateway =
+          OutcomeNpgGatewayDto().apply {
+            paymentGatewayType = "NPG"
+            operationResult =
+              OutcomeNpgGatewayDto.OperationResultEnum.valueOf(
+                gatewayAuthData.operationResult.value)
+            orderId = transaction.transactionAuthorizationRequestData.authorizationRequestId
+            operationId = gatewayAuthData.operationId
+            authorizationCode = authData.authorizationCode
+            rrn = authData.rrn
+            validationServiceId = gatewayAuthData.validationServiceId
+            errorCode = gatewayAuthData.errorCode
+            cardId4 = null // Verificare che il passaggio del valore null non si rifletta sui wallet
+            // onboardati contestualmente
+            paymentEndToEndId = gatewayAuthData.paymentEndToEndId
+          }
+        timestampOperation = OffsetDateTime.parse(authData.timestampOperation)
+      }
+    }
+}
+
 fun retrieveAuthorizationState(
   trx: BaseTransaction,
   authorizationStateRetrieverService: AuthorizationStateRetrieverService
@@ -238,6 +275,54 @@ fun retrieveAuthorizationState(
         paymentMethod =
           NpgClient.PaymentMethod.valueOf(
             transaction.transactionAuthorizationRequestData.paymentMethodName))
+    }
+}
+
+fun handlePatchTransactionService(
+  tx: BaseTransaction,
+  transactionsServiceClient: TransactionsServiceClient,
+  authorizationStateRetrieverRetryService: AuthorizationStateRetrieverRetryService,
+  tracingInfo: TracingInfo,
+  retryCount: Int = 0
+): Mono<BaseTransaction> {
+  return getAuthorizationData(tx)
+    .flatMap { authorizationRequestedData ->
+      transactionsServiceClient.patchAuthRequest(tx.transactionId, authorizationRequestedData)
+    }
+    .thenReturn(tx)
+    .onErrorResume { exception ->
+      logger.error(
+        "Transaction get authorization data error for transaction ${tx.transactionId.value()}",
+        exception)
+      Mono.just(tx)
+        .flatMap {
+          when (exception) {
+            // Enqueue retry event only if getState is 5xx or 2xx with no PAYMENT_COMPLETE or
+            // patchRequest is 5xx
+            is NpgBadRequestException, // 400 from NPG
+            is TransactionNotFound, // 404 from transactions-service
+            is UnauthorizedPatchAuthorizationRequestException, // 401 from transactions-service
+            is PatchAuthRequestErrorResponseException, // 400 from transactions-service
+            is InvalidNPGPaymentGatewayException, // 400 from NPG
+            -> Mono.empty() //
+            else ->
+              authorizationStateRetrieverRetryService
+                .enqueueRetryEvent(tx, retryCount, tracingInfo)
+                .onErrorResume { enqueueException ->
+                  logger.error(
+                    "Transaction enqueue retry event error for transaction ${tx.transactionId.value()}",
+                    enqueueException)
+                  Mono.just(tx).flatMap {
+                    when (enqueueException) {
+                      is TooLateRetryAttemptException,
+                      is NoRetryAttemptsLeftException, -> Mono.empty()
+                      else -> Mono.error(enqueueException)
+                    }
+                  }
+                }
+          }
+        }
+        .thenReturn(tx)
     }
 }
 
