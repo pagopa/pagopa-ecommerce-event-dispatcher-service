@@ -878,9 +878,10 @@ fun reduceEvents(
 ): Mono<BaseTransaction> =
   reduceEvents(
     transactionId.flatMapMany {
-      transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(it).map {
-        it as TransactionEvent<Any>
-      }
+      transactionsEventStoreRepository
+        .findByTransactionIdOrderByCreationDateAsc(it)
+        .map { it as TransactionEvent<Any> }
+        .cache()
     },
     emptyTransaction)
 

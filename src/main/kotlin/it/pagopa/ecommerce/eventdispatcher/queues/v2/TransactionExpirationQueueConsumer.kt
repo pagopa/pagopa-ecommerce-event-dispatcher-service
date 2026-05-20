@@ -67,10 +67,11 @@ class TransactionExpirationQueueConsumer(
     val transactionId = queueEvent.fold({ it.event.transactionId }, { it.event.transactionId })
     val events =
       Flux.defer {
-        transactionsEventStoreRepository
-          .findByTransactionIdOrderByCreationDateAsc(transactionId)
-          .map { it as TransactionEvent<Any> }
-      }
+          transactionsEventStoreRepository
+            .findByTransactionIdOrderByCreationDateAsc(transactionId)
+            .map { it as TransactionEvent<Any> }
+        }
+        .cache()
     val baseTransaction = reduceEvents(events)
     val refundPipeline =
       baseTransaction
