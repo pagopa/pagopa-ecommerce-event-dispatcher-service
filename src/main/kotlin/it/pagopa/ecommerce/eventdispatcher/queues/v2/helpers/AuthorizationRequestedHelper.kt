@@ -136,7 +136,8 @@ class AuthorizationRequestedHelper(
           // perform get state operation iff transaction is in AUTHORIZATION_REQUESTED state and the
           // gateway is NPG
           val performGetState =
-            transactionStatus == TransactionStatusDto.AUTHORIZATION_REQUESTED &&
+            (transactionStatus == TransactionStatusDto.AUTHORIZATION_REQUESTED ||
+              transactionStatus == TransactionStatusDto.AUTHORIZATION_COMPLETED) &&
               gateway == TransactionAuthorizationRequestData.PaymentGateway.NPG
 
           logger.info(
