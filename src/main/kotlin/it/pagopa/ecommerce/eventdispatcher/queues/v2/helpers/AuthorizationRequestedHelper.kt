@@ -14,7 +14,6 @@ import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.client.TransactionsServiceClient
 import it.pagopa.ecommerce.eventdispatcher.client.UserStatsServiceClient
-import it.pagopa.ecommerce.eventdispatcher.exceptions.*
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.*
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.AuthorizationStateRetrieverRetryService
@@ -115,7 +114,7 @@ class AuthorizationRequestedHelper(
         .flatMap { baseTransactionWithRequestedAuthorization ->
           if (saveLastUsage &&
             isAuthenticatedTransaction(baseTransactionWithRequestedAuthorization) &&
-            isAuthorizationRequestedStatus(baseTransactionWithRequestedAuthorization)) {
+            !isClosureRequestedStatus(baseTransactionWithRequestedAuthorization)) {
             userStatsServiceClient
               .saveLastUsage(
                 UUID.fromString(
@@ -278,8 +277,7 @@ class AuthorizationRequestedHelper(
     baseTransactionWithRequestedAuthorization: BaseTransactionWithRequestedAuthorization
   ) = baseTransactionWithRequestedAuthorization.transactionActivatedData.userId != null
 
-  private fun isAuthorizationRequestedStatus(
+  private fun isClosureRequestedStatus(
     baseTransactionWithRequestedAuthorization: BaseTransactionWithRequestedAuthorization
-  ) =
-    baseTransactionWithRequestedAuthorization.status == TransactionStatusDto.AUTHORIZATION_REQUESTED
+  ) = baseTransactionWithRequestedAuthorization.status == TransactionStatusDto.CLOSURE_REQUESTED
 }

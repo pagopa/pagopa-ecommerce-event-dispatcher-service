@@ -2612,6 +2612,9 @@ class AuthorizationRequestedHelperTests {
       given(userStatsServiceClient.saveLastUsage(any(), any())).willReturn(Mono.empty())
       given(checkpointer.success()).willReturn(Mono.empty())
 
+      given(authRequestedQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), any()))
+        .willReturn(queueSuccessfulResponse())
+
       // Test
       StepVerifier.create(
           authorizationRequestedHelper.authorizationRequestedHandler(
