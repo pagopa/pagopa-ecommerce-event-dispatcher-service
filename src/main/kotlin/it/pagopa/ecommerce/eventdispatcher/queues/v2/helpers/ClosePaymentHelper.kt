@@ -189,7 +189,7 @@ class ClosePaymentHelper(
               logger.info("Transaction with id {} skip close payment: {}", transactionId, !it)
             }
         }
-        .flatMap { reduceEvents(events, emptyTransaction) }
+        .flatMap { baseTransaction }
         .flatMap {
           logger.info("Status for transaction ${it.transactionId.value()}: ${it.status}")
 

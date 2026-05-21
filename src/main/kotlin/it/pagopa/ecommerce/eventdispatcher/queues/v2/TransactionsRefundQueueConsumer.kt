@@ -68,7 +68,9 @@ class TransactionsRefundQueueConsumer(
     val transactionId = getTransactionIdFromPayload(event)
 
     val events =
-      transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(transactionId)
+      transactionsEventStoreRepository
+        .findByTransactionIdOrderByCreationDateAsc(transactionId)
+        .cache()
 
     val refundPipeline =
       events
