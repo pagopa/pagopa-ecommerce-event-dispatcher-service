@@ -953,8 +953,7 @@ private fun updateNotifiedTransactionStatus(
           lastProcessedEventAt = ZonedDateTime.parse(event.creationDate).toInstant().toEpochMilli()
         }
       })
-    .flatMap { transactionUserReceiptRepository.insert(event) }
-    .thenReturn(event)
+    .then(transactionUserReceiptRepository.insert(event))
 }
 
 /*
