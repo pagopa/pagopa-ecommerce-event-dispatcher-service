@@ -278,7 +278,7 @@ fun retrieveAuthorizationState(
     }
 }
 
-fun handlePatchTransactionService(
+fun handlePatchTransactionServiceByAuthData(
   tx: BaseTransaction,
   transactionsServiceClient: TransactionsServiceClient,
   authorizationStateRetrieverRetryService: AuthorizationStateRetrieverRetryService,
@@ -299,11 +299,9 @@ fun handlePatchTransactionService(
           when (exception) {
             // Enqueue retry event only if getState is 5xx or 2xx with no PAYMENT_COMPLETE or
             // patchRequest is 5xx
-            is NpgBadRequestException, // 400 from NPG
             is TransactionNotFound, // 404 from transactions-service
             is UnauthorizedPatchAuthorizationRequestException, // 401 from transactions-service
             is PatchAuthRequestErrorResponseException, // 400 from transactions-service
-            is InvalidNPGPaymentGatewayException, // 400 from NPG
             -> Mono.empty() //
             else ->
               authorizationStateRetrieverRetryService
