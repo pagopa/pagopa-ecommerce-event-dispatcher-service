@@ -458,6 +458,8 @@ class RefundRetryServiceTests {
     given(transactionsViewRepository.save(viewRepositoryCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
+    given(mockedEnv.getProperty(ENV_TRANSACTIONSVIEW_UPDATED_ENABLED_FLAG, "true"))
+      .willReturn("true")
     given(
         refundRetryQueueAsyncClient.sendMessageWithResponse(
           queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))

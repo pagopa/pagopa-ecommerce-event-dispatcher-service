@@ -6,7 +6,10 @@ import com.azure.core.util.BinaryData
 import com.azure.core.util.serializer.TypeReference
 import com.azure.storage.queue.QueueAsyncClient
 import com.azure.storage.queue.models.SendMessageResult
-import it.pagopa.ecommerce.commons.documents.v2.*
+import it.pagopa.ecommerce.commons.documents.v2.BaseTransactionRetriedData
+import it.pagopa.ecommerce.commons.documents.v2.Transaction
+import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationOutcomeWaitingEvent
+import it.pagopa.ecommerce.commons.documents.v2.TransactionEvent
 import it.pagopa.ecommerce.commons.domain.v2.TransactionEventCode
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
@@ -473,6 +476,8 @@ class AuthorizationStateRetrieverRetryServiceTest {
         authRequestedOutcomeWaitingQueueAsyncClient.sendMessageWithResponse(
           queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
       .willReturn(queueSuccessfulResponse())
+    given(mockedEnv.getProperty(ENV_TRANSACTIONS_VIEW_UPDATED_ENABLED_FLAG, "true"))
+      .willReturn("true")
     StepVerifier.create(
         authorizationStateRetrieverRetryService.enqueueRetryEvent(
           baseTransaction, maxAttempts - 1, TracingInfoTest.MOCK_TRACING_INFO))
