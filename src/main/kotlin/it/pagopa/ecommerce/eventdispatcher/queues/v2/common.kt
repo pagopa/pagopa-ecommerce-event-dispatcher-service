@@ -63,7 +63,7 @@ fun updateTransactionToExpired(
 ): Mono<BaseTransaction> {
 
   return transactionsExpiredEventStoreRepository
-    .save(
+    .insert(
       TransactionExpiredEvent(
         transaction.transactionId.value(), TransactionExpiredData(transaction.status)))
     .map { ev ->
@@ -192,7 +192,7 @@ fun updateTransactionWithRefundEvent(
   status: TransactionStatusDto
 ): Mono<BaseTransaction> {
   return transactionsRefundedEventStoreRepository
-    .save(event)
+    .insert(event)
     .then(
       TransactionsViewProjectionHandler.updateTransactionView(
         transactionId = transaction.transactionId,
@@ -952,7 +952,7 @@ private fun updateNotifiedTransactionStatus(
           lastProcessedEventAt = ZonedDateTime.parse(event.creationDate).toInstant().toEpochMilli()
         }
       })
-    .flatMap { transactionUserReceiptRepository.save(event) }
+    .flatMap { transactionUserReceiptRepository.insert(event) }
     .thenReturn(event)
 }
 
