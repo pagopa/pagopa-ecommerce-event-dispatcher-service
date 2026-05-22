@@ -101,7 +101,7 @@ abstract class RetryEventService<E>(
                   ZonedDateTime.parse(event.creationDate).toInstant().toEpochMilli()
               }
             })
-          .flatMap { Mono.just(event) }
+          .thenReturn(event)
       }
 
   private fun enqueueMessage(

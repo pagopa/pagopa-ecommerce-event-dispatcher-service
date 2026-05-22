@@ -57,8 +57,9 @@ class TransactionRefundRetryQueueConsumer(
     val tracingInfo = parsedEvent.tracingInfo
 
     val events =
-      transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
-        event.transactionId)
+      transactionsEventStoreRepository
+        .findByTransactionIdOrderByCreationDateAsc(event.transactionId)
+        .cache()
 
     val baseTransaction =
       events.reduce(EmptyTransaction(), Transaction::applyEvent).cast(BaseTransaction::class.java)

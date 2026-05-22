@@ -376,6 +376,8 @@ class ClosureRetryServiceTests {
         closureRetryQueueAsyncClient.sendMessageWithResponse(
           queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
       .willReturn(queueSuccessfulResponse())
+    given(mockedEnv.getProperty(ENV_TRANSACTIONS_VIEW_UPDATED_ENABLED_FLAG, "true"))
+      .willReturn("true")
     StepVerifier.create(
         closureRetryService.enqueueRetryEvent(baseTransaction, maxAttempts - 1, MOCK_TRACING_INFO))
       .expectError(java.lang.RuntimeException::class.java)
