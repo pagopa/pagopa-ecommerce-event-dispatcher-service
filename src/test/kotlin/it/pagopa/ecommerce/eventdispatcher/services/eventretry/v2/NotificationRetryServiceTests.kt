@@ -473,6 +473,8 @@ class NotificationRetryServiceTests {
         notificationRetryQueueAsyncClient.sendMessageWithResponse(
           queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
       .willReturn(queueSuccessfulResponse())
+    given(mockedEnv.getProperty(ENV_TRANSACTIONS_VIEW_UPDATED_ENABLED_FLAG, "true"))
+      .willReturn("true")
     StepVerifier.create(
         notificationRetryService.enqueueRetryEvent(
           baseTransaction, maxAttempts - 1, MOCK_TRACING_INFO))

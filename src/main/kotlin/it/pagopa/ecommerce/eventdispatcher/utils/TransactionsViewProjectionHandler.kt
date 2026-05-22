@@ -34,10 +34,13 @@ object TransactionsViewProjectionHandler {
         .cast(Transaction::class.java)
         .map(viewUpdater)
 
-    return updatedTransactionView
-      .filter { _ -> saveEvent }
-      .cast(BaseTransactionView::class.java)
-      .flatMap(transactionsViewRepository::save)
-      .switchIfEmpty(updatedTransactionView)
+    return if (saveEvent) {
+      updatedTransactionView
+        .cast(BaseTransactionView::class.java)
+        .flatMap(transactionsViewRepository::save)
+        .switchIfEmpty(updatedTransactionView)
+    } else {
+      Mono.empty()
+    }
   }
 }
