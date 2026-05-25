@@ -40,7 +40,9 @@ import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.ecommerce.eventdispatcher.utils.TransactionsViewProjectionHandler
 import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundOutcomeDto
+import it.pagopa.generated.transactionauthrequests.v2.dto.AuthorizationOutcomeDto
 import it.pagopa.generated.transactionauthrequests.v2.dto.OutcomeNpgGatewayDto
+import it.pagopa.generated.transactionauthrequests.v2.dto.OutcomeRedirectGatewayDto
 import it.pagopa.generated.transactionauthrequests.v2.dto.UpdateAuthorizationRequestDto
 import it.pagopa.generated.transactionauthrequests.v2.dto.UpdateAuthorizationResponseDto
 import java.math.BigDecimal
@@ -214,15 +216,11 @@ fun updateTransactionWithRefundEvent(
 fun getAuthorizationData(
   trx: BaseTransaction,
 ): Mono<UpdateAuthorizationRequestDto> {
-  return Mono.just(trx)
-    .cast(BaseTransactionWithCompletedAuthorization::class.java)
-    .filter { transaction ->
-      transaction.transactionAuthorizationRequestData.paymentGateway ==
-        TransactionAuthorizationRequestData.PaymentGateway.NPG
-    }
-    .switchIfEmpty(Mono.error(InvalidNPGPaymentGatewayException(trx.transactionId)))
-    .map { transaction ->
-      val authData = transaction.transactionAuthorizationCompletedData
+  return Mono.just(trx).cast(BaseTransactionWithCompletedAuthorization::class.java).map {
+    transaction ->
+    val authData = transaction.transactionAuthorizationCompletedData
+    if (transaction.transactionAuthorizationRequestData.paymentGateway ==
+      TransactionAuthorizationRequestData.PaymentGateway.NPG) {
       val gatewayAuthData =
         transaction.transactionAuthorizationCompletedData.transactionGatewayAuthorizationData
           as NpgTransactionGatewayAuthorizationData
@@ -245,7 +243,21 @@ fun getAuthorizationData(
           }
         timestampOperation = OffsetDateTime.parse(authData.timestampOperation)
       }
+    } else {
+      val gatewayAuthData =
+        transaction.transactionAuthorizationCompletedData.transactionGatewayAuthorizationData
+          as RedirectTransactionGatewayAuthorizationData
+      UpdateAuthorizationRequestDto().apply {
+        outcomeGateway =
+          OutcomeRedirectGatewayDto().apply {
+            paymentGatewayType = "REDIRECT"
+            outcome = AuthorizationOutcomeDto.valueOf(gatewayAuthData.outcome.toString())
+            errorCode = gatewayAuthData.errorCode
+          }
+        timestampOperation = OffsetDateTime.parse(authData.timestampOperation)
+      }
     }
+  }
 }
 
 fun retrieveAuthorizationState(

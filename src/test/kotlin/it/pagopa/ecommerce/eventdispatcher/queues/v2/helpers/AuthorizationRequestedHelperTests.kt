@@ -1449,15 +1449,18 @@ class AuthorizationRequestedHelperTests {
   }
 
   @Test
-  fun `Should not recover transaction in authorization completed status but gateway not NPG without calling NPG get state nor PATCH auth requests`() {
+  fun `Should recover transaction in authorization completed status with gateway REDIRECT without calling NPG get state and calling PATCH auth requests`() {
     // pre-conditions
     val transactionActivatedEvent = transactionActivateEvent(npgTransactionGatewayActivationData())
     val transactionAuthorizationRequestedEvent =
       transactionAuthorizationRequestedEvent(
         TransactionAuthorizationRequestData.PaymentGateway.REDIRECT,
         npgTransactionGatewayAuthorizationRequestedData())
+    val redirectTransactionGatewayAuthorizationData = RedirectTransactionGatewayAuthorizationData()
+    redirectTransactionGatewayAuthorizationData.outcome =
+      RedirectTransactionGatewayAuthorizationData.Outcome.OK
     val authorizationCompleted =
-      transactionAuthorizationCompletedEvent(RedirectTransactionGatewayAuthorizationData())
+      transactionAuthorizationCompletedEvent(redirectTransactionGatewayAuthorizationData)
     val transactionAuthorizationOutcomeWaitingEvent = transactionAuthorizationOutcomeWaitingEvent(0)
     val transactionId = TransactionId(TRANSACTION_ID)
     val events: List<TransactionEvent<Any>> =
@@ -1487,7 +1490,7 @@ class AuthorizationRequestedHelperTests {
     verify(authorizationStateRetrieverService, times(0))
       .getStateNpg(any(), any(), any(), any(), any())
     verify(userStatsServiceClient, times(0)).saveLastUsage(any(), any())
-    verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
+    verify(transactionsServiceClient, times(1)).patchAuthRequest(any(), any())
     verify(deadLetterTracedQueueAsyncClient, times(0))
       .sendAndTraceDeadLetterQueueEvent(any(), any())
     verify(authRequestedQueueAsyncClient, times(0))
@@ -1495,15 +1498,18 @@ class AuthorizationRequestedHelperTests {
   }
 
   @Test
-  fun `Should not recover transaction in closure requested status but gateway not NPG without calling NPG get state nor PATCH auth requests`() {
+  fun `Should recover transaction in closure requested status with gateway REDIRECT without calling NPG get state and calling PATCH auth requests`() {
     // pre-conditions
     val transactionActivatedEvent = transactionActivateEvent(npgTransactionGatewayActivationData())
     val transactionAuthorizationRequestedEvent =
       transactionAuthorizationRequestedEvent(
         TransactionAuthorizationRequestData.PaymentGateway.REDIRECT,
         npgTransactionGatewayAuthorizationRequestedData())
+    val redirectTransactionGatewayAuthorizationData = RedirectTransactionGatewayAuthorizationData()
+    redirectTransactionGatewayAuthorizationData.outcome =
+      RedirectTransactionGatewayAuthorizationData.Outcome.OK
     val authorizationCompleted =
-      transactionAuthorizationCompletedEvent(RedirectTransactionGatewayAuthorizationData())
+      transactionAuthorizationCompletedEvent(redirectTransactionGatewayAuthorizationData)
     val closureRequestedEvent = transactionClosureRequestedEvent()
     val transactionAuthorizationOutcomeWaitingEvent = transactionAuthorizationOutcomeWaitingEvent(0)
     val transactionId = TransactionId(TRANSACTION_ID)
@@ -1535,7 +1541,7 @@ class AuthorizationRequestedHelperTests {
     verify(authorizationStateRetrieverService, times(0))
       .getStateNpg(any(), any(), any(), any(), any())
     verify(userStatsServiceClient, times(0)).saveLastUsage(any(), any())
-    verify(transactionsServiceClient, times(0)).patchAuthRequest(any(), any())
+    verify(transactionsServiceClient, times(1)).patchAuthRequest(any(), any())
     verify(deadLetterTracedQueueAsyncClient, times(0))
       .sendAndTraceDeadLetterQueueEvent(any(), any())
     verify(authRequestedQueueAsyncClient, times(0))

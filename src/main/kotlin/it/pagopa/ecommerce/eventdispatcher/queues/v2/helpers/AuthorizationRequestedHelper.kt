@@ -142,8 +142,8 @@ class AuthorizationRequestedHelper(
               transactionStatus == TransactionStatusDto.CLOSURE_REQUESTED
           val gatewayNpg = gateway == TransactionAuthorizationRequestData.PaymentGateway.NPG
           val performGetState =
-            transactionStatus == TransactionStatusDto.AUTHORIZATION_REQUESTED && gatewayNpg
-          val performOnlyPatch = authorizationCompleted && gatewayNpg
+            (transactionStatus == TransactionStatusDto.AUTHORIZATION_REQUESTED && gatewayNpg)
+          val performOnlyPatch = !performGetState && authorizationCompleted
 
           logger.info(
             "Transaction [{}}] status: [{}], gateway: [{}]- Perform GET state -> [{}]- Perform PATCH auth-requests -> [{}]",
@@ -176,7 +176,9 @@ class AuthorizationRequestedHelper(
               Duration.ofSeconds(transientQueueTTLSeconds.toLong()), // ttl
             )
           } else {
-            if (tx.status == TransactionStatusDto.AUTHORIZATION_REQUESTED) {
+            if (tx.status == TransactionStatusDto.AUTHORIZATION_REQUESTED &&
+              tx.transactionAuthorizationRequestData.paymentGateway ==
+                TransactionAuthorizationRequestData.PaymentGateway.NPG) {
               handleGetStateByPatchTransactionService(
                 tx = tx,
                 authorizationStateRetrieverRetryService = authorizationStateRetrieverRetryService,
@@ -184,13 +186,16 @@ class AuthorizationRequestedHelper(
                 transactionsServiceClient = transactionsServiceClient,
                 tracingInfo = tracingInfo,
                 retryCount = 0)
-            } else {
+            } else if (tx.status == TransactionStatusDto.AUTHORIZATION_COMPLETED ||
+              tx.status == TransactionStatusDto.CLOSURE_REQUESTED) {
               handlePatchTransactionServiceByAuthData(
                 tx = tx,
                 authorizationStateRetrieverRetryService = authorizationStateRetrieverRetryService,
                 transactionsServiceClient = transactionsServiceClient,
                 tracingInfo = tracingInfo,
                 retryCount = 0)
+            } else {
+              Mono.empty()
             }
           }
         }
@@ -234,7 +239,7 @@ class AuthorizationRequestedHelper(
           val gatewayNpg = gateway == TransactionAuthorizationRequestData.PaymentGateway.NPG
           val performGetState =
             transactionStatus == TransactionStatusDto.AUTHORIZATION_REQUESTED && gatewayNpg
-          val performOnlyPatch = authorizationCompleted && gatewayNpg
+          val performOnlyPatch = !performGetState && authorizationCompleted
 
           logger.info(
             "Transaction [{}}] status: [{}], gateway: [{}]- Perform GET state -> [{}]- Perform PATCH auth-requests -> [{}]",
@@ -242,15 +247,13 @@ class AuthorizationRequestedHelper(
             transactionStatus,
             gateway,
             performGetState,
-            performOnlyPatch)
+            authorizationCompleted)
           performGetState || performOnlyPatch
         }
-        .doOnNext {
-          logger.info(
-            "Handling authorization inquiry for transaction with id ${it.transactionId.value()} in status ${it.status.value}")
-        }
         .flatMap { tx ->
-          if (tx.status == TransactionStatusDto.AUTHORIZATION_REQUESTED) {
+          if (tx.status == TransactionStatusDto.AUTHORIZATION_REQUESTED &&
+            tx.transactionAuthorizationRequestData.paymentGateway ==
+              TransactionAuthorizationRequestData.PaymentGateway.NPG) {
             logger.info(
               "Handling GET state request for transaction with id ${tx.transactionId.value()} in status ${tx.status.value}")
             handleGetStateByPatchTransactionService(
@@ -260,7 +263,8 @@ class AuthorizationRequestedHelper(
               transactionsServiceClient = transactionsServiceClient,
               tracingInfo = tracingInfo,
               retryCount = 0)
-          } else {
+          } else if (tx.status == TransactionStatusDto.AUTHORIZATION_COMPLETED ||
+            tx.status == TransactionStatusDto.CLOSURE_REQUESTED) {
             logger.info(
               "Handling PATCH auth request for transaction with id ${tx.transactionId.value()} in status ${tx.status.value}")
             handlePatchTransactionServiceByAuthData(
@@ -269,6 +273,8 @@ class AuthorizationRequestedHelper(
               transactionsServiceClient = transactionsServiceClient,
               tracingInfo = tracingInfo,
               retryCount = 0)
+          } else {
+            Mono.empty()
           }
         }
     return runTracedPipelineWithDeadLetterQueue(
