@@ -993,6 +993,98 @@ class AuthorizationRequestedHelperTests {
   }
 
   @ParameterizedTest
+  @MethodSource("Patch auth request transaction service exception 4xx method source")
+  fun `Should not enqueue retry event for 4xx error performing auth request to transactions service for retry for closure requested transaction`(
+    runtimeException: RuntimeException
+  ) {
+    // TEST PATCH 400 -> NO retry
+    // pre-conditions
+
+    val operationId = "operationId"
+    val orderId = "orderId"
+    val authorizationCode = "123456"
+    val rrn = "rrn"
+    val paymentEndToEndId = "paymentEndToEndId"
+
+    val transactionActivatedEvent = transactionActivateEvent(npgTransactionGatewayActivationData())
+    val npgTransactionGatewayAuthorizationRequestedData =
+      npgTransactionGatewayAuthorizationRequestedData()
+    val transactionAuthorizationRequestedEvent =
+      transactionAuthorizationRequestedEvent(
+        TransactionAuthorizationRequestData.PaymentGateway.NPG,
+        npgTransactionGatewayAuthorizationRequestedData)
+    transactionAuthorizationRequestedEvent.data.authorizationRequestId = orderId
+    val authDate =
+      OffsetDateTime.now().minus(Duration.ofSeconds(firstAttemptOffsetSeconds.toLong())).toString()
+    transactionAuthorizationRequestedEvent.data.paymentInstrumentId = "paymentInstrumentId"
+    transactionAuthorizationRequestedEvent.creationDate = authDate
+
+    val npgTransactionGatewayAuthorizationData = NpgTransactionGatewayAuthorizationData()
+
+    npgTransactionGatewayAuthorizationData.operationId = operationId
+    npgTransactionGatewayAuthorizationData.operationResult = OperationResultDto.EXECUTED
+    npgTransactionGatewayAuthorizationData.paymentEndToEndId = paymentEndToEndId
+    val transactionAuthorizationCompletedEvent =
+      transactionAuthorizationCompletedEvent(npgTransactionGatewayAuthorizationData)
+    transactionAuthorizationCompletedEvent.data.authorizationCode = authorizationCode
+    transactionAuthorizationCompletedEvent.data.timestampOperation = "2020-01-01T00:00:00+01:00"
+    val transactionClosureRequestedEvent = transactionClosureRequestedEvent()
+    val transactionId = TransactionId(TRANSACTION_ID)
+    val events: List<TransactionEvent<Any>> =
+      listOf(
+        transactionActivatedEvent as TransactionEvent<Any>,
+        transactionAuthorizationRequestedEvent as TransactionEvent<Any>,
+        transactionAuthorizationCompletedEvent as TransactionEvent<Any>,
+        transactionClosureRequestedEvent as TransactionEvent<Any>)
+
+    val expectedPatchAuthRequest =
+      UpdateAuthorizationRequestDto().apply {
+        outcomeGateway =
+          OutcomeNpgGatewayDto().apply {
+            this.paymentGatewayType = "NPG"
+            this.operationResult = OutcomeNpgGatewayDto.OperationResultEnum.EXECUTED
+            this.orderId = orderId
+            this.operationId = operationId
+            this.authorizationCode = authorizationCode
+            this.paymentEndToEndId = paymentEndToEndId
+            this.rrn = rrn
+          }
+        timestampOperation = OffsetDateTime.parse("2020-01-01T00:00:00+01:00")
+      }
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+          transactionId.value()))
+      .willReturn(Flux.fromIterable(events))
+    given(transactionsServiceClient.patchAuthRequest(any(), any()))
+      .willReturn(Mono.error(runtimeException))
+    given(checkpointer.success()).willReturn(Mono.empty())
+    given(
+        deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(any<BinaryData>(), any()))
+      .willReturn(mono {})
+    given(
+        authorizationStateRetrieverRetryService.enqueueRetryEvent(
+          any(), any(), any(), anyOrNull(), anyOrNull()))
+      .willReturn(Mono.empty())
+    // Test
+    StepVerifier.create(
+        authorizationRequestedHelper.authorizationRequestedHandler(
+          QueueEvent(transactionAuthorizationRequestedEvent, TracingInfoTest.MOCK_TRACING_INFO),
+          checkpointer))
+      .expectNext(Unit)
+      .verifyComplete()
+    // assertions
+    verify(authorizationStateRetrieverService, times(0))
+      .getStateNpg(any(), any(), any(), any(), any())
+    verify(userStatsServiceClient, times(0)).saveLastUsage(any(), any())
+    verify(transactionsServiceClient, times(1))
+      .patchAuthRequest(transactionId, expectedPatchAuthRequest)
+    verify(deadLetterTracedQueueAsyncClient, times(0))
+      .sendAndTraceDeadLetterQueueEvent(any(), any())
+    verify(authorizationStateRetrieverRetryService, times(0))
+      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
+  }
+
+  @ParameterizedTest
   @MethodSource("Patch auth request transaction service exception 5xx method source")
   fun `Should not enqueue retry event for 5xx error performing auth request to transactions service`(
     runtimeException: Throwable
@@ -1123,6 +1215,96 @@ class AuthorizationRequestedHelperTests {
         transactionActivatedEvent as TransactionEvent<Any>,
         transactionAuthorizationRequestedEvent as TransactionEvent<Any>,
         transactionAuthorizationCompletedEvent as TransactionEvent<Any>)
+    val expectedPatchAuthRequest =
+      UpdateAuthorizationRequestDto().apply {
+        outcomeGateway =
+          OutcomeNpgGatewayDto().apply {
+            this.paymentGatewayType = "NPG"
+            this.operationResult = OutcomeNpgGatewayDto.OperationResultEnum.EXECUTED
+            this.orderId = orderId
+            this.operationId = operationId
+            this.authorizationCode = authorizationCode
+            this.paymentEndToEndId = paymentEndToEndId
+            this.rrn = rrn
+          }
+        timestampOperation = OffsetDateTime.parse("2020-01-01T00:00:00+01:00")
+      }
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+          transactionId.value()))
+      .willReturn(Flux.fromIterable(events))
+    given(transactionsServiceClient.patchAuthRequest(any(), any()))
+      .willReturn(Mono.error(runtimeException))
+    given(checkpointer.success()).willReturn(Mono.empty())
+    given(
+        deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(any<BinaryData>(), any()))
+      .willReturn(mono {})
+    given(
+        authorizationStateRetrieverRetryService.enqueueRetryEvent(
+          any(), any(), any(), anyOrNull(), anyOrNull()))
+      .willReturn(Mono.empty())
+    // Test
+    StepVerifier.create(
+        authorizationRequestedHelper.authorizationRequestedHandler(
+          QueueEvent(transactionAuthorizationRequestedEvent, TracingInfoTest.MOCK_TRACING_INFO),
+          checkpointer))
+      .expectNext(Unit)
+      .verifyComplete()
+    // assertions
+    verify(authorizationStateRetrieverService, times(0))
+      .getStateNpg(any(), any(), any(), any(), any())
+    verify(userStatsServiceClient, times(0)).saveLastUsage(any(), any())
+    verify(transactionsServiceClient, times(1))
+      .patchAuthRequest(transactionId, expectedPatchAuthRequest)
+    verify(deadLetterTracedQueueAsyncClient, times(0))
+      .sendAndTraceDeadLetterQueueEvent(any(), any())
+    verify(authorizationStateRetrieverRetryService, times(1))
+      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
+  }
+
+  @ParameterizedTest
+  @MethodSource("Patch auth request transaction service exception 5xx method source")
+  fun `Should not enqueue retry event for 5xx error performing auth request to transactions service for closure requested transactions`(
+    runtimeException: Throwable
+  ) {
+    // TEST PATCH Body non valido -> Dead letter o retry?
+    // pre-conditions
+    val operationId = "operationId"
+    val orderId = "orderId"
+    val authorizationCode = "123456"
+    val rrn = "rrn"
+    val paymentEndToEndId = "paymentEndToEndId"
+
+    val transactionActivatedEvent = transactionActivateEvent(npgTransactionGatewayActivationData())
+    val npgTransactionGatewayAuthorizationRequestedData =
+      npgTransactionGatewayAuthorizationRequestedData()
+    val transactionAuthorizationRequestedEvent =
+      transactionAuthorizationRequestedEvent(
+        TransactionAuthorizationRequestData.PaymentGateway.NPG,
+        npgTransactionGatewayAuthorizationRequestedData)
+    transactionAuthorizationRequestedEvent.data.authorizationRequestId = orderId
+    val authDate =
+      OffsetDateTime.now().minus(Duration.ofSeconds(firstAttemptOffsetSeconds.toLong())).toString()
+    transactionAuthorizationRequestedEvent.data.paymentInstrumentId = "paymentInstrumentId"
+    transactionAuthorizationRequestedEvent.creationDate = authDate
+
+    val npgTransactionGatewayAuthorizationData = NpgTransactionGatewayAuthorizationData()
+
+    npgTransactionGatewayAuthorizationData.operationId = operationId
+    npgTransactionGatewayAuthorizationData.operationResult = OperationResultDto.EXECUTED
+    npgTransactionGatewayAuthorizationData.paymentEndToEndId = paymentEndToEndId
+    val transactionAuthorizationCompletedEvent =
+      transactionAuthorizationCompletedEvent(npgTransactionGatewayAuthorizationData)
+    transactionAuthorizationCompletedEvent.data.authorizationCode = authorizationCode
+    transactionAuthorizationCompletedEvent.data.timestampOperation = "2020-01-01T00:00:00+01:00"
+    val transactionClosureRequestedEvent = transactionClosureRequestedEvent()
+    val transactionId = TransactionId(TRANSACTION_ID)
+    val events: List<TransactionEvent<Any>> =
+      listOf(
+        transactionActivatedEvent as TransactionEvent<Any>,
+        transactionAuthorizationRequestedEvent as TransactionEvent<Any>,
+        transactionAuthorizationCompletedEvent as TransactionEvent<Any>,
+        transactionClosureRequestedEvent as TransactionEvent<Any>)
     val expectedPatchAuthRequest =
       UpdateAuthorizationRequestDto().apply {
         outcomeGateway =
