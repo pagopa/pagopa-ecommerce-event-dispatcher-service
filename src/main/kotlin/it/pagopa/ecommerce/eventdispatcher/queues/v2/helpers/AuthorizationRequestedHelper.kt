@@ -184,7 +184,7 @@ class AuthorizationRequestedHelper(
               Duration.ofSeconds(transientQueueTTLSeconds.toLong()), // ttl
             )
           } else {
-            updateTransactionStatus(tx, tracingInfo)
+            updateTransactionStatus(tx, tracingInfo, 0)
           }
         }
     return runTracedPipelineWithDeadLetterQueue(
@@ -239,7 +239,7 @@ class AuthorizationRequestedHelper(
             authorizationCompleted)
           performGetState || performOnlyPatch
         }
-        .flatMap { tx -> updateTransactionStatus(tx, tracingInfo) }
+        .flatMap { tx -> updateTransactionStatus(tx, tracingInfo, retryCount) }
     return runTracedPipelineWithDeadLetterQueue(
       checkPointer,
       authorizationRequestedPipeline,
@@ -252,7 +252,8 @@ class AuthorizationRequestedHelper(
 
   private fun updateTransactionStatus(
     tx: BaseTransactionWithRequestedAuthorization,
-    tracingInfo: TracingInfo
+    tracingInfo: TracingInfo,
+    retryCount: Int
   ): Mono<BaseTransaction> =
     mono { tx }
       .doOnNext { tx ->
@@ -271,7 +272,7 @@ class AuthorizationRequestedHelper(
           authorizationStateRetrieverService = authorizationStateRetrieverService,
           transactionsServiceClient = transactionsServiceClient,
           tracingInfo = tracingInfo,
-          retryCount = 0)
+          retryCount = retryCount)
       }
       .switchIfEmpty {
         mono { tx }
