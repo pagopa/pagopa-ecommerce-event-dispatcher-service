@@ -179,6 +179,8 @@ class AuthorizationRequestedHelper(
             if (tx.status == TransactionStatusDto.AUTHORIZATION_REQUESTED &&
               tx.transactionAuthorizationRequestData.paymentGateway ==
                 TransactionAuthorizationRequestData.PaymentGateway.NPG) {
+              logger.info(
+                "Handling GET state request for transaction with id ${tx.transactionId.value()} in status ${tx.status.value}")
               handleGetStateByPatchTransactionService(
                 tx = tx,
                 authorizationStateRetrieverRetryService = authorizationStateRetrieverRetryService,
@@ -188,6 +190,8 @@ class AuthorizationRequestedHelper(
                 retryCount = 0)
             } else if (tx.status == TransactionStatusDto.AUTHORIZATION_COMPLETED ||
               tx.status == TransactionStatusDto.CLOSURE_REQUESTED) {
+              logger.info(
+                "Handling PATCH auth request for transaction with id ${tx.transactionId.value()} in status ${tx.status.value}")
               handlePatchTransactionServiceByAuthData(
                 tx = tx,
                 authorizationStateRetrieverRetryService = authorizationStateRetrieverRetryService,
