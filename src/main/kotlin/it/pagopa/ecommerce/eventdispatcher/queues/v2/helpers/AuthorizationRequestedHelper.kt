@@ -11,6 +11,7 @@ import it.pagopa.ecommerce.commons.domain.v2.pojos.*
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
+import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.client.TransactionsServiceClient
 import it.pagopa.ecommerce.eventdispatcher.client.UserStatsServiceClient
@@ -32,6 +33,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import reactor.core.publisher.Mono
+import reactor.kotlin.core.publisher.switchIfEmpty
 
 /**
  * This helper implements the business logic related to handling calling `getState` from NPG. In
@@ -176,31 +178,7 @@ class AuthorizationRequestedHelper(
               Duration.ofSeconds(transientQueueTTLSeconds.toLong()), // ttl
             )
           } else {
-            if (tx.status == TransactionStatusDto.AUTHORIZATION_REQUESTED &&
-              tx.transactionAuthorizationRequestData.paymentGateway ==
-                TransactionAuthorizationRequestData.PaymentGateway.NPG) {
-              logger.info(
-                "Handling GET state request for transaction with id ${tx.transactionId.value()} in status ${tx.status.value}")
-              handleGetStateByPatchTransactionService(
-                tx = tx,
-                authorizationStateRetrieverRetryService = authorizationStateRetrieverRetryService,
-                authorizationStateRetrieverService = authorizationStateRetrieverService,
-                transactionsServiceClient = transactionsServiceClient,
-                tracingInfo = tracingInfo,
-                retryCount = 0)
-            } else if (tx.status == TransactionStatusDto.AUTHORIZATION_COMPLETED ||
-              tx.status == TransactionStatusDto.CLOSURE_REQUESTED) {
-              logger.info(
-                "Handling PATCH auth request for transaction with id ${tx.transactionId.value()} in status ${tx.status.value}")
-              handlePatchTransactionServiceByAuthData(
-                tx = tx,
-                authorizationStateRetrieverRetryService = authorizationStateRetrieverRetryService,
-                transactionsServiceClient = transactionsServiceClient,
-                tracingInfo = tracingInfo,
-                retryCount = 0)
-            } else {
-              Mono.empty()
-            }
+            updateTransactionStatus(tx, tracingInfo)
           }
         }
     return runTracedPipelineWithDeadLetterQueue(
@@ -254,33 +232,7 @@ class AuthorizationRequestedHelper(
             authorizationCompleted)
           performGetState || performOnlyPatch
         }
-        .flatMap { tx ->
-          if (tx.status == TransactionStatusDto.AUTHORIZATION_REQUESTED &&
-            tx.transactionAuthorizationRequestData.paymentGateway ==
-              TransactionAuthorizationRequestData.PaymentGateway.NPG) {
-            logger.info(
-              "Handling GET state request for transaction with id ${tx.transactionId.value()} in status ${tx.status.value}")
-            handleGetStateByPatchTransactionService(
-              tx = tx,
-              authorizationStateRetrieverRetryService = authorizationStateRetrieverRetryService,
-              authorizationStateRetrieverService = authorizationStateRetrieverService,
-              transactionsServiceClient = transactionsServiceClient,
-              tracingInfo = tracingInfo,
-              retryCount = 0)
-          } else if (tx.status == TransactionStatusDto.AUTHORIZATION_COMPLETED ||
-            tx.status == TransactionStatusDto.CLOSURE_REQUESTED) {
-            logger.info(
-              "Handling PATCH auth request for transaction with id ${tx.transactionId.value()} in status ${tx.status.value}")
-            handlePatchTransactionServiceByAuthData(
-              tx = tx,
-              authorizationStateRetrieverRetryService = authorizationStateRetrieverRetryService,
-              transactionsServiceClient = transactionsServiceClient,
-              tracingInfo = tracingInfo,
-              retryCount = 0)
-          } else {
-            Mono.empty()
-          }
-        }
+        .flatMap { tx -> updateTransactionStatus(tx, tracingInfo) }
     return runTracedPipelineWithDeadLetterQueue(
       checkPointer,
       authorizationRequestedPipeline,
@@ -290,6 +242,45 @@ class AuthorizationRequestedHelper(
       this::class.simpleName!!,
       strictSerializerProviderV2)
   }
+
+  private fun updateTransactionStatus(
+    tx: BaseTransactionWithRequestedAuthorization,
+    tracingInfo: TracingInfo
+  ): Mono<BaseTransaction> =
+    mono { tx }
+      .doOnNext { tx ->
+        logger.info(
+          "Handling GET state request for transaction with id ${tx.transactionId.value()} in status ${tx.status.value}")
+      }
+      .filter {
+        tx.status == TransactionStatusDto.AUTHORIZATION_REQUESTED &&
+          tx.transactionAuthorizationRequestData.paymentGateway ==
+            TransactionAuthorizationRequestData.PaymentGateway.NPG
+      }
+      .flatMap { tx ->
+        handleGetStateByPatchTransactionService(
+          tx = tx,
+          authorizationStateRetrieverRetryService = authorizationStateRetrieverRetryService,
+          authorizationStateRetrieverService = authorizationStateRetrieverService,
+          transactionsServiceClient = transactionsServiceClient,
+          tracingInfo = tracingInfo,
+          retryCount = 0)
+      }
+      .switchIfEmpty {
+        mono { tx }
+          .doOnNext { tx ->
+            logger.info(
+              "Handling PATCH auth request for transaction with id ${tx.transactionId.value()} in status ${tx.status.value}")
+          }
+          .flatMap { tx ->
+            handlePatchTransactionServiceByAuthData(
+              tx = tx,
+              authorizationStateRetrieverRetryService = authorizationStateRetrieverRetryService,
+              transactionsServiceClient = transactionsServiceClient,
+              tracingInfo = tracingInfo,
+              retryCount = 0)
+          }
+      }
 
   private fun buildUserLastPaymentMethodData(
     baseTransactionWithRequestedAuthorization: BaseTransactionWithRequestedAuthorization,
