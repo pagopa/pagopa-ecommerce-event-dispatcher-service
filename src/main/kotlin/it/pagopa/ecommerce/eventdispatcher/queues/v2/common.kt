@@ -321,8 +321,7 @@ fun handlePatchTransactionServiceByAuthData(
       Mono.just(tx)
         .flatMap {
           when (exception) {
-            // Enqueue retry event only if getState is 5xx or 2xx with no PAYMENT_COMPLETE or
-            // patchRequest is 5xx
+            // Enqueue retry event only if patch auth-request is 5xx
             is TransactionNotFound, // 404 from transactions-service
             is UnauthorizedPatchAuthorizationRequestException, // 401 from transactions-service
             is PatchAuthRequestErrorResponseException, // 400 from transactions-service
