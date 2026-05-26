@@ -256,16 +256,14 @@ class AuthorizationRequestedHelper(
     retryCount: Int
   ): Mono<BaseTransaction> =
     mono { tx }
-      .doOnNext { tx ->
-        logger.info(
-          "Handling GET state request for transaction with id ${tx.transactionId.value()} in status ${tx.status.value}")
-      }
       .filter {
         tx.status == TransactionStatusDto.AUTHORIZATION_REQUESTED &&
           tx.transactionAuthorizationRequestData.paymentGateway ==
             TransactionAuthorizationRequestData.PaymentGateway.NPG
       }
       .flatMap { tx ->
+        logger.info(
+          "Handling GET state request for transaction with id ${tx.transactionId.value()} in status ${tx.status.value}")
         handleGetStateByPatchTransactionService(
           tx = tx,
           authorizationStateRetrieverRetryService = authorizationStateRetrieverRetryService,
@@ -276,11 +274,9 @@ class AuthorizationRequestedHelper(
       }
       .switchIfEmpty {
         mono { tx }
-          .doOnNext { tx ->
+          .flatMap { tx ->
             logger.info(
               "Handling PATCH auth request for transaction with id ${tx.transactionId.value()} in status ${tx.status.value}")
-          }
-          .flatMap { tx ->
             handlePatchTransactionServiceByAuthData(
               tx = tx,
               authorizationStateRetrieverRetryService = authorizationStateRetrieverRetryService,

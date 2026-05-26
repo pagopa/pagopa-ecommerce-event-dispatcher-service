@@ -237,8 +237,9 @@ fun getAuthorizationData(
             rrn = authData.rrn
             validationServiceId = gatewayAuthData.validationServiceId
             errorCode = gatewayAuthData.errorCode
-            cardId4 = null // Verificare che il passaggio del valore null non si rifletta sui wallet
-            // onboardati contestualmente
+            cardId4 =
+              null // In this case this null is safe, since it is useful only for wallet contextual
+            // onboarding and in this step we don't care about it
             paymentEndToEndId = gatewayAuthData.paymentEndToEndId
           }
         timestampOperation = OffsetDateTime.parse(authData.timestampOperation)
