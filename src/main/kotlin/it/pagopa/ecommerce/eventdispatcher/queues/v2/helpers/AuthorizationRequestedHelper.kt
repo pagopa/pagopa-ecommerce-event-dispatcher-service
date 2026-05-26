@@ -255,10 +255,10 @@ class AuthorizationRequestedHelper(
     tracingInfo: TracingInfo,
     retryCount: Int
   ): Mono<BaseTransaction> =
-    mono { tx }
+    Mono.just(tx)
       .filter {
-        tx.status == TransactionStatusDto.AUTHORIZATION_REQUESTED &&
-          tx.transactionAuthorizationRequestData.paymentGateway ==
+        it.status == TransactionStatusDto.AUTHORIZATION_REQUESTED &&
+          it.transactionAuthorizationRequestData.paymentGateway ==
             TransactionAuthorizationRequestData.PaymentGateway.NPG
       }
       .flatMap { tx ->
