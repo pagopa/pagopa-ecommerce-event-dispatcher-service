@@ -298,13 +298,24 @@ fun handlePatchTransactionServiceByAuthData(
   retryCount: Int = 0
 ): Mono<BaseTransaction> {
   return getAuthorizationData(tx)
+    .doOnError { exception ->
+      logger.error(
+        "Transaction getAuthorizationData error for transaction ${tx.transactionId.value()}",
+        exception)
+    }
     .flatMap { authorizationRequestedData ->
-      transactionsServiceClient.patchAuthRequest(tx.transactionId, authorizationRequestedData)
+      transactionsServiceClient
+        .patchAuthRequest(tx.transactionId, authorizationRequestedData)
+        .doOnError { exception ->
+          logger.error(
+            "Transaction PATCH auth request error for transaction ${tx.transactionId.value()}",
+            exception)
+        }
     }
     .thenReturn(tx)
     .onErrorResume { exception ->
       logger.error(
-        "Transaction get authorization data error for transaction ${tx.transactionId.value()}",
+        "Transaction get authorization data or PATCH auth request error for transaction ${tx.transactionId.value()}",
         exception)
       Mono.just(tx)
         .flatMap {

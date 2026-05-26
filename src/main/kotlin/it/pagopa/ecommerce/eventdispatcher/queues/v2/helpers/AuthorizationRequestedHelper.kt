@@ -231,12 +231,12 @@ class AuthorizationRequestedHelper(
           val performOnlyPatch = !performGetState && authorizationCompleted
 
           logger.info(
-            "Transaction [{}}] status: [{}], gateway: [{}]- Perform GET state -> [{}]- Perform PATCH auth-requests -> [{}]",
+            "Transaction [{}}] status: [{}], gateway: [{}] - Perform GET state -> [{}] - Perform PATCH auth-requests -> [{}]",
             transactionId,
             transactionStatus,
             gateway,
             performGetState,
-            authorizationCompleted)
+            performOnlyPatch)
           performGetState || performOnlyPatch
         }
         .flatMap { tx -> updateTransactionStatus(tx, tracingInfo, retryCount) }
@@ -286,7 +286,7 @@ class AuthorizationRequestedHelper(
               authorizationStateRetrieverRetryService = authorizationStateRetrieverRetryService,
               transactionsServiceClient = transactionsServiceClient,
               tracingInfo = tracingInfo,
-              retryCount = 0)
+              retryCount = retryCount)
           }
       }
 
