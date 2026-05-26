@@ -154,7 +154,7 @@ class AuthorizationRequestedHelper(
           val performOnlyPatch = !performGetState && authorizationCompleted
 
           logger.info(
-            "Transaction [{}}] status: [{}], gateway: [{}]- Perform GET state -> [{}]- Perform PATCH auth-requests -> [{}]",
+            "Transaction [{}] status: [{}], gateway: [{}]- Perform GET state -> [{}]- Perform PATCH auth-requests -> [{}]",
             transactionId,
             transactionStatus,
             gateway,
@@ -231,7 +231,7 @@ class AuthorizationRequestedHelper(
           val performOnlyPatch = !performGetState && authorizationCompleted
 
           logger.info(
-            "Transaction [{}}] status: [{}], gateway: [{}] - Perform GET state -> [{}] - Perform PATCH auth-requests -> [{}]",
+            "Transaction [{}] status: [{}], gateway: [{}] - Perform GET state -> [{}] - Perform PATCH auth-requests -> [{}]",
             transactionId,
             transactionStatus,
             gateway,
