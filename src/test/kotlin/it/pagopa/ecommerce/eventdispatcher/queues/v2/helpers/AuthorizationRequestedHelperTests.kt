@@ -147,12 +147,12 @@ class AuthorizationRequestedHelperTests {
         Arguments.of(EndToEndId.BANCOMAT_PAY, NpgClient.PaymentMethod.BANCOMATPAY),
         Arguments.of(EndToEndId.MYBANK, NpgClient.PaymentMethod.MYBANK))
 
-      @JvmStatic
-      fun `get Authorization data fails for payment gateway different from NPG and REDIRECT`():
-              Stream<Arguments> =
-          Stream.of(
-              Arguments.of(TransactionAuthorizationRequestData.PaymentGateway.VPOS),
-              Arguments.of(TransactionAuthorizationRequestData.PaymentGateway.XPAY))
+    @JvmStatic
+    fun `get Authorization data fails for payment gateway different from NPG and REDIRECT`():
+      Stream<Arguments> =
+      Stream.of(
+        Arguments.of(TransactionAuthorizationRequestData.PaymentGateway.VPOS),
+        Arguments.of(TransactionAuthorizationRequestData.PaymentGateway.XPAY))
   }
 
   @ParameterizedTest
@@ -3548,89 +3548,85 @@ class AuthorizationRequestedHelperTests {
         .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
     }
 
-    @ParameterizedTest
-    @MethodSource("get Authorization data fails for payment gateway different from NPG and REDIRECT")
-  fun `messageReceiver return error performing get authorization data for VPOS gateway`(paymentGateway: TransactionAuthorizationRequestData.PaymentGateway) =
-    runTest {
-      val transactionActivatedEvent =
-        transactionActivateEvent(npgTransactionGatewayActivationData())
-      val transactionAuthorizationRequestedEvent =
-        transactionAuthorizationRequestedEvent(
-            paymentGateway)
+  @ParameterizedTest
+  @MethodSource("get Authorization data fails for payment gateway different from NPG and REDIRECT")
+  fun `messageReceiver return error performing get authorization data for VPOS gateway`(
+    paymentGateway: TransactionAuthorizationRequestData.PaymentGateway
+  ) = runTest {
+    val transactionActivatedEvent = transactionActivateEvent(npgTransactionGatewayActivationData())
+    val transactionAuthorizationRequestedEvent =
+      transactionAuthorizationRequestedEvent(paymentGateway)
 
-      val paymentInstrumentId = UUID.randomUUID().toString()
-      val authDate =
-        OffsetDateTime.now()
-          .minus(Duration.ofSeconds(firstAttemptOffsetSeconds.toLong()))
-          .toString()
-      transactionAuthorizationRequestedEvent.data.paymentInstrumentId = paymentInstrumentId
-      transactionAuthorizationRequestedEvent.creationDate = authDate
+    val paymentInstrumentId = UUID.randomUUID().toString()
+    val authDate =
+      OffsetDateTime.now().minus(Duration.ofSeconds(firstAttemptOffsetSeconds.toLong())).toString()
+    transactionAuthorizationRequestedEvent.data.paymentInstrumentId = paymentInstrumentId
+    transactionAuthorizationRequestedEvent.creationDate = authDate
 
-      val transactionAuthorizationCompletedEvent =
-        transactionAuthorizationCompletedEvent(
-          redirectTransactionGatewayAuthorizationData(
-            RedirectTransactionGatewayAuthorizationData.Outcome.OK, null))
-      val transactionId = TransactionId(TRANSACTION_ID)
-      val events: List<TransactionEvent<Any>> =
-        listOf(
-          transactionActivatedEvent as TransactionEvent<Any>,
-          transactionAuthorizationRequestedEvent as TransactionEvent<Any>,
-          transactionAuthorizationCompletedEvent as TransactionEvent<Any>)
+    val transactionAuthorizationCompletedEvent =
+      transactionAuthorizationCompletedEvent(
+        redirectTransactionGatewayAuthorizationData(
+          RedirectTransactionGatewayAuthorizationData.Outcome.OK, null))
+    val transactionId = TransactionId(TRANSACTION_ID)
+    val events: List<TransactionEvent<Any>> =
+      listOf(
+        transactionActivatedEvent as TransactionEvent<Any>,
+        transactionAuthorizationRequestedEvent as TransactionEvent<Any>,
+        transactionAuthorizationCompletedEvent as TransactionEvent<Any>)
 
-      val operationId = "operationId"
-      val orderId = "orderId"
-      val authorizationCode = "123456"
-      val rrn = "rrn"
-      val paymentEndToEndId = "paymentEndToEndId"
-      val npgStateResponse =
-        StateResponseDto()
-          .state(WorkflowStateDto.PAYMENT_COMPLETE)
-          .operation(
-            OperationDto()
-              .operationId(operationId)
-              .orderId(orderId)
-              .operationResult(OperationResultDto.EXECUTED)
-              .paymentEndToEndId(paymentEndToEndId)
-              .operationTime("2024-01-01T00:00:00")
-              .additionalData(mapOf("authorizationCode" to authorizationCode, "rrn" to rrn)))
+    val operationId = "operationId"
+    val orderId = "orderId"
+    val authorizationCode = "123456"
+    val rrn = "rrn"
+    val paymentEndToEndId = "paymentEndToEndId"
+    val npgStateResponse =
+      StateResponseDto()
+        .state(WorkflowStateDto.PAYMENT_COMPLETE)
+        .operation(
+          OperationDto()
+            .operationId(operationId)
+            .orderId(orderId)
+            .operationResult(OperationResultDto.EXECUTED)
+            .paymentEndToEndId(paymentEndToEndId)
+            .operationTime("2024-01-01T00:00:00")
+            .additionalData(mapOf("authorizationCode" to authorizationCode, "rrn" to rrn)))
 
-      given(
-          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
-            transactionId.value()))
-        .willReturn(Flux.fromIterable(events))
-      given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any(), any()))
-        .willReturn(mono { npgStateResponse })
-      given(transactionsServiceClient.patchAuthRequest(any(), any()))
-        .willReturn(Mono.error(GatewayTimeoutException()))
-      given(authRequestedQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), any()))
-        .willReturn(
-          Mono.error {
-            TooLateRetryAttemptException(
-              TransactionId(UUID.randomUUID()), "eventCode", Instant.now())
-          })
-      given(
-          authorizationStateRetrieverRetryService.enqueueRetryEvent(
-            any(), any(), any(), anyOrNull(), anyOrNull()))
-        .willReturn(Mono.empty())
-      given(checkpointer.success()).willReturn(Mono.empty())
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+          transactionId.value()))
+      .willReturn(Flux.fromIterable(events))
+    given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any(), any()))
+      .willReturn(mono { npgStateResponse })
+    given(transactionsServiceClient.patchAuthRequest(any(), any()))
+      .willReturn(Mono.error(GatewayTimeoutException()))
+    given(authRequestedQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), any()))
+      .willReturn(
+        Mono.error {
+          TooLateRetryAttemptException(TransactionId(UUID.randomUUID()), "eventCode", Instant.now())
+        })
+    given(
+        authorizationStateRetrieverRetryService.enqueueRetryEvent(
+          any(), any(), any(), anyOrNull(), anyOrNull()))
+      .willReturn(Mono.empty())
+    given(checkpointer.success()).willReturn(Mono.empty())
 
-      // Test
-      StepVerifier.create(
-          authorizationRequestedHelper.authorizationRequestedHandler(
-            QueueEvent(transactionAuthorizationRequestedEvent, TracingInfoTest.MOCK_TRACING_INFO),
-            checkpointer))
-        .expectNext(Unit)
-        .verifyComplete()
-      // assertions
-      verify(authorizationStateRetrieverService, times(0))
-        .getStateNpg(any(), any(), any(), any(), any())
+    // Test
+    StepVerifier.create(
+        authorizationRequestedHelper.authorizationRequestedHandler(
+          QueueEvent(transactionAuthorizationRequestedEvent, TracingInfoTest.MOCK_TRACING_INFO),
+          checkpointer))
+      .expectNext(Unit)
+      .verifyComplete()
+    // assertions
+    verify(authorizationStateRetrieverService, times(0))
+      .getStateNpg(any(), any(), any(), any(), any())
 
-      verify(userStatsServiceClient, times(0)).saveLastUsage(any(), any())
-      verify(deadLetterTracedQueueAsyncClient, times(0))
-        .sendAndTraceDeadLetterQueueEvent(any(), any())
-      verify(authRequestedQueueAsyncClient, times(0))
-        .sendMessageWithResponse(any<BinaryData>(), any(), any())
-      verify(authorizationStateRetrieverRetryService, times(0))
-        .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
-    }
+    verify(userStatsServiceClient, times(0)).saveLastUsage(any(), any())
+    verify(deadLetterTracedQueueAsyncClient, times(0))
+      .sendAndTraceDeadLetterQueueEvent(any(), any())
+    verify(authRequestedQueueAsyncClient, times(0))
+      .sendMessageWithResponse(any<BinaryData>(), any(), any())
+    verify(authorizationStateRetrieverRetryService, times(0))
+      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
+  }
 }
