@@ -2444,7 +2444,7 @@ class AuthorizationRequestedHelperTests {
 
   @ParameterizedTest
   @MethodSource("Patch auth request transaction service exception 5xx method source")
-  fun `Should not enqueue retry event for 5xx error performing auth request to transactions service for retry`(
+  fun `Should enqueue retry event for 5xx error performing auth request to transactions service for retry`(
     runtimeException: Throwable
   ) {
     // TEST PATCH Body non valido -> Dead letter o retry?
