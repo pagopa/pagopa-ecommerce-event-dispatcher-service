@@ -3550,7 +3550,7 @@ class AuthorizationRequestedHelperTests {
 
   @ParameterizedTest
   @MethodSource("get Authorization data fails for payment gateway different from NPG and REDIRECT")
-  fun `messageReceiver return error performing get authorization data for VPOS gateway`(
+  fun `messageReceiver return error performing get authorization data for VPOS gateway in authorization completed status`(
     paymentGateway: TransactionAuthorizationRequestData.PaymentGateway
   ) = runTest {
     val transactionActivatedEvent = transactionActivateEvent(npgTransactionGatewayActivationData())
@@ -3574,29 +3574,76 @@ class AuthorizationRequestedHelperTests {
         transactionAuthorizationRequestedEvent as TransactionEvent<Any>,
         transactionAuthorizationCompletedEvent as TransactionEvent<Any>)
 
-    val operationId = "operationId"
-    val orderId = "orderId"
-    val authorizationCode = "123456"
-    val rrn = "rrn"
-    val paymentEndToEndId = "paymentEndToEndId"
-    val npgStateResponse =
-      StateResponseDto()
-        .state(WorkflowStateDto.PAYMENT_COMPLETE)
-        .operation(
-          OperationDto()
-            .operationId(operationId)
-            .orderId(orderId)
-            .operationResult(OperationResultDto.EXECUTED)
-            .paymentEndToEndId(paymentEndToEndId)
-            .operationTime("2024-01-01T00:00:00")
-            .additionalData(mapOf("authorizationCode" to authorizationCode, "rrn" to rrn)))
+    given(
+        transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+          transactionId.value()))
+      .willReturn(Flux.fromIterable(events))
+    given(transactionsServiceClient.patchAuthRequest(any(), any()))
+      .willReturn(Mono.error(GatewayTimeoutException()))
+    given(authRequestedQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), any()))
+      .willReturn(
+        Mono.error {
+          TooLateRetryAttemptException(TransactionId(UUID.randomUUID()), "eventCode", Instant.now())
+        })
+    given(
+        authorizationStateRetrieverRetryService.enqueueRetryEvent(
+          any(), any(), any(), anyOrNull(), anyOrNull()))
+      .willReturn(Mono.empty())
+    given(checkpointer.success()).willReturn(Mono.empty())
+
+    // Test
+    StepVerifier.create(
+        authorizationRequestedHelper.authorizationRequestedHandler(
+          QueueEvent(transactionAuthorizationRequestedEvent, TracingInfoTest.MOCK_TRACING_INFO),
+          checkpointer))
+      .expectNext(Unit)
+      .verifyComplete()
+    // assertions
+    verify(authorizationStateRetrieverService, times(0))
+      .getStateNpg(any(), any(), any(), any(), any())
+
+    verify(userStatsServiceClient, times(0)).saveLastUsage(any(), any())
+    verify(deadLetterTracedQueueAsyncClient, times(0))
+      .sendAndTraceDeadLetterQueueEvent(any(), any())
+    verify(authRequestedQueueAsyncClient, times(0))
+      .sendMessageWithResponse(any<BinaryData>(), any(), any())
+    verify(authorizationStateRetrieverRetryService, times(0))
+      .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
+  }
+
+  @ParameterizedTest
+  @MethodSource("get Authorization data fails for payment gateway different from NPG and REDIRECT")
+  fun `messageReceiver return error performing get authorization data for VPOS gateway in closure requested status`(
+    paymentGateway: TransactionAuthorizationRequestData.PaymentGateway
+  ) = runTest {
+    val transactionActivatedEvent = transactionActivateEvent(npgTransactionGatewayActivationData())
+    val transactionAuthorizationRequestedEvent =
+      transactionAuthorizationRequestedEvent(paymentGateway)
+
+    val paymentInstrumentId = UUID.randomUUID().toString()
+    val authDate =
+      OffsetDateTime.now().minus(Duration.ofSeconds(firstAttemptOffsetSeconds.toLong())).toString()
+    transactionAuthorizationRequestedEvent.data.paymentInstrumentId = paymentInstrumentId
+    transactionAuthorizationRequestedEvent.creationDate = authDate
+
+    val transactionAuthorizationCompletedEvent =
+      transactionAuthorizationCompletedEvent(
+        redirectTransactionGatewayAuthorizationData(
+          RedirectTransactionGatewayAuthorizationData.Outcome.OK, null))
+
+    val transactionClosureRequestedEvent = transactionClosureRequestedEvent()
+    val transactionId = TransactionId(TRANSACTION_ID)
+    val events: List<TransactionEvent<Any>> =
+      listOf(
+        transactionActivatedEvent as TransactionEvent<Any>,
+        transactionAuthorizationRequestedEvent as TransactionEvent<Any>,
+        transactionAuthorizationCompletedEvent as TransactionEvent<Any>,
+        transactionClosureRequestedEvent as TransactionEvent<Any>)
 
     given(
         transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
           transactionId.value()))
       .willReturn(Flux.fromIterable(events))
-    given(authorizationStateRetrieverService.getStateNpg(any(), any(), any(), any(), any()))
-      .willReturn(mono { npgStateResponse })
     given(transactionsServiceClient.patchAuthRequest(any(), any()))
       .willReturn(Mono.error(GatewayTimeoutException()))
     given(authRequestedQueueAsyncClient.sendMessageWithResponse(any<BinaryData>(), any(), any()))
