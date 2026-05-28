@@ -216,47 +216,57 @@ fun updateTransactionWithRefundEvent(
 fun getAuthorizationData(
   trx: BaseTransaction,
 ): Mono<UpdateAuthorizationRequestDto> {
-  return Mono.just(trx).cast(BaseTransactionWithCompletedAuthorization::class.java).map {
+  return Mono.just(trx).cast(BaseTransactionWithCompletedAuthorization::class.java).flatMap {
     transaction ->
     val authData = transaction.transactionAuthorizationCompletedData
-    if (transaction.transactionAuthorizationRequestData.paymentGateway ==
-      TransactionAuthorizationRequestData.PaymentGateway.NPG) {
-      val gatewayAuthData =
-        transaction.transactionAuthorizationCompletedData.transactionGatewayAuthorizationData
-          as NpgTransactionGatewayAuthorizationData
-      UpdateAuthorizationRequestDto().apply {
-        outcomeGateway =
-          OutcomeNpgGatewayDto().apply {
-            paymentGatewayType = "NPG"
-            operationResult =
-              OutcomeNpgGatewayDto.OperationResultEnum.valueOf(
-                gatewayAuthData.operationResult.value)
-            orderId = transaction.transactionAuthorizationRequestData.authorizationRequestId
-            operationId = gatewayAuthData.operationId
-            authorizationCode = authData.authorizationCode
-            rrn = authData.rrn
-            validationServiceId = gatewayAuthData.validationServiceId
-            errorCode = gatewayAuthData.errorCode
-            cardId4 =
-              null // In this case this null is safe, since it is useful only for wallet contextual
-            // onboarding and in this step we don't care about it
-            paymentEndToEndId = gatewayAuthData.paymentEndToEndId
-          }
-        timestampOperation = OffsetDateTime.parse(authData.timestampOperation)
+    when (transaction.transactionAuthorizationRequestData.paymentGateway) {
+      TransactionAuthorizationRequestData.PaymentGateway.NPG -> {
+        val gatewayAuthData =
+          transaction.transactionAuthorizationCompletedData.transactionGatewayAuthorizationData
+            as NpgTransactionGatewayAuthorizationData
+        Mono.just(
+          UpdateAuthorizationRequestDto().apply {
+            outcomeGateway =
+              OutcomeNpgGatewayDto().apply {
+                paymentGatewayType = "NPG"
+                operationResult =
+                  OutcomeNpgGatewayDto.OperationResultEnum.valueOf(
+                    gatewayAuthData.operationResult.value)
+                orderId = transaction.transactionAuthorizationRequestData.authorizationRequestId
+                operationId = gatewayAuthData.operationId
+                authorizationCode = authData.authorizationCode
+                rrn = authData.rrn
+                validationServiceId = gatewayAuthData.validationServiceId
+                errorCode = gatewayAuthData.errorCode
+                cardId4 =
+                  null // Verificare che il passaggio del valore null non si rifletta sui wallet
+                // onboardati contestualmente
+                paymentEndToEndId = gatewayAuthData.paymentEndToEndId
+              }
+            timestampOperation = OffsetDateTime.parse(authData.timestampOperation)
+          })
       }
-    } else {
-      val gatewayAuthData =
-        transaction.transactionAuthorizationCompletedData.transactionGatewayAuthorizationData
-          as RedirectTransactionGatewayAuthorizationData
-      UpdateAuthorizationRequestDto().apply {
-        outcomeGateway =
-          OutcomeRedirectGatewayDto().apply {
-            paymentGatewayType = "REDIRECT"
-            outcome = AuthorizationOutcomeDto.valueOf(gatewayAuthData.outcome.toString())
-            errorCode = gatewayAuthData.errorCode
-          }
-        timestampOperation = OffsetDateTime.parse(authData.timestampOperation)
+      TransactionAuthorizationRequestData.PaymentGateway.REDIRECT -> {
+        val gatewayAuthData =
+          transaction.transactionAuthorizationCompletedData.transactionGatewayAuthorizationData
+            as RedirectTransactionGatewayAuthorizationData
+        Mono.just(
+          UpdateAuthorizationRequestDto().apply {
+            outcomeGateway =
+              OutcomeRedirectGatewayDto().apply {
+                paymentGatewayType = "REDIRECT"
+                outcome = AuthorizationOutcomeDto.valueOf(gatewayAuthData.outcome.toString())
+                errorCode = gatewayAuthData.errorCode
+              }
+            timestampOperation = OffsetDateTime.parse(authData.timestampOperation)
+          })
       }
+      TransactionAuthorizationRequestData.PaymentGateway.VPOS,
+      TransactionAuthorizationRequestData.PaymentGateway.XPAY ->
+        Mono.error(
+          InvalidPaymentGatewayException(
+            transaction.transactionId,
+            transaction.transactionAuthorizationRequestData.paymentGateway.toString()))
     }
   }
 }
@@ -325,7 +335,7 @@ fun handlePatchTransactionServiceByAuthData(
             is TransactionNotFound, // 404 from transactions-service
             is UnauthorizedPatchAuthorizationRequestException, // 401 from transactions-service
             is PatchAuthRequestErrorResponseException, // 400 from transactions-service
-            -> Mono.empty() //
+            is InvalidPaymentGatewayException, -> Mono.empty()
             else ->
               authorizationStateRetrieverRetryService
                 .enqueueRetryEvent(tx, retryCount, tracingInfo)
