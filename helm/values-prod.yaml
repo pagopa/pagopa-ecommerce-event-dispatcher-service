@@ -31,7 +31,7 @@ microservice-chart:
     envSecret: {}
   image:
     repository: pagopapcommonacr.azurecr.io/pagopaecommerceeventdispatcherservice
-    tag: "3.12.0"
+    tag: "3.13.0"
     pullPolicy: Always
   livenessProbe:
     handlerType: httpGet
@@ -102,6 +102,7 @@ microservice-chart:
           scaleUp:
             stabilizationWindowSeconds: 60
   envConfig:
+    ACTIVE_PROFILE: k8s
     TRANSACTIONS_CLOSE_PAYMENT_QUEUE_NAME: pagopa-p-weu-ecommerce-transactions-close-payment-queue
     TRANSACTIONS_CLOSE_PAYMENT_RETRY_QUEUE_NAME: pagopa-p-weu-ecommerce-transactions-close-payment-retry-queue
     TRANSACTIONS_EXPIRATION_QUEUE_NAME: pagopa-p-weu-ecommerce-transactions-expiration-queue
@@ -166,7 +167,7 @@ microservice-chart:
     NPG_URI: https://xpay.nexigroup.com/api/phoenix-0.0
     NPG_READ_TIMEOUT: "10000"
     NPG_CONNECTION_TIMEOUT: "10000"
-    NPG_CARDS_PSP_LIST: "BCITITMM,CIPBITMM,BIC36019,UNCRITMM,BPPIITRRXXX,PPAYITR1XXX,BNLIITRR,PASCITMM,WOLLNLB1,BPMOIT22,SARDIT31,IFSPIT21,BCEPITMM"
+    NPG_CARDS_PSP_LIST: "BCITITMM,CIPBITMM,BIC36019,UNCRITMM,BPPIITRRXXX,PPAYITR1XXX,BNLIITRR,PASCITMM,WOLLNLB1,BPMOIT22,SARDIT31,IFSPIT21,BCEPITMM,SELBIT2B,ABI36964"
     NPG_PAYPAL_PSP_LIST: "BCITITMM,SIGPITM1XXX,MOONITMMXXX,CIPBITMM"
     NPG_MYBANK_PSP_LIST: "BCITITMM,UNCRITMM"
     NPG_BANCOMATPAY_PSP_LIST: "BCITITMM,ABI36925"
