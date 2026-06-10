@@ -106,7 +106,7 @@ class ClosureRetryServiceTests {
     val transactionDocument =
       TransactionTestUtils.transactionDocument(
         TransactionStatusDto.CLOSURE_ERROR, ZonedDateTime.now())
-    given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
+    given(eventStoreRepository.insert(eventStoreCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
     given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
@@ -123,7 +123,7 @@ class ClosureRetryServiceTests {
       .expectNext()
       .verifyComplete()
 
-    verify(eventStoreRepository, times(1)).save(any())
+    verify(eventStoreRepository, times(1)).insert(capture(eventStoreCaptor))
     verify(transactionsViewRepository, times(1))
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(1)).save(any())
@@ -167,7 +167,7 @@ class ClosureRetryServiceTests {
     val transactionDocument =
       TransactionTestUtils.transactionDocument(
         TransactionStatusDto.CLOSURE_ERROR, ZonedDateTime.now())
-    given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
+    given(eventStoreRepository.insert(eventStoreCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
     given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
@@ -184,7 +184,7 @@ class ClosureRetryServiceTests {
       .expectNext()
       .verifyComplete()
 
-    verify(eventStoreRepository, times(1)).save(any())
+    verify(eventStoreRepository, times(1)).insert(capture(eventStoreCaptor))
     verify(transactionsViewRepository, times(1))
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(1)).save(any())
@@ -228,7 +228,7 @@ class ClosureRetryServiceTests {
     val transactionDocument =
       TransactionTestUtils.transactionDocument(
         TransactionStatusDto.CLOSURE_ERROR, ZonedDateTime.now())
-    given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
+    given(eventStoreRepository.insert(eventStoreCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
     given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
@@ -242,7 +242,7 @@ class ClosureRetryServiceTests {
       .expectNext()
       .verifyComplete()
 
-    verify(eventStoreRepository, times(1)).save(any())
+    verify(eventStoreRepository, times(1)).insert(capture(eventStoreCaptor))
     verify(transactionsViewRepository, times(1))
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(0)).save(any())
@@ -282,7 +282,7 @@ class ClosureRetryServiceTests {
     val transactionDocument =
       TransactionTestUtils.transactionDocument(
         TransactionStatusDto.CLOSURE_ERROR, ZonedDateTime.now())
-    given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
+    given(eventStoreRepository.insert(eventStoreCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
     given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
@@ -299,7 +299,7 @@ class ClosureRetryServiceTests {
       .expectError(NoRetryAttemptsLeftException::class.java)
       .verify()
 
-    verify(eventStoreRepository, times(0)).save(any())
+    verify(eventStoreRepository, times(0)).insert(capture(eventStoreCaptor))
     verify(transactionsViewRepository, times(0))
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(0)).save(any())
@@ -324,7 +324,7 @@ class ClosureRetryServiceTests {
     val transactionDocument =
       TransactionTestUtils.transactionDocument(
         TransactionStatusDto.CLOSURE_ERROR, ZonedDateTime.now())
-    given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
+    given(eventStoreRepository.insert(eventStoreCaptor.capture())).willAnswer {
       Mono.error<TransactionEvent<Any>>(RuntimeException("Error saving event into event store"))
     }
     given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
@@ -341,7 +341,7 @@ class ClosureRetryServiceTests {
       .expectError(java.lang.RuntimeException::class.java)
       .verify()
 
-    verify(eventStoreRepository, times(1)).save(any())
+    verify(eventStoreRepository, times(1)).insert(capture(eventStoreCaptor))
     verify(transactionsViewRepository, times(0))
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(0)).save(any())
@@ -364,7 +364,7 @@ class ClosureRetryServiceTests {
 
     val baseTransaction = TransactionTestUtils.reduceEvents(*events.toTypedArray())
 
-    given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
+    given(eventStoreRepository.insert(eventStoreCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
     given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
@@ -376,12 +376,14 @@ class ClosureRetryServiceTests {
         closureRetryQueueAsyncClient.sendMessageWithResponse(
           queueCaptor.capture(), durationCaptor.capture(), anyOrNull()))
       .willReturn(queueSuccessfulResponse())
+    given(mockedEnv.getProperty(ENV_TRANSACTIONS_VIEW_UPDATED_ENABLED_FLAG, "true"))
+      .willReturn("true")
     StepVerifier.create(
         closureRetryService.enqueueRetryEvent(baseTransaction, maxAttempts - 1, MOCK_TRACING_INFO))
       .expectError(java.lang.RuntimeException::class.java)
       .verify()
 
-    verify(eventStoreRepository, times(1)).save(any())
+    verify(eventStoreRepository, times(1)).insert(capture(eventStoreCaptor))
     verify(transactionsViewRepository, times(1))
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(0)).save(any())
@@ -408,7 +410,7 @@ class ClosureRetryServiceTests {
     val transactionDocument =
       TransactionTestUtils.transactionDocument(
         TransactionStatusDto.CLOSURE_ERROR, ZonedDateTime.now())
-    given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
+    given(eventStoreRepository.insert(eventStoreCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
     given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
@@ -425,7 +427,7 @@ class ClosureRetryServiceTests {
       .expectError(java.lang.RuntimeException::class.java)
       .verify()
 
-    verify(eventStoreRepository, times(1)).save(any())
+    verify(eventStoreRepository, times(1)).insert(capture(eventStoreCaptor))
     verify(transactionsViewRepository, times(1))
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(1)).save(any())
@@ -455,7 +457,7 @@ class ClosureRetryServiceTests {
     val transactionDocument =
       TransactionTestUtils.transactionDocument(
         TransactionStatusDto.CLOSURE_ERROR, ZonedDateTime.now())
-    given(eventStoreRepository.save(eventStoreCaptor.capture())).willAnswer {
+    given(eventStoreRepository.insert(eventStoreCaptor.capture())).willAnswer {
       Mono.just(it.arguments[0])
     }
     given(transactionsViewRepository.findByTransactionId(TransactionTestUtils.TRANSACTION_ID))
@@ -472,7 +474,7 @@ class ClosureRetryServiceTests {
       .expectError(TooLateRetryAttemptException::class.java)
       .verify()
 
-    verify(eventStoreRepository, times(0)).save(any())
+    verify(eventStoreRepository, times(0)).insert(capture(eventStoreCaptor))
     verify(transactionsViewRepository, times(0))
       .findByTransactionId(TransactionTestUtils.TRANSACTION_ID)
     verify(transactionsViewRepository, times(0)).save(any())

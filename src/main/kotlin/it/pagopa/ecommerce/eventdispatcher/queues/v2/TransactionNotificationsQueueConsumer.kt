@@ -72,6 +72,7 @@ class TransactionNotificationsQueueConsumer(
       transactionsEventStoreRepository
         .findByTransactionIdOrderByCreationDateAsc(transactionId)
         .map { it as TransactionEvent<Any> }
+        .cache()
 
     val baseTransaction = reduceEvents(events, EmptyTransaction())
 

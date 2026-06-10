@@ -89,7 +89,7 @@ abstract class RetryEventService<E>(
 
   private fun storeEventAndUpdateView(event: E, newStatus: TransactionStatusDto): Mono<E> =
     Mono.just(event)
-      .flatMap { retryEventStoreRepository.save(it) }
+      .flatMap { retryEventStoreRepository.insert(it) }
       .flatMap {
         TransactionsViewProjectionHandler.updateTransactionView(
             transactionId = TransactionId(it.transactionId),
@@ -101,7 +101,7 @@ abstract class RetryEventService<E>(
                   ZonedDateTime.parse(event.creationDate).toInstant().toEpochMilli()
               }
             })
-          .flatMap { Mono.just(event) }
+          .thenReturn(event)
       }
 
   private fun enqueueMessage(
