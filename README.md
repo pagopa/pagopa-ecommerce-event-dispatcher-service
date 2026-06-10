@@ -92,9 +92,9 @@ These are all environment variables needed by the application:
 | NODE_FORWARDER_READ_TIMEOUT                                                    | Node forwarder HTTP api call read timeout in milliseconds                                                                                                                                                                                                                                                                                  | integer |               |
 | NODE_FORWARDER_CONNECTION_TIMEOUT                                              | Node forwarder HTTP api call connection timeout in milliseconds                                                                                                                                                                                                                                                                            | integer |               |
 | NODO_NODEFORECOMMERCE_API_KEY                                                  | Node forwarder HTTP api key                                                                                                                                                                                                                                                                                                                | string  |               |
-| REDIRECT_PAYMENT_TYPE_CODES                                                    | List of all redirect payment type codes that are expected to be present in other redirect configurations such as REDIRECT_URL_MAPPING (used for configuration cross validation)                                                                                                                                                            | string  |               |
+| REDIRECT_EXPECTED_MATCHING_CRITERIA                                            | List of all redirect payment type codes that are expected to be present in other redirect configurations such as REDIRECT_URL_CONFIGURATION (used for configuration cross validation)                                                                                                                                                      | string  |               |
 | NODE_FORWARDER_API_KEY                                                         | Node forwarder api key                                                                                                                                                                                                                                                                                                                     | string  |               |
-| REDIRECT_URL_MAPPING                                                           | Key-value string map PSP to backend URI mapping that will be used for Redirect payments                                                                                                                                                                                                                                                    | string  |               |
+| REDIRECT_URL_CONFIGURATION                                                     | Key-value string map PSP to backend URI mapping that will be used for Redirect payments                                                                                                                                                                                                                                                    | string  |               |
 | NPG_PAYPAL_PSP_KEYS                                                            | Secret structure that holds psp - api keys association for authorization request used for APM PAYPAL payment method                                                                                                                                                                                                                        | string  |               |
 | NPG_PAYPAL_PSP_LIST                                                            | List of all psp ids that are expected to be found into the NPG_PAYPAL_PSP_KEYS configuration (used for configuration cross validation)                                                                                                                                                                                                     | string  |               |
 | NPG_BANCOMATPAY_PSP_KEYS                                                       | Secret structure that holds psp - api keys association for authorization request used for APM Bancomat pay payment method                                                                                                                                                                                                                  | string  |               |
@@ -128,24 +128,30 @@ see [docs](https://www.mongodb.com/docs/drivers/java/sync/v4.3/fundamentals/conn
 ## Run the application with `Docker`
 
 ### Prerequisites
+
 Set up GitHub authentication for packages (required for pagopa-ecommerce-commons dependency):
 
 1. Configure Maven settings file:
+
 - **If you don't have ~/.m2/settings.xml:**
-	```sh
-	cp settings.xml.template ~/.m2/settings.xml
-	```
-- **If you already have ~/.m2/settings.xml:** Edit the file to add the GitHub server configuration from `settings.xml.template`, or replace the `${GITHUB_TOKEN}` placeholder with your actual token.
+```sh
+cp settings.xml.template ~/.m2/settings.xml
+```
+- **If you already have ~/.m2/settings.xml:** Edit the file to add the GitHub server configuration from
+`settings.xml.template`, or replace the `${GITHUB_TOKEN}` placeholder with your actual token.
 
 
 2. Set your GitHub token:
+
 ```sh
 export GITHUB_TOKEN=your_github_token_with_packages_read_permission
 ```
 
-**Note:** The settings.xml file is required for Maven to authenticate with GitHub Packages. Without proper configuration, builds will fail with 401 Unauthorized errors.
+**Note:** The settings.xml file is required for Maven to authenticate with GitHub Packages. Without proper
+configuration, builds will fail with 401 Unauthorized errors.
 
 ### Run with Docker Compose
+
 Create your environment typing :
 
 ```sh
@@ -159,6 +165,7 @@ docker-compose up
 ```
 
 ### Build Docker Image
+
 ```sh
 docker build --secret id=GITHUB_TOKEN,env=GITHUB_TOKEN -t pagopa-ecommerce-event-dispatcher-service .
 ```
@@ -166,22 +173,27 @@ docker build --secret id=GITHUB_TOKEN,env=GITHUB_TOKEN -t pagopa-ecommerce-event
 ## Run the application with `springboot-plugin`
 
 ### Prerequisites
+
 Set up GitHub authentication for packages (required for pagopa-ecommerce-commons dependency):
 
 1. Configure Maven settings file:
+
 - **If you don't have ~/.m2/settings.xml:**
-	```sh
-	cp settings.xml.template ~/.m2/settings.xml
-	```
-- **If you already have ~/.m2/settings.xml:** Edit the file to add the GitHub server configuration from `settings.xml.template`, or replace the `${GITHUB_TOKEN}` placeholder with your actual token.
+```sh
+cp settings.xml.template ~/.m2/settings.xml
+```
+- **If you already have ~/.m2/settings.xml:** Edit the file to add the GitHub server configuration from
+`settings.xml.template`, or replace the `${GITHUB_TOKEN}` placeholder with your actual token.
 
 
 2. Create your environment:
+
 ```sh
 export $(grep -v '^#' .env.local | xargs)
 ```
 
 3. Set your GitHub token:
+
 ```sh
 export GITHUB_TOKEN=your_github_token_with_packages_read_permission
 ```
@@ -192,7 +204,8 @@ Then from current project directory run :
 mvn spring-boot:run
 ```
 
-**Note:** The application now uses pagopa-ecommerce-commons library directly from GitHub Packages. Make sure your GitHub token has `packages:read` permission for the `pagopa/pagopa-ecommerce-commons` repository.
+**Note:** The application now uses pagopa-ecommerce-commons library directly from GitHub Packages. Make sure your GitHub
+token has `packages:read` permission for the `pagopa/pagopa-ecommerce-commons` repository.
 
 Note that with this method you would also need an active Redis instance on your local machine.
 We suggest you to use the [ecommerce-local](https://github.com/pagopa/pagopa-ecommerce-local) instead.
@@ -305,10 +318,13 @@ The collection is stored into this repo at -> command-postman-collection/command
 
 ## Dependency Verification
 
-This project uses the [pagopa/depcheck](https://github.com/pagopa/depcheck) Maven plugin to verify SHA-256 hashes of all dependencies, ensuring supply chain integrity and preventing dependency tampering attacks.
+This project uses the [pagopa/depcheck](https://github.com/pagopa/depcheck) Maven plugin to verify SHA-256 hashes of all
+dependencies, ensuring supply chain integrity and preventing dependency tampering attacks.
 
 ### How It Works
-The plugin maintains a JSON file containing SHA-256 hashes of all project dependencies. During verification, it compares the hashes of resolved artifacts against the stored values, failing the build if any mismatches are detected.
+
+The plugin maintains a JSON file containing SHA-256 hashes of all project dependencies. During verification, it compares
+the hashes of resolved artifacts against the stored values, failing the build if any mismatches are detected.
 
 ### Configuration
 
@@ -337,20 +353,25 @@ The plugin maintains a JSON file containing SHA-256 hashes of all project depend
 ```
 
 ### Usage
+
 First of all, ensure your GitHub token and `settings.xml` are properly configured.
 
 1. **Generate hashes**: When adding new dependencies or updating existing ones:
+
 ```sh
 mvn depcheck:generate
 ```
+
 **NOTE**: Always commit the updated hash file to version control after adding or updating dependencies
 
 2. **Verify hashes**: This happens automatically during the `validate` phase, and so, automatically, in CI/CD pipelines.
 You can also explicitly run:
+
 ```sh
 mvn depcheck:verify
 ```
 
 ### Important Notes
 
-- **Maven plugins** have empty SHA-256 values by default as they're not resolved as JAR files during the regular build. Right now `includePlugins=false` avoid empty hashes and plugin check.
+- **Maven plugins** have empty SHA-256 values by default as they're not resolved as JAR files during the regular build.
+Right now `includePlugins=false` avoid empty hashes and plugin check.
