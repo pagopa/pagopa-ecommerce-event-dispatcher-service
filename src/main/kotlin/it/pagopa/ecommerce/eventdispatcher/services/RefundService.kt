@@ -99,7 +99,9 @@ class RefundService(
         mapOf(
           RedirectUrlMappingCriteria.TOUCHPOINT to touchpoint,
           RedirectUrlMappingCriteria.PSP_ID to pspId,
-          RedirectUrlMappingCriteria.PAYMENT_TYPE_CODE to paymentTypeCode))
+          RedirectUrlMappingCriteria.PAYMENT_TYPE_CODE to paymentTypeCode,
+          RedirectUrlMappingCriteria.PSP_CHANNEL_ID to pspChannelCode,
+        ))
       .fold(
         { Mono.error(it) },
         { urlConfig ->
