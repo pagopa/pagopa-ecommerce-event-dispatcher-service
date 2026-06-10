@@ -407,7 +407,7 @@ class RefundServiceTests {
       .expectErrorMatches {
         assertTrue(it is RedirectConfigurationException)
         assertEquals(
-          "Error parsing Redirect PSP BACKEND_URLS configuration, cause: No configuration found for the provided matching criteria: {TOUCHPOINT=${touchpoint}, PSP_ID=pspId, PAYMENT_TYPE_CODE=MISSING}",
+          "Error parsing Redirect PSP BACKEND_URLS configuration, cause: No configuration found for the provided matching criteria: {TOUCHPOINT=${touchpoint}, PSP_ID=pspId, PAYMENT_TYPE_CODE=MISSING, PSP_CHANNEL_ID=pspChannelCode}",
           it.message)
         true
       }
@@ -607,7 +607,7 @@ class RefundServiceTests {
           pspChannelCode = "pspChannelCode"))
       .consumeErrorWith {
         assertEquals(
-          "Error parsing Redirect PSP BACKEND_URLS configuration, cause: No configuration found for the provided matching criteria: {TOUCHPOINT=$touchpoint, PSP_ID=$pspId, PAYMENT_TYPE_CODE=$paymentTypeCode}",
+          "Error parsing Redirect PSP BACKEND_URLS configuration, cause: No configuration found for the provided matching criteria: {TOUCHPOINT=$touchpoint, PSP_ID=$pspId, PAYMENT_TYPE_CODE=$paymentTypeCode, PSP_CHANNEL_ID=pspChannelCode}",
           it.message)
       }
       .verify()
