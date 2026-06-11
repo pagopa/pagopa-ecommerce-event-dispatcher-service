@@ -92,7 +92,7 @@ class RefundService(
     pspTransactionId: String,
     paymentTypeCode: String,
     pspId: String,
-    pspChannelCode: String
+    pspChannelCode: String?
   ): Mono<RedirectRefundResponseDto> =
     redirectBeApiCallUriConf
       .getRedirectUrlForCriteria(

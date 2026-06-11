@@ -92,7 +92,7 @@ These are all environment variables needed by the application:
 | NODE_FORWARDER_READ_TIMEOUT                                                    | Node forwarder HTTP api call read timeout in milliseconds                                                                                                                                                                                                                                                                                  | integer |               |
 | NODE_FORWARDER_CONNECTION_TIMEOUT                                              | Node forwarder HTTP api call connection timeout in milliseconds                                                                                                                                                                                                                                                                            | integer |               |
 | NODO_NODEFORECOMMERCE_API_KEY                                                  | Node forwarder HTTP api key                                                                                                                                                                                                                                                                                                                | string  |               |
-| REDIRECT_EXPECTED_MATCHING_CRITERIA                                            | List of all redirect payment type codes that are expected to be present in other redirect configurations such as REDIRECT_URL_CONFIGURATION (used for configuration cross validation)                                                                                                                                                      | string  |               |
+| REDIRECT_EXPECTED_MATCHING_CRITERIA                                            | Matching criteria that are exected to be configuredin the redirect configuration (used for configuration cross validation)                                                                                                                                                                                                                 | string  |               |
 | NODE_FORWARDER_API_KEY                                                         | Node forwarder api key                                                                                                                                                                                                                                                                                                                     | string  |               |
 | REDIRECT_URL_CONFIGURATION                                                     | Key-value string map PSP to backend URI mapping that will be used for Redirect payments                                                                                                                                                                                                                                                    | string  |               |
 | NPG_PAYPAL_PSP_KEYS                                                            | Secret structure that holds psp - api keys association for authorization request used for APM PAYPAL payment method                                                                                                                                                                                                                        | string  |               |
@@ -134,9 +134,11 @@ Set up GitHub authentication for packages (required for pagopa-ecommerce-commons
 1. Configure Maven settings file:
 
 - **If you don't have ~/.m2/settings.xml:**
+
 ```sh
 cp settings.xml.template ~/.m2/settings.xml
 ```
+
 - **If you already have ~/.m2/settings.xml:** Edit the file to add the GitHub server configuration from
 `settings.xml.template`, or replace the `${GITHUB_TOKEN}` placeholder with your actual token.
 
@@ -179,9 +181,11 @@ Set up GitHub authentication for packages (required for pagopa-ecommerce-commons
 1. Configure Maven settings file:
 
 - **If you don't have ~/.m2/settings.xml:**
+
 ```sh
 cp settings.xml.template ~/.m2/settings.xml
 ```
+
 - **If you already have ~/.m2/settings.xml:** Edit the file to add the GitHub server configuration from
 `settings.xml.template`, or replace the `${GITHUB_TOKEN}` placeholder with your actual token.
 
@@ -329,26 +333,27 @@ the hashes of resolved artifacts against the stored values, failing the build if
 ### Configuration
 
 ```xml
+
 <plugin>
-<groupId>it.pagopa.maven</groupId>
-<artifactId>depcheck</artifactId>
-<version>1.3.0</version>
-<configuration>
-	<fileName>dep-sha256.json</fileName>
-	<includePlugins>false</includePlugins>
-	<includeParent>false</includeParent>
-	<excludes>
-	<!-- Optional: Exclude specific dependencies -->
-	</excludes>
-</configuration>
-<executions>
-	<execution>
-	<phase>validate</phase>
-	<goals>
-		<goal>verify</goal>
-	</goals>
-	</execution>
-</executions>
+	<groupId>it.pagopa.maven</groupId>
+	<artifactId>depcheck</artifactId>
+	<version>1.3.0</version>
+	<configuration>
+		<fileName>dep-sha256.json</fileName>
+		<includePlugins>false</includePlugins>
+		<includeParent>false</includeParent>
+		<excludes>
+			<!-- Optional: Exclude specific dependencies -->
+		</excludes>
+	</configuration>
+	<executions>
+		<execution>
+			<phase>validate</phase>
+			<goals>
+				<goal>verify</goal>
+			</goals>
+		</execution>
+	</executions>
 </plugin>
 ```
 

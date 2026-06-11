@@ -517,7 +517,7 @@ class RefundServiceTests {
         nodeForwarderRedirectApiClient = nodeForwarderRedirectApiClient,
         redirectBeApiCallUriConf =
           RedirectConfigurationBuilder()
-            .redirectBeApiCallUriConf(
+            .redirectUrlMappingConf(
               jacksonObjectMapper().writeValueAsString(redirectUrlMapping),
               jacksonObjectMapper().writeValueAsString(expectedMatchingCriteria)))
 
@@ -588,7 +588,7 @@ class RefundServiceTests {
         nodeForwarderRedirectApiClient = nodeForwarderRedirectApiClient,
         redirectBeApiCallUriConf =
           RedirectConfigurationBuilder()
-            .redirectBeApiCallUriConf(
+            .redirectUrlMappingConf(
               jacksonObjectMapper().writeValueAsString(redirectUrlMapping),
               jacksonObjectMapper().writeValueAsString(expectedMatchingCriteria)))
 

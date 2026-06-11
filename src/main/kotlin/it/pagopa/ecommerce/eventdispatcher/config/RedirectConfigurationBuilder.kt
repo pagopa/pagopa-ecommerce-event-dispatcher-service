@@ -26,7 +26,7 @@ class RedirectConfigurationBuilder {
    * @return a configuration map for every PSPs
    */
   @Bean
-  fun redirectBeApiCallUriConf(
+  fun redirectUrlMappingConf(
     @Value("\${redirect.pspUrlMapping}") pspUrlMapping: String,
     @Value("\${redirect.expectedMatchingCriteria}") expectedMatchingCriteria: String
   ): RedirectUrlMappingConf {
