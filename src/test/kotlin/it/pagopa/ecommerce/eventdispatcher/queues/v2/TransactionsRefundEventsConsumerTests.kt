@@ -14,7 +14,8 @@ import it.pagopa.ecommerce.commons.documents.v2.authorization.RedirectTransactio
 import it.pagopa.ecommerce.commons.domain.v2.TransactionEventCode
 import it.pagopa.ecommerce.commons.domain.v2.TransactionId
 import it.pagopa.ecommerce.commons.domain.v2.pojos.*
-import it.pagopa.ecommerce.commons.generated.npg.v1.dto.*
+import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
+import it.pagopa.ecommerce.commons.generated.npg.v1.dto.RefundResponseDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.TracingInfoTest.MOCK_TRACING_INFO
@@ -746,7 +747,7 @@ class TransactionsRefundEventsConsumerTests {
     verify(checkpointer, Mockito.times(1)).success()
     verifyNoInteractions(refundService)
     verify(refundService, times(0)).requestNpgRefund(any(), any(), any(), any(), any(), any())
-    verify(refundService, times(0)).requestRedirectRefund(any(), any(), any(), any(), any())
+    verify(refundService, times(0)).requestRedirectRefund(any(), any(), any(), any(), any(), any())
     verify(transactionsRefundedEventStoreRepository, Mockito.times(0))
       .insert(refundEventStoreCaptor.capture())
     verify(refundRetryService, times(0))
@@ -808,7 +809,7 @@ class TransactionsRefundEventsConsumerTests {
     }
     given(transactionsRefundedEventStoreRepository.insert(refundEventStoreCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
-    given(refundService.requestRedirectRefund(any(), any(), any(), any(), any()))
+    given(refundService.requestRedirectRefund(any(), any(), any(), any(), any(), any()))
       .willReturn(Mono.just(refundRedirectResponse))
     given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
       .willReturn(
@@ -830,6 +831,8 @@ class TransactionsRefundEventsConsumerTests {
       (authorizationRequestEvent as TransactionAuthorizationRequestedEvent).data.paymentTypeCode
     val expectedPspId =
       (authorizationRequestEvent as TransactionAuthorizationRequestedEvent).data.pspId
+    val expectedPspChannelCode =
+      (authorizationRequestEvent as TransactionAuthorizationRequestedEvent).data.pspChannelCode
     verify(checkpointer, Mockito.times(1)).success()
     verify(refundService, Mockito.times(1))
       .requestRedirectRefund(
@@ -837,7 +840,8 @@ class TransactionsRefundEventsConsumerTests {
         touchpoint = expectedMappedTouchPoint,
         pspTransactionId = expectedPspTransactionId,
         paymentTypeCode = expectedPaymentTypeCode,
-        pspId = expectedPspId)
+        pspId = expectedPspId,
+        pspChannelCode = expectedPspChannelCode)
     verify(transactionsRefundedEventStoreRepository, Mockito.times(1))
       .insert(refundEventStoreCaptor.capture())
     verify(refundRetryService, times(0))
@@ -916,7 +920,8 @@ class TransactionsRefundEventsConsumerTests {
         touchpoint = any(),
         pspTransactionId = any(),
         paymentTypeCode = any(),
-        pspId = any())
+        pspId = any(),
+        pspChannelCode = any())
     verify(transactionsRefundedEventStoreRepository, Mockito.times(1))
       .insert(refundEventStoreCaptor.capture())
     verify(refundRetryService, times(1))
@@ -1074,7 +1079,7 @@ class TransactionsRefundEventsConsumerTests {
     }
     given(transactionsRefundedEventStoreRepository.insert(refundEventStoreCaptor.capture()))
       .willAnswer { Mono.just(it.arguments[0]) }
-    given(refundService.requestRedirectRefund(any(), any(), any(), any(), any()))
+    given(refundService.requestRedirectRefund(any(), any(), any(), any(), any(), any()))
       .willReturn(Mono.just(refundRedirectResponse))
     given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
       .willReturn(
@@ -1100,6 +1105,8 @@ class TransactionsRefundEventsConsumerTests {
       (authorizationRequestEvent as TransactionAuthorizationRequestedEvent).data.paymentTypeCode
     val expectedPspId =
       (authorizationRequestEvent as TransactionAuthorizationRequestedEvent).data.pspId
+    val expectedPspChannelCode =
+      (authorizationRequestEvent as TransactionAuthorizationRequestedEvent).data.pspChannelCode
     verify(checkpointer, Mockito.times(1)).success()
     verify(refundService, Mockito.times(1))
       .requestRedirectRefund(
@@ -1107,7 +1114,8 @@ class TransactionsRefundEventsConsumerTests {
         touchpoint = ClientId.CHECKOUT.toString(),
         pspTransactionId = expectedPspTransactionId,
         paymentTypeCode = expectedPaymentTypeCode,
-        pspId = expectedPspId)
+        pspId = expectedPspId,
+        pspChannelCode = expectedPspChannelCode)
     verify(transactionsRefundedEventStoreRepository, Mockito.times(2))
       .insert(refundEventStoreCaptor.capture())
     verify(refundRetryService, times(0))

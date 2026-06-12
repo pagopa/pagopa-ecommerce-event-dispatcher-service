@@ -8,13 +8,15 @@ import it.pagopa.ecommerce.commons.exceptions.NodeForwarderClientException
 import it.pagopa.ecommerce.commons.exceptions.NpgResponseException
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.RefundResponseDto
 import it.pagopa.ecommerce.commons.utils.NpgApiKeyConfiguration
-import it.pagopa.ecommerce.commons.utils.RedirectKeysConfiguration
+import it.pagopa.ecommerce.commons.utils.RedirectUrlMappingConf
+import it.pagopa.ecommerce.commons.utils.bean.redirect.configuration.RedirectUrlMappingCriteria
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadGatewayException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.RefundNotAllowedException
 import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundRequestDto as RedirectRefundRequestDto
 import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundResponseDto as RedirectRefundResponseDto
 import java.math.BigDecimal
+import java.net.URI
 import java.util.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -32,7 +34,7 @@ class RefundService(
   @Autowired
   private val nodeForwarderRedirectApiClient:
     NodeForwarderClient<RedirectRefundRequestDto, RedirectRefundResponseDto>,
-  @Autowired private val redirectBeApiCallUriConf: RedirectKeysConfiguration
+  @Autowired private val redirectBeApiCallUriConf: RedirectUrlMappingConf
 ) {
 
   private val logger: Logger = LoggerFactory.getLogger(javaClass)
@@ -89,13 +91,20 @@ class RefundService(
     touchpoint: String,
     pspTransactionId: String,
     paymentTypeCode: String,
-    pspId: String
+    pspId: String,
+    pspChannelCode: String?
   ): Mono<RedirectRefundResponseDto> =
     redirectBeApiCallUriConf
-      .getRedirectUrlForPsp(touchpoint, pspId, paymentTypeCode)
+      .getRedirectUrlForCriteria(
+        mapOf(
+          RedirectUrlMappingCriteria.TOUCHPOINT to touchpoint,
+          RedirectUrlMappingCriteria.PSP_ID to pspId,
+          RedirectUrlMappingCriteria.PAYMENT_TYPE_CODE to paymentTypeCode,
+          RedirectUrlMappingCriteria.PSP_CHANNEL_ID to pspChannelCode,
+        ))
       .fold(
         { Mono.error(it) },
-        { uri ->
+        { urlConfig ->
           logger.info(
             "Processing Redirect transaction refund. TransactionId: [{}], pspTransactionId: [{}], payment type code: [{}], pspId: [{}], touchpoint: [{}]",
             transactionId.value(),
@@ -109,7 +118,8 @@ class RefundService(
                 .action("refund")
                 .idPSPTransaction(pspTransactionId)
                 .idTransaction(transactionId.value()),
-              uri,
+              // refund path resolved as redirect url with trailing /refunds
+              URI.create("${urlConfig.url()}/refunds"),
               transactionId.value(),
               RedirectRefundResponseDto::class.java)
             .onErrorMap(NodeForwarderClientException::class.java) { exception ->
