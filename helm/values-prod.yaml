@@ -28,10 +28,10 @@ microservice-chart:
       NODO_ECOMMERCE_CLIENT_ID: ecomm-blue
       OTEL_RESOURCE_ATTRIBUTES: "service.name=pagopa-ecommerce-event-dispatcher-service-blue,deployment.environment=prod"
       ECS_SERVICE_NAME: pagopa-ecommerce-event-dispatcher-service-blue
-    envSecret: { }
+    envSecret: {}
   image:
     repository: pagopapcommonacr.azurecr.io/pagopaecommerceeventdispatcherservice
-    tag: "3.13.1"
+    tag: "3.14.0"
     pullPolicy: Always
   livenessProbe:
     handlerType: httpGet
@@ -61,9 +61,9 @@ microservice-chart:
     servicePort: 9000
   serviceAccount:
     create: false
-    annotations: { }
+    annotations: {}
     name: "ecommerce-workload-identity"
-  podAnnotations: { }
+  podAnnotations: {}
   podSecurityContext:
     seccompProfile:
       type: RuntimeDefault
@@ -218,8 +218,8 @@ microservice-chart:
   keyvault:
     name: "pagopa-p-ecommerce-kv"
     tenantId: "7788edaf-0346-4068-9d79-c868aed15b3d"
-  nodeSelector: { }
-  tolerations: [ ]
+  nodeSelector: {}
+  tolerations: []
   affinity:
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
@@ -236,7 +236,7 @@ microservice-chart:
             labelSelector:
               matchLabels:
                 app.kubernetes.io/instance: pagopaecommerceeventdispatcherservice
-            namespaces: [ "ecommerce" ]
+            namespaces: ["ecommerce"]
             topologyKey: topology.kubernetes.io/zone
   azure:
     workloadIdentityClientId: "d5614882-90dd-47a1-aad1-cdf295201469"
