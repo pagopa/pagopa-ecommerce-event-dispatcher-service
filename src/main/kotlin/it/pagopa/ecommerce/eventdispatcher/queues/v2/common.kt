@@ -40,11 +40,7 @@ import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgService
 import it.pagopa.ecommerce.eventdispatcher.utils.DeadLetterTracedQueueAsyncClient
 import it.pagopa.ecommerce.eventdispatcher.utils.TransactionsViewProjectionHandler
 import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundOutcomeDto
-import it.pagopa.generated.transactionauthrequests.v2.dto.AuthorizationOutcomeDto
-import it.pagopa.generated.transactionauthrequests.v2.dto.OutcomeNpgGatewayDto
-import it.pagopa.generated.transactionauthrequests.v2.dto.OutcomeRedirectGatewayDto
-import it.pagopa.generated.transactionauthrequests.v2.dto.UpdateAuthorizationRequestDto
-import it.pagopa.generated.transactionauthrequests.v2.dto.UpdateAuthorizationResponseDto
+import it.pagopa.generated.transactionauthrequests.v2.dto.*
 import java.math.BigDecimal
 import java.time.*
 import java.util.*
@@ -602,7 +598,8 @@ fun refundTransaction(
                 },
               pspTransactionId = transactionAuthorizationRequestData.authorizationRequestId,
               paymentTypeCode = transactionAuthorizationRequestData.paymentTypeCode,
-              pspId = transactionAuthorizationRequestData.pspId)
+              pspId = transactionAuthorizationRequestData.pspId,
+              pspChannelCode = transactionAuthorizationRequestData.pspChannelCode)
             .map { refundResponse -> Pair(refundResponse, transaction) }
         else ->
           Mono.error(

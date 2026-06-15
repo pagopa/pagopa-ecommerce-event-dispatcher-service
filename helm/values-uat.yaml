@@ -31,7 +31,7 @@ microservice-chart:
     envSecret: {}
   image:
     repository: pagopaucommonacr.azurecr.io/pagopaecommerceeventdispatcherservice
-    tag: "3.13.1"
+    tag: "3.14.0"
     pullPolicy: Always
   livenessProbe:
     handlerType: httpGet
@@ -170,7 +170,7 @@ microservice-chart:
     NODE_FORWARDER_URL: "https://api.uat.platform.pagopa.it/pagopa-node-forwarder/api/v1"
     NODE_FORWARDER_READ_TIMEOUT: "10000"
     NODE_FORWARDER_CONNECTION_TIMEOUT: "10000"
-    REDIRECT_PAYMENT_TYPE_CODES: "BPPIITRRXXX-RBPR,BPPIITRRXXX-RBPP,BPPIITRRXXX-RBPB,PPAYITR1XXX-RBPB,CHECKOUT-PPAYITR1XXX-RBPP,IO-PPAYITR1XXX-RBPP,PPAYITR1XXX-RBPR,RBPS,RPIC,RICO,KLRN,RFPB"
+    REDIRECT_EXPECTED_MATCHING_CRITERIA: '[{"PSP_ID":"BPPIITRRXXX","PAYMENT_TYPE_CODE":"RBPR"},{"PSP_ID":"BPPIITRRXXX","PAYMENT_TYPE_CODE":"RBPP"},{"PSP_ID":"BPPIITRRXXX","PAYMENT_TYPE_CODE":"RBPB"},{"PSP_ID":"PPAYITR1XXX","PAYMENT_TYPE_CODE":"RBPB"},{"TOUCHPOINT":"CHECKOUT","PSP_ID":"PPAYITR1XXX","PAYMENT_TYPE_CODE":"RBPP"},{"TOUCHPOINT":"IO","PSP_ID":"PPAYITR1XXX","PAYMENT_TYPE_CODE":"RBPP"},{"PSP_ID":"PPAYITR1XXX","PAYMENT_TYPE_CODE":"RBPR"},{"PAYMENT_TYPE_CODE":"RBPS"},{"PAYMENT_TYPE_CODE":"RPIC"},{"PAYMENT_TYPE_CODE":"RICO"},{"PAYMENT_TYPE_CODE":"KLRN"},{"PAYMENT_TYPE_CODE":"RFPB"}]'
     NPG_REFUND_DELAY_FROM_AUTH_REQUEST_MINUTES: "10"
     USER_STATS_URL: "https://api.uat.platform.pagopa.it/ecommerce/user-stats-service/v1/"
     USER_STATS_READ_TIMEOUT: "10000"
@@ -195,7 +195,7 @@ microservice-chart:
     NPG_CARDS_PSP_KEYS: npg-cards-psp-keys
     NODE_FORWARDER_API_KEY: node-forwarder-api-key
     USER_STATS_API_KEY: user-stats-for-event-dispatcher-api-key
-    REDIRECT_URL_MAPPING: redirect-url-mapping
+    REDIRECT_URL_CONFIGURATION: redirect-url-configurations
     NPG_PAYPAL_PSP_KEYS: npg-paypal-psp-keys
     NPG_BANCOMATPAY_PSP_KEYS: npg-bancomatpay-psp-keys
     NPG_MYBANK_PSP_KEYS: npg-mybank-psp-keys
