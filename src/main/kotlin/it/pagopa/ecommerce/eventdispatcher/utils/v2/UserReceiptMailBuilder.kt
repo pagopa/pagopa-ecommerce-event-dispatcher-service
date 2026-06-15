@@ -210,7 +210,7 @@ class UserReceiptMailBuilder(@Autowired private val confidentialDataUtils: Confi
     val euros = totalCents / 100
     val cents = (totalCents % 100).toInt()
 
-    return "%d,%02d".format(euros, cents)
+    return String.format(Locale.ROOT, "%d,%02d", euros, cents)
   }
 
   fun dateTimeToHumanReadableString(dateTime: ZonedDateTime, locale: Locale): String {
