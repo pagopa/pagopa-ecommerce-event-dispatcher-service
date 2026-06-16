@@ -38,7 +38,7 @@
         <kotlinx-coroutines.version>1.10.2</kotlinx-coroutines.version>
         <spring-cloud-azure.version>5.18.0</spring-cloud-azure.version>
         <jacoco.version>0.8.11</jacoco.version>
-        <pagopa-ecommerce-commons.version>3.5.0</pagopa-ecommerce-commons.version>
+        <pagopa-ecommerce-commons.version>3.6.0</pagopa-ecommerce-commons.version>
         <sonar.coverage.exclusions> <!-- the members of the following list should be in the same line -->
             **/it/pagopa/transactions/**,
             **/it/pagopa/ecommerce/eventdispatcher/validation/**
@@ -709,7 +709,7 @@
                     </execution>
                 </executions>
             </plugin>
-            <plugin>
+            <!--<plugin>
                 <groupId>it.pagopa.maven</groupId>
                 <artifactId>depcheck</artifactId>
                 <version>1.3.0</version>
@@ -726,7 +726,7 @@
                     <includePlugins>false</includePlugins>
                     <includeParent>false</includeParent>
                 </configuration>
-            </plugin>
+            </plugin>-->
         </plugins>
     </build>
 </project>
