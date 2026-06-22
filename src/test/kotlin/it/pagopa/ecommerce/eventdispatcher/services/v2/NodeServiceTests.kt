@@ -474,7 +474,6 @@ class NodeServiceTests {
     val totalAmount = amount + fee
 
     val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
-    val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
     val totalAmountEuro = EuroUtils.euroCentsToEuro(totalAmount)
 
     val feeEuroCents = BigDecimal(fee)
@@ -621,7 +620,6 @@ class NodeServiceTests {
     val amount = authEvent.data.amount
     val totalAmount = amount + fee
 
-    val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
     val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
     val totalAmountEuro = EuroUtils.euroCentsToEuro(totalAmount)
 
@@ -1218,7 +1216,6 @@ class NodeServiceTests {
     val totalAmount = amount + fee
 
     val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
-    val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
     val totalAmountEuro = EuroUtils.euroCentsToEuro(totalAmount)
 
     val feeEuroCents = BigDecimal(fee)
@@ -1343,7 +1340,6 @@ class NodeServiceTests {
     val amount = authEvent.data.amount
     val totalAmount = amount + fee
 
-    val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
     val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
     val totalAmountEuro = EuroUtils.euroCentsToEuro(totalAmount)
 
@@ -1701,7 +1697,6 @@ class NodeServiceTests {
     val totalAmount = amount + fee
 
     val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
-    val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
     val totalAmountEuro = EuroUtils.euroCentsToEuro(totalAmount)
 
     val feeEuroCents = BigDecimal(fee)
@@ -1850,7 +1845,6 @@ class NodeServiceTests {
     val amount = authEvent.data.amount
     val totalAmount = amount + fee
 
-    val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
     val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
     val totalAmountEuro = EuroUtils.euroCentsToEuro(totalAmount)
 
@@ -2246,7 +2240,6 @@ class NodeServiceTests {
     val totalAmount = amount + fee
 
     val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
-    val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
     val totalAmountEuro = EuroUtils.euroCentsToEuro(totalAmount)
 
     val feeEuroCents = BigDecimal(fee)
@@ -2392,7 +2385,6 @@ class NodeServiceTests {
     val amount = authEvent.data.amount
     val totalAmount = amount + fee
 
-    val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
     val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
     val totalAmountEuro = EuroUtils.euroCentsToEuro(totalAmount)
 
@@ -2787,7 +2779,6 @@ class NodeServiceTests {
     val totalAmount = amount + fee
 
     val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
-    val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
     val totalAmountEuro = EuroUtils.euroCentsToEuro(totalAmount)
 
     val feeEuroCents = BigDecimal(fee)
@@ -2933,7 +2924,6 @@ class NodeServiceTests {
     val amount = authEvent.data.amount
     val totalAmount = amount + fee
 
-    val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
     val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
     val totalAmountEuro = EuroUtils.euroCentsToEuro(totalAmount)
 
@@ -3328,7 +3318,6 @@ class NodeServiceTests {
     val totalAmount = amount + fee
 
     val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
-    val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
     val totalAmountEuro = EuroUtils.euroCentsToEuro(totalAmount)
 
     val feeEuroCents = BigDecimal(fee)
@@ -3479,7 +3468,6 @@ class NodeServiceTests {
     val amount = authEvent.data.amount
     val totalAmount = amount + fee
 
-    val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
     val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
     val totalAmountEuro = EuroUtils.euroCentsToEuro(totalAmount)
 
@@ -3879,7 +3867,6 @@ class NodeServiceTests {
     val totalAmount = amount + fee
 
     val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
-    val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
     val totalAmountEuro = EuroUtils.euroCentsToEuro(totalAmount)
 
     val feeEuroCents = BigDecimal(fee)
@@ -4033,7 +4020,6 @@ class NodeServiceTests {
     val amount = authEvent.data.amount
     val totalAmount = amount + fee
 
-    val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
     val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
     val totalAmountEuro = EuroUtils.euroCentsToEuro(totalAmount)
 
@@ -4435,7 +4421,6 @@ class NodeServiceTests {
     val totalAmount = amount + fee
 
     val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
-    val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
     val totalAmountEuro = EuroUtils.euroCentsToEuro(totalAmount)
 
     val feeEuroCents = BigDecimal(fee)
@@ -4585,7 +4570,6 @@ class NodeServiceTests {
     val amount = authEvent.data.amount
     val totalAmount = amount + fee
 
-    val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
     val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
     val totalAmountEuro = EuroUtils.euroCentsToEuro(totalAmount)
 
@@ -4982,7 +4966,6 @@ class NodeServiceTests {
     val totalAmount = amount + fee
 
     val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
-    val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
     val totalAmountEuro = EuroUtils.euroCentsToEuro(totalAmount)
 
     val feeEuroCents = BigDecimal(fee)
@@ -5376,7 +5359,6 @@ class NodeServiceTests {
     val totalAmount = amount + fee
 
     val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
-    val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
     val totalAmountEuro = EuroUtils.euroCentsToEuro(totalAmount)
 
     val feeEuroCents = BigDecimal(fee)
@@ -5758,7 +5740,6 @@ class NodeServiceTests {
     val totalAmount = amount + fee
 
     val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
-    val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
     val totalAmountEuro = EuroUtils.euroCentsToEuro(totalAmount)
 
     val feeEuroCents = BigDecimal(fee)
@@ -6123,7 +6104,6 @@ class NodeServiceTests {
     val amount = authEvent.data.amount
     val totalAmount = amount + fee
 
-    val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
     val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
     val totalAmountEuro = EuroUtils.euroCentsToEuro(totalAmount)
 
@@ -6532,7 +6512,6 @@ class NodeServiceTests {
     val amount = authEvent.data.amount
     val totalAmount = amount + fee
 
-    val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
     val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
     val totalAmountEuro = EuroUtils.euroCentsToEuro(totalAmount)
 
@@ -6943,7 +6922,6 @@ class NodeServiceTests {
     val totalAmount = amount + fee
 
     val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
-    val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
     val totalAmountEuro = EuroUtils.euroCentsToEuro(totalAmount)
 
     val feeEuroCents = BigDecimal(fee)
@@ -7346,7 +7324,6 @@ class NodeServiceTests {
     val amount = authEvent.data.amount
     val totalAmount = amount + fee
 
-    val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
     val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
     val totalAmountEuro = EuroUtils.euroCentsToEuro(totalAmount)
 
@@ -7895,7 +7872,6 @@ class NodeServiceTests {
       val totalAmount = amount + fee
 
       val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
-      val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
       val totalAmountEuro = EuroUtils.euroCentsToEuro(totalAmount)
 
       val feeEuroCents = BigDecimal(fee)
@@ -8050,7 +8026,6 @@ class NodeServiceTests {
       val amount = authEvent.data.amount
       val totalAmount = amount + fee
 
-      val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
       val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
       val totalAmountEuro = EuroUtils.euroCentsToEuro(totalAmount)
 
