@@ -11,6 +11,7 @@ import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationData
 import it.pagopa.ecommerce.commons.domain.v2.TransactionEventCode
 import it.pagopa.ecommerce.commons.domain.v2.TransactionId
+import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithRequestedUserReceipt
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
@@ -1372,6 +1373,132 @@ class TransactionNotificationsRetryQueueConsumerTest {
     verify(mockOpenTelemetryUtils, never())
       .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
   }
+
+  @Test
+  fun `Should retry send user email for expired transaction with notification error previous state`() =
+    runTest {
+      whenever(mockedEnv.getProperty(ENV_TRANSACTIONS_VIEW_UPDATED_ENABLED_FLAG, "true"))
+        .thenReturn("true")
+      val transactionUserReceiptData =
+        transactionUserReceiptData(TransactionUserReceiptData.Outcome.OK)
+      val notificationErrorEvent = transactionUserReceiptAddErrorEvent(transactionUserReceiptData)
+      val notificationRetriedEvent = transactionUserReceiptAddRetriedEvent(1)
+      val eventsBeforeExpiration =
+        listOf(
+          transactionActivateEvent(),
+          transactionAuthorizationRequestedEvent(),
+          transactionAuthorizationCompletedEvent(
+            NpgTransactionGatewayAuthorizationData(OperationResultDto.EXECUTED, "", "", "", "")),
+          transactionClosureRequestedEvent(),
+          transactionClosedEvent(TransactionClosureData.Outcome.OK),
+          transactionUserReceiptRequestedEvent(transactionUserReceiptData),
+          notificationErrorEvent,
+          notificationRetriedEvent)
+          as List<TransactionEvent<Any>>
+      val baseTransaction =
+        reduceEvents(*eventsBeforeExpiration.toTypedArray())
+          as BaseTransactionWithRequestedUserReceipt
+      val expiredEvent = transactionExpiredEvent(baseTransaction)
+      val events = (eventsBeforeExpiration + expiredEvent) as List<TransactionEvent<Any>>
+      val document = transactionDocument(TransactionStatusDto.EXPIRED, ZonedDateTime.now())
+      Hooks.onOperatorDebug()
+      given(checkpointer.success()).willReturn(Mono.empty())
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
+        .willReturn(Flux.fromIterable(events))
+      given(userReceiptMailBuilder.buildNotificationEmailRequestDto(baseTransaction))
+        .willReturn(NotificationEmailRequestDto())
+      given(notificationsServiceClient.sendNotificationEmail(any()))
+        .willReturn(Mono.just(NotificationEmailResponseDto().apply { outcome = "OK" }))
+      given(transactionsViewRepository.findByTransactionId(TRANSACTION_ID))
+        .willReturn(Mono.just(document))
+      given(transactionsViewRepository.save(capture(transactionViewRepositoryCaptor))).willAnswer {
+        Mono.just(it.arguments[0])
+      }
+      given(transactionUserReceiptRepository.insert(capture(transactionUserReceiptCaptor)))
+        .willAnswer { Mono.just(it.arguments[0]) }
+
+      StepVerifier.create(
+          transactionNotificationsRetryQueueConsumer.messageReceiver(
+            Either.right(QueueEvent(notificationRetriedEvent, MOCK_TRACING_INFO)), checkpointer))
+        .expectNext(Unit)
+        .verifyComplete()
+
+      verify(checkpointer, times(1)).success()
+      verify(transactionsEventStoreRepository, times(1))
+        .findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID)
+      verify(notificationsServiceClient, times(1)).sendNotificationEmail(any())
+      verify(userReceiptMailBuilder, times(1)).buildNotificationEmailRequestDto(baseTransaction)
+      verify(transactionUserReceiptRepository, times(1))
+        .insert(capture(transactionUserReceiptCaptor))
+      verify(notificationRetryService, times(0))
+        .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
+      verify(deadLetterTracedQueueAsyncClient, times(0))
+        .sendAndTraceDeadLetterQueueEvent(any<BinaryData>(), any())
+      verify(transactionsViewRepository, times(1)).save(capture(transactionViewRepositoryCaptor))
+      assertEquals(TransactionStatusDto.NOTIFIED_OK, transactionViewRepositoryCaptor.value.status)
+      val savedEvent = transactionUserReceiptCaptor.value
+      assertEquals(
+        TransactionEventCode.TRANSACTION_USER_RECEIPT_ADDED_EVENT,
+        TransactionEventCode.valueOf(savedEvent.eventCode))
+      assertEquals(transactionUserReceiptData, savedEvent.data)
+      assertEquals(
+        TransactionStatusDto.NOTIFIED_OK,
+        reduceEvents(*((events + savedEvent) as List<TransactionEvent<Any>>).toTypedArray()).status)
+      verify(transactionTracing, times(1))
+        .addSpanAttributesNotificationsFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, times(1))
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
+    }
+
+  @Test
+  fun `Should not retry send user email for expired transaction without notification error previous state`() =
+    runTest {
+      val transactionUserReceiptData =
+        transactionUserReceiptData(TransactionUserReceiptData.Outcome.OK)
+      val notificationErrorEvent = transactionUserReceiptAddErrorEvent(transactionUserReceiptData)
+      val activatedEvent = transactionActivateEvent()
+      val authorizationRequestedEvent = transactionAuthorizationRequestedEvent()
+      val transactionBeforeExpiration =
+        reduceEvents(activatedEvent, authorizationRequestedEvent) as BaseTransaction
+      val expiredEvent = transactionExpiredEvent(transactionBeforeExpiration)
+      val events =
+        listOf(activatedEvent, authorizationRequestedEvent, expiredEvent)
+          as List<TransactionEvent<Any>>
+      Hooks.onOperatorDebug()
+      given(checkpointer.success()).willReturn(Mono.empty())
+      given(
+          transactionsEventStoreRepository.findByTransactionIdOrderByCreationDateAsc(
+            TRANSACTION_ID))
+        .willReturn(Flux.fromIterable(events))
+      given(
+          deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(
+            any<BinaryData>(), any()))
+        .willReturn(mono {})
+
+      StepVerifier.create(
+          transactionNotificationsRetryQueueConsumer.messageReceiver(
+            Either.left(QueueEvent(notificationErrorEvent, MOCK_TRACING_INFO)), checkpointer))
+        .expectNext(Unit)
+        .verifyComplete()
+
+      verify(checkpointer, times(1)).success()
+      verify(transactionsEventStoreRepository, times(1))
+        .findByTransactionIdOrderByCreationDateAsc(TRANSACTION_ID)
+      verify(notificationsServiceClient, times(0)).sendNotificationEmail(any())
+      verify(userReceiptMailBuilder, times(0)).buildNotificationEmailRequestDto(any())
+      verify(transactionUserReceiptRepository, times(0))
+        .insert(capture(transactionUserReceiptCaptor))
+      verify(notificationRetryService, times(0))
+        .enqueueRetryEvent(any(), any(), any(), anyOrNull(), anyOrNull())
+      verify(deadLetterTracedQueueAsyncClient, times(1))
+        .sendAndTraceDeadLetterQueueEvent(any<BinaryData>(), any())
+      verify(transactionTracing, never())
+        .addSpanAttributesNotificationsFlowFromTransaction(any(), any())
+      verify(mockOpenTelemetryUtils, never())
+        .addSpanWithAttributes(eq(TransactionTracing::class.simpleName), any())
+    }
 
   @Test
   fun `Should request refund for no left attempts resending mail for send payment result KO and error writing event to dead letter queue`() =

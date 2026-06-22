@@ -200,6 +200,23 @@ class NotificationsServiceClientTest {
   }
 
   @Test
+  fun `should return Mono error when WebClient request building throws`() {
+    val request =
+      NotificationEmailRequestDto()
+        .language("it-IT")
+        .subject("subject")
+        .templateId("template-id")
+        .parameters(mapOf(Pair("param1", "value1")))
+    val exception = RuntimeException("Error building notification request")
+    given(defaultApi.apiClient).willReturn(apiClient)
+    given(apiClient.webClient).willAnswer { throw exception }
+
+    StepVerifier.create(client.sendNotificationEmail(request))
+      .expectErrorMatches { it === exception }
+      .verify()
+  }
+
+  @Test
   fun `should handle Notifications service HTTP 202 accepted response as OK`() {
     val koTemplateRequest =
       NotificationsServiceClient.KoTemplateRequest(

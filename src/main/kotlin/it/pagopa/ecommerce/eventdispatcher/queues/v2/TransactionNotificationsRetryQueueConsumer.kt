@@ -8,6 +8,8 @@ import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v2.TransactionId
 import it.pagopa.ecommerce.commons.domain.v2.TransactionWithUserReceiptError
+import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransaction
+import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionExpired
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
@@ -69,6 +71,25 @@ class TransactionNotificationsRetryQueueConsumer(
     return event.fold({ 0 }, { Optional.ofNullable(it.data.retryCount).orElse(0) })
   }
 
+  private fun getTransactionWithUserReceiptErrorForRetry(
+    transaction: BaseTransaction
+  ): Mono<TransactionWithUserReceiptError> =
+    when {
+      transaction is TransactionWithUserReceiptError -> Mono.just(transaction)
+      transaction is BaseTransactionExpired &&
+        transaction.transactionExpiredData.statusBeforeExpiration ==
+          TransactionStatusDto.NOTIFICATION_ERROR &&
+        transaction.transactionAtPreviousState is TransactionWithUserReceiptError ->
+        Mono.just(transaction.transactionAtPreviousState as TransactionWithUserReceiptError)
+      else ->
+        Mono.error(
+          BadTransactionStatusException(
+            transactionId = transaction.transactionId,
+            expected =
+              listOf(TransactionStatusDto.NOTIFICATION_ERROR, TransactionStatusDto.EXPIRED),
+            actual = transaction.status))
+    }
+
   fun messageReceiver(
     parsedEvent:
       Either<
@@ -92,20 +113,10 @@ class TransactionNotificationsRetryQueueConsumer(
 
     val notificationResendPipeline =
       baseTransaction
-        .flatMap {
+        .doOnNext {
           logger.info("Status for transaction ${it.transactionId.value()}: ${it.status}")
-
-          if (it.status != TransactionStatusDto.NOTIFICATION_ERROR) {
-            Mono.error(
-              BadTransactionStatusException(
-                transactionId = it.transactionId,
-                expected = listOf(TransactionStatusDto.NOTIFICATION_ERROR),
-                actual = it.status))
-          } else {
-            Mono.just(it)
-          }
         }
-        .cast(TransactionWithUserReceiptError::class.java)
+        .flatMap { getTransactionWithUserReceiptErrorForRetry(it) }
         .flatMap { tx ->
           mono { userReceiptMailBuilder.buildNotificationEmailRequestDto(tx) }
             .flatMap { notificationsServiceClient.sendNotificationEmail(it) }

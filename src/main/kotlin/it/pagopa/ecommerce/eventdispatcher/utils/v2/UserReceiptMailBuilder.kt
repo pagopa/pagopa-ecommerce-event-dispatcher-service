@@ -169,7 +169,7 @@ class UserReceiptMailBuilder(@Autowired private val confidentialDataUtils: Confi
           baseTransactionWithRequestedUserReceipt.paymentNotices
             .stream()
             .mapToLong { paymentNotice: PaymentNotice -> paymentNotice.transactionAmount().value() }
-            .sum() + transactionAuthorizationRequestData.fee),
+            .sum() + transactionAuthorizationRequestData.fee.toLong()),
         PspTemplate(
           transactionAuthorizationRequestData.pspBusinessName,
           FeeTemplate(amountToHumanReadableString(transactionAuthorizationRequestData.fee))),
@@ -205,12 +205,21 @@ class UserReceiptMailBuilder(@Autowired private val confidentialDataUtils: Confi
             .sum())))
   }
 
-  fun amountToHumanReadableString(amount: Number): String {
-    val totalCents = amount.toLong()
-    val euros = totalCents / 100
-    val cents = (totalCents % 100).toInt()
+  fun amountToHumanReadableString(amount: Int): String =
+    amountToHumanReadableString(amount.toLong())
 
-    return String.format(Locale.ROOT, "%d,%02d", euros, cents)
+  fun amountToHumanReadableString(amount: Long): String {
+    val repr = amount.toString()
+    val centsSeparationIndex = 0.coerceAtLeast(repr.length - 2)
+    var cents = repr.substring(centsSeparationIndex)
+    var euros = repr.substring(0, centsSeparationIndex)
+    if (euros.isEmpty()) {
+      euros = "0"
+    }
+    if (cents.length == 1) {
+      cents = "0$cents"
+    }
+    return "${euros},${cents}"
   }
 
   fun dateTimeToHumanReadableString(dateTime: ZonedDateTime, locale: Locale): String {
