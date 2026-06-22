@@ -172,7 +172,7 @@ class NodeService(
       BigDecimal(
         transactionWithCancellation.paymentNotices
           .stream()
-          .mapToInt { el -> el.transactionAmount.value }
+          .mapToLong { el -> el.transactionAmount.value }
           .sum())
     logger.info(
       "Building close payment for cancellation transactionId: [{}], effective clientId: [{}], activation client: [{}]",
@@ -225,7 +225,7 @@ class NodeService(
     val amountEuroCents = BigDecimal(amount)
     val totalAmountEuroCents = BigDecimal(totalAmount)
 
-    val feeEuro = EuroUtils.euroCentsToEuro(fee)
+    val feeEuro = EuroUtils.euroCentsToEuro(fee.toLong())
     val totalAmountEuro = EuroUtils.euroCentsToEuro(totalAmount)
 
     val walletInfo =
