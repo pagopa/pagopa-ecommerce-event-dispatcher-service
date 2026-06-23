@@ -77,7 +77,6 @@ class TransactionNotificationsRetryQueueConsumer(
     when {
       transaction is TransactionWithUserReceiptError -> Mono.just(transaction)
       transaction is BaseTransactionExpired &&
-        &&
         transaction.transactionAtPreviousState is TransactionWithUserReceiptError ->
         Mono.just(transaction.transactionAtPreviousState as TransactionWithUserReceiptError)
       else ->
