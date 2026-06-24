@@ -62,7 +62,6 @@ class NotificationsServiceClient(
           e.statusCode,
           e.responseBodyAsString)
       }
-
       .doOnError(WebClientResponseException::class.java) { e: WebClientResponseException ->
         logger.error(
           "Error sending email for transaction id: {}. Got bad response from notifications-service [HTTP {}]: {}",
