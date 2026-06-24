@@ -62,7 +62,17 @@ class NotificationsServiceClient(
           e.statusCode,
           e.responseBodyAsString)
       }
-      .doOnError { e: Throwable -> logger.error(e.toString()) }
+
+      .doOnError(WebClientResponseException::class.java) { e: WebClientResponseException ->
+        logger.error(
+          "Error sending email for transaction id: {}. Got bad response from notifications-service [HTTP {}]: {}",
+          transactionId,
+          e.statusCode,
+          e.responseBodyAsString)
+      }
+      .doOnError { e: Throwable ->
+        logger.error("Error sending email for transaction id: $transactionId", e)
+      }
   }
 
   fun getTransactionIdFromParameters(parameters: Any): String? =
