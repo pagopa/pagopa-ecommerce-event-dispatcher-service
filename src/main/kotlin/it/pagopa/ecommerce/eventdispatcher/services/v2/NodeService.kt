@@ -169,7 +169,7 @@ class NodeService(
     userDto: UserDto
   ): ClosePaymentRequestV2Dto {
     val amountEuroCents =
-      BigDecimal(
+      BigDecimal.valueOf(
         transactionWithCancellation.paymentNotices
           .stream()
           .mapToLong { el -> el.transactionAmount.value }
