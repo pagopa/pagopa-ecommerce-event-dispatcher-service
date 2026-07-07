@@ -111,9 +111,6 @@ class TransactionNotificationsRetryQueueConsumer(
 
     val notificationResendPipeline =
       baseTransaction
-        .doOnNext {
-          logger.info("Status for transaction ${it.transactionId.value()}: ${it.status}")
-        }
         .flatMap { getTransactionWithUserReceiptErrorForRetry(it) }
         .flatMap { tx ->
           mono { userReceiptMailBuilder.buildNotificationEmailRequestDto(tx) }
@@ -136,14 +133,15 @@ class TransactionNotificationsRetryQueueConsumer(
                 }
             }
             .then()
-            .onErrorResume { exception ->
-              logger.error(
-                "Got exception while retrying user receipt mail sending for transaction with id ${tx.transactionId}!",
-                exception)
+            .onErrorResume {
+              withTransactionMdc(transactionId) {
+                logger.error("Got exception while retrying user receipt mail sending")
+              }
               val v = notificationRetryService.enqueueRetryEvent(tx, retryCount, tracingInfo)
-              v.onErrorResume(NoRetryAttemptsLeftException::class.java) { enqueueException ->
-                  logger.error(
-                    "No more attempts left for user receipt send retry", enqueueException)
+              v.onErrorResume(NoRetryAttemptsLeftException::class.java) {
+                  withTransactionMdc(transactionId) {
+                    logger.error("No more attempts left for user receipt send retry")
+                  }
                   BinaryData.fromObjectAsync(
                       queueEvent, strictSerializerProviderV2.createInstance())
                     .flatMap {
@@ -156,7 +154,9 @@ class TransactionNotificationsRetryQueueConsumer(
                             .RETRY_EVENT_NO_ATTEMPTS_LEFT))
                     }
                     .onErrorResume {
-                      logger.error("Error writing event to dead letter queue", it)
+                      withTransactionMdc(transactionId) {
+                        logger.error("Error writing event to dead letter queue")
+                      }
                       Mono.empty()
                     }
                     .then(

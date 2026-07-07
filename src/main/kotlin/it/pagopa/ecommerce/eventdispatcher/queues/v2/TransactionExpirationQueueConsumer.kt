@@ -77,8 +77,6 @@ class TransactionExpirationQueueConsumer(
       baseTransaction
         .filter {
           val isTransient = transactionUtils.isTransientStatus(it.status)
-          logger.info(
-            "Transaction ${it.transactionId.value()} in status ${it.status}, is transient: $isTransient")
           isTransient
         }
         .filterWhen {
@@ -91,11 +89,9 @@ class TransactionExpirationQueueConsumer(
               val sendPaymentResultOffset =
                 Duration.ofSeconds(sendPaymentResultTimeoutOffsetSeconds.toLong())
               val expired = timeLeft < sendPaymentResultOffset
-              logger.info(
-                "Transaction ${it.transactionId.value()} - Time left for send payment result: $timeLeft, timeout offset: $sendPaymentResultOffset  --> expired: $expired")
               if (expired) {
                 logger.error(
-                  "Transaction ${it.transactionId.value()} - No send payment result received on time! Transaction will be expired.")
+                  "No send payment result received on time! Transaction will be expired.")
                 deadLetterTracedQueueAsyncClient
                   .sendAndTraceDeadLetterQueueEvent(
                     binaryData,
@@ -108,8 +104,6 @@ class TransactionExpirationQueueConsumer(
                   )
                   .thenReturn(true)
               } else {
-                logger.info(
-                  "Transaction ${it.transactionId.value()} still waiting for sendPaymentResult outcome, expiration event sent with visibility timeout: $timeLeft")
                 expirationQueueAsyncClient
                   .sendMessageWithResponse(
                     binaryData,
@@ -123,7 +117,6 @@ class TransactionExpirationQueueConsumer(
         }
         .flatMap { tx ->
           val isTransactionExpired = isTransactionExpired(tx)
-          logger.info("Transaction ${tx.transactionId.value()} is expired: $isTransactionExpired")
           if (!isTransactionExpired) {
             updateTransactionToExpired(
                 tx, transactionsExpiredEventStoreRepository, transactionsViewRepository)
@@ -138,8 +131,6 @@ class TransactionExpirationQueueConsumer(
           val refundableCheckRequired = isRefundableCheckRequired(it)
           val refundable = isTransactionRefundable(it)
           val refundableWithoutCheck = refundable && !refundableCheckRequired
-          logger.info(
-            "Transaction ${it.transactionId.value()} in status ${it.status}, refundable : $refundable, without check : $refundableWithoutCheck")
           if (refundable && refundableCheckRequired) {
             val binaryData =
               BinaryData.fromObject(event, strictSerializerProviderV2.createInstance())
@@ -177,8 +168,6 @@ class TransactionExpirationQueueConsumer(
                 refundRequestedAsyncClient,
                 Duration.ofSeconds(transientQueueTTLSeconds.toLong()))
             } else {
-              logger.info(
-                "Transaction ${tx.transactionId.value()} not received authorization outcome yet, postpone refund processing for: $timeout")
               expirationQueueAsyncClient
                 .sendMessageWithResponse(
                   binaryData,

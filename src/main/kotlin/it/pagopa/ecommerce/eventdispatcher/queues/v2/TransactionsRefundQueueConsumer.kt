@@ -78,11 +78,8 @@ class TransactionsRefundQueueConsumer(
         .cast(BaseTransaction::class.java)
         .filter { it.status == TransactionStatusDto.REFUND_REQUESTED }
         .switchIfEmpty {
-          logger.info("Transaction $transactionId was not previously authorized. No refund needed")
+          logger.info("Transaction was not previously authorized. No refund needed")
           Mono.empty()
-        }
-        .doOnNext {
-          logger.info("Handling refund request for transaction with id ${it.transactionId.value()}")
         }
         .cast(BaseTransactionWithRefundRequested::class.java)
         .flatMap { tx ->

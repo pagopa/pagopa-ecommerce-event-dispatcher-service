@@ -55,6 +55,7 @@ class TransactionRefundRetryQueueConsumer(
   ): Mono<Unit> {
     val event = parsedEvent.event
     val tracingInfo = parsedEvent.tracingInfo
+    val transactionId = event.transactionId
 
     val events =
       transactionsEventStoreRepository
@@ -66,8 +67,6 @@ class TransactionRefundRetryQueueConsumer(
     val refundPipeline =
       baseTransaction
         .flatMap {
-          logger.info("Status for transaction ${it.transactionId.value()}: ${it.status}")
-
           if (it.status != TransactionStatusDto.REFUND_ERROR) {
             Mono.error(
               BadTransactionStatusException(

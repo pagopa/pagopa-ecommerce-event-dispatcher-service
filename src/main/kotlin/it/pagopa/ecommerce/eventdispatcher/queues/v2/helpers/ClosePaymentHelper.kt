@@ -27,6 +27,7 @@ import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.ClosePaymentEvent.C
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.reduceEvents
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.requestRefundTransaction
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.runTracedPipelineWithDeadLetterQueue
+import it.pagopa.ecommerce.eventdispatcher.queues.v2.withTransactionMdc
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.ClosureRetryService
@@ -183,16 +184,9 @@ class ClosePaymentHelper(
     val closurePipeline =
       events
         .collectList()
-        .filterWhen { eventList ->
-          mono { !(eventList.any { it is BaseTransactionClosureEvent }) }
-            .doOnNext {
-              logger.info("Transaction with id {} skip close payment: {}", transactionId, !it)
-            }
-        }
+        .filterWhen { eventList -> mono { !(eventList.any { it is BaseTransactionClosureEvent }) } }
         .flatMap { baseTransaction }
         .flatMap {
-          logger.info("Status for transaction ${it.transactionId.value()}: ${it.status}")
-
           if (!closureRequestedValidStatuses.contains(it.status)) {
             Mono.error(
               BadTransactionStatusException(
@@ -230,10 +224,13 @@ class ClosePaymentHelper(
                       .deleteById(el.rptId().value())
                       .map { Pair(it, el) }
                       .doOnNext { (outcome, paymentNotice) ->
-                        logger.info(
-                          "Invalidate cache for RptId : {}, successful: {}",
-                          paymentNotice.rptId().value(),
-                          outcome)
+                        withTransactionMdc(
+                          transactionId,
+                          mapOf(
+                            "rptId" to paymentNotice.rptId().value(),
+                            "cacheInvalidationSuccessful" to outcome.toString())) {
+                          logger.info("Invalidate cache for payment notice")
+                        }
                       }
                       .onErrorMap {
                         RuntimeException("Error deleting cache for rpt id: ${el.rptId.value()}", it)
@@ -298,9 +295,7 @@ class ClosePaymentHelper(
     baseTransaction
       .publishOn(Schedulers.boundedElastic())
       .flatMap { tx ->
-        logger.error(
-          "Got exception while processing closePaymentV2 for transaction with id ${tx.transactionId.value()}!",
-          exception)
+        logger.error("Got exception while processing closePaymentV2")
 
         updateTransactionToClosureError(tx, exception)
       }
@@ -330,12 +325,15 @@ class ClosePaymentHelper(
         // during communication such as read timeout
         val enqueueRetryEvent =
           !refundTransaction && (statusCode == null || statusCode.is5xxServerError)
-        logger.info(
-          "Handling Nodo close payment error response. Status code: [{}], error description: [{}] -> refund transaction: [{}], enqueue retry event: [{}]",
-          statusCode,
-          errorDescription,
-          refundTransaction,
-          enqueueRetryEvent)
+        withTransactionMdc(
+          tx.transactionId.value(),
+          mapOf(
+            "statusCode" to statusCode?.value(),
+            "errorDescription" to errorDescription,
+            "refundTransaction" to refundTransaction.toString(),
+            "enqueueRetryEvent" to enqueueRetryEvent.toString())) {
+          logger.info("Handling Nodo close payment error response")
+        }
         if (refundTransaction) {
           requestRefundTransactionPipeline(tx, TransactionClosureData.Outcome.KO, tracingInfo)
             .then()
@@ -366,7 +364,7 @@ class ClosePaymentHelper(
         throwable = exception)
       .publishOn(Schedulers.boundedElastic())
       .doOnError(NoRetryAttemptsLeftException::class.java) {
-        logger.error("No more attempts left for closure retry", it)
+        logger.error("No more attempts left for closure retry")
       }
 
   private fun updateTransactionToClosureError(
@@ -374,9 +372,6 @@ class ClosePaymentHelper(
     exception: Throwable
   ): Mono<BaseTransactionWithClosureError> {
     val closureErrorData = exceptionToClosureErrorData(exception)
-
-    logger.info(
-      "Updating transaction with id: [${baseTransaction.transactionId.value()}] to ${TransactionStatusDto.CLOSURE_ERROR} status")
     val event =
       TransactionClosureErrorEvent(baseTransaction.transactionId.value(), closureErrorData)
 
@@ -439,9 +434,6 @@ class ClosePaymentHelper(
           ClosePaymentOutcome.KO -> TransactionStatusDto.UNAUTHORIZED
         }
       }
-
-    logger.info(
-      "Updating transaction {} status to {}", transaction.transactionId.value(), newStatus)
 
     val sendPaymentResultOutcome =
       if (!canceledByUser && closePaymentTransactionData.closureOutcome == ClosePaymentOutcome.OK) {
@@ -663,8 +655,14 @@ class ClosePaymentHelper(
           Pair(wasAuthorized, it)
         })
     val toBeRefunded = wasAuthorized && closureOutcome == TransactionClosureData.Outcome.KO
-    logger.info(
-      "Transaction Nodo ClosePaymentV2 response outcome: $closureOutcome, was authorized: $wasAuthorized --> to be refunded: $toBeRefunded")
+    withTransactionMdc(
+      transactionWithCompletedAuthorization.transactionId.value(),
+      mapOf(
+        "closureOutcome" to closureOutcome.toString(),
+        "wasAuthorized" to wasAuthorized.toString(),
+        "toBeRefunded" to toBeRefunded.toString())) {
+      logger.info("ClosePayment refund decision computed")
+    }
 
     return Mono.just(transactionWithCompletedAuthorization)
       .filter { toBeRefunded }

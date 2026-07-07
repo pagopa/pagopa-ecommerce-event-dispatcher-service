@@ -41,26 +41,43 @@ public class EventDispatcherTracingUtils {
 
     /** Enrich Reactor Context with CDC event metadata used by MDC/logging hooks. */
     public static Context enrichContextForDispatcherEvent(
-                                                   TransactionEvent<?> event,
-                                                   Context reactorContext
+                                                          TransactionEvent<?> event,
+                                                          Context reactorContext
+    ) {
+        return enrichContextForDispatcherEvent(
+                event.getTransactionId(),
+                event.getEventCode(),
+                event.getId(),
+                reactorContext
+        );
+    }
+
+    /**
+     * Enrich Reactor Context with generic event metadata used by MDC/logging hooks.
+     */
+    public static Context enrichContextForDispatcherEvent(
+                                                          String transactionId,
+                                                          String eventCode,
+                                                          String eventId,
+                                                          Context reactorContext
     ) {
         return reactorContext
                 .put(
                         TracingEntry.CTX_TRANSACTION_ID.getKey(),
-                        event.getTransactionId() != null
-                                ? event.getTransactionId()
+                        transactionId != null
+                                ? transactionId
                                 : TracingEntry.CTX_TRANSACTION_ID.getDefaultValue()
                 )
                 .put(
                         TracingEntry.CTX_EVENT_CODE.getKey(),
-                        event.getEventCode() != null
-                                ? event.getEventCode()
+                        eventCode != null
+                                ? eventCode
                                 : TracingEntry.CTX_EVENT_CODE.getDefaultValue()
                 )
                 .put(
                         TracingEntry.CTX_EVENT_ID.getKey(),
-                        event.getId() != null
-                                ? event.getId()
+                        eventId != null
+                                ? eventId
                                 : TracingEntry.CTX_EVENT_ID.getDefaultValue()
                 )
                 .put(TracingEntry.EVENT_ACTION.getKey(), "PROCESS_CDC_EVENT");
