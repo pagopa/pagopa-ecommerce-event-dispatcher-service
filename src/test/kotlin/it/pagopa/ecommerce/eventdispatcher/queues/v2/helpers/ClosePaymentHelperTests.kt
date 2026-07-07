@@ -836,7 +836,6 @@ class ClosePaymentHelperTests {
       val activatedEvent = transactionActivateEvent()
       val emptyTransactionMock: EmptyTransaction = mock()
       val transactionWithClosureError: TransactionWithClosureError = mock()
-      val fakeTransactionAtPreviousState = transactionActivated(ZonedDateTime.now().toString())
 
       val closureErrorEvent = transactionClosureErrorEvent() as TransactionEvent<Any>
 
@@ -851,8 +850,6 @@ class ClosePaymentHelperTests {
       given(emptyTransactionMock.applyEvent(any())).willReturn(transactionWithClosureError)
       given(transactionWithClosureError.transactionId).willReturn(TransactionId(TRANSACTION_ID))
       given(transactionWithClosureError.status).willReturn(TransactionStatusDto.CLOSURE_ERROR)
-      given(transactionWithClosureError.transactionAtPreviousState)
-        .willReturn(fakeTransactionAtPreviousState)
       given(
           deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(
             any<BinaryData>(), any()))
