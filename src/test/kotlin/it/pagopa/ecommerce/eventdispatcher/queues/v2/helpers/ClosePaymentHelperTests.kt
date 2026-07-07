@@ -848,7 +848,6 @@ class ClosePaymentHelperTests {
             TRANSACTION_ID))
         .willReturn(events.toFlux())
       given(emptyTransactionMock.applyEvent(any())).willReturn(transactionWithClosureError)
-      given(transactionWithClosureError.transactionId).willReturn(TransactionId(TRANSACTION_ID))
       given(transactionWithClosureError.status).willReturn(TransactionStatusDto.CLOSURE_ERROR)
       given(
           deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(
