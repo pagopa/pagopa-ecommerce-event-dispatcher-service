@@ -1,4 +1,4 @@
-package it.pagopa.ecommerce.cdc.mdcutilities;
+package it.pagopa.ecommerce.eventdispatcher.mdcutilities;
 
 import java.util.AbstractMap;
 import java.util.Arrays;
@@ -62,7 +62,7 @@ class MDCContextLifter<T> implements CoreSubscriber<T> {
         if (!context.isEmpty()) {
             Map<String, String> mdcContextMap = Optional.ofNullable(MDC.getCopyOfContextMap()).orElseGet(HashMap::new);
             Map<String, String> reactorContextMap = Arrays
-                    .stream(CdcTracingUtils.TracingEntry.values())
+                    .stream(EventDispatcherTracingUtils.TracingEntry.values())
                     .map(
                             key -> new AbstractMap.SimpleEntry<>(
                                     key.getKey(),

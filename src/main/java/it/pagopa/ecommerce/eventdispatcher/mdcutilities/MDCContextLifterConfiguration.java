@@ -1,4 +1,4 @@
-package it.pagopa.ecommerce.cdc.mdcutilities;
+package it.pagopa.ecommerce.eventdispatcher.mdcutilities;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;

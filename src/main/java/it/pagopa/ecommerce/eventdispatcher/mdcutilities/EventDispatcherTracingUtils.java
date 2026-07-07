@@ -1,4 +1,4 @@
-package it.pagopa.ecommerce.cdc.mdcutilities;
+package it.pagopa.ecommerce.eventdispatcher.mdcutilities;
 
 import it.pagopa.ecommerce.commons.documents.v2.TransactionEvent;
 import reactor.util.context.Context;
@@ -7,9 +7,9 @@ import reactor.util.context.Context;
  * Utility class with helper methods to enrich Reactor Context for CDC event
  * processing.
  */
-public class CdcTracingUtils {
+public class EventDispatcherTracingUtils {
 
-    private CdcTracingUtils() {
+    private EventDispatcherTracingUtils() {
     }
 
     /** Tracing keys copied from Reactor Context to MDC. */
@@ -40,7 +40,7 @@ public class CdcTracingUtils {
     }
 
     /** Enrich Reactor Context with CDC event metadata used by MDC/logging hooks. */
-    public static Context enrichContextForCdcEvent(
+    public static Context enrichContextForDispatcherEvent(
                                                    TransactionEvent<?> event,
                                                    Context reactorContext
     ) {
