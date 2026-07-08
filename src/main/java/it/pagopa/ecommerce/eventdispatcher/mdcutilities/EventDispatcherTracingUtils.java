@@ -1,6 +1,5 @@
 package it.pagopa.ecommerce.eventdispatcher.mdcutilities;
 
-import it.pagopa.ecommerce.commons.documents.v2.TransactionEvent;
 import reactor.util.context.Context;
 
 /**
