@@ -1128,7 +1128,6 @@ fun <T> runTracedPipelineWithDeadLetterQueue(
   jsonSerializerProviderV2: StrictJsonSerializerProvider
 ): Mono<Unit> {
   val nullTransactionId = "00000000000000000000000000000000" // null event ID used in warmup phase
-  val eventLogString = "${queueEvent.event.id}, transactionId: ${queueEvent.event.transactionId}"
 
   val deadLetterPipeline =
     checkPointer
@@ -1161,16 +1160,16 @@ fun <T> runTracedPipelineWithDeadLetterQueue(
           Mono.just(Unit)
         }
       }
+      .contextWrite { reactorContext ->
+        EventDispatcherTracingUtils.enrichContextForDispatcherEvent(
+          queueEvent.event.transactionId,
+          queueEvent.event.eventCode,
+          queueEvent.event.id,
+          reactorContext)
+      }
 
   return tracingUtils
     .traceMonoWithRemoteSpan(queueEvent.tracingInfo, spanName, deadLetterPipeline)
-    .contextWrite { reactorContext ->
-      EventDispatcherTracingUtils.enrichContextForDispatcherEvent(
-        queueEvent.event.transactionId,
-        queueEvent.event.eventCode,
-        queueEvent.event.id,
-        reactorContext)
-    }
     .then(Mono.just(Unit))
 }
 

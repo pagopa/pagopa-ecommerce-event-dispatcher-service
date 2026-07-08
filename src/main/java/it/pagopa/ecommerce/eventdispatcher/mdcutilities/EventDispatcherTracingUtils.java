@@ -39,19 +39,6 @@ public class EventDispatcherTracingUtils {
         }
     }
 
-    /** Enrich Reactor Context with CDC event metadata used by MDC/logging hooks. */
-    public static Context enrichContextForDispatcherEvent(
-                                                          TransactionEvent<?> event,
-                                                          Context reactorContext
-    ) {
-        return enrichContextForDispatcherEvent(
-                event.getTransactionId(),
-                event.getEventCode(),
-                event.getId(),
-                reactorContext
-        );
-    }
-
     /**
      * Enrich Reactor Context with generic event metadata used by MDC/logging hooks.
      */

@@ -55,7 +55,6 @@ class TransactionRefundRetryQueueConsumer(
   ): Mono<Unit> {
     val event = parsedEvent.event
     val tracingInfo = parsedEvent.tracingInfo
-    val transactionId = event.transactionId
 
     val events =
       transactionsEventStoreRepository

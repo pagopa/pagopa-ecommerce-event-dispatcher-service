@@ -295,7 +295,9 @@ class ClosePaymentHelper(
     baseTransaction
       .publishOn(Schedulers.boundedElastic())
       .flatMap { tx ->
-        logger.error("Got exception while processing closePaymentV2")
+        withTransactionMdc(tx.transactionId.value()) {
+          logger.error("Got exception while processing closePaymentV2")
+        }
 
         updateTransactionToClosureError(tx, exception)
       }
@@ -364,7 +366,9 @@ class ClosePaymentHelper(
         throwable = exception)
       .publishOn(Schedulers.boundedElastic())
       .doOnError(NoRetryAttemptsLeftException::class.java) {
-        logger.error("No more attempts left for closure retry")
+        withTransactionMdc(baseTransaction.transactionId.value()) {
+          logger.error("No more attempts left for closure retry")
+        }
       }
 
   private fun updateTransactionToClosureError(
