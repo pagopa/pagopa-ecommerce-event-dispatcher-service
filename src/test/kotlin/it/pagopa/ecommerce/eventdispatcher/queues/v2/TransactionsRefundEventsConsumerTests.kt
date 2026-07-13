@@ -295,7 +295,8 @@ class TransactionsRefundEventsConsumerTests {
           pspId = expectedPspId,
           correlationId = correlationId,
           paymentMethod =
-            NpgClient.PaymentMethod.valueOf(authorizationRequestEvent.data.paymentMethodName))
+            NpgClient.PaymentMethod.fromMethodTypeCode(
+              authorizationRequestEvent.data.paymentTypeCode))
       verify(transactionsRefundedEventStoreRepository, Mockito.times(1))
         .insert(refundEventStoreCaptor.capture())
       verify(refundRetryService, times(1))
@@ -402,7 +403,8 @@ class TransactionsRefundEventsConsumerTests {
           pspId = expectedPspId,
           correlationId = correlationId,
           paymentMethod =
-            NpgClient.PaymentMethod.valueOf(authorizationRequestEvent.data.paymentMethodName))
+            NpgClient.PaymentMethod.fromMethodTypeCode(
+              authorizationRequestEvent.data.paymentTypeCode))
       verify(transactionsRefundedEventStoreRepository, Mockito.times(1))
         .insert(refundEventStoreCaptor.capture())
       verify(refundRetryService, times(0))
@@ -512,7 +514,8 @@ class TransactionsRefundEventsConsumerTests {
           pspId = expectedPspId,
           correlationId = correlationId,
           paymentMethod =
-            NpgClient.PaymentMethod.valueOf(authorizationRequestEvent.data.paymentMethodName))
+            NpgClient.PaymentMethod.fromMethodTypeCode(
+              authorizationRequestEvent.data.paymentTypeCode))
       verify(transactionsRefundedEventStoreRepository, Mockito.times(1))
         .insert(refundEventStoreCaptor.capture())
       verify(refundRetryService, times(0))
