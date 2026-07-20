@@ -112,14 +112,14 @@ class TransactionNotificationsQueueConsumer(
             }
             .then()
             .onErrorResume { _ ->
-              withTransactionMdc(tx.transactionId.value()) {
+              withTransactionIdMdc(tx.transactionId.value()) {
                 logger.error("Got exception while retrying user receipt mail sending")
               }
               updateNotificationErrorTransactionStatus(
                   tx, transactionsViewRepository, transactionUserReceiptRepository)
                 .flatMap {
                   notificationRetryService.enqueueRetryEvent(tx, 0, tracingInfo).doOnError {
-                    withTransactionMdc(tx.transactionId.value()) {
+                    withTransactionIdMdc(tx.transactionId.value()) {
                       logger.error("Exception enqueueing notification retry event")
                     }
                   }

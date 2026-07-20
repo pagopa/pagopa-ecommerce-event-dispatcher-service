@@ -18,10 +18,11 @@ import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.client.TransactionsServiceClient
 import it.pagopa.ecommerce.eventdispatcher.client.UserStatsServiceClient
+import it.pagopa.ecommerce.eventdispatcher.mdcutilities.EventDispatcherTracingUtils
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.handleGetStateByPatchTransactionService
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.handlePatchTransactionServiceByAuthData
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.runTracedPipelineWithDeadLetterQueue
-import it.pagopa.ecommerce.eventdispatcher.queues.v2.withTransactionMdc
+import it.pagopa.ecommerce.eventdispatcher.queues.v2.withTransactionIdMdc
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.AuthorizationStateRetrieverRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.AuthorizationStateRetrieverService
@@ -131,7 +132,7 @@ class AuthorizationRequestedHelper(
                 buildUserLastPaymentMethodData(
                   baseTransactionWithRequestedAuthorization, authorizationRequestedDate))
               .onErrorResume {
-                withTransactionMdc(
+                withTransactionIdMdc(
                   baseTransactionWithRequestedAuthorization.transactionId.value()) {
                   logger.error("Exception while saving last payment method used")
                 }
@@ -160,8 +161,7 @@ class AuthorizationRequestedHelper(
           performGetState || performOnlyPatch
         }
         .flatMap { tx ->
-          withTransactionMdc(
-            tx.transactionId.value(),
+          EventDispatcherTracingUtils.withContextDetailsMdc(
             mapOf(
               "authorizationRequestedAt" to authorizationRequestedDate.toString(),
               "getStateThreshold" to getStateThresholdDate.toString())) {
@@ -171,8 +171,7 @@ class AuthorizationRequestedHelper(
             // add here a fixed 10 sec delay to avoid condition when event is visible in queue
             // some millis before the effective ttl set here
             val visibilityTimeout = timeToWaitForGetState + Duration.ofSeconds(10)
-            withTransactionMdc(
-              tx.transactionId.value(),
+            EventDispatcherTracingUtils.withContextDetailsMdc(
               mapOf("visibilityTimeout" to visibilityTimeout.toString())) {
               logger.debug("Authorization requested event postponed")
             }
@@ -230,8 +229,7 @@ class AuthorizationRequestedHelper(
             transactionStatus == TransactionStatusDto.AUTHORIZATION_REQUESTED && gatewayNpg
           val performOnlyPatch = !performGetState && authorizationCompleted
 
-          withTransactionMdc(
-            transactionId,
+          EventDispatcherTracingUtils.withContextDetailsMdc(
             mapOf(
               "transactionStatus" to transactionStatus.toString(),
               "gateway" to gateway.toString(),

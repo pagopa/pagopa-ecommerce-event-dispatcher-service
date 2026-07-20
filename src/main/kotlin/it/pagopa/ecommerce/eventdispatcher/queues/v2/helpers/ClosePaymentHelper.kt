@@ -23,11 +23,12 @@ import it.pagopa.ecommerce.commons.utils.UpdateTransactionStatusTracerUtils.User
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.ClosePaymentErrorResponseException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
+import it.pagopa.ecommerce.eventdispatcher.mdcutilities.EventDispatcherTracingUtils
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.ClosePaymentEvent.Companion.exceptionToClosureErrorData
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.reduceEvents
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.requestRefundTransaction
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.runTracedPipelineWithDeadLetterQueue
-import it.pagopa.ecommerce.eventdispatcher.queues.v2.withTransactionMdc
+import it.pagopa.ecommerce.eventdispatcher.queues.v2.withTransactionIdMdc
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.ClosureRetryService
@@ -224,8 +225,7 @@ class ClosePaymentHelper(
                       .deleteById(el.rptId().value())
                       .map { Pair(it, el) }
                       .doOnNext { (outcome, paymentNotice) ->
-                        withTransactionMdc(
-                          transactionId,
+                        EventDispatcherTracingUtils.withContextDetailsMdc(
                           mapOf(
                             "rptId" to paymentNotice.rptId().value(),
                             "cacheInvalidationSuccessful" to outcome.toString())) {
@@ -295,7 +295,7 @@ class ClosePaymentHelper(
     baseTransaction
       .publishOn(Schedulers.boundedElastic())
       .flatMap { tx ->
-        withTransactionMdc(tx.transactionId.value()) {
+        withTransactionIdMdc(tx.transactionId.value()) {
           logger.error("Got exception while processing closePaymentV2")
         }
 
@@ -327,9 +327,9 @@ class ClosePaymentHelper(
         // during communication such as read timeout
         val enqueueRetryEvent =
           !refundTransaction && (statusCode == null || statusCode.is5xxServerError)
-        withTransactionMdc(
-          tx.transactionId.value(),
+        EventDispatcherTracingUtils.withContextDetailsMdc(
           mapOf(
+            "transactionId" to tx.transactionId.value(),
             "statusCode" to statusCode?.value(),
             "errorDescription" to errorDescription,
             "refundTransaction" to refundTransaction.toString(),
@@ -366,7 +366,7 @@ class ClosePaymentHelper(
         throwable = exception)
       .publishOn(Schedulers.boundedElastic())
       .doOnError(NoRetryAttemptsLeftException::class.java) {
-        withTransactionMdc(baseTransaction.transactionId.value()) {
+        withTransactionIdMdc(baseTransaction.transactionId.value()) {
           logger.error("No more attempts left for closure retry")
         }
       }
@@ -659,9 +659,9 @@ class ClosePaymentHelper(
           Pair(wasAuthorized, it)
         })
     val toBeRefunded = wasAuthorized && closureOutcome == TransactionClosureData.Outcome.KO
-    withTransactionMdc(
-      transactionWithCompletedAuthorization.transactionId.value(),
+    EventDispatcherTracingUtils.withContextDetailsMdc(
       mapOf(
+        "transactionId" to transactionWithCompletedAuthorization.transactionId.value(),
         "closureOutcome" to closureOutcome.toString(),
         "wasAuthorized" to wasAuthorized.toString(),
         "toBeRefunded" to toBeRefunded.toString())) {

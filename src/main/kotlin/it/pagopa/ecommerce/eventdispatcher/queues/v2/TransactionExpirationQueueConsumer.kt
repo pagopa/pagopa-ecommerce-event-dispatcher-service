@@ -10,6 +10,7 @@ import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.commons.utils.v2.TransactionUtils
+import it.pagopa.ecommerce.eventdispatcher.mdcutilities.EventDispatcherTracingUtils
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.v2.NpgService
@@ -90,7 +91,8 @@ class TransactionExpirationQueueConsumer(
                 Duration.ofSeconds(sendPaymentResultTimeoutOffsetSeconds.toLong())
               val expired = timeLeft < sendPaymentResultOffset
               if (expired) {
-                withTransactionMdc(transactionId, mapOf("timeLeft" to timeLeft.toString())) {
+                EventDispatcherTracingUtils.withContextDetailsMdc(
+                  mapOf("timeLeft" to timeLeft.toString())) {
                   logger.error(
                     "No send payment result received on time! Transaction will be expired.")
                 }
