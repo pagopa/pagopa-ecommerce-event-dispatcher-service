@@ -80,8 +80,8 @@ class AuthorizationStateRetrieverService(
           transactionId = trx.transactionId,
           pspId = transaction.transactionAuthorizationRequestData.pspId,
           paymentMethod =
-            NpgClient.PaymentMethod.valueOf(
-              transaction.transactionAuthorizationRequestData.paymentMethodName),
+            NpgClient.PaymentMethod.fromMethodTypeCode(
+              transaction.transactionAuthorizationRequestData.paymentTypeCode),
           orderId = orderId,
           correlationId = correlationId)
       }

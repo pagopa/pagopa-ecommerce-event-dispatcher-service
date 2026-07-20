@@ -310,8 +310,8 @@ fun retrieveAuthorizationState(
               as NpgTransactionGatewayActivationData)
             .correlationId,
         paymentMethod =
-          NpgClient.PaymentMethod.valueOf(
-            transaction.transactionAuthorizationRequestData.paymentMethodName))
+          NpgClient.PaymentMethod.fromMethodTypeCode(
+            transaction.transactionAuthorizationRequestData.paymentTypeCode))
     }
 }
 
@@ -824,8 +824,8 @@ private fun refundTransactionNPG(
               as NpgTransactionGatewayActivationData)
             .correlationId,
         paymentMethod =
-          NpgClient.PaymentMethod.valueOf(
-            transaction.transactionAuthorizationRequestData.paymentMethodName))
+          NpgClient.PaymentMethod.fromMethodTypeCode(
+            transaction.transactionAuthorizationRequestData.paymentTypeCode))
       .map { refundResponse -> Pair(refundResponse, transaction) }
       .onErrorMap({ e -> e is BadGatewayException || e is NpgResponseException }) { e ->
         withTransactionIdMdc(transaction.transactionId.value()) {
