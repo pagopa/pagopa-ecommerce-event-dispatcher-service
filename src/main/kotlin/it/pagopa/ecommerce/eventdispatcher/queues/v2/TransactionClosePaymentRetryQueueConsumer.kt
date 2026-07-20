@@ -4,12 +4,10 @@ import com.azure.spring.messaging.checkpoint.Checkpointer
 import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
-import it.pagopa.ecommerce.commons.domain.v2.pojos.*
 import it.pagopa.ecommerce.commons.queues.QueueEvent
-import it.pagopa.ecommerce.eventdispatcher.queues.*
+import it.pagopa.ecommerce.eventdispatcher.mdcutilities.EventDispatcherTracingUtils
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.ClosePaymentEvent
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.ClosePaymentHelper
-import java.util.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -37,7 +35,13 @@ class TransactionClosePaymentRetryQueueConsumer(
   ): Mono<Unit> {
     val closePaymentEvent =
       parsedEvent.fold({ ClosePaymentEvent.errored(it) }, { ClosePaymentEvent.retried(it) })
+    val event = parsedEvent.fold({ it.event }, { it.event })
 
-    return closePaymentHelper.closePayment(closePaymentEvent, checkPointer, emptyTransaction)
+    return closePaymentHelper
+      .closePayment(closePaymentEvent, checkPointer, emptyTransaction)
+      .contextWrite { context ->
+        EventDispatcherTracingUtils.enrichContextForDispatcherEvent(
+          event.transactionId, event.eventCode, event.id, context)
+      }
   }
 }

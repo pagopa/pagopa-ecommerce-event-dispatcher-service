@@ -22,7 +22,6 @@ import it.pagopa.ecommerce.eventdispatcher.mdcutilities.EventDispatcherTracingUt
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.handleGetStateByPatchTransactionService
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.handlePatchTransactionServiceByAuthData
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.runTracedPipelineWithDeadLetterQueue
-import it.pagopa.ecommerce.eventdispatcher.queues.v2.withTransactionIdMdc
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.AuthorizationStateRetrieverRetryService
 import it.pagopa.ecommerce.eventdispatcher.services.v2.AuthorizationStateRetrieverService
@@ -132,10 +131,7 @@ class AuthorizationRequestedHelper(
                 buildUserLastPaymentMethodData(
                   baseTransactionWithRequestedAuthorization, authorizationRequestedDate))
               .onErrorResume {
-                withTransactionIdMdc(
-                  baseTransactionWithRequestedAuthorization.transactionId.value()) {
-                  logger.error("Exception while saving last payment method used")
-                }
+                logger.error("Exception while saving last payment method used")
                 mono {}
               }
               .thenReturn(baseTransactionWithRequestedAuthorization)

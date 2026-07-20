@@ -47,6 +47,7 @@ class MDCContextLifter<T> implements CoreSubscriber<T> {
     @Override
     public void onComplete() {
         try {
+            copyToMdc(coreSubscriber.currentContext());
             coreSubscriber.onComplete();
         } finally {
             MDC.clear();

@@ -28,7 +28,6 @@ import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.ClosePaymentEvent.C
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.reduceEvents
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.requestRefundTransaction
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.runTracedPipelineWithDeadLetterQueue
-import it.pagopa.ecommerce.eventdispatcher.queues.v2.withTransactionIdMdc
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.ClosureRetryService
@@ -295,9 +294,7 @@ class ClosePaymentHelper(
     baseTransaction
       .publishOn(Schedulers.boundedElastic())
       .flatMap { tx ->
-        withTransactionIdMdc(tx.transactionId.value()) {
-          logger.error("Got exception while processing closePaymentV2")
-        }
+        logger.error("Got exception while processing closePaymentV2")
 
         updateTransactionToClosureError(tx, exception)
       }
@@ -366,9 +363,7 @@ class ClosePaymentHelper(
         throwable = exception)
       .publishOn(Schedulers.boundedElastic())
       .doOnError(NoRetryAttemptsLeftException::class.java) {
-        withTransactionIdMdc(baseTransaction.transactionId.value()) {
-          logger.error("No more attempts left for closure retry")
-        }
+        logger.error("No more attempts left for closure retry")
       }
 
   private fun updateTransactionToClosureError(
