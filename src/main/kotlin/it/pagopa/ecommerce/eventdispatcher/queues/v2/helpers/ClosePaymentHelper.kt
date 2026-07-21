@@ -294,7 +294,9 @@ class ClosePaymentHelper(
     baseTransaction
       .publishOn(Schedulers.boundedElastic())
       .flatMap { tx ->
-        logger.error("Got exception while processing closePaymentV2")
+        EventDispatcherTracingUtils.withErrorMdc(exception) {
+          logger.error("Got exception while processing closePaymentV2")
+        }
 
         updateTransactionToClosureError(tx, exception)
       }
@@ -326,7 +328,6 @@ class ClosePaymentHelper(
           !refundTransaction && (statusCode == null || statusCode.is5xxServerError)
         EventDispatcherTracingUtils.withContextDetailsMdc(
           mapOf(
-            "transactionId" to tx.transactionId.value(),
             "statusCode" to statusCode?.value(),
             "errorDescription" to errorDescription,
             "refundTransaction" to refundTransaction.toString(),
@@ -362,8 +363,10 @@ class ClosePaymentHelper(
         tracingInfo = tracingInfo,
         throwable = exception)
       .publishOn(Schedulers.boundedElastic())
-      .doOnError(NoRetryAttemptsLeftException::class.java) {
-        logger.error("No more attempts left for closure retry")
+      .doOnError(NoRetryAttemptsLeftException::class.java) { error ->
+        EventDispatcherTracingUtils.withErrorMdc(error) {
+          logger.error("No more attempts left for closure retry")
+        }
       }
 
   private fun updateTransactionToClosureError(
@@ -656,7 +659,6 @@ class ClosePaymentHelper(
     val toBeRefunded = wasAuthorized && closureOutcome == TransactionClosureData.Outcome.KO
     EventDispatcherTracingUtils.withContextDetailsMdc(
       mapOf(
-        "transactionId" to transactionWithCompletedAuthorization.transactionId.value(),
         "closureOutcome" to closureOutcome.toString(),
         "wasAuthorized" to wasAuthorized.toString(),
         "toBeRefunded" to toBeRefunded.toString())) {

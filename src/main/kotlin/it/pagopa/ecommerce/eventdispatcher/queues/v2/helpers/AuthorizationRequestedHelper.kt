@@ -130,8 +130,10 @@ class AuthorizationRequestedHelper(
                   baseTransactionWithRequestedAuthorization.transactionActivatedData.userId!!),
                 buildUserLastPaymentMethodData(
                   baseTransactionWithRequestedAuthorization, authorizationRequestedDate))
-              .onErrorResume {
-                logger.error("Exception while saving last payment method used")
+              .onErrorResume { error ->
+                EventDispatcherTracingUtils.withErrorMdc(error) {
+                  logger.error("Exception while saving last payment method used")
+                }
                 mono {}
               }
               .thenReturn(baseTransactionWithRequestedAuthorization)

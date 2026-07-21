@@ -134,11 +134,15 @@ class TransactionNotificationsRetryQueueConsumer(
                 }
             }
             .then()
-            .onErrorResume {
-              logger.error("Got exception while retrying user receipt mail sending")
+            .onErrorResume { error ->
+              EventDispatcherTracingUtils.withErrorMdc(error) {
+                logger.error("Got exception while retrying user receipt mail sending")
+              }
               val v = notificationRetryService.enqueueRetryEvent(tx, retryCount, tracingInfo)
-              v.onErrorResume(NoRetryAttemptsLeftException::class.java) {
-                  logger.error("No more attempts left for user receipt send retry")
+              v.onErrorResume(NoRetryAttemptsLeftException::class.java) { retryError ->
+                  EventDispatcherTracingUtils.withErrorMdc(retryError) {
+                    logger.error("No more attempts left for user receipt send retry")
+                  }
                   BinaryData.fromObjectAsync(
                       queueEvent, strictSerializerProviderV2.createInstance())
                     .flatMap {
@@ -150,8 +154,10 @@ class TransactionNotificationsRetryQueueConsumer(
                           DeadLetterTracedQueueAsyncClient.ErrorCategory
                             .RETRY_EVENT_NO_ATTEMPTS_LEFT))
                     }
-                    .onErrorResume {
-                      logger.error("Error writing event to dead letter queue")
+                    .onErrorResume { deadLetterError ->
+                      EventDispatcherTracingUtils.withErrorMdc(deadLetterError) {
+                        logger.error("Error writing event to dead letter queue")
+                      }
                       Mono.empty()
                     }
                     .then(
