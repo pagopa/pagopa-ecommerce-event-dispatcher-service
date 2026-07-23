@@ -78,10 +78,7 @@ class TransactionsRefundQueueConsumer(
         .reduce(EmptyTransaction(), Transaction::applyEvent)
         .cast(BaseTransaction::class.java)
         .filter { it.status == TransactionStatusDto.REFUND_REQUESTED }
-        .switchIfEmpty {
-          logger.info("Transaction was not previously authorized. No refund needed")
-          Mono.empty()
-        }
+        .switchIfEmpty { Mono.empty() }
         .cast(BaseTransactionWithRefundRequested::class.java)
         .flatMap { tx ->
           refundTransaction(

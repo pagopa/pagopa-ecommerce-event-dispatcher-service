@@ -223,20 +223,7 @@ class ClosePaymentHelper(
                     reactivePaymentRequestInfoRedisTemplateWrapper
                       .deleteById(el.rptId().value())
                       .map { Pair(it, el) }
-                      .doOnNext { (outcome, paymentNotice) ->
-                        EventDispatcherTracingUtils.withContextDetailsMdc(
-                          mapOf(
-                            "rptId" to paymentNotice.rptId().value(),
-                            "cacheInvalidationSuccessful" to outcome.toString(),
-                            EventDispatcherTracingUtils.TracingEntry.DEPENDENCY.key to
-                              "eCommerce-redis"),
-                          mapOf(
-                            EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to
-                              "success"),
-                        ) {
-                          logger.info("Invalidate cache for payment notice")
-                        }
-                      }
+                      .doOnNext { (outcome, paymentNotice) -> }
                       .onErrorMap {
                         RuntimeException("Error deleting cache for rpt id: ${el.rptId.value()}", it)
                       }
@@ -299,13 +286,7 @@ class ClosePaymentHelper(
   ) =
     baseTransaction
       .publishOn(Schedulers.boundedElastic())
-      .flatMap { tx ->
-        EventDispatcherTracingUtils.withErrorMdc(exception) {
-          logger.error("Got exception while processing closePaymentV2")
-        }
-
-        updateTransactionToClosureError(tx, exception)
-      }
+      .flatMap { tx -> updateTransactionToClosureError(tx, exception) }
       .flatMap { tx ->
         val (statusCode, errorDescription, refundTransaction) =
           if (exception is ClosePaymentErrorResponseException) {
@@ -332,14 +313,6 @@ class ClosePaymentHelper(
         // during communication such as read timeout
         val enqueueRetryEvent =
           !refundTransaction && (statusCode == null || statusCode.is5xxServerError)
-        EventDispatcherTracingUtils.withContextDetailsMdc(
-          mapOf(
-            "statusCode" to statusCode?.value(),
-            "errorDescription" to errorDescription,
-            "refundTransaction" to refundTransaction.toString(),
-            "enqueueRetryEvent" to enqueueRetryEvent.toString())) {
-          logger.info("Handling Nodo close payment error response")
-        }
         if (refundTransaction) {
           requestRefundTransactionPipeline(tx, TransactionClosureData.Outcome.KO, tracingInfo)
             .then()

@@ -43,7 +43,7 @@ import reactor.kotlin.core.publisher.switchIfEmpty
 
 /**
  * This helper implements the business logic related to handling calling `getState` from NPG. In
- * particular, the [getAuthorizationState] method does the following:
+ * particular, the handler methods in this class do the following:
  * - checks for the transaction current status
  * - determines whether the transaction was requesting authorization via NPG
  * - calls NPG's `getSTate`
@@ -159,12 +159,6 @@ class AuthorizationRequestedHelper(
           performGetState || performOnlyPatch
         }
         .flatMap { tx ->
-          EventDispatcherTracingUtils.withContextDetailsMdc(
-            mapOf(
-              "authorizationRequestedAt" to authorizationRequestedDate.toString(),
-              "getStateThreshold" to getStateThresholdDate.toString())) {
-            logger.info("Authorization requested threshold evaluated")
-          }
           if (timeToWaitForGetState > Duration.ZERO) {
             // add here a fixed 10 sec delay to avoid condition when event is visible in queue
             // some millis before the effective ttl set here
@@ -227,14 +221,6 @@ class AuthorizationRequestedHelper(
             transactionStatus == TransactionStatusDto.AUTHORIZATION_REQUESTED && gatewayNpg
           val performOnlyPatch = !performGetState && authorizationCompleted
 
-          EventDispatcherTracingUtils.withContextDetailsMdc(
-            mapOf(
-              "transactionStatus" to transactionStatus.toString(),
-              "gateway" to gateway.toString(),
-              "performGetState" to performGetState.toString(),
-              "performOnlyPatch" to performOnlyPatch.toString())) {
-            logger.info("Authorization outcome waiting decision evaluated")
-          }
           performGetState || performOnlyPatch
         }
         .flatMap { tx -> updateTransactionStatus(tx, tracingInfo, retryCount) }
