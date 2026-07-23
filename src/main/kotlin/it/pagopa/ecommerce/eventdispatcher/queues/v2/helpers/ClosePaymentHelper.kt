@@ -227,7 +227,13 @@ class ClosePaymentHelper(
                         EventDispatcherTracingUtils.withContextDetailsMdc(
                           mapOf(
                             "rptId" to paymentNotice.rptId().value(),
-                            "cacheInvalidationSuccessful" to outcome.toString())) {
+                            "cacheInvalidationSuccessful" to outcome.toString(),
+                            EventDispatcherTracingUtils.TracingEntry.DEPENDENCY.key to
+                              "eCommerce-redis"),
+                          mapOf(
+                            EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to
+                              "success"),
+                        ) {
                           logger.info("Invalidate cache for payment notice")
                         }
                       }
