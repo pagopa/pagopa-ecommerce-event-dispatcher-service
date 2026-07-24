@@ -5,6 +5,7 @@ import com.azure.storage.queue.QueueAsyncClient
 import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.trace.Tracer
 import it.pagopa.ecommerce.commons.domain.v2.TransactionId
+import it.pagopa.ecommerce.eventdispatcher.mdcutilities.EventDispatcherTracingUtils
 import java.time.Duration
 import kotlinx.coroutines.reactor.mono
 import org.slf4j.LoggerFactory
@@ -69,11 +70,19 @@ class DeadLetterTracedQueueAsyncClient(
             Duration.ofSeconds(deadLetterTTLSeconds.toLong()), // timeToLive
           )
           .doOnSuccess { queueResponse ->
-            logger.info(
-              "Event: [$binaryData] successfully sent with visibility timeout: [${queueResponse.value.timeNextVisible}] ms to queue: [${deadLetterQueueAsyncClient.queueName}]")
+            EventDispatcherTracingUtils.withContextDetailsMdc(
+              mapOf(
+                "binaryData" to binaryData.toString(),
+                "timeNextVisible" to queueResponse.value.timeNextVisible,
+                "queueName" to deadLetterQueueAsyncClient.queueName)) {
+              logger.info("Event successfully sent to dead letter queue")
+            }
           }
           .doOnError { exception ->
-            logger.error("Error sending event: [$binaryData] to dead letter queue.", exception)
+            EventDispatcherTracingUtils.withContextDetailsMdc(
+              mapOf("binaryData" to binaryData.toString())) {
+              logger.error("Error sending event to dead letter queue.", exception)
+            }
           }
           .then(mono {})
       },
