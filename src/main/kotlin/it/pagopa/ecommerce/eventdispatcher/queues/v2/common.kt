@@ -1125,7 +1125,8 @@ fun <T> runTracedPipelineWithDeadLetterQueue(
           queueEvent.event.transactionId,
           queueEvent.event.eventCode,
           queueEvent.event.id,
-          reactorContext)
+          reactorContext,
+          spanName)
       }
 
   return tracingUtils

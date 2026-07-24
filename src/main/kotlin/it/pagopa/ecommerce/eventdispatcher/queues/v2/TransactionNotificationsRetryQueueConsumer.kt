@@ -174,7 +174,11 @@ class TransactionNotificationsRetryQueueConsumer(
         strictSerializerProviderV2)
       .contextWrite { context ->
         EventDispatcherTracingUtils.enrichContextForDispatcherEvent(
-          queueEvent.event.transactionId, queueEvent.event.eventCode, queueEvent.event.id, context)
+          queueEvent.event.transactionId,
+          queueEvent.event.eventCode,
+          queueEvent.event.id,
+          context,
+          "NOTIFICATION_RETRY")
       }
   }
 }

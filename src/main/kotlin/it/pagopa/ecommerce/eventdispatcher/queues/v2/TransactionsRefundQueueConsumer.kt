@@ -105,7 +105,7 @@ class TransactionsRefundQueueConsumer(
         strictSerializerProviderV2)
       .contextWrite { context ->
         EventDispatcherTracingUtils.enrichContextForDispatcherEvent(
-          e.event.transactionId, e.event.eventCode, e.event.id, context)
+          e.event.transactionId, e.event.eventCode, e.event.id, context, "REFUND")
       }
   }
 }

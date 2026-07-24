@@ -29,7 +29,8 @@ class TransactionAuthorizationRequestedQueueConsumer(
           parsedEvent.event.transactionId,
           parsedEvent.event.eventCode,
           parsedEvent.event.id,
-          context)
+          context,
+          "AUTHORIZATION_REQUESTED")
       }
   }
 }

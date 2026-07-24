@@ -130,7 +130,7 @@ class TransactionNotificationsQueueConsumer(
         strictSerializerProviderV2)
       .contextWrite { context ->
         EventDispatcherTracingUtils.enrichContextForDispatcherEvent(
-          event.transactionId, event.eventCode, event.id, context)
+          event.transactionId, event.eventCode, event.id, context, "NOTIFICATION_QUEUE")
       }
   }
 }

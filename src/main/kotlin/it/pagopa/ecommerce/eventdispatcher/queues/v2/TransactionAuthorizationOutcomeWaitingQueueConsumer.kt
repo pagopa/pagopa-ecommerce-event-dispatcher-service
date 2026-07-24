@@ -25,7 +25,8 @@ class TransactionAuthorizationOutcomeWaitingQueueConsumer(
           parsedEvent.event.transactionId,
           parsedEvent.event.eventCode,
           parsedEvent.event.id,
-          context)
+          context,
+          "AUTHORIZATION_OUTCOME_WAITING")
       }
   }
 }

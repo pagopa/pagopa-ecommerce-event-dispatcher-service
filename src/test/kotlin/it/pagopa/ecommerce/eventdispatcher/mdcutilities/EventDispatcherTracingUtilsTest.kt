@@ -69,20 +69,29 @@ class EventDispatcherTracingUtilsTest {
   fun `enrichContextForDispatcherEvent sets all keys when values are non-null`() {
     val ctx =
       EventDispatcherTracingUtils.enrichContextForDispatcherEvent(
-        "tx-123", "EVENT_CODE", "event-id-1", Context.empty())
+        "tx-123", "EVENT_CODE", "event-id-1", Context.empty(), "CLOSE_PAYMENT")
 
     assertEquals("tx-123", ctx.get(EventDispatcherTracingUtils.TracingEntry.CTX_TRANSACTION_ID.key))
     assertEquals("EVENT_CODE", ctx.get(EventDispatcherTracingUtils.TracingEntry.CTX_EVENT_CODE.key))
     assertEquals("event-id-1", ctx.get(EventDispatcherTracingUtils.TracingEntry.CTX_EVENT_ID.key))
     assertEquals(
-      "PROCESS_DISPATCHER_EVENT",
-      ctx.get(EventDispatcherTracingUtils.TracingEntry.EVENT_ACTION.key))
+      "CLOSE_PAYMENT", ctx.get(EventDispatcherTracingUtils.TracingEntry.EVENT_ACTION.key))
+  }
+
+  @Test
+  fun `enrichContextForDispatcherEvent sets custom eventAction`() {
+    val ctx =
+      EventDispatcherTracingUtils.enrichContextForDispatcherEvent(
+        "tx-123", "EVENT_CODE", "event-id-1", Context.empty(), "REFUND")
+
+    assertEquals("REFUND", ctx.get(EventDispatcherTracingUtils.TracingEntry.EVENT_ACTION.key))
   }
 
   @Test
   fun `enrichContextForDispatcherEvent uses default values when inputs are null`() {
     val ctx =
-      EventDispatcherTracingUtils.enrichContextForDispatcherEvent(null, null, null, Context.empty())
+      EventDispatcherTracingUtils.enrichContextForDispatcherEvent(
+        null, null, null, Context.empty(), null)
 
     assertEquals(
       EventDispatcherTracingUtils.TracingEntry.CTX_TRANSACTION_ID.defaultValue,
@@ -93,13 +102,17 @@ class EventDispatcherTracingUtilsTest {
     assertEquals(
       EventDispatcherTracingUtils.TracingEntry.CTX_EVENT_ID.defaultValue,
       ctx.get(EventDispatcherTracingUtils.TracingEntry.CTX_EVENT_ID.key))
+    assertEquals(
+      EventDispatcherTracingUtils.TracingEntry.EVENT_ACTION.defaultValue,
+      ctx.get(EventDispatcherTracingUtils.TracingEntry.EVENT_ACTION.key))
   }
 
   @Test
   fun `enrichContextForDispatcherEvent preserves existing context entries`() {
     val existing = Context.of("pre-existing-key", "pre-existing-value")
     val ctx =
-      EventDispatcherTracingUtils.enrichContextForDispatcherEvent("tx-id", "code", "id", existing)
+      EventDispatcherTracingUtils.enrichContextForDispatcherEvent(
+        "tx-id", "code", "id", existing, "EXPIRATION")
     assertEquals("pre-existing-value", ctx.get<String>("pre-existing-key"))
   }
 

@@ -41,7 +41,7 @@ class TransactionClosePaymentRetryQueueConsumer(
       .closePayment(closePaymentEvent, checkPointer, emptyTransaction)
       .contextWrite { context ->
         EventDispatcherTracingUtils.enrichContextForDispatcherEvent(
-          event.transactionId, event.eventCode, event.id, context)
+          event.transactionId, event.eventCode, event.id, context, "CLOSE_PAYMENT_RETRY")
       }
   }
 }

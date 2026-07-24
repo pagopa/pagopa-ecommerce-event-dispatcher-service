@@ -66,7 +66,8 @@ public class EventDispatcherTracingUtils {
                                                           String transactionId,
                                                           String eventCode,
                                                           String eventId,
-                                                          Context reactorContext
+                                                          Context reactorContext,
+                                                          String eventAction
     ) {
         return reactorContext
                 .put(
@@ -87,7 +88,12 @@ public class EventDispatcherTracingUtils {
                                 ? eventId
                                 : TracingEntry.CTX_EVENT_ID.getDefaultValue()
                 )
-                .put(TracingEntry.EVENT_ACTION.getKey(), "PROCESS_DISPATCHER_EVENT");
+                .put(
+                        TracingEntry.EVENT_ACTION.getKey(),
+                        eventAction != null
+                                ? eventAction
+                                : TracingEntry.EVENT_ACTION.getDefaultValue()
+                );
     }
 
     /**
