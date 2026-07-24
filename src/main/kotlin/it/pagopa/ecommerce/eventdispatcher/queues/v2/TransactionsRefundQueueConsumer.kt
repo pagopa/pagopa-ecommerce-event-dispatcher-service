@@ -27,7 +27,6 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
-import reactor.kotlin.core.publisher.switchIfEmpty
 
 /**
  * Event consumer for transactions to refund. These events are input in the event queue only when a
@@ -78,7 +77,6 @@ class TransactionsRefundQueueConsumer(
         .reduce(EmptyTransaction(), Transaction::applyEvent)
         .cast(BaseTransaction::class.java)
         .filter { it.status == TransactionStatusDto.REFUND_REQUESTED }
-        .switchIfEmpty { Mono.empty() }
         .cast(BaseTransactionWithRefundRequested::class.java)
         .flatMap { tx ->
           refundTransaction(

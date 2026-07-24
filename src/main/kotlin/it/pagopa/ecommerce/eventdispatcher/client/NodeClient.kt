@@ -2,6 +2,7 @@ package it.pagopa.ecommerce.eventdispatcher.client
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import it.pagopa.ecommerce.eventdispatcher.exceptions.ClosePaymentErrorResponseException
+import it.pagopa.ecommerce.eventdispatcher.mdcutilities.EventDispatcherTracingUtils
 import it.pagopa.generated.ecommerce.nodo.v2.dto.*
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -72,16 +73,17 @@ class NodeClient(
         })
       .bodyToMono(ClosePaymentResponseDto::class.java)
       .doOnSuccess { closePaymentResponse: ClosePaymentResponseDto ->
-        logger.info(
-          "Received closePaymentV2 response for transactionId [{}]: paymentTokens {} - outcome: {}",
-          transactionId,
-          paymentTokens,
-          closePaymentResponse.outcome)
+        EventDispatcherTracingUtils.withContextDetailsMdc(
+          mapOf("paymentTokens" to paymentTokens),
+          mapOf(
+            EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to
+              closePaymentResponse.outcome)) { logger.info("Received closePaymentV2 Response") }
       }
       .onErrorMap { exception ->
-        logger.error(
-          "Received closePaymentV2 Response Status Error for transactionId [$transactionId]",
-          exception)
+        EventDispatcherTracingUtils.withErrorMdc(
+          exception, mapOf(EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to "error")) {
+          logger.error("Received closePaymentV2 Response Status Error")
+        }
         if (exception is ResponseStatusException) {
           ClosePaymentErrorResponseException(
             exception.statusCode,

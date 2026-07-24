@@ -22,7 +22,6 @@ import it.pagopa.ecommerce.commons.utils.UpdateTransactionStatusTracerUtils.Upda
 import it.pagopa.ecommerce.commons.utils.UpdateTransactionStatusTracerUtils.UserCancelClosePaymentNodoStatusUpdate
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.ClosePaymentErrorResponseException
-import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
 import it.pagopa.ecommerce.eventdispatcher.mdcutilities.EventDispatcherTracingUtils
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.ClosePaymentEvent.Companion.exceptionToClosureErrorData
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.reduceEvents
@@ -157,6 +156,7 @@ class ClosePaymentHelper(
   @Autowired private val transactionTracing: TransactionTracing
 ) {
   val logger: Logger = LoggerFactory.getLogger(ClosePaymentHelper::class.java)
+  val mongoDependency = "eCommerce-mongodb"
 
   val closureRequestedValidStatuses =
     setOf(
@@ -178,6 +178,13 @@ class ClosePaymentHelper(
         .findByTransactionIdOrderByCreationDateAsc(transactionId)
         .map { it as TransactionEvent<Any> }
         .cache()
+
+    EventDispatcherTracingUtils.withContextDetailsMdc(
+      mapOf(EventDispatcherTracingUtils.TracingEntry.DEPENDENCY.key to mongoDependency),
+      mapOf(EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success"),
+    ) {
+      logger.info("Successfully retrieved events for closePayment")
+    }
 
     val baseTransaction = reduceEvents(events, emptyTransaction)
 
@@ -222,8 +229,17 @@ class ClosePaymentHelper(
                   .flatMap { el ->
                     reactivePaymentRequestInfoRedisTemplateWrapper
                       .deleteById(el.rptId().value())
+                      .doOnNext {
+                        EventDispatcherTracingUtils.withContextDetailsMdc(
+                          mapOf(
+                            "rptId" to el.rptId().value(),
+                            EventDispatcherTracingUtils.TracingEntry.DEPENDENCY.key to
+                              "eCommerce-redis"),
+                          mapOf(
+                            EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to
+                              "success")) { logger.info("Deleted payment request info cache") }
+                      }
                       .map { Pair(it, el) }
-                      .doOnNext { (outcome, paymentNotice) -> }
                       .onErrorMap {
                         RuntimeException("Error deleting cache for rpt id: ${el.rptId.value()}", it)
                       }
@@ -234,10 +250,21 @@ class ClosePaymentHelper(
             }
             .flatMap { closePaymentResponse ->
               updateTransactionStatus(
-                transaction = tx,
-                closePaymentResponseDto = closePaymentResponse,
-                closePaymentTransactionData = closePaymentTransactionData,
-                events = events)
+                  transaction = tx,
+                  closePaymentResponseDto = closePaymentResponse,
+                  closePaymentTransactionData = closePaymentTransactionData,
+                  events = events)
+                .doOnNext { closePaymentOutcomeEvent ->
+                  val eventCode = closePaymentOutcomeEvent.fold({ it.eventCode }, { it.eventCode })
+                  EventDispatcherTracingUtils.withContextDetailsMdc(
+                    mapOf(
+                      "eventCode" to eventCode,
+                      EventDispatcherTracingUtils.TracingEntry.DEPENDENCY.key to mongoDependency),
+                    mapOf(
+                      EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success")) {
+                    logger.info("Inserted event")
+                  }
+                }
             }
             /*
              * The refund process is started only iff the previous transaction was authorized
@@ -342,11 +369,6 @@ class ClosePaymentHelper(
         tracingInfo = tracingInfo,
         throwable = exception)
       .publishOn(Schedulers.boundedElastic())
-      .doOnError(NoRetryAttemptsLeftException::class.java) { error ->
-        EventDispatcherTracingUtils.withErrorMdc(error) {
-          logger.error("No more attempts left for closure retry")
-        }
-      }
 
   private fun updateTransactionToClosureError(
     baseTransaction: BaseTransaction,
@@ -358,18 +380,28 @@ class ClosePaymentHelper(
 
     return transactionClosureErrorEventStoreRepository
       .insert(event)
-      .flatMap {
+      .flatMap { insertedEvent ->
         TransactionsViewProjectionHandler.updateTransactionView(
-          transactionId = baseTransaction.transactionId,
-          transactionsViewRepository = transactionsViewRepository,
-          viewUpdater = { trx ->
-            trx.apply {
-              status = TransactionStatusDto.CLOSURE_ERROR
-              this.closureErrorData = closureErrorData
-              lastProcessedEventAt =
-                ZonedDateTime.parse(event.creationDate).toInstant().toEpochMilli()
-            }
-          })
+            transactionId = baseTransaction.transactionId,
+            transactionsViewRepository = transactionsViewRepository,
+            viewUpdater = { trx ->
+              trx.apply {
+                status = TransactionStatusDto.CLOSURE_ERROR
+                this.closureErrorData = closureErrorData
+                lastProcessedEventAt =
+                  ZonedDateTime.parse(event.creationDate).toInstant().toEpochMilli()
+              }
+            })
+          .thenReturn(insertedEvent)
+      }
+      .doOnSuccess { insertedEvent ->
+        EventDispatcherTracingUtils.withContextDetailsMdc(
+          mapOf(
+            "eventCode" to insertedEvent.eventCode,
+            EventDispatcherTracingUtils.TracingEntry.DEPENDENCY.key to mongoDependency),
+          mapOf(EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success")) {
+          logger.info("Inserted event ")
+        }
       }
       .thenReturn(
         (baseTransaction as it.pagopa.ecommerce.commons.domain.v2.Transaction).applyEvent(event)
@@ -636,15 +668,17 @@ class ClosePaymentHelper(
           Pair(wasAuthorized, it)
         })
     val toBeRefunded = wasAuthorized && closureOutcome == TransactionClosureData.Outcome.KO
-    EventDispatcherTracingUtils.withContextDetailsMdc(
-      mapOf(
-        "closureOutcome" to closureOutcome.toString(),
-        "wasAuthorized" to wasAuthorized.toString(),
-        "toBeRefunded" to toBeRefunded.toString())) {
-      logger.info("ClosePayment refund decision computed")
-    }
 
     return Mono.just(transactionWithCompletedAuthorization)
+      .doOnNext {
+        EventDispatcherTracingUtils.withContextDetailsMdc(
+          mapOf(
+            "closureOutcome" to closureOutcome.toString(),
+            "wasAuthorized" to wasAuthorized.toString(),
+            "toBeRefunded" to toBeRefunded.toString())) {
+          logger.debug("ClosePayment refund decision computed")
+        }
+      }
       .filter { toBeRefunded }
       .flatMap {
         requestRefundTransaction(
