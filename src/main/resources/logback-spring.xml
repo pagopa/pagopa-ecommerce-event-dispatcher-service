@@ -6,7 +6,6 @@
             <serviceName>${ECS_SERVICE_NAME:-undefined}</serviceName>
             <serviceVersion>${ECS_SERVICE_VERSION}</serviceVersion>
             <serviceEnvironment>${ECS_SERVICE_ENVIRONMENT:-undefined}</serviceEnvironment>
-            <includeMdc>true</includeMdc>
         </encoder>
     </appender>
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">

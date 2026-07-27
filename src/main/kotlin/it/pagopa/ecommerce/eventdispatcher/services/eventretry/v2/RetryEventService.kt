@@ -127,13 +127,8 @@ abstract class RetryEventService<E>(
           mapOf(
             "eventCode" to event.eventCode,
             "visibilityTimeout" to it.value.timeNextVisible,
-            "queueName" to queueAsyncClient.queueName),
-          mapOf(EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success")) {
-          logger.info(
-            "Retry event successfully sent to queue - eventCode: {}, visibilityTimeout: {}, queueName: {}",
-            event.eventCode,
-            it.value.timeNextVisible,
-            queueAsyncClient.queueName)
+            "queueName" to queueAsyncClient.queueName)) {
+          logger.info("Retry event successfully sent to queue")
         }
       }
       .then()
