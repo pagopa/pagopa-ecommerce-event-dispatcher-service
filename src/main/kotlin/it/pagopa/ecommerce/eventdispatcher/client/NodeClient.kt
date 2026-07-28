@@ -25,20 +25,6 @@ class NodeClient(
   private val logger = LoggerFactory.getLogger(javaClass)
 
   fun closePayment(closePaymentRequest: ClosePaymentRequestV2Dto): Mono<ClosePaymentResponseDto> {
-    val transactionId =
-      when (closePaymentRequest) {
-        is CardClosePaymentRequestV2Dto -> closePaymentRequest.transactionId
-        is RedirectClosePaymentRequestV2Dto -> closePaymentRequest.transactionId
-        is BancomatPayClosePaymentRequestV2Dto -> closePaymentRequest.transactionId
-        is MyBankClosePaymentRequestV2Dto -> closePaymentRequest.transactionId
-        is PayPalClosePaymentRequestV2Dto -> closePaymentRequest.transactionId
-        is SatispayClosePaymentRequestV2Dto -> closePaymentRequest.transactionId
-        is ApplePayClosePaymentRequestV2Dto -> closePaymentRequest.transactionId
-        is GooglePayClosePaymentRequestV2Dto -> closePaymentRequest.transactionId
-        else ->
-          throw IllegalArgumentException(
-            "Unhandled `ClosePaymentRequestV2Dto` implementation: ${closePaymentRequest.javaClass}")
-      }
 
     val paymentTokens =
       when (closePaymentRequest) {
@@ -74,10 +60,13 @@ class NodeClient(
       .bodyToMono(ClosePaymentResponseDto::class.java)
       .doOnSuccess { closePaymentResponse: ClosePaymentResponseDto ->
         EventDispatcherTracingUtils.withContextDetailsMdc(
-          mapOf("paymentTokens" to paymentTokens),
+          null,
           mapOf(
             EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to
-              closePaymentResponse.outcome)) { logger.info("Received closePaymentV2 Response") }
+              closePaymentResponse.outcome,
+            EventDispatcherTracingUtils.TracingEntry.CTX_PAYMENT_TOKENS.key to paymentTokens)) {
+          logger.info("Received closePaymentV2 Response")
+        }
       }
       .onErrorMap { exception ->
         EventDispatcherTracingUtils.withErrorMdc(

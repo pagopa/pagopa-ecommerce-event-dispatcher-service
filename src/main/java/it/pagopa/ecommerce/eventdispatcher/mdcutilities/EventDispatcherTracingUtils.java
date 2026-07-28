@@ -18,6 +18,7 @@ import reactor.util.context.Context;
 public class EventDispatcherTracingUtils {
 
     private static final String CTX_DETAILS_KEY = "ctx.details";
+    public static final String MONGO_DEPENDENCY_KEY = "eCommerce-mongodb";
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
             .registerModule(new JavaTimeModule())
             .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
@@ -30,6 +31,8 @@ public class EventDispatcherTracingUtils {
         CTX_TRANSACTION_ID("ctx.transaction.id", "{transactionId-not-found}", true),
         CTX_EVENT_CODE("ctx.event.code", "{eventCode-not-found}", true),
         CTX_EVENT_ID("ctx.event.id", "{eventId-not-found}", true),
+        CTX_RPT_ID("ctx.rpt.id", "{rptId-not-found}", false),
+        CTX_PAYMENT_TOKENS("ctx.payment.tokens", "{paymentTokens-not-found}", false),
         EVENT_ACTION("event.action", "{eventAction-not-found}", true),
         EVENT_OUTCOME("event.outcome", "{eventOutcome-not-found}", false),
         DEPENDENCY("dependency", "{dependency-not-found}", false),

@@ -156,7 +156,6 @@ class ClosePaymentHelper(
   @Autowired private val transactionTracing: TransactionTracing
 ) {
   val logger: Logger = LoggerFactory.getLogger(ClosePaymentHelper::class.java)
-  val mongoDependency = "eCommerce-mongodb"
 
   val closureRequestedValidStatuses =
     setOf(
@@ -179,21 +178,21 @@ class ClosePaymentHelper(
         .map { it as TransactionEvent<Any> }
         .cache()
 
-    
     val baseTransaction = reduceEvents(events, emptyTransaction)
 
     val closurePipeline =
       events
-      .collectList()
-      .doOnNext { 
-              EventDispatcherTracingUtils.withContextDetailsMdc(
-              mapOf(EventDispatcherTracingUtils.TracingEntry.DEPENDENCY.key to mongoDependency),
-              mapOf(EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success"),
-          ) {
-              logger.info("Successfully retrieved events for closePayment")
-            }
-          }
         .collectList()
+        .doOnNext {
+          EventDispatcherTracingUtils.withContextDetailsMdc(
+            mapOf(
+              EventDispatcherTracingUtils.TracingEntry.DEPENDENCY.key to
+                EventDispatcherTracingUtils.MONGO_DEPENDENCY_KEY),
+            mapOf(EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success"),
+          ) {
+            logger.info("Successfully retrieved events for closePayment")
+          }
+        }
         .filterWhen { eventList -> mono { !(eventList.any { it is BaseTransactionClosureEvent }) } }
         .flatMap { baseTransaction }
         .flatMap {
@@ -235,12 +234,14 @@ class ClosePaymentHelper(
                       .doOnNext {
                         EventDispatcherTracingUtils.withContextDetailsMdc(
                           mapOf(
-                            "rptId" to el.rptId().value(),
                             EventDispatcherTracingUtils.TracingEntry.DEPENDENCY.key to
                               "eCommerce-redis"),
                           mapOf(
-                            EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to
-                              "success")) { logger.info("Deleted payment request info cache") }
+                            EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success",
+                            EventDispatcherTracingUtils.TracingEntry.CTX_RPT_ID.key to
+                              el.rptId().value())) {
+                          logger.info("Deleted payment request info cache")
+                        }
                       }
                       .map { Pair(it, el) }
                       .onErrorMap {
@@ -262,7 +263,8 @@ class ClosePaymentHelper(
                   EventDispatcherTracingUtils.withContextDetailsMdc(
                     mapOf(
                       "event_code" to eventCode,
-                      EventDispatcherTracingUtils.TracingEntry.DEPENDENCY.key to mongoDependency),
+                      EventDispatcherTracingUtils.TracingEntry.DEPENDENCY.key to
+                        EventDispatcherTracingUtils.MONGO_DEPENDENCY_KEY),
                     mapOf(
                       EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success")) {
                     logger.info("Saved domain event")
@@ -401,9 +403,10 @@ class ClosePaymentHelper(
         EventDispatcherTracingUtils.withContextDetailsMdc(
           mapOf(
             "event_code" to insertedEvent.eventCode,
-            EventDispatcherTracingUtils.TracingEntry.DEPENDENCY.key to mongoDependency),
+            EventDispatcherTracingUtils.TracingEntry.DEPENDENCY.key to
+              EventDispatcherTracingUtils.MONGO_DEPENDENCY_KEY),
           mapOf(EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success")) {
-          logger.info("Saved domain event")
+          logger.info("Saved domain event ")
         }
       }
       .thenReturn(
@@ -674,7 +677,7 @@ class ClosePaymentHelper(
 
     return Mono.just(transactionWithCompletedAuthorization)
       .doOnNext {
-      if (logger.isDebugEnabled) {
+        if (logger.isDebugEnabled) {
           EventDispatcherTracingUtils.withContextDetailsMdc(
             mapOf(
               "closureOutcome" to closureOutcome.toString(),

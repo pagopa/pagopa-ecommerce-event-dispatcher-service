@@ -1090,44 +1090,32 @@ fun <T> runTracedPipelineWithDeadLetterQueue(
   val nullTransactionId = "00000000000000000000000000000000" // null event ID used in warmup phase
 
   val deadLetterPipeline =
-    checkPointer
-      .success()
-      .then(pipeline)
-      .then(Mono.just(Unit))
-      .onErrorResume { pipelineException ->
-        val errorCategory: DeadLetterTracedQueueAsyncClient.ErrorCategory =
-          when (pipelineException) {
-            is NoRetryAttemptsLeftException ->
-              DeadLetterTracedQueueAsyncClient.ErrorCategory.RETRY_EVENT_NO_ATTEMPTS_LEFT
-            is RefundError ->
-              DeadLetterTracedQueueAsyncClient.ErrorCategory.REFUND_MANUAL_CHECK_REQUIRED
-            else -> DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR
-          }
-        EventDispatcherTracingUtils.withContextDetailsMdc(
-          mapOf("errorCategory" to errorCategory.toString())) {
-          logger.error("Exception processing event")
+    checkPointer.success().then(pipeline).then(Mono.just(Unit)).onErrorResume { pipelineException ->
+      val errorCategory: DeadLetterTracedQueueAsyncClient.ErrorCategory =
+        when (pipelineException) {
+          is NoRetryAttemptsLeftException ->
+            DeadLetterTracedQueueAsyncClient.ErrorCategory.RETRY_EVENT_NO_ATTEMPTS_LEFT
+          is RefundError ->
+            DeadLetterTracedQueueAsyncClient.ErrorCategory.REFUND_MANUAL_CHECK_REQUIRED
+          else -> DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR
         }
-        if (queueEvent.event.transactionId != nullTransactionId) {
-          deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(
-            binaryData =
-              BinaryData.fromObject(queueEvent, jsonSerializerProviderV2.createInstance()),
-            errorContext =
-              DeadLetterTracedQueueAsyncClient.ErrorContext(
-                transactionId = TransactionId(queueEvent.event.transactionId),
-                transactionEventCode = queueEvent.event.eventCode,
-                errorCategory = errorCategory))
-        } else {
-          Mono.just(Unit)
-        }
+      EventDispatcherTracingUtils.withContextDetailsMdc(
+        mapOf(
+          "errorCategory" to errorCategory.toString(), "pipelineException" to pipelineException)) {
+        logger.error("Exception processing event")
       }
-      .contextWrite { reactorContext ->
-        EventDispatcherTracingUtils.enrichContextForDispatcherEvent(
-          queueEvent.event.transactionId,
-          queueEvent.event.eventCode,
-          queueEvent.event.id,
-          reactorContext,
-          spanName)
+      if (queueEvent.event.transactionId != nullTransactionId) {
+        deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(
+          binaryData = BinaryData.fromObject(queueEvent, jsonSerializerProviderV2.createInstance()),
+          errorContext =
+            DeadLetterTracedQueueAsyncClient.ErrorContext(
+              transactionId = TransactionId(queueEvent.event.transactionId),
+              transactionEventCode = queueEvent.event.eventCode,
+              errorCategory = errorCategory))
+      } else {
+        Mono.just(Unit)
       }
+    }
 
   return tracingUtils
     .traceMonoWithRemoteSpan(queueEvent.tracingInfo, spanName, deadLetterPipeline)
