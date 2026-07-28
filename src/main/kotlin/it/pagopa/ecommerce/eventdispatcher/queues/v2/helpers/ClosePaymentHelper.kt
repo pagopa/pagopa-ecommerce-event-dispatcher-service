@@ -674,12 +674,14 @@ class ClosePaymentHelper(
 
     return Mono.just(transactionWithCompletedAuthorization)
       .doOnNext {
-        EventDispatcherTracingUtils.withContextDetailsMdc(
-          mapOf(
-            "closureOutcome" to closureOutcome.toString(),
-            "wasAuthorized" to wasAuthorized.toString(),
-            "toBeRefunded" to toBeRefunded.toString())) {
-          logger.debug("ClosePayment refund decision computed")
+      if (logger.isDebugEnabled) {
+          EventDispatcherTracingUtils.withContextDetailsMdc(
+            mapOf(
+              "closureOutcome" to closureOutcome.toString(),
+              "wasAuthorized" to wasAuthorized.toString(),
+              "toBeRefunded" to toBeRefunded.toString())) {
+            logger.debug("ClosePayment refund decision computed")
+          }
         }
       }
       .filter { toBeRefunded }
