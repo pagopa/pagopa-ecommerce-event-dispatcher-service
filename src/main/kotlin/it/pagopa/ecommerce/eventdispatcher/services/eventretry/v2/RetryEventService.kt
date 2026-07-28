@@ -70,7 +70,7 @@ abstract class RetryEventService<E>(
       .doOnNext { storedEvent ->
         EventDispatcherTracingUtils.withContextDetailsMdc(
           mapOf(
-            "eventCode" to storedEvent.eventCode,
+            "event_code" to storedEvent.eventCode,
             EventDispatcherTracingUtils.TracingEntry.DEPENDENCY.key to "eCommerce-mongodb"),
           mapOf(EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success")) {
           logger.info("Saved domain event")
