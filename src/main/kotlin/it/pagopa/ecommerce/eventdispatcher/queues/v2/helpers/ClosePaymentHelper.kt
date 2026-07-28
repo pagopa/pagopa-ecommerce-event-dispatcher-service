@@ -265,7 +265,7 @@ class ClosePaymentHelper(
                       EventDispatcherTracingUtils.TracingEntry.DEPENDENCY.key to mongoDependency),
                     mapOf(
                       EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success")) {
-                    logger.info("Inserted event")
+                    logger.info("Saved domain event")
                   }
                 }
             }
