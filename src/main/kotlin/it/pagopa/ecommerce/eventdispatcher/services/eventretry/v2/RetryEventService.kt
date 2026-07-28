@@ -125,9 +125,9 @@ abstract class RetryEventService<E>(
       .doOnNext {
         EventDispatcherTracingUtils.withContextDetailsMdc(
           mapOf(
-            "eventCode" to event.eventCode,
-            "visibilityTimeout" to it.value.timeNextVisible,
-            "queueName" to queueAsyncClient.queueName)) {
+            "event_code" to event.eventCode,
+            "visibility_timeout" to it.value.timeNextVisible,
+            "queue_name" to queueAsyncClient.queueName)) {
           logger.info("Retry event successfully sent to queue")
         }
       }
