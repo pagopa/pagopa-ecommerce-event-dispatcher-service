@@ -245,7 +245,8 @@ class ClosePaymentHelper(
                       }
                       .map { Pair(it, el) }
                       .onErrorMap {
-                        RuntimeException("Error deleting cache for rpt id: ${el.rptId.value()}", it)
+                        RuntimeException(
+                          "Error deleting cache for rpt id: ${el.rptId().value()}", it)
                       }
                   }
                   .subscribeOn(Schedulers.boundedElastic())
