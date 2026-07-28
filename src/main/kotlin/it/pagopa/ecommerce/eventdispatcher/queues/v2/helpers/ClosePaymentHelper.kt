@@ -261,7 +261,7 @@ class ClosePaymentHelper(
                   val eventCode = closePaymentOutcomeEvent.fold({ it.eventCode }, { it.eventCode })
                   EventDispatcherTracingUtils.withContextDetailsMdc(
                     mapOf(
-                      "eventCode" to eventCode,
+                      "event_code" to eventCode,
                       EventDispatcherTracingUtils.TracingEntry.DEPENDENCY.key to mongoDependency),
                     mapOf(
                       EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success")) {
