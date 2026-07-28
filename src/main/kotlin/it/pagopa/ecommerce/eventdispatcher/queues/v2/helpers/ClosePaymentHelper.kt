@@ -190,6 +190,15 @@ class ClosePaymentHelper(
 
     val closurePipeline =
       events
+      .collectList()
+      .doOnNext { 
+              EventDispatcherTracingUtils.withContextDetailsMdc(
+              mapOf(EventDispatcherTracingUtils.TracingEntry.DEPENDENCY.key to mongoDependency),
+              mapOf(EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success"),
+          ) {
+              logger.info("Successfully retrieved events for closePayment")
+            }
+          }
         .collectList()
         .filterWhen { eventList -> mono { !(eventList.any { it is BaseTransactionClosureEvent }) } }
         .flatMap { baseTransaction }
