@@ -400,7 +400,7 @@ class ClosePaymentHelper(
       .doOnSuccess { insertedEvent ->
         EventDispatcherTracingUtils.withContextDetailsMdc(
           mapOf(
-            "eventCode" to insertedEvent.eventCode,
+            "event_code" to insertedEvent.eventCode,
             EventDispatcherTracingUtils.TracingEntry.DEPENDENCY.key to mongoDependency),
           mapOf(EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success")) {
           logger.info("Inserted event ")
