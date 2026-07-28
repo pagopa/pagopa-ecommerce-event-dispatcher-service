@@ -179,13 +179,7 @@ class ClosePaymentHelper(
         .map { it as TransactionEvent<Any> }
         .cache()
 
-    EventDispatcherTracingUtils.withContextDetailsMdc(
-      mapOf(EventDispatcherTracingUtils.TracingEntry.DEPENDENCY.key to mongoDependency),
-      mapOf(EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success"),
-    ) {
-      logger.info("Successfully retrieved events for closePayment")
-    }
-
+    
     val baseTransaction = reduceEvents(events, emptyTransaction)
 
     val closurePipeline =
