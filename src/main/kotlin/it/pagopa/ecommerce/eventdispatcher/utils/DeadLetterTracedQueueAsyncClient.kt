@@ -72,9 +72,9 @@ class DeadLetterTracedQueueAsyncClient(
           .doOnSuccess { queueResponse ->
             EventDispatcherTracingUtils.withContextDetailsMdc(
               mapOf(
-                "binaryData" to binaryData.toString(),
-                "timeNextVisible" to queueResponse.value.timeNextVisible,
-                "queueName" to deadLetterQueueAsyncClient.queueName)) {
+                "binary_data" to binaryData.toString(),
+                "time_next_visible" to queueResponse.value.timeNextVisible,
+                "queue_name" to deadLetterQueueAsyncClient.queueName)) {
               logger.info("Event successfully sent to dead letter queue")
             }
           }
