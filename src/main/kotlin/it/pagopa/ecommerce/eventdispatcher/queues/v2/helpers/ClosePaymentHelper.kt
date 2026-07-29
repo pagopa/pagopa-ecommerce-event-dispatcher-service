@@ -680,9 +680,9 @@ class ClosePaymentHelper(
         if (logger.isDebugEnabled) {
           EventDispatcherTracingUtils.withContextDetailsMdc(
             mapOf(
-              "closureOutcome" to closureOutcome.toString(),
-              "wasAuthorized" to wasAuthorized.toString(),
-              "toBeRefunded" to toBeRefunded.toString())) {
+              "closure_outcome" to closureOutcome.toString(),
+              "was_authorized" to wasAuthorized.toString(),
+              "to_be_refunded" to toBeRefunded.toString())) {
             logger.debug("ClosePayment refund decision computed")
           }
         }
