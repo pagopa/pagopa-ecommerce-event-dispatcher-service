@@ -80,7 +80,7 @@ class DeadLetterTracedQueueAsyncClient(
           }
           .doOnError { exception ->
             EventDispatcherTracingUtils.withContextDetailsMdc(
-              mapOf("binaryData" to binaryData.toString())) {
+              mapOf("binary_data" to binaryData.toString())) {
               logger.error("Error sending event to dead letter queue.", exception)
             }
           }
