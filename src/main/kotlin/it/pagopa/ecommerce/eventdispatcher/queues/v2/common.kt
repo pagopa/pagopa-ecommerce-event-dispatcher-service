@@ -84,10 +84,9 @@ fun updateTransactionToExpired(
           })
         .thenReturn(updatedTransaction)
     }
-    .doOnSuccess { logger.info("Transaction expired for transaction ${it.transactionId.value()}") }
-    .doOnError {
-      logger.error(
-        "Transaction expired error for transaction ${transaction.transactionId.value()} : ${it.message}")
+    .doOnSuccess { logger.info("Transaction expired") }
+    .doOnError { error ->
+      EventDispatcherTracingUtils.withErrorMdc(error) { logger.error("Transaction expired error") }
     }
 }
 
@@ -1227,11 +1226,6 @@ fun <T> computeRefundProcessingRequestDelay(
       } else {
         Duration.between(now, refundNotBefore)
       }
-    logger.info(
-      "Transaction with id: [{}], authorization requested at: [{}], refund to be processed at: [{}]",
-      tx.transactionId,
-      authRequestedDate,
-      refundNotBefore)
     refundTimeout
   }
 }
