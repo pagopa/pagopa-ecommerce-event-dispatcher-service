@@ -386,24 +386,23 @@ class ClosePaymentHelper(
 
     return transactionClosureErrorEventStoreRepository
       .insert(event)
-      .flatMap { insertedEvent ->
+      .flatMap {
         TransactionsViewProjectionHandler.updateTransactionView(
-            transactionId = baseTransaction.transactionId,
-            transactionsViewRepository = transactionsViewRepository,
-            viewUpdater = { trx ->
-              trx.apply {
-                status = TransactionStatusDto.CLOSURE_ERROR
-                this.closureErrorData = closureErrorData
-                lastProcessedEventAt =
-                  ZonedDateTime.parse(event.creationDate).toInstant().toEpochMilli()
-              }
-            })
-          .thenReturn(insertedEvent)
+          transactionId = baseTransaction.transactionId,
+          transactionsViewRepository = transactionsViewRepository,
+          viewUpdater = { trx ->
+            trx.apply {
+              status = TransactionStatusDto.CLOSURE_ERROR
+              this.closureErrorData = closureErrorData
+              lastProcessedEventAt =
+                ZonedDateTime.parse(event.creationDate).toInstant().toEpochMilli()
+            }
+          })
       }
-      .doOnSuccess { insertedEvent ->
+      .doOnSuccess {
         EventDispatcherTracingUtils.withContextDetailsMdc(
           mapOf(
-            "event_code" to insertedEvent.eventCode,
+            "event_code" to event.eventCode,
             EventDispatcherTracingUtils.TracingEntry.DEPENDENCY.key to
               EventDispatcherTracingUtils.MONGO_DEPENDENCY_KEY),
           mapOf(EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success")) {
