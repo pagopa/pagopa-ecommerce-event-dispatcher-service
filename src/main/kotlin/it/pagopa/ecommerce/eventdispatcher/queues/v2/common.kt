@@ -535,7 +535,7 @@ fun requestRefundTransaction(
         .doOnNext {
           EventDispatcherTracingUtils.withContextDetailsMdc(
             mapOf(
-              "eventCode" to refundRequestedEvent.eventCode,
+              "event_code" to refundRequestedEvent.eventCode,
               EventDispatcherTracingUtils.TracingEntry.DEPENDENCY.key to "storage-queue"),
             mapOf(EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success")) {
             logger.info("Requested refund")
