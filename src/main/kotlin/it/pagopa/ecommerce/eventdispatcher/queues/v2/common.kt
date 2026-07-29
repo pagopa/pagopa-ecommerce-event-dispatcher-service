@@ -84,9 +84,10 @@ fun updateTransactionToExpired(
           })
         .thenReturn(updatedTransaction)
     }
-    .doOnSuccess { logger.info("Transaction expired") }
-    .doOnError { error ->
-      EventDispatcherTracingUtils.withErrorMdc(error) { logger.error("Transaction expired error") }
+    .doOnSuccess { logger.info("Transaction expired for transaction ${it.transactionId.value()}") }
+    .doOnError {
+      logger.error(
+        "Transaction expired error for transaction ${transaction.transactionId.value()} : ${it.message}")
     }
 }
 
@@ -203,9 +204,8 @@ fun updateTransactionWithRefundEvent(
           }
         }))
     .doOnSuccess {
-      EventDispatcherTracingUtils.withContextDetailsMdc(mapOf("status" to status)) {
-        logger.info("Updated event for transaction")
-      }
+      logger.info(
+        "Updated event for transaction with id ${transaction.transactionId.value()} to status $status")
     }
     .thenReturn(transaction)
 }
@@ -306,25 +306,25 @@ fun handlePatchTransactionServiceByAuthData(
   retryCount: Int = 0
 ): Mono<BaseTransaction> {
   return getAuthorizationData(tx)
-    .doOnError { error ->
-      EventDispatcherTracingUtils.withErrorMdc(error) {
-        logger.error("Transaction getAuthorizationData error")
-      }
+    .doOnError { exception ->
+      logger.error(
+        "Transaction getAuthorizationData error for transaction ${tx.transactionId.value()}",
+        exception)
     }
     .flatMap { authorizationRequestedData ->
       transactionsServiceClient
         .patchAuthRequest(tx.transactionId, authorizationRequestedData)
-        .doOnError { error ->
-          EventDispatcherTracingUtils.withErrorMdc(error) {
-            logger.error("Transaction PATCH auth request error")
-          }
+        .doOnError { exception ->
+          logger.error(
+            "Transaction PATCH auth request error for transaction ${tx.transactionId.value()}",
+            exception)
         }
     }
     .thenReturn(tx)
     .onErrorResume { exception ->
-      EventDispatcherTracingUtils.withErrorMdc(exception) {
-        logger.error("Transaction get authorization data or PATCH auth request error")
-      }
+      logger.error(
+        "Transaction get authorization data or PATCH auth request error for transaction ${tx.transactionId.value()}",
+        exception)
       Mono.just(tx)
         .flatMap {
           when (exception) {
@@ -337,9 +337,9 @@ fun handlePatchTransactionServiceByAuthData(
               authorizationStateRetrieverRetryService
                 .enqueueRetryEvent(tx, retryCount, tracingInfo)
                 .onErrorResume { enqueueException ->
-                  EventDispatcherTracingUtils.withErrorMdc(enqueueException) {
-                    logger.error("Transaction enqueue retry event error ")
-                  }
+                  logger.error(
+                    "Transaction enqueue retry event error for transaction ${tx.transactionId.value()}",
+                    enqueueException)
                   Mono.just(tx).flatMap {
                     when (enqueueException) {
                       is TooLateRetryAttemptException,
@@ -371,9 +371,8 @@ fun handleGetStateByPatchTransactionService(
     }
     .thenReturn(tx)
     .onErrorResume { exception ->
-      EventDispatcherTracingUtils.withErrorMdc(exception) {
-        logger.error("Transaction handleGetState error")
-      }
+      logger.error(
+        "Transaction handleGetState error for transaction ${tx.transactionId.value()}", exception)
       Mono.just(tx)
         .flatMap {
           when (exception) {
@@ -389,9 +388,9 @@ fun handleGetStateByPatchTransactionService(
               authorizationStateRetrieverRetryService
                 .enqueueRetryEvent(tx, retryCount, tracingInfo)
                 .onErrorResume { enqueueException ->
-                  EventDispatcherTracingUtils.withErrorMdc(enqueueException) {
-                    logger.error("Transaction enqueue retry event error")
-                  }
+                  logger.error(
+                    "Transaction enqueue retry event error for transaction ${tx.transactionId.value()}",
+                    enqueueException)
                   Mono.just(tx).flatMap {
                     when (enqueueException) {
                       is TooLateRetryAttemptException,
@@ -412,6 +411,11 @@ fun retrieveGetStateSessionId(
   val sessionId = authRequestedGatewayData.sessionId
   val confirmPaymentSessionId = authRequestedGatewayData.confirmPaymentSessionId
   val sessionIdToUse = Optional.ofNullable(confirmPaymentSessionId).orElse(sessionId)
+  logger.info(
+    "NPG authorization request sessionId: [{}], confirm payment session id: [{}] -> session id to use for retrieve state: [{}]",
+    sessionId,
+    confirmPaymentSessionId,
+    sessionIdToUse)
   return sessionIdToUse
 }
 
@@ -420,10 +424,10 @@ fun patchAuthRequestByState(
   tx: BaseTransaction,
   transactionsServiceClient: TransactionsServiceClient,
 ): Mono<UpdateAuthorizationResponseDto> {
-  EventDispatcherTracingUtils.withContextDetailsMdc(
-    mapOf("stateResult" to (stateResponseDto.state?.value ?: "N/A"))) {
-    logger.info("NPG Get State for transaction processed successfully")
-  }
+  logger.info(
+    "NPG Get State for transaction with id: [{}] processed successfully with state result [{}]",
+    tx.transactionId.value(),
+    stateResponseDto.state?.value ?: "N/A")
   // invoke transaction service patch
   return Mono.just(stateResponseDto)
     .filter { s ->
@@ -465,10 +469,10 @@ fun patchAuthRequestByState(
             timestampOperation = getTimeStampOperation(stateResponseDto.operation!!.operationTime!!)
           })
         .doOnNext { patchResponse ->
-          EventDispatcherTracingUtils.withContextDetailsMdc(
-            mapOf("newStatus" to patchResponse.status)) {
-            logger.info("Transactions service PATCH authRequest processed successfully")
-          }
+          logger.info(
+            "Transactions service PATCH authRequest for transaction with id: [{}] processed successfully. New state for transaction is [{}]",
+            tx.transactionId.value(),
+            patchResponse.status)
         }
     }
 }
@@ -563,11 +567,16 @@ fun refundTransaction(
   tracingInfo: TracingInfo?,
   retryCount: Int = 0
 ): Mono<BaseTransaction> {
-  val transactionAuthorizationRequestData =
-    getTransactionAuthorizationRequestData(tx)
-      ?: return Mono.error(
-        IllegalArgumentException(
-          "Tried to call `refundRequested` on transaction with null authorization request data in status ${tx.status.value}!"))
+  val transactionAuthorizationRequestData = getTransactionAuthorizationRequestData(tx)
+
+  if (transactionAuthorizationRequestData == null) {
+    logger.warn(
+      "Tried to call `refundRequested` on transaction with null authorization request data in status {}!",
+      tx.status.value)
+    return Mono.error(
+      IllegalArgumentException(
+        "Tried to call `refundRequested` on transaction with null authorization request data in status ${tx.status.value}!"))
+  }
 
   return Mono.just(tx)
     .flatMap { transaction ->
@@ -626,6 +635,8 @@ fun refundTransaction(
     }
     .cast(BaseTransaction::class.java)
     .onErrorResume { exception ->
+      logger.error(
+        "Transaction requestRefund error for transaction ${tx.transactionId.value()}", exception)
       if (retryCount == 0) {
           // refund error event written only the first time
           updateTransactionToRefundError(
@@ -728,6 +739,10 @@ private fun refundTransactionNPG(
       }
       .cast(NpgTransactionGatewayAuthorizationData::class.java)
       .onErrorResume { error ->
+        logger.error(
+          "Error performing GET orders with NPG for transaction: [%s]".format(
+            transaction.transactionId.value()),
+          error)
         when (error) {
           // in case of 4xx NPG errors or invalid response (missing mandatory data such as
           // operationId) write event to dead letter
@@ -740,6 +755,9 @@ private fun refundTransactionNPG(
           // in this case operation result already refunded by NPG but no attempt have already being
           // done by eCommerce -> write event to dead letter
           is InvalidNpgOrderStateException.OrderAlreadyRefunded -> {
+            logger.error(
+              "Unexpected error, transaction : [{}] already refunded by NPG!",
+              transaction.transactionId.value())
             Mono.error(
               RefundNotAllowedException(
                 transaction.transactionId, "Order already refunded!", error))
@@ -775,6 +793,8 @@ private fun refundTransactionNPG(
             transaction.transactionAuthorizationRequestData.paymentTypeCode))
       .map { refundResponse -> Pair(refundResponse, transaction) }
       .onErrorMap({ e -> e is BadGatewayException || e is NpgResponseException }) { e ->
+        logger.error(
+          "Error during refund NPG for transaction [{}]", transaction.transactionId.value(), e)
         RefundError.RefundFailed(
           transactionId = transaction.transactionId,
           authorizationData = authData,
@@ -790,10 +810,10 @@ fun handleNpgRefundResponse(
   transactionsEventStoreRepository: TransactionsEventStoreRepository<BaseTransactionRefundedData>,
   transactionsViewRepository: TransactionsViewRepository
 ): Mono<BaseTransaction> {
-  EventDispatcherTracingUtils.withContextDetailsMdc(
-    mapOf("operationId" to (refundResponse.operationId ?: "N/A"))) {
-    logger.info("Refund for transaction processed successfully")
-  }
+  logger.info(
+    "Refund for transaction with id: [{}] and NPG operationId [{}] processed successfully",
+    transaction.transactionId.value(),
+    refundResponse.operationId ?: "N/A")
   return updateTransactionToRefunded(
     transaction,
     transactionsEventStoreRepository,
@@ -809,12 +829,11 @@ fun handleRedirectRefundResponse(
   transactionsViewRepository: TransactionsViewRepository
 ): Mono<BaseTransaction> {
   val refundOutcome = refundResponse.outcome
-  EventDispatcherTracingUtils.withContextDetailsMdc(
-    mapOf(
-      "pspId" to transactionAuthorizationRequestData.pspId,
-      "outcome" to refundOutcome.toString())) {
-    logger.info("Refund for redirect transaction processed successfully")
-  }
+  logger.info(
+    "Refund for redirect transaction for psp: [{}] with id: [{}] processed successfully. Received outcome: [{}]",
+    transactionAuthorizationRequestData.pspId,
+    transaction.transactionId.value(),
+    refundOutcome)
   return when (refundOutcome) {
     RefundOutcomeDto.OK,
     RefundOutcomeDto.CANCELED ->
@@ -858,6 +877,8 @@ fun isTransactionRefundable(tx: BaseTransaction): Boolean {
       // authorization was requested to PGS
       else -> wasAuthorizationRequested
     }
+  logger.info(
+    "Transaction with id ${tx.transactionId.value()} : authorization requested: $wasAuthorizationRequested, authorization denied: $wasAuthorizationDenied, closePaymentResponse.outcome KO: $wasClosePaymentResponseOutcomeKO sendPaymentResult.outcome KO : $wasSendPaymentResultOutcomeKO --> is refundable: $isTransactionRefundable")
   return isTransactionRefundable
 }
 
@@ -1030,6 +1051,8 @@ private fun updateNotifiedTransactionStatus(
   event: TransactionEvent<TransactionUserReceiptData>,
   transactionUserReceiptRepository: TransactionsEventStoreRepository<TransactionUserReceiptData>
 ): Mono<TransactionEvent<TransactionUserReceiptData>> {
+  logger.info("Updating transaction {} status to {}", transaction.transactionId.value(), newStatus)
+
   return TransactionsViewProjectionHandler.updateTransactionView(
       transactionId = transaction.transactionId,
       transactionsViewRepository = transactionsViewRepository,
@@ -1064,6 +1087,8 @@ fun notificationRefundTransactionPipeline(
 ): Mono<BaseTransaction> {
   val userReceiptOutcome = transaction.transactionUserReceiptData.responseOutcome
   val toBeRefunded = userReceiptOutcome == TransactionUserReceiptData.Outcome.KO
+  logger.info(
+    "Transaction Nodo sendPaymentResult response outcome: $userReceiptOutcome --> to be refunded: $toBeRefunded")
   return Mono.just(transaction)
     .filter { toBeRefunded }
     .flatMap {
@@ -1203,6 +1228,11 @@ fun <T> computeRefundProcessingRequestDelay(
       } else {
         Duration.between(now, refundNotBefore)
       }
+    logger.info(
+      "Transaction with id: [{}], authorization requested at: [{}], refund to be processed at: [{}]",
+      tx.transactionId,
+      authRequestedDate,
+      refundNotBefore)
     refundTimeout
   }
 }
