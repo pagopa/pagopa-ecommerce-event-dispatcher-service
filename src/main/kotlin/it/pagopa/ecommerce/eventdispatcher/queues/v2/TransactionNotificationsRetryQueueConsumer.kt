@@ -17,6 +17,7 @@ import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.client.NotificationsServiceClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
+import it.pagopa.ecommerce.eventdispatcher.mdcutilities.EventDispatcherTracingUtils
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.eventretry.v2.NotificationRetryService
@@ -107,13 +108,21 @@ class TransactionNotificationsRetryQueueConsumer(
         .findByTransactionIdOrderByCreationDateAsc(transactionId)
         .map { it as TransactionEvent<Any> }
         .cache()
+        .doOnComplete {
+          EventDispatcherTracingUtils.withContextDetailsMdc(
+            mapOf(
+              EventDispatcherTracingUtils.TracingEntry.DEPENDENCY.key to
+                EventDispatcherTracingUtils.MONGO_DEPENDENCY_KEY),
+            mapOf(EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success"),
+          ) {
+            logger.info("Successfully retrieved events for transaction notifications retry")
+          }
+        }
+
     val baseTransaction = reduceEvents(events, EmptyTransaction())
 
     val notificationResendPipeline =
       baseTransaction
-        .doOnNext {
-          logger.info("Status for transaction ${it.transactionId.value()}: ${it.status}")
-        }
         .flatMap { getTransactionWithUserReceiptErrorForRetry(it) }
         .flatMap { tx ->
           mono { userReceiptMailBuilder.buildNotificationEmailRequestDto(tx) }
@@ -123,6 +132,15 @@ class TransactionNotificationsRetryQueueConsumer(
                   tx, transactionsViewRepository, transactionUserReceiptRepository)
                 .doOnSuccess {
                   transactionTracing.addSpanAttributesNotificationsFlowFromTransaction(it, events)
+                  EventDispatcherTracingUtils.withContextDetailsMdc(
+                    mapOf(
+                      "updated_status" to it.status,
+                      EventDispatcherTracingUtils.TracingEntry.DEPENDENCY.key to
+                        EventDispatcherTracingUtils.MONGO_DEPENDENCY_KEY),
+                    mapOf(
+                      EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success")) {
+                    logger.info("Notification status updated successfully")
+                  }
                 }
                 .flatMap {
                   notificationRefundTransactionPipeline(
@@ -136,14 +154,9 @@ class TransactionNotificationsRetryQueueConsumer(
                 }
             }
             .then()
-            .onErrorResume { exception ->
-              logger.error(
-                "Got exception while retrying user receipt mail sending for transaction with id ${tx.transactionId}!",
-                exception)
+            .onErrorResume {
               val v = notificationRetryService.enqueueRetryEvent(tx, retryCount, tracingInfo)
-              v.onErrorResume(NoRetryAttemptsLeftException::class.java) { enqueueException ->
-                  logger.error(
-                    "No more attempts left for user receipt send retry", enqueueException)
+              v.onErrorResume(NoRetryAttemptsLeftException::class.java) {
                   BinaryData.fromObjectAsync(
                       queueEvent, strictSerializerProviderV2.createInstance())
                     .flatMap {
@@ -154,10 +167,6 @@ class TransactionNotificationsRetryQueueConsumer(
                           transactionEventCode = queueEvent.event.eventCode,
                           DeadLetterTracedQueueAsyncClient.ErrorCategory
                             .RETRY_EVENT_NO_ATTEMPTS_LEFT))
-                    }
-                    .onErrorResume {
-                      logger.error("Error writing event to dead letter queue", it)
-                      Mono.empty()
                     }
                     .then(
                       notificationRefundTransactionPipeline(
@@ -175,12 +184,20 @@ class TransactionNotificationsRetryQueueConsumer(
         }
 
     return runTracedPipelineWithDeadLetterQueue(
-      checkPointer,
-      notificationResendPipeline,
-      queueEvent,
-      deadLetterTracedQueueAsyncClient,
-      tracingUtils,
-      this::class.simpleName!!,
-      strictSerializerProviderV2)
+        checkPointer,
+        notificationResendPipeline,
+        queueEvent,
+        deadLetterTracedQueueAsyncClient,
+        tracingUtils,
+        this::class.simpleName!!,
+        strictSerializerProviderV2)
+      .contextWrite { context ->
+        EventDispatcherTracingUtils.enrichContextForDispatcherEvent(
+          queueEvent.event.transactionId,
+          queueEvent.event.eventCode,
+          queueEvent.event.id,
+          context,
+          "NOTIFICATION_RETRY")
+      }
   }
 }
