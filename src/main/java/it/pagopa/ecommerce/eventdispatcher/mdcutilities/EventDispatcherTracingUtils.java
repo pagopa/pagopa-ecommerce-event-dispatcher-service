@@ -19,6 +19,7 @@ public class EventDispatcherTracingUtils {
 
     private static final String CTX_DETAILS_KEY = "ctx.details";
     public static final String MONGO_DEPENDENCY_KEY = "eCommerce-mongodb";
+    public static final String REDIS_DEPENDENCY_KEY = "eCommerce-redis";
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
             .registerModule(new JavaTimeModule())
             .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);

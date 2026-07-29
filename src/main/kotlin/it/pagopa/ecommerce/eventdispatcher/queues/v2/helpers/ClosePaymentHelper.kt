@@ -235,7 +235,7 @@ class ClosePaymentHelper(
                         EventDispatcherTracingUtils.withContextDetailsMdc(
                           mapOf(
                             EventDispatcherTracingUtils.TracingEntry.DEPENDENCY.key to
-                              "eCommerce-redis"),
+                              EventDispatcherTracingUtils.REDIS_DEPENDENCY_KEY),
                           mapOf(
                             EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success",
                             EventDispatcherTracingUtils.TracingEntry.CTX_RPT_ID.key to

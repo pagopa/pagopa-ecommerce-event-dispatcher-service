@@ -1126,9 +1126,8 @@ fun <T> runTracedPipelineWithDeadLetterQueue(
         }
       EventDispatcherTracingUtils.withContextDetailsMdc(
         mapOf(
-          "errorCategory" to errorCategory.toString(), "pipelineException" to pipelineException)) {
-        logger.error("Exception processing event")
-      }
+          "error_category" to errorCategory.toString(),
+          "pipeline_exception" to pipelineException)) { logger.error("Exception processing event") }
       if (queueEvent.event.transactionId != nullTransactionId) {
         deadLetterTracedQueueAsyncClient.sendAndTraceDeadLetterQueueEvent(
           binaryData = BinaryData.fromObject(queueEvent, jsonSerializerProviderV2.createInstance()),
