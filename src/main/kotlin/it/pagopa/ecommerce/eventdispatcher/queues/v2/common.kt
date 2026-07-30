@@ -1176,12 +1176,10 @@ fun <T> timeLeftForSendPaymentResult(
         val now = ZonedDateTime.now()
         val timeLeft = Duration.between(now, closePaymentDate.plus(timeout))
         EventDispatcherTracingUtils.withContextDetailsMdc(
-          mapOf(
-            "close_payment_date" to closePaymentDate,
-            "time_left" to timeLeft),
+          mapOf("close_payment_date" to closePaymentDate, "time_left" to timeLeft),
           mapOf(EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success")) {
-            logger.info("Transaction close payment processed")
-          }
+          logger.info("Transaction close payment processed")
+        }
         return@map timeLeft
       }
   } else {
@@ -1241,9 +1239,8 @@ fun <T> computeRefundProcessingRequestDelay(
         "refund_not_before" to refundNotBefore,
         "refund_timeout" to refundTimeout),
       mapOf(EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success")) {
-        logger.info(
-          "Computed refund processing request delay")
-      }
+      logger.info("Computed refund processing request delay")
+    }
     refundTimeout
   }
 }
