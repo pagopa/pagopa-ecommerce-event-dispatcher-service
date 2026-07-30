@@ -50,14 +50,6 @@ class RefundService(
     return npgApiKeyConfiguration[paymentMethod, pspId].fold(
       { ex -> Mono.error(ex) },
       { apiKey ->
-        logger.info(
-          "Performing NPG refund for transaction with id: [{}] and paymentMethod: [{}]. OperationId: [{}], amount: [{}], pspId: [{}], correlationId: [{}]",
-          idempotenceKey,
-          paymentMethod,
-          operationId,
-          amount,
-          pspId,
-          correlationId)
         npgClient
           .refundPayment(
             UUID.fromString(correlationId),
@@ -67,9 +59,6 @@ class RefundService(
             apiKey,
             "Refund request for transactionId $idempotenceKey and operationId $operationId")
           .onErrorMap(NpgResponseException::class.java) { exception: NpgResponseException ->
-            logger.error(
-              "Exception performing NPG refund for transactionId: [$idempotenceKey] and operationId: [$operationId]",
-              exception)
             val responseStatusCode = exception.statusCode
             responseStatusCode
               .map {
@@ -105,13 +94,6 @@ class RefundService(
       .fold(
         { Mono.error(it) },
         { urlConfig ->
-          logger.info(
-            "Processing Redirect transaction refund. TransactionId: [{}], pspTransactionId: [{}], payment type code: [{}], pspId: [{}], touchpoint: [{}]",
-            transactionId.value(),
-            pspTransactionId,
-            paymentTypeCode,
-            pspId,
-            touchpoint)
           nodeForwarderRedirectApiClient
             .proxyRequest(
               RedirectRefundRequestDto()
@@ -132,11 +114,6 @@ class RefundService(
                     null
                   }
                 }
-              logger.error(
-                "Error performing Redirect refund operation for transaction with id: [${transactionId.value()}]. psp id: [$pspId], pspTransactionId: [$pspTransactionId], paymentTypeCode: [$paymentTypeCode], received HTTP response error code: [${
-                                    httpErrorCode.map { it.toString() }.orElse("N/A")
-                                }]",
-                exception)
               httpErrorCode
                 .map {
                   val errorCodeReason =

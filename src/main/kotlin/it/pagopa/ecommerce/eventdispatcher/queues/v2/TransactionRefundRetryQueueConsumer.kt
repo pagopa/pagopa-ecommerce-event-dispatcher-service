@@ -13,6 +13,7 @@ import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
+import it.pagopa.ecommerce.eventdispatcher.mdcutilities.EventDispatcherTracingUtils
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.RefundService
@@ -60,14 +61,22 @@ class TransactionRefundRetryQueueConsumer(
       transactionsEventStoreRepository
         .findByTransactionIdOrderByCreationDateAsc(event.transactionId)
         .cache()
+        .doOnComplete {
+          EventDispatcherTracingUtils.withContextDetailsMdc(
+            mapOf(
+              EventDispatcherTracingUtils.TracingEntry.DEPENDENCY.key to
+                EventDispatcherTracingUtils.MONGO_DEPENDENCY_KEY),
+            mapOf(EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success"),
+          ) {
+            logger.info("Successfully retrieved events for transaction refund retry")
+          }
+        }
 
     val baseTransaction =
       events.reduce(EmptyTransaction(), Transaction::applyEvent).cast(BaseTransaction::class.java)
     val refundPipeline =
       baseTransaction
         .flatMap {
-          logger.info("Status for transaction ${it.transactionId.value()}: ${it.status}")
-
           if (it.status != TransactionStatusDto.REFUND_ERROR) {
             Mono.error(
               BadTransactionStatusException(
@@ -95,12 +104,16 @@ class TransactionRefundRetryQueueConsumer(
             }
         }
     return runTracedPipelineWithDeadLetterQueue(
-      checkPointer,
-      refundPipeline,
-      QueueEvent(event, tracingInfo),
-      deadLetterTracedQueueAsyncClient,
-      tracingUtils,
-      this::class.simpleName!!,
-      strictSerializerProviderV2)
+        checkPointer,
+        refundPipeline,
+        QueueEvent(event, tracingInfo),
+        deadLetterTracedQueueAsyncClient,
+        tracingUtils,
+        this::class.simpleName!!,
+        strictSerializerProviderV2)
+      .contextWrite { context ->
+        EventDispatcherTracingUtils.enrichContextForDispatcherEvent(
+          event.transactionId, event.eventCode, event.id, context, "REFUND_RETRY")
+      }
   }
 }
