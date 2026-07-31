@@ -667,6 +667,10 @@ private fun appendNpgRefundRequestedEventIfNeeded(
   return getAuthorizationCompletedData(transaction, npgService)
     .map { Optional.of(it) }
     .onErrorResume { error ->
+      logger.error(
+        "Error performing GET orders with NPG for transaction: [%s]".format(
+          transaction.transactionId.value()),
+        error)
       when (error) {
         // in case of 4xx NPG errors or invalid response (missing mandatory data such as
         // operationId) write event to dead letter
@@ -681,6 +685,9 @@ private fun appendNpgRefundRequestedEventIfNeeded(
         // in this case operation result already refunded by NPG but no attempt have already being
         // done by eCommerce -> write event to dead letter
         is InvalidNpgOrderStateException.OrderAlreadyRefunded -> {
+          logger.error(
+            "Unexpected error, transaction : [{}] already refunded by NPG!",
+            transaction.transactionId.value())
           // write refund requested event and refund error event into events and return error in
           // order to make transaction being written into dead letter for further investigations
           appendRefundRequestedEventIfNeeded(
@@ -1174,6 +1181,11 @@ fun <T> timeLeftForSendPaymentResult(
         val closePaymentDate = ZonedDateTime.parse(it.creationDate)
         val now = ZonedDateTime.now()
         val timeLeft = Duration.between(now, closePaymentDate.plus(timeout))
+        EventDispatcherTracingUtils.withContextDetailsMdc(
+          mapOf("close_payment_date" to closePaymentDate, "time_left" to timeLeft),
+          mapOf(EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success")) {
+          logger.info("Transaction close payment processed")
+        }
         return@map timeLeft
       }
   } else {
@@ -1226,6 +1238,15 @@ fun <T> computeRefundProcessingRequestDelay(
       } else {
         Duration.between(now, refundNotBefore)
       }
+    EventDispatcherTracingUtils.withContextDetailsMdc(
+      mapOf(
+        EventDispatcherTracingUtils.TracingEntry.CTX_TRANSACTION_ID.key to tx.transactionId.value(),
+        "authorization_requested_at" to authRequestedDate,
+        "refund_not_before" to refundNotBefore,
+        "refund_timeout" to refundTimeout),
+      mapOf(EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success")) {
+      logger.info("Computed refund processing request delay")
+    }
     refundTimeout
   }
 }

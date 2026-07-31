@@ -237,6 +237,10 @@ class ClosePaymentHelper(
                             EventDispatcherTracingUtils.TracingEntry.DEPENDENCY.key to
                               EventDispatcherTracingUtils.REDIS_DEPENDENCY_KEY),
                           mapOf(
+                            EventDispatcherTracingUtils.TracingEntry.CTX_TRANSACTION_ID.key to
+                              tx.transactionId.value(),
+                            EventDispatcherTracingUtils.TracingEntry.EVENT_ACTION.key to
+                              "CLOSE_PAYMENT",
                             EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success",
                             EventDispatcherTracingUtils.TracingEntry.CTX_RPT_ID.key to
                               el.rptId().value())) {
