@@ -58,12 +58,11 @@ class NodeClient(
           }
         })
       .bodyToMono(ClosePaymentResponseDto::class.java)
-      .doOnSuccess { closePaymentResponse: ClosePaymentResponseDto ->
+      .doOnSuccess { _ ->
         EventDispatcherTracingUtils.withContextDetailsMdc(
           null,
           mapOf(
-            EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to
-              closePaymentResponse.outcome,
+            EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success",
             EventDispatcherTracingUtils.TracingEntry.CTX_PAYMENT_TOKENS.key to paymentTokens)) {
           logger.info("Received closePaymentV2 Response")
         }
