@@ -4,8 +4,8 @@ import com.azure.spring.messaging.checkpoint.Checkpointer
 import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
+import it.pagopa.ecommerce.commons.mdcutilities.LogTracingUtils
 import it.pagopa.ecommerce.commons.queues.QueueEvent
-import it.pagopa.ecommerce.eventdispatcher.mdcutilities.EventDispatcherTracingUtils
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.ClosePaymentEvent
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.ClosePaymentHelper
 import org.slf4j.Logger
@@ -40,8 +40,13 @@ class TransactionClosePaymentRetryQueueConsumer(
     return closePaymentHelper
       .closePayment(closePaymentEvent, checkPointer, emptyTransaction)
       .contextWrite { context ->
-        EventDispatcherTracingUtils.enrichContextForDispatcherEvent(
-          event.transactionId, event.eventCode, event.id, context, "CLOSE_PAYMENT_RETRY")
+        LogTracingUtils.enrichContextForEvent(
+          mapOf(
+            LogTracingUtils.TracingEntry.CTX_TRANSACTION_ID to event.transactionId,
+            LogTracingUtils.TracingEntry.CTX_EVENT_CODE to event.eventCode,
+            LogTracingUtils.TracingEntry.CTX_EVENT_ID to event.id,
+            LogTracingUtils.TracingEntry.EVENT_ACTION to "CLOSE_PAYMENT_RETRY"),
+          context)
       }
   }
 }
