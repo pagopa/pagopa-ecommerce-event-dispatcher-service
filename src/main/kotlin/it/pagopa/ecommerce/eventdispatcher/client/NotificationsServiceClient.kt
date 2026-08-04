@@ -1,6 +1,6 @@
 package it.pagopa.ecommerce.eventdispatcher.client
 
-import it.pagopa.ecommerce.eventdispatcher.mdcutilities.EventDispatcherTracingUtils
+import it.pagopa.ecommerce.commons.mdcutilities.LogTracingUtils
 import it.pagopa.generated.notifications.templates.ko.KoTemplate
 import it.pagopa.generated.notifications.templates.success.SuccessTemplate
 import it.pagopa.generated.notifications.v1.api.DefaultApi
@@ -38,17 +38,15 @@ class NotificationsServiceClient(
           .exchangeToMono { response ->
             when (response.statusCode()) {
               HttpStatus.OK -> {
-                EventDispatcherTracingUtils.withContextDetailsMdc(
-                  null,
-                  mapOf(EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success")) {
+                LogTracingUtils.withContextDetailsMdc(
+                  null, mapOf(LogTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success")) {
                   logger.info("Mail sent successfully")
                 }
                 response.bodyToMono(NotificationEmailResponseDto::class.java)
               }
               HttpStatus.ACCEPTED -> {
-                EventDispatcherTracingUtils.withContextDetailsMdc(
-                  null,
-                  mapOf(EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success")) {
+                LogTracingUtils.withContextDetailsMdc(
+                  null, mapOf(LogTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success")) {
                   logger.info(
                     "Mail sending accepted, retries will be attempted by notifications-service module")
                 }
@@ -61,15 +59,15 @@ class NotificationsServiceClient(
           }
       }
       .doOnError(WebClientResponseException::class.java) { e: WebClientResponseException ->
-        EventDispatcherTracingUtils.withContextDetailsMdc(
+        LogTracingUtils.withContextDetailsMdc(
           mapOf("http_status" to e.statusCode, "response_body" to e.responseBodyAsString),
-          mapOf(EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to "failure")) {
+          mapOf(LogTracingUtils.TracingEntry.EVENT_OUTCOME.key to "failure")) {
           logger.error("Error sending email. Got bad response from notifications-service")
         }
       }
       .doOnError { e: Throwable ->
-        EventDispatcherTracingUtils.withErrorMdc(
-          e, mapOf(EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to "failure")) {
+        LogTracingUtils.withErrorMdc(
+          e, mapOf(LogTracingUtils.TracingEntry.EVENT_OUTCOME.key to "failure")) {
           logger.error("Error sending email", e)
         }
       }
