@@ -5,7 +5,7 @@ import com.azure.storage.queue.QueueAsyncClient
 import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.trace.Tracer
 import it.pagopa.ecommerce.commons.domain.v2.TransactionId
-import it.pagopa.ecommerce.eventdispatcher.mdcutilities.EventDispatcherTracingUtils
+import it.pagopa.ecommerce.commons.mdcutilities.LogTracingUtils
 import java.time.Duration
 import kotlinx.coroutines.reactor.mono
 import org.slf4j.LoggerFactory
@@ -70,7 +70,7 @@ class DeadLetterTracedQueueAsyncClient(
             Duration.ofSeconds(deadLetterTTLSeconds.toLong()), // timeToLive
           )
           .doOnSuccess { queueResponse ->
-            EventDispatcherTracingUtils.withContextDetailsMdc(
+            LogTracingUtils.withContextDetailsMdc(
               mapOf(
                 "binary_data" to binaryData.toString(),
                 "time_next_visible" to queueResponse.value.timeNextVisible,
@@ -79,8 +79,7 @@ class DeadLetterTracedQueueAsyncClient(
             }
           }
           .doOnError { exception ->
-            EventDispatcherTracingUtils.withContextDetailsMdc(
-              mapOf("binary_data" to binaryData.toString())) {
+            LogTracingUtils.withContextDetailsMdc(mapOf("binary_data" to binaryData.toString())) {
               logger.error("Error sending event to dead letter queue.", exception)
             }
           }
