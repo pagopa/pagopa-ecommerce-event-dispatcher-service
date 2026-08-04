@@ -10,11 +10,11 @@ import it.pagopa.ecommerce.commons.documents.v2.authorization.TransactionGateway
 import it.pagopa.ecommerce.commons.domain.v2.TransactionId
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
+import it.pagopa.ecommerce.commons.mdcutilities.LogTracingUtils
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.TooLateRetryAttemptException
-import it.pagopa.ecommerce.eventdispatcher.mdcutilities.EventDispatcherTracingUtils
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.utils.TransactionsViewProjectionHandler
@@ -68,11 +68,11 @@ abstract class RetryEventService<E>(
       }
       .flatMap { storeEventAndUpdateView(it, newTransactionStatus()) }
       .doOnNext { storedEvent ->
-        EventDispatcherTracingUtils.withContextDetailsMdc(
+        LogTracingUtils.withContextDetailsMdc(
           mapOf(
             "event_code" to storedEvent.eventCode,
-            EventDispatcherTracingUtils.TracingEntry.DEPENDENCY.key to "eCommerce-mongodb"),
-          mapOf(EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success")) {
+            LogTracingUtils.TracingEntry.DEPENDENCY.key to "eCommerce-mongodb"),
+          mapOf(LogTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success")) {
           logger.info("Saved domain event")
         }
       }
@@ -123,7 +123,7 @@ abstract class RetryEventService<E>(
         Duration.ofSeconds(transientQueuesTTLSeconds.toLong()), // timeToLive
       )
       .doOnNext {
-        EventDispatcherTracingUtils.withContextDetailsMdc(
+        LogTracingUtils.withContextDetailsMdc(
           mapOf(
             "event_code" to event.eventCode,
             "visibility_timeout" to it.value.timeNextVisible,

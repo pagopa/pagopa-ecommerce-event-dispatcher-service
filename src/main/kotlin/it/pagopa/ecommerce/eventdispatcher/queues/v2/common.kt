@@ -22,6 +22,7 @@ import it.pagopa.ecommerce.commons.generated.npg.v1.dto.StateResponseDto
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.WorkflowStateDto
 import it.pagopa.ecommerce.commons.generated.server.model.AuthorizationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
+import it.pagopa.ecommerce.commons.mdcutilities.LogTracingUtils
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingInfo
@@ -29,7 +30,6 @@ import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.commons.utils.NpgClientUtils
 import it.pagopa.ecommerce.eventdispatcher.client.TransactionsServiceClient
 import it.pagopa.ecommerce.eventdispatcher.exceptions.*
-import it.pagopa.ecommerce.eventdispatcher.mdcutilities.EventDispatcherTracingUtils
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.QueueCommonsLogger.logger
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
@@ -530,11 +530,11 @@ fun requestRefundTransaction(
         .sendMessageWithResponse(
           QueueEvent(refundRequestedEvent, tracingInfo), Duration.ZERO, transientQueueTTLSeconds)
         .doOnNext {
-          EventDispatcherTracingUtils.withContextDetailsMdc(
+          LogTracingUtils.withContextDetailsMdc(
             mapOf(
               "event_code" to refundRequestedEvent.eventCode,
-              EventDispatcherTracingUtils.TracingEntry.DEPENDENCY.key to "storage-queue"),
-            mapOf(EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success")) {
+              LogTracingUtils.TracingEntry.DEPENDENCY.key to "storage-queue"),
+            mapOf(LogTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success")) {
             logger.info("Requested refund")
           }
         }
@@ -1127,7 +1127,7 @@ fun <T> runTracedPipelineWithDeadLetterQueue(
             DeadLetterTracedQueueAsyncClient.ErrorCategory.REFUND_MANUAL_CHECK_REQUIRED
           else -> DeadLetterTracedQueueAsyncClient.ErrorCategory.PROCESSING_ERROR
         }
-      EventDispatcherTracingUtils.withContextDetailsMdc(
+      LogTracingUtils.withContextDetailsMdc(
         mapOf(
           "error_category" to errorCategory.toString(),
           "pipeline_exception" to pipelineException)) { logger.error("Exception processing event") }
@@ -1178,9 +1178,9 @@ fun <T> timeLeftForSendPaymentResult(
         val closePaymentDate = ZonedDateTime.parse(it.creationDate)
         val now = ZonedDateTime.now()
         val timeLeft = Duration.between(now, closePaymentDate.plus(timeout))
-        EventDispatcherTracingUtils.withContextDetailsMdc(
+        LogTracingUtils.withContextDetailsMdc(
           mapOf("close_payment_date" to closePaymentDate, "time_left" to timeLeft),
-          mapOf(EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success")) {
+          mapOf(LogTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success")) {
           logger.info("Transaction close payment processed")
         }
         return@map timeLeft
@@ -1235,13 +1235,13 @@ fun <T> computeRefundProcessingRequestDelay(
       } else {
         Duration.between(now, refundNotBefore)
       }
-    EventDispatcherTracingUtils.withContextDetailsMdc(
+    LogTracingUtils.withContextDetailsMdc(
       mapOf(
-        EventDispatcherTracingUtils.TracingEntry.CTX_TRANSACTION_ID.key to tx.transactionId.value(),
+        LogTracingUtils.TracingEntry.CTX_TRANSACTION_ID.key to tx.transactionId.value(),
         "authorization_requested_at" to authRequestedDate,
         "refund_not_before" to refundNotBefore,
         "refund_timeout" to refundTimeout),
-      mapOf(EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success")) {
+      mapOf(LogTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success")) {
       logger.info("Computed refund processing request delay")
     }
     refundTimeout
