@@ -12,6 +12,7 @@ import it.pagopa.ecommerce.commons.domain.v2.*
 import it.pagopa.ecommerce.commons.domain.v2.pojos.*
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
+import it.pagopa.ecommerce.commons.mdcutilities.LogTracingUtils
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingInfo
@@ -22,7 +23,6 @@ import it.pagopa.ecommerce.commons.utils.UpdateTransactionStatusTracerUtils.Upda
 import it.pagopa.ecommerce.commons.utils.UpdateTransactionStatusTracerUtils.UserCancelClosePaymentNodoStatusUpdate
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.ClosePaymentErrorResponseException
-import it.pagopa.ecommerce.eventdispatcher.mdcutilities.EventDispatcherTracingUtils
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.ClosePaymentEvent.Companion.exceptionToClosureErrorData
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.reduceEvents
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.requestRefundTransaction
@@ -184,11 +184,10 @@ class ClosePaymentHelper(
       events
         .collectList()
         .doOnNext {
-          EventDispatcherTracingUtils.withContextDetailsMdc(
+          LogTracingUtils.withContextDetailsMdc(
             mapOf(
-              EventDispatcherTracingUtils.TracingEntry.DEPENDENCY.key to
-                EventDispatcherTracingUtils.MONGO_DEPENDENCY_KEY),
-            mapOf(EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success"),
+              LogTracingUtils.TracingEntry.DEPENDENCY.key to LogTracingUtils.MONGO_DEPENDENCY_KEY),
+            mapOf(LogTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success"),
           ) {
             logger.info("Successfully retrieved events for closePayment")
           }
@@ -232,18 +231,16 @@ class ClosePaymentHelper(
                     reactivePaymentRequestInfoRedisTemplateWrapper
                       .deleteById(el.rptId().value())
                       .doOnNext {
-                        EventDispatcherTracingUtils.withContextDetailsMdc(
+                        LogTracingUtils.withContextDetailsMdc(
                           mapOf(
-                            EventDispatcherTracingUtils.TracingEntry.DEPENDENCY.key to
-                              EventDispatcherTracingUtils.REDIS_DEPENDENCY_KEY),
+                            LogTracingUtils.TracingEntry.DEPENDENCY.key to
+                              LogTracingUtils.REDIS_DEPENDENCY_KEY),
                           mapOf(
-                            EventDispatcherTracingUtils.TracingEntry.CTX_TRANSACTION_ID.key to
+                            LogTracingUtils.TracingEntry.CTX_TRANSACTION_ID.key to
                               tx.transactionId.value(),
-                            EventDispatcherTracingUtils.TracingEntry.EVENT_ACTION.key to
-                              "CLOSE_PAYMENT",
-                            EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success",
-                            EventDispatcherTracingUtils.TracingEntry.CTX_RPT_ID.key to
-                              el.rptId().value())) {
+                            LogTracingUtils.TracingEntry.EVENT_ACTION.key to "CLOSE_PAYMENT",
+                            LogTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success",
+                            LogTracingUtils.TracingEntry.CTX_RPT_IDS.key to el.rptId().value())) {
                           logger.info("Deleted payment request info cache")
                         }
                       }
@@ -265,13 +262,12 @@ class ClosePaymentHelper(
                   events = events)
                 .doOnNext { closePaymentOutcomeEvent ->
                   val eventCode = closePaymentOutcomeEvent.fold({ it.eventCode }, { it.eventCode })
-                  EventDispatcherTracingUtils.withContextDetailsMdc(
+                  LogTracingUtils.withContextDetailsMdc(
                     mapOf(
                       "event_code" to eventCode,
-                      EventDispatcherTracingUtils.TracingEntry.DEPENDENCY.key to
-                        EventDispatcherTracingUtils.MONGO_DEPENDENCY_KEY),
-                    mapOf(
-                      EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success")) {
+                      LogTracingUtils.TracingEntry.DEPENDENCY.key to
+                        LogTracingUtils.MONGO_DEPENDENCY_KEY),
+                    mapOf(LogTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success")) {
                     logger.info("Saved domain event")
                   }
                 }
@@ -404,12 +400,11 @@ class ClosePaymentHelper(
           })
       }
       .doOnSuccess {
-        EventDispatcherTracingUtils.withContextDetailsMdc(
+        LogTracingUtils.withContextDetailsMdc(
           mapOf(
             "event_code" to event.eventCode,
-            EventDispatcherTracingUtils.TracingEntry.DEPENDENCY.key to
-              EventDispatcherTracingUtils.MONGO_DEPENDENCY_KEY),
-          mapOf(EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success")) {
+            LogTracingUtils.TracingEntry.DEPENDENCY.key to LogTracingUtils.MONGO_DEPENDENCY_KEY),
+          mapOf(LogTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success")) {
           logger.info("Saved domain event ")
         }
       }
@@ -682,7 +677,7 @@ class ClosePaymentHelper(
     return Mono.just(transactionWithCompletedAuthorization)
       .doOnNext {
         if (logger.isDebugEnabled) {
-          EventDispatcherTracingUtils.withContextDetailsMdc(
+          LogTracingUtils.withContextDetailsMdc(
             mapOf(
               "closure_outcome" to closureOutcome.toString(),
               "was_authorized" to wasAuthorized.toString(),
