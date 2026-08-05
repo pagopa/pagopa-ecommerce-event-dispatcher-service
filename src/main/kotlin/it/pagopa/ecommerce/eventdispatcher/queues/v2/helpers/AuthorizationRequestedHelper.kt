@@ -12,13 +12,13 @@ import it.pagopa.ecommerce.commons.domain.v2.Transaction
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithRequestedAuthorization
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
+import it.pagopa.ecommerce.commons.mdcutilities.LogTracingUtils
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.client.TransactionsServiceClient
 import it.pagopa.ecommerce.eventdispatcher.client.UserStatsServiceClient
-import it.pagopa.ecommerce.eventdispatcher.mdcutilities.EventDispatcherTracingUtils
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.handleGetStateByPatchTransactionService
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.handlePatchTransactionServiceByAuthData
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.runTracedPipelineWithDeadLetterQueue
@@ -131,7 +131,7 @@ class AuthorizationRequestedHelper(
                 buildUserLastPaymentMethodData(
                   baseTransactionWithRequestedAuthorization, authorizationRequestedDate))
               .onErrorResume { error ->
-                EventDispatcherTracingUtils.withErrorMdc(error) {
+                LogTracingUtils.withErrorMdc(error) {
                   logger.error("Exception while saving last payment method used")
                 }
                 mono {}
@@ -164,7 +164,7 @@ class AuthorizationRequestedHelper(
             // some millis before the effective ttl set here
             val visibilityTimeout = timeToWaitForGetState + Duration.ofSeconds(10)
             if (logger.isDebugEnabled) {
-              EventDispatcherTracingUtils.withContextDetailsMdc(
+              LogTracingUtils.withContextDetailsMdc(
                 mapOf("visibility_timeout" to visibilityTimeout.toString())) {
                 logger.debug("Authorization requested event postponed")
               }

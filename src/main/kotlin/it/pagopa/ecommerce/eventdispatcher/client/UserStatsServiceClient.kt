@@ -1,7 +1,7 @@
 package it.pagopa.ecommerce.eventdispatcher.client
 
+import it.pagopa.ecommerce.commons.mdcutilities.LogTracingUtils
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadGatewayException
-import it.pagopa.ecommerce.eventdispatcher.mdcutilities.EventDispatcherTracingUtils
 import it.pagopa.generated.ecommerce.userstats.api.UserStatsApi
 import it.pagopa.generated.ecommerce.userstats.dto.UserLastPaymentMethodData
 import it.pagopa.generated.ecommerce.userstats.dto.UserLastPaymentMethodRequest
@@ -32,15 +32,14 @@ class UserStatsServiceClient(
       .saveLastPaymentMethodUsed(
         UserLastPaymentMethodRequest().userId(userId).details(userLastPaymentMethodDataDto))
       .doOnSuccess {
-        EventDispatcherTracingUtils.withContextDetailsMdc(
+        LogTracingUtils.withContextDetailsMdc(
           mapOf("user_id" to userId, "last_used_method" to userLastPaymentMethodDataDto)) {
           logger.info("Saved last method used for user")
         }
       }
       .onErrorMap(WebClientResponseException::class.java) { exception: WebClientResponseException ->
-        EventDispatcherTracingUtils.withErrorMdc(
-          exception,
-          mapOf(EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to "failure")) {
+        LogTracingUtils.withErrorMdc(
+          exception, mapOf(LogTracingUtils.TracingEntry.EVENT_OUTCOME.key to "failure")) {
           logger.error("Failed to save last method used for user", exception)
         }
         when (exception.statusCode) {
