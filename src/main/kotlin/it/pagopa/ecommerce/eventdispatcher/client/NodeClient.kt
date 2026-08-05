@@ -70,7 +70,7 @@ class NodeClient(
       .onErrorMap { exception ->
         LogTracingUtils.withErrorMdc(
           exception, mapOf(LogTracingUtils.TracingEntry.EVENT_OUTCOME.key to "error")) {
-          logger.error("Received closePaymentV2 Response Status Error")
+          logger.error("Received closePaymentV2 Response Status Error", exception)
         }
         if (exception is ResponseStatusException) {
           ClosePaymentErrorResponseException(
