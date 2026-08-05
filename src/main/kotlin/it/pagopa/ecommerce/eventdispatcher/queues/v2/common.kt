@@ -204,12 +204,11 @@ fun updateTransactionWithRefundEvent(
           }
         }))
     .doOnSuccess {
-      EventDispatcherTracingUtils.withContextDetailsMdc(
+      LogTracingUtils.withContextDetailsMdc(
         mapOf(
           "status" to status,
-          EventDispatcherTracingUtils.TracingEntry.DEPENDENCY.key to
-            EventDispatcherTracingUtils.MONGO_DEPENDENCY_KEY),
-        mapOf(EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success")) {
+          LogTracingUtils.TracingEntry.DEPENDENCY.key to LogTracingUtils.MONGO_DEPENDENCY_KEY),
+        mapOf(LogTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success")) {
         logger.info("Updated event for transaction")
       }
     }
@@ -636,8 +635,8 @@ fun refundTransaction(
     }
     .cast(BaseTransaction::class.java)
     .onErrorResume { exception ->
-      EventDispatcherTracingUtils.withErrorMdc(
-        exception, mapOf(EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to "error")) {
+      LogTracingUtils.withErrorMdc(
+        exception, mapOf(LogTracingUtils.TracingEntry.EVENT_OUTCOME.key to "error")) {
         logger.error("Transaction requestRefund error", exception)
       }
       if (retryCount == 0) {
@@ -749,11 +748,17 @@ private fun refundTransactionNPG(
       }
       .cast(NpgTransactionGatewayAuthorizationData::class.java)
       .onErrorResume { error ->
+        LogTracingUtils.withErrorMdc(error) {
+          logger.error("Error performing GET orders with NPG", error)
+        }
         when (error) {
           // in case of 4xx NPG errors or invalid response (missing mandatory data such as
           // operationId) write event to dead letter
           is NpgBadRequestException,
           is InvalidNPGResponseException -> {
+            logger.error(
+              "Unexpected error, transaction : [{}] already refunded by NPG! ",
+              transaction.transactionId.value())
             Mono.error(
               RefundNotAllowedException(
                 transaction.transactionId, "Unrecoverable error performing GET orders", error))
@@ -796,6 +801,7 @@ private fun refundTransactionNPG(
             transaction.transactionAuthorizationRequestData.paymentTypeCode))
       .map { refundResponse -> Pair(refundResponse, transaction) }
       .onErrorMap({ e -> e is BadGatewayException || e is NpgResponseException }) { e ->
+        LogTracingUtils.withErrorMdc(e) { logger.error("Error performing GET orders with NPG", e) }
         RefundError.RefundFailed(
           transactionId = transaction.transactionId,
           authorizationData = authData,
@@ -811,7 +817,7 @@ fun handleNpgRefundResponse(
   transactionsEventStoreRepository: TransactionsEventStoreRepository<BaseTransactionRefundedData>,
   transactionsViewRepository: TransactionsViewRepository
 ): Mono<BaseTransaction> {
-  EventDispatcherTracingUtils.withContextDetailsMdc(
+  LogTracingUtils.withContextDetailsMdc(
     mapOf("operation_id" to (refundResponse.operationId ?: "N/A"))) {
     logger.info("Refund for transaction processed successfully")
   }
@@ -830,7 +836,7 @@ fun handleRedirectRefundResponse(
   transactionsViewRepository: TransactionsViewRepository
 ): Mono<BaseTransaction> {
   val refundOutcome = refundResponse.outcome
-  EventDispatcherTracingUtils.withContextDetailsMdc(
+  LogTracingUtils.withContextDetailsMdc(
     mapOf(
       "psp_id" to transactionAuthorizationRequestData.pspId,
       "outcome" to refundOutcome.toString())) {
@@ -879,6 +885,16 @@ fun isTransactionRefundable(tx: BaseTransaction): Boolean {
       // authorization was requested to PGS
       else -> wasAuthorizationRequested
     }
+  LogTracingUtils.withContextDetailsMdc(
+    mapOf(
+      "authorization_requested" to wasAuthorizationRequested,
+      "authorization_denied" to wasAuthorizationDenied,
+      "close_payment_response_outcome_ko" to wasClosePaymentResponseOutcomeKO,
+      "send_payment_result_outcome_ko" to wasSendPaymentResultOutcomeKO,
+      "is_transaction_refundable" to isTransactionRefundable),
+  ) {
+    logger.info("Transaction refundability evaluated")
+  }
   return isTransactionRefundable
 }
 
