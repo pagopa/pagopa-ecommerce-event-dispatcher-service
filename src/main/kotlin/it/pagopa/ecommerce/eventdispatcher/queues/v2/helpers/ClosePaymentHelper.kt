@@ -23,6 +23,7 @@ import it.pagopa.ecommerce.commons.utils.UpdateTransactionStatusTracerUtils.Upda
 import it.pagopa.ecommerce.commons.utils.UpdateTransactionStatusTracerUtils.UserCancelClosePaymentNodoStatusUpdate
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadTransactionStatusException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.ClosePaymentErrorResponseException
+import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.ClosePaymentEvent.Companion.exceptionToClosureErrorData
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.reduceEvents
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.requestRefundTransaction
@@ -375,6 +376,9 @@ class ClosePaymentHelper(
         tracingInfo = tracingInfo,
         throwable = exception)
       .publishOn(Schedulers.boundedElastic())
+      .doOnError(NoRetryAttemptsLeftException::class.java) {
+        logger.error("No more attempts left for closure retry")
+      }
 
   private fun updateTransactionToClosureError(
     baseTransaction: BaseTransaction,
