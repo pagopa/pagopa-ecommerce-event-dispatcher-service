@@ -122,6 +122,11 @@ class TransactionNotificationsRetryQueueConsumer(
 
     val notificationResendPipeline =
       baseTransaction
+        .doOnNext {
+          LogTracingUtils.withContextDetailsMdc(mapOf("status" to it.status)) {
+            logger.info("Retrieved transaction status")
+          }
+        }
         .flatMap { getTransactionWithUserReceiptErrorForRetry(it) }
         .flatMap { tx ->
           mono { userReceiptMailBuilder.buildNotificationEmailRequestDto(tx) }
@@ -152,9 +157,15 @@ class TransactionNotificationsRetryQueueConsumer(
                 }
             }
             .then()
-            .onErrorResume {
+            .onErrorResume { exception ->
+              LogTracingUtils.withErrorMdc(exception) {
+                logger.error("Got exception while retrying user receipt mail sending!", exception)
+              }
               val v = notificationRetryService.enqueueRetryEvent(tx, retryCount, tracingInfo)
-              v.onErrorResume(NoRetryAttemptsLeftException::class.java) {
+              v.onErrorResume(NoRetryAttemptsLeftException::class.java) { enqueueException ->
+                  LogTracingUtils.withErrorMdc(enqueueException) {
+                    logger.error("No more attempts left for user receipt send retry")
+                  }
                   BinaryData.fromObjectAsync(
                       queueEvent, strictSerializerProviderV2.createInstance())
                     .flatMap {
@@ -165,6 +176,12 @@ class TransactionNotificationsRetryQueueConsumer(
                           transactionEventCode = queueEvent.event.eventCode,
                           DeadLetterTracedQueueAsyncClient.ErrorCategory
                             .RETRY_EVENT_NO_ATTEMPTS_LEFT))
+                    }
+                    .onErrorResume { exception ->
+                      LogTracingUtils.withErrorMdc(exception) {
+                        logger.error("Error writing event to dead letter queue", exception)
+                      }
+                      Mono.empty()
                     }
                     .then(
                       notificationRefundTransactionPipeline(
