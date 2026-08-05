@@ -86,7 +86,7 @@ fun updateTransactionToExpired(
     }
     .doOnSuccess { logger.info("Transaction expired") }
     .doOnError { error ->
-      EventDispatcherTracingUtils.withErrorMdc(error) { logger.error("Transaction expired error") }
+      LogTracingUtils.withErrorMdc(error) { logger.error("Transaction expired error", error) }
     }
 }
 
