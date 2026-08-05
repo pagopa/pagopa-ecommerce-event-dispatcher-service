@@ -10,11 +10,11 @@ import it.pagopa.ecommerce.commons.domain.v2.Transaction
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithRefundRequested
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
+import it.pagopa.ecommerce.commons.mdcutilities.LogTracingUtils
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingUtils
 import it.pagopa.ecommerce.eventdispatcher.client.PaymentGatewayClient
-import it.pagopa.ecommerce.eventdispatcher.mdcutilities.EventDispatcherTracingUtils
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
 import it.pagopa.ecommerce.eventdispatcher.services.RefundService
@@ -72,11 +72,10 @@ class TransactionsRefundQueueConsumer(
         .findByTransactionIdOrderByCreationDateAsc(transactionId)
         .cache()
         .doOnComplete {
-          EventDispatcherTracingUtils.withContextDetailsMdc(
+          LogTracingUtils.withContextDetailsMdc(
             mapOf(
-              EventDispatcherTracingUtils.TracingEntry.DEPENDENCY.key to
-                EventDispatcherTracingUtils.MONGO_DEPENDENCY_KEY),
-            mapOf(EventDispatcherTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success"),
+              LogTracingUtils.TracingEntry.DEPENDENCY.key to LogTracingUtils.MONGO_DEPENDENCY_KEY),
+            mapOf(LogTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success"),
           ) {
             logger.info("Successfully retrieved events for transaction refund")
           }
@@ -114,8 +113,13 @@ class TransactionsRefundQueueConsumer(
         this::class.simpleName!!,
         strictSerializerProviderV2)
       .contextWrite { context ->
-        EventDispatcherTracingUtils.enrichContextForDispatcherEvent(
-          e.event.transactionId, e.event.eventCode, e.event.id, context, "REFUND")
+        LogTracingUtils.enrichContextForEvent(
+          mapOf(
+            LogTracingUtils.TracingEntry.CTX_TRANSACTION_ID to e.event.transactionId,
+            LogTracingUtils.TracingEntry.CTX_EVENT_CODE to e.event.eventCode,
+            LogTracingUtils.TracingEntry.CTX_EVENT_ID to e.event.id,
+            LogTracingUtils.TracingEntry.EVENT_ACTION to "REFUND"),
+          context)
       }
   }
 }
