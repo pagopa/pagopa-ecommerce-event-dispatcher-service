@@ -132,7 +132,7 @@ class AuthorizationRequestedHelper(
                   baseTransactionWithRequestedAuthorization, authorizationRequestedDate))
               .onErrorResume { error ->
                 LogTracingUtils.withErrorMdc(error) {
-                  logger.error("Exception while saving last payment method used")
+                  logger.error("Exception while saving last payment method used", error)
                 }
                 mono {}
               }
@@ -155,6 +155,15 @@ class AuthorizationRequestedHelper(
           val performGetState =
             (transactionStatus == TransactionStatusDto.AUTHORIZATION_REQUESTED && gatewayNpg)
           val performOnlyPatch = !performGetState && authorizationCompleted
+          LogTracingUtils.withContextDetailsMdc(
+            mapOf(
+              "status" to transactionStatus,
+              "gateway" to gateway,
+              "perform_get_state" to performGetState,
+              "perform_patch_auth_requests" to performOnlyPatch),
+          ) {
+            logger.info("Authorization requested operations evaluated")
+          }
 
           performGetState || performOnlyPatch
         }

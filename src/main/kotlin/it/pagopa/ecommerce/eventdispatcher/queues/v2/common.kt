@@ -307,23 +307,23 @@ fun handlePatchTransactionServiceByAuthData(
 ): Mono<BaseTransaction> {
   return getAuthorizationData(tx)
     .doOnError { error ->
-      EventDispatcherTracingUtils.withErrorMdc(error) {
-        logger.error("Transaction getAuthorizationData error")
+      LogTracingUtils.withErrorMdc(error) {
+        logger.error("Transaction getAuthorizationData error", error)
       }
     }
     .flatMap { authorizationRequestedData ->
       transactionsServiceClient
         .patchAuthRequest(tx.transactionId, authorizationRequestedData)
         .doOnError { error ->
-          EventDispatcherTracingUtils.withErrorMdc(error) {
-            logger.error("Transaction PATCH auth request error")
+          LogTracingUtils.withErrorMdc(error) {
+            logger.error("Transaction PATCH auth request error", error)
           }
         }
     }
     .thenReturn(tx)
     .onErrorResume { exception ->
-      EventDispatcherTracingUtils.withErrorMdc(exception) {
-        logger.error("Transaction get authorization data or PATCH auth request error")
+      LogTracingUtils.withErrorMdc(exception) {
+        logger.error("Transaction get authorization data or PATCH auth request error", exception)
       }
       Mono.just(tx)
         .flatMap {
@@ -337,8 +337,8 @@ fun handlePatchTransactionServiceByAuthData(
               authorizationStateRetrieverRetryService
                 .enqueueRetryEvent(tx, retryCount, tracingInfo)
                 .onErrorResume { enqueueException ->
-                  EventDispatcherTracingUtils.withErrorMdc(enqueueException) {
-                    logger.error("Transaction enqueue retry event error ")
+                  LogTracingUtils.withErrorMdc(enqueueException) {
+                    logger.error("Transaction enqueue retry event error ", enqueueException)
                   }
                   Mono.just(tx).flatMap {
                     when (enqueueException) {
@@ -371,8 +371,8 @@ fun handleGetStateByPatchTransactionService(
     }
     .thenReturn(tx)
     .onErrorResume { exception ->
-      EventDispatcherTracingUtils.withErrorMdc(exception) {
-        logger.error("Transaction handleGetState error")
+      LogTracingUtils.withErrorMdc(exception) {
+        logger.error("Transaction handleGetState error", exception)
       }
       Mono.just(tx)
         .flatMap {
@@ -389,8 +389,8 @@ fun handleGetStateByPatchTransactionService(
               authorizationStateRetrieverRetryService
                 .enqueueRetryEvent(tx, retryCount, tracingInfo)
                 .onErrorResume { enqueueException ->
-                  EventDispatcherTracingUtils.withErrorMdc(enqueueException) {
-                    logger.error("Transaction enqueue retry event error")
+                  LogTracingUtils.withErrorMdc(enqueueException) {
+                    logger.error("Transaction enqueue retry event error", enqueueException)
                   }
                   Mono.just(tx).flatMap {
                     when (enqueueException) {
@@ -420,7 +420,7 @@ fun patchAuthRequestByState(
   tx: BaseTransaction,
   transactionsServiceClient: TransactionsServiceClient,
 ): Mono<UpdateAuthorizationResponseDto> {
-  EventDispatcherTracingUtils.withContextDetailsMdc(
+  LogTracingUtils.withContextDetailsMdc(
     mapOf("state_result" to (stateResponseDto.state?.value ?: "N/A"))) {
     logger.info("NPG Get State for transaction processed successfully")
   }
@@ -465,8 +465,7 @@ fun patchAuthRequestByState(
             timestampOperation = getTimeStampOperation(stateResponseDto.operation!!.operationTime!!)
           })
         .doOnNext { patchResponse ->
-          EventDispatcherTracingUtils.withContextDetailsMdc(
-            mapOf("new_status" to patchResponse.status)) {
+          LogTracingUtils.withContextDetailsMdc(mapOf("new_status" to patchResponse.status)) {
             logger.info("Transactions service PATCH authRequest processed successfully")
           }
         }
