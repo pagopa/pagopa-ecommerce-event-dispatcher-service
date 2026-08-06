@@ -84,10 +84,9 @@ fun updateTransactionToExpired(
           })
         .thenReturn(updatedTransaction)
     }
-    .doOnSuccess { logger.info("Transaction expired for transaction ${it.transactionId.value()}") }
-    .doOnError {
-      logger.error(
-        "Transaction expired error for transaction ${transaction.transactionId.value()} : ${it.message}")
+    .doOnSuccess { logger.info("Transaction expired") }
+    .doOnError { error ->
+      LogTracingUtils.withErrorMdc(error) { logger.error("Transaction expired error", error) }
     }
 }
 
