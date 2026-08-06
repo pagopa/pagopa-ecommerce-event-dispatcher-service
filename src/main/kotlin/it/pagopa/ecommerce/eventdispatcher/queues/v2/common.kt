@@ -84,10 +84,9 @@ fun updateTransactionToExpired(
           })
         .thenReturn(updatedTransaction)
     }
-    .doOnSuccess { logger.info("Transaction expired for transaction ${it.transactionId.value()}") }
-    .doOnError {
-      logger.error(
-        "Transaction expired error for transaction ${transaction.transactionId.value()} : ${it.message}")
+    .doOnSuccess { logger.info("Transaction expired") }
+    .doOnError { error ->
+      LogTracingUtils.withErrorMdc(error) { logger.error("Transaction expired error", error) }
     }
 }
 
@@ -1053,7 +1052,6 @@ private fun updateNotifiedTransactionStatus(
   event: TransactionEvent<TransactionUserReceiptData>,
   transactionUserReceiptRepository: TransactionsEventStoreRepository<TransactionUserReceiptData>
 ): Mono<TransactionEvent<TransactionUserReceiptData>> {
-  logger.info("Updating transaction {} status to {}", transaction.transactionId.value(), newStatus)
 
   return TransactionsViewProjectionHandler.updateTransactionView(
       transactionId = transaction.transactionId,
@@ -1089,8 +1087,6 @@ fun notificationRefundTransactionPipeline(
 ): Mono<BaseTransaction> {
   val userReceiptOutcome = transaction.transactionUserReceiptData.responseOutcome
   val toBeRefunded = userReceiptOutcome == TransactionUserReceiptData.Outcome.KO
-  logger.info(
-    "Transaction Nodo sendPaymentResult response outcome: $userReceiptOutcome --> to be refunded: $toBeRefunded")
   return Mono.just(transaction)
     .filter { toBeRefunded }
     .flatMap {

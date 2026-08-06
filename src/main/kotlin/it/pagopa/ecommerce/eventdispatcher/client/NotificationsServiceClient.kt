@@ -1,5 +1,6 @@
 package it.pagopa.ecommerce.eventdispatcher.client
 
+import it.pagopa.ecommerce.commons.mdcutilities.LogTracingUtils
 import it.pagopa.generated.notifications.templates.ko.KoTemplate
 import it.pagopa.generated.notifications.templates.success.SuccessTemplate
 import it.pagopa.generated.notifications.v1.api.DefaultApi
@@ -28,7 +29,6 @@ class NotificationsServiceClient(
   fun sendNotificationEmail(
     notificationEmailRequestDto: NotificationEmailRequestDto
   ): Mono<NotificationEmailResponseDto> {
-    val transactionId = getTransactionIdFromParameters(notificationEmailRequestDto.parameters)
     return Mono.defer {
         notificationsServiceApi.apiClient.webClient
           .post()
@@ -36,17 +36,20 @@ class NotificationsServiceClient(
           .header("ocp-apim-subscription-key", notificationsServiceApiKey)
           .bodyValue(notificationEmailRequestDto)
           .exchangeToMono { response ->
-            logger.info(
-              "Notification for transaction with id $transactionId sent, notifications-service code ${response.statusCode()}")
-
             when (response.statusCode()) {
               HttpStatus.OK -> {
-                logger.info("Mail sent successfully for transaction id: $transactionId")
+                LogTracingUtils.withContextDetailsMdc(
+                  null, mapOf(LogTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success")) {
+                  logger.info("Mail sent successfully")
+                }
                 response.bodyToMono(NotificationEmailResponseDto::class.java)
               }
               HttpStatus.ACCEPTED -> {
-                logger.info(
-                  "Mail sending accepted for transaction id: $transactionId, retries will be attempted by notifications-service module")
+                LogTracingUtils.withContextDetailsMdc(
+                  null, mapOf(LogTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success")) {
+                  logger.info(
+                    "Mail sending accepted, retries will be attempted by notifications-service module")
+                }
                 response.toBodilessEntity().flatMap {
                   Mono.just(NotificationEmailResponseDto().apply { outcome = "OK" })
                 }
@@ -56,21 +59,17 @@ class NotificationsServiceClient(
           }
       }
       .doOnError(WebClientResponseException::class.java) { e: WebClientResponseException ->
-        logger.error(
-          "Error sending email for transaction id: {}. Got bad response from notifications-service [HTTP {}]: {}",
-          transactionId,
-          e.statusCode,
-          e.responseBodyAsString)
-      }
-      .doOnError(WebClientResponseException::class.java) { e: WebClientResponseException ->
-        logger.error(
-          "Error sending email for transaction id: {}. Got bad response from notifications-service [HTTP {}]: {}",
-          transactionId,
-          e.statusCode,
-          e.responseBodyAsString)
+        LogTracingUtils.withContextDetailsMdc(
+          mapOf("http_status" to e.statusCode, "response_body" to e.responseBodyAsString),
+          mapOf(LogTracingUtils.TracingEntry.EVENT_OUTCOME.key to "failure")) {
+          logger.error("Error sending email. Got bad response from notifications-service")
+        }
       }
       .doOnError { e: Throwable ->
-        logger.error("Error sending email for transaction id: $transactionId", e)
+        LogTracingUtils.withErrorMdc(
+          e, mapOf(LogTracingUtils.TracingEntry.EVENT_OUTCOME.key to "failure")) {
+          logger.error("Error sending email", e)
+        }
       }
   }
 
