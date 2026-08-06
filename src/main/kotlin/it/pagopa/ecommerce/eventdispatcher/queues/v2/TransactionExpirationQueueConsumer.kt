@@ -149,6 +149,13 @@ class TransactionExpirationQueueConsumer(
           val refundableCheckRequired = isRefundableCheckRequired(it)
           val refundable = isTransactionRefundable(it)
           val refundableWithoutCheck = refundable && !refundableCheckRequired
+          LogTracingUtils.withContextDetailsMdc(
+            mapOf(
+              "status" to it.status,
+              "refundable" to refundable.toString(),
+              "without_check" to refundableWithoutCheck.toString())) {
+            logger.info("Transaction refund check completed")
+          }
           if (refundable && refundableCheckRequired) {
             val binaryData =
               BinaryData.fromObject(event, strictSerializerProviderV2.createInstance())
@@ -186,6 +193,10 @@ class TransactionExpirationQueueConsumer(
                 refundRequestedAsyncClient,
                 Duration.ofSeconds(transientQueueTTLSeconds.toLong()))
             } else {
+              LogTracingUtils.withContextDetailsMdc(
+                mapOf("delay_seconds" to timeout.seconds.toString())) {
+                logger.info("Refund processing postponed")
+              }
               expirationQueueAsyncClient
                 .sendMessageWithResponse(
                   binaryData,
