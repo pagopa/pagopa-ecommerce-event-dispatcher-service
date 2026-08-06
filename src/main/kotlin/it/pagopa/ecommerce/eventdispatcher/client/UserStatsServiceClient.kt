@@ -40,7 +40,7 @@ class UserStatsServiceClient(
       .onErrorMap(WebClientResponseException::class.java) { exception: WebClientResponseException ->
         LogTracingUtils.withErrorMdc(
           exception, mapOf(LogTracingUtils.TracingEntry.EVENT_OUTCOME.key to "failure")) {
-          logger.error("Failed to save last method used for user", exception)
+          logger.error("Failed to save last method used for user")
         }
         when (exception.statusCode) {
           HttpStatus.BAD_REQUEST ->
