@@ -203,8 +203,13 @@ fun updateTransactionWithRefundEvent(
           }
         }))
     .doOnSuccess {
-      logger.info(
-        "Updated event for transaction with id ${transaction.transactionId.value()} to status $status")
+      LogTracingUtils.withContextDetailsMdc(
+        mapOf(
+          "status" to status,
+          LogTracingUtils.TracingEntry.DEPENDENCY.key to LogTracingUtils.MONGO_DEPENDENCY_KEY),
+        mapOf(LogTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success")) {
+        logger.info("Updated event for transaction")
+      }
     }
     .thenReturn(transaction)
 }
@@ -561,16 +566,11 @@ fun refundTransaction(
   tracingInfo: TracingInfo?,
   retryCount: Int = 0
 ): Mono<BaseTransaction> {
-  val transactionAuthorizationRequestData = getTransactionAuthorizationRequestData(tx)
-
-  if (transactionAuthorizationRequestData == null) {
-    logger.warn(
-      "Tried to call `refundRequested` on transaction with null authorization request data in status {}!",
-      tx.status.value)
-    return Mono.error(
-      IllegalArgumentException(
-        "Tried to call `refundRequested` on transaction with null authorization request data in status ${tx.status.value}!"))
-  }
+  val transactionAuthorizationRequestData =
+    getTransactionAuthorizationRequestData(tx)
+      ?: return Mono.error(
+        IllegalArgumentException(
+          "Tried to call `refundRequested` on transaction with null authorization request data in status ${tx.status.value}!"))
 
   return Mono.just(tx)
     .flatMap { transaction ->
@@ -629,8 +629,10 @@ fun refundTransaction(
     }
     .cast(BaseTransaction::class.java)
     .onErrorResume { exception ->
-      logger.error(
-        "Transaction requestRefund error for transaction ${tx.transactionId.value()}", exception)
+      LogTracingUtils.withErrorMdc(
+        exception, mapOf(LogTracingUtils.TracingEntry.EVENT_OUTCOME.key to "error")) {
+        logger.error("Transaction requestRefund error", exception)
+      }
       if (retryCount == 0) {
           // refund error event written only the first time
           updateTransactionToRefundError(
@@ -740,15 +742,17 @@ private fun refundTransactionNPG(
       }
       .cast(NpgTransactionGatewayAuthorizationData::class.java)
       .onErrorResume { error ->
-        logger.error(
-          "Error performing GET orders with NPG for transaction: [%s]".format(
-            transaction.transactionId.value()),
-          error)
+        LogTracingUtils.withErrorMdc(error) {
+          logger.error("Error performing GET orders with NPG", error)
+        }
         when (error) {
           // in case of 4xx NPG errors or invalid response (missing mandatory data such as
           // operationId) write event to dead letter
           is NpgBadRequestException,
           is InvalidNPGResponseException -> {
+            logger.error(
+              "Unexpected error, transaction : [{}] already refunded by NPG! ",
+              transaction.transactionId.value())
             Mono.error(
               RefundNotAllowedException(
                 transaction.transactionId, "Unrecoverable error performing GET orders", error))
@@ -756,9 +760,6 @@ private fun refundTransactionNPG(
           // in this case operation result already refunded by NPG but no attempt have already being
           // done by eCommerce -> write event to dead letter
           is InvalidNpgOrderStateException.OrderAlreadyRefunded -> {
-            logger.error(
-              "Unexpected error, transaction : [{}] already refunded by NPG!",
-              transaction.transactionId.value())
             Mono.error(
               RefundNotAllowedException(
                 transaction.transactionId, "Order already refunded!", error))
@@ -794,8 +795,7 @@ private fun refundTransactionNPG(
             transaction.transactionAuthorizationRequestData.paymentTypeCode))
       .map { refundResponse -> Pair(refundResponse, transaction) }
       .onErrorMap({ e -> e is BadGatewayException || e is NpgResponseException }) { e ->
-        logger.error(
-          "Error during refund NPG for transaction [{}]", transaction.transactionId.value(), e)
+        LogTracingUtils.withErrorMdc(e) { logger.error("Error performing GET orders with NPG", e) }
         RefundError.RefundFailed(
           transactionId = transaction.transactionId,
           authorizationData = authData,
@@ -811,10 +811,10 @@ fun handleNpgRefundResponse(
   transactionsEventStoreRepository: TransactionsEventStoreRepository<BaseTransactionRefundedData>,
   transactionsViewRepository: TransactionsViewRepository
 ): Mono<BaseTransaction> {
-  logger.info(
-    "Refund for transaction with id: [{}] and NPG operationId [{}] processed successfully",
-    transaction.transactionId.value(),
-    refundResponse.operationId ?: "N/A")
+  LogTracingUtils.withContextDetailsMdc(
+    mapOf("operation_id" to (refundResponse.operationId ?: "N/A"))) {
+    logger.info("Refund for transaction processed successfully")
+  }
   return updateTransactionToRefunded(
     transaction,
     transactionsEventStoreRepository,
@@ -830,11 +830,12 @@ fun handleRedirectRefundResponse(
   transactionsViewRepository: TransactionsViewRepository
 ): Mono<BaseTransaction> {
   val refundOutcome = refundResponse.outcome
-  logger.info(
-    "Refund for redirect transaction for psp: [{}] with id: [{}] processed successfully. Received outcome: [{}]",
-    transactionAuthorizationRequestData.pspId,
-    transaction.transactionId.value(),
-    refundOutcome)
+  LogTracingUtils.withContextDetailsMdc(
+    mapOf(
+      "psp_id" to transactionAuthorizationRequestData.pspId,
+      "outcome" to refundOutcome.toString())) {
+    logger.info("Refund for redirect transaction processed successfully")
+  }
   return when (refundOutcome) {
     RefundOutcomeDto.OK,
     RefundOutcomeDto.CANCELED ->
@@ -878,8 +879,16 @@ fun isTransactionRefundable(tx: BaseTransaction): Boolean {
       // authorization was requested to PGS
       else -> wasAuthorizationRequested
     }
-  logger.info(
-    "Transaction with id ${tx.transactionId.value()} : authorization requested: $wasAuthorizationRequested, authorization denied: $wasAuthorizationDenied, closePaymentResponse.outcome KO: $wasClosePaymentResponseOutcomeKO sendPaymentResult.outcome KO : $wasSendPaymentResultOutcomeKO --> is refundable: $isTransactionRefundable")
+  LogTracingUtils.withContextDetailsMdc(
+    mapOf(
+      "authorization_requested" to wasAuthorizationRequested,
+      "authorization_denied" to wasAuthorizationDenied,
+      "close_payment_response_outcome_ko" to wasClosePaymentResponseOutcomeKO,
+      "send_payment_result_outcome_ko" to wasSendPaymentResultOutcomeKO,
+      "is_transaction_refundable" to isTransactionRefundable),
+  ) {
+    logger.info("Transaction refundability evaluated")
+  }
   return isTransactionRefundable
 }
 

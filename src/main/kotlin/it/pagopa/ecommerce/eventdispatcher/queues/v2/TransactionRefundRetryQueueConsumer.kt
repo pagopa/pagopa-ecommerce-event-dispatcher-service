@@ -8,6 +8,7 @@ import it.pagopa.ecommerce.commons.domain.v2.Transaction
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithRefundRequested
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
+import it.pagopa.ecommerce.commons.mdcutilities.LogTracingUtils
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingUtils
@@ -60,14 +61,21 @@ class TransactionRefundRetryQueueConsumer(
       transactionsEventStoreRepository
         .findByTransactionIdOrderByCreationDateAsc(event.transactionId)
         .cache()
+        .doOnComplete {
+          LogTracingUtils.withContextDetailsMdc(
+            mapOf(
+              LogTracingUtils.TracingEntry.DEPENDENCY.key to LogTracingUtils.MONGO_DEPENDENCY_KEY),
+            mapOf(LogTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success"),
+          ) {
+            logger.info("Successfully retrieved events for transaction refund retry")
+          }
+        }
 
     val baseTransaction =
       events.reduce(EmptyTransaction(), Transaction::applyEvent).cast(BaseTransaction::class.java)
     val refundPipeline =
       baseTransaction
         .flatMap {
-          logger.info("Status for transaction ${it.transactionId.value()}: ${it.status}")
-
           if (it.status != TransactionStatusDto.REFUND_ERROR) {
             Mono.error(
               BadTransactionStatusException(
@@ -95,12 +103,21 @@ class TransactionRefundRetryQueueConsumer(
             }
         }
     return runTracedPipelineWithDeadLetterQueue(
-      checkPointer,
-      refundPipeline,
-      QueueEvent(event, tracingInfo),
-      deadLetterTracedQueueAsyncClient,
-      tracingUtils,
-      this::class.simpleName!!,
-      strictSerializerProviderV2)
+        checkPointer,
+        refundPipeline,
+        QueueEvent(event, tracingInfo),
+        deadLetterTracedQueueAsyncClient,
+        tracingUtils,
+        this::class.simpleName!!,
+        strictSerializerProviderV2)
+      .contextWrite { context ->
+        LogTracingUtils.enrichContextForEvent(
+          mapOf(
+            LogTracingUtils.TracingEntry.CTX_TRANSACTION_ID to event.transactionId,
+            LogTracingUtils.TracingEntry.CTX_EVENT_CODE to event.eventCode,
+            LogTracingUtils.TracingEntry.CTX_EVENT_ID to event.id,
+            LogTracingUtils.TracingEntry.EVENT_ACTION to "REFUND_RETRY"),
+          context)
+      }
   }
 }
