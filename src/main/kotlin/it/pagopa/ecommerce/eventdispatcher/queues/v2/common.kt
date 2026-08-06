@@ -1057,7 +1057,6 @@ private fun updateNotifiedTransactionStatus(
   event: TransactionEvent<TransactionUserReceiptData>,
   transactionUserReceiptRepository: TransactionsEventStoreRepository<TransactionUserReceiptData>
 ): Mono<TransactionEvent<TransactionUserReceiptData>> {
-  logger.info("Updating transaction {} status to {}", transaction.transactionId.value(), newStatus)
 
   return TransactionsViewProjectionHandler.updateTransactionView(
       transactionId = transaction.transactionId,
@@ -1093,8 +1092,6 @@ fun notificationRefundTransactionPipeline(
 ): Mono<BaseTransaction> {
   val userReceiptOutcome = transaction.transactionUserReceiptData.responseOutcome
   val toBeRefunded = userReceiptOutcome == TransactionUserReceiptData.Outcome.KO
-  logger.info(
-    "Transaction Nodo sendPaymentResult response outcome: $userReceiptOutcome --> to be refunded: $toBeRefunded")
   return Mono.just(transaction)
     .filter { toBeRefunded }
     .flatMap {
