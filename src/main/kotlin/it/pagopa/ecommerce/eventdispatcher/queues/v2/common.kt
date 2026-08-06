@@ -305,25 +305,25 @@ fun handlePatchTransactionServiceByAuthData(
   retryCount: Int = 0
 ): Mono<BaseTransaction> {
   return getAuthorizationData(tx)
-    .doOnError { exception ->
-      logger.error(
-        "Transaction getAuthorizationData error for transaction ${tx.transactionId.value()}",
-        exception)
+    .doOnError { error ->
+      LogTracingUtils.withErrorMdc(error) {
+        logger.error("Transaction getAuthorizationData error", error)
+      }
     }
     .flatMap { authorizationRequestedData ->
       transactionsServiceClient
         .patchAuthRequest(tx.transactionId, authorizationRequestedData)
-        .doOnError { exception ->
-          logger.error(
-            "Transaction PATCH auth request error for transaction ${tx.transactionId.value()}",
-            exception)
+        .doOnError { error ->
+          LogTracingUtils.withErrorMdc(error) {
+            logger.error("Transaction PATCH auth request error", error)
+          }
         }
     }
     .thenReturn(tx)
     .onErrorResume { exception ->
-      logger.error(
-        "Transaction get authorization data or PATCH auth request error for transaction ${tx.transactionId.value()}",
-        exception)
+      LogTracingUtils.withErrorMdc(exception) {
+        logger.error("Transaction get authorization data or PATCH auth request error", exception)
+      }
       Mono.just(tx)
         .flatMap {
           when (exception) {
@@ -336,9 +336,9 @@ fun handlePatchTransactionServiceByAuthData(
               authorizationStateRetrieverRetryService
                 .enqueueRetryEvent(tx, retryCount, tracingInfo)
                 .onErrorResume { enqueueException ->
-                  logger.error(
-                    "Transaction enqueue retry event error for transaction ${tx.transactionId.value()}",
-                    enqueueException)
+                  LogTracingUtils.withErrorMdc(enqueueException) {
+                    logger.error("Transaction enqueue retry event error ", enqueueException)
+                  }
                   Mono.just(tx).flatMap {
                     when (enqueueException) {
                       is TooLateRetryAttemptException,
@@ -370,8 +370,9 @@ fun handleGetStateByPatchTransactionService(
     }
     .thenReturn(tx)
     .onErrorResume { exception ->
-      logger.error(
-        "Transaction handleGetState error for transaction ${tx.transactionId.value()}", exception)
+      LogTracingUtils.withErrorMdc(exception) {
+        logger.error("Transaction handleGetState error", exception)
+      }
       Mono.just(tx)
         .flatMap {
           when (exception) {
@@ -387,9 +388,9 @@ fun handleGetStateByPatchTransactionService(
               authorizationStateRetrieverRetryService
                 .enqueueRetryEvent(tx, retryCount, tracingInfo)
                 .onErrorResume { enqueueException ->
-                  logger.error(
-                    "Transaction enqueue retry event error for transaction ${tx.transactionId.value()}",
-                    enqueueException)
+                  LogTracingUtils.withErrorMdc(enqueueException) {
+                    logger.error("Transaction enqueue retry event error", enqueueException)
+                  }
                   Mono.just(tx).flatMap {
                     when (enqueueException) {
                       is TooLateRetryAttemptException,
@@ -410,11 +411,6 @@ fun retrieveGetStateSessionId(
   val sessionId = authRequestedGatewayData.sessionId
   val confirmPaymentSessionId = authRequestedGatewayData.confirmPaymentSessionId
   val sessionIdToUse = Optional.ofNullable(confirmPaymentSessionId).orElse(sessionId)
-  logger.info(
-    "NPG authorization request sessionId: [{}], confirm payment session id: [{}] -> session id to use for retrieve state: [{}]",
-    sessionId,
-    confirmPaymentSessionId,
-    sessionIdToUse)
   return sessionIdToUse
 }
 
@@ -423,10 +419,10 @@ fun patchAuthRequestByState(
   tx: BaseTransaction,
   transactionsServiceClient: TransactionsServiceClient,
 ): Mono<UpdateAuthorizationResponseDto> {
-  logger.info(
-    "NPG Get State for transaction with id: [{}] processed successfully with state result [{}]",
-    tx.transactionId.value(),
-    stateResponseDto.state?.value ?: "N/A")
+  LogTracingUtils.withContextDetailsMdc(
+    mapOf("state_result" to (stateResponseDto.state?.value ?: "N/A"))) {
+    logger.info("NPG Get State for transaction processed successfully")
+  }
   // invoke transaction service patch
   return Mono.just(stateResponseDto)
     .filter { s ->
@@ -468,10 +464,9 @@ fun patchAuthRequestByState(
             timestampOperation = getTimeStampOperation(stateResponseDto.operation!!.operationTime!!)
           })
         .doOnNext { patchResponse ->
-          logger.info(
-            "Transactions service PATCH authRequest for transaction with id: [{}] processed successfully. New state for transaction is [{}]",
-            tx.transactionId.value(),
-            patchResponse.status)
+          LogTracingUtils.withContextDetailsMdc(mapOf("new_status" to patchResponse.status)) {
+            logger.info("Transactions service PATCH authRequest processed successfully")
+          }
         }
     }
 }

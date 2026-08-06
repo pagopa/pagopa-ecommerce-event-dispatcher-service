@@ -12,6 +12,7 @@ import it.pagopa.ecommerce.commons.domain.v2.Transaction
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithRequestedAuthorization
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
+import it.pagopa.ecommerce.commons.mdcutilities.LogTracingUtils
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingInfo
@@ -42,7 +43,7 @@ import reactor.kotlin.core.publisher.switchIfEmpty
 
 /**
  * This helper implements the business logic related to handling calling `getState` from NPG. In
- * particular, the [getAuthorizationState] method does the following:
+ * particular, the handler methods in this class do the following:
  * - checks for the transaction current status
  * - determines whether the transaction was requesting authorization via NPG
  * - calls NPG's `getSTate`
@@ -129,8 +130,10 @@ class AuthorizationRequestedHelper(
                   baseTransactionWithRequestedAuthorization.transactionActivatedData.userId!!),
                 buildUserLastPaymentMethodData(
                   baseTransactionWithRequestedAuthorization, authorizationRequestedDate))
-              .onErrorResume {
-                logger.error("Exception while saving last payment method used", it)
+              .onErrorResume { error ->
+                LogTracingUtils.withErrorMdc(error) {
+                  logger.error("Exception while saving last payment method used", error)
+                }
                 mono {}
               }
               .thenReturn(baseTransactionWithRequestedAuthorization)
@@ -152,30 +155,29 @@ class AuthorizationRequestedHelper(
           val performGetState =
             (transactionStatus == TransactionStatusDto.AUTHORIZATION_REQUESTED && gatewayNpg)
           val performOnlyPatch = !performGetState && authorizationCompleted
+          LogTracingUtils.withContextDetailsMdc(
+            mapOf(
+              "status" to transactionStatus,
+              "gateway" to gateway,
+              "perform_get_state" to performGetState,
+              "perform_patch_auth_requests" to performOnlyPatch),
+          ) {
+            logger.info("Authorization requested operations evaluated")
+          }
 
-          logger.info(
-            "Transaction [{}] status: [{}], gateway: [{}]- Perform GET state -> [{}]- Perform PATCH auth-requests -> [{}]",
-            transactionId,
-            transactionStatus,
-            gateway,
-            performGetState,
-            performOnlyPatch)
           performGetState || performOnlyPatch
         }
         .flatMap { tx ->
-          logger.info(
-            "Transaction [{}] auth requested at: [{}], get state threshold: [{}]",
-            tx.transactionId.value(),
-            authorizationRequestedDate,
-            getStateThresholdDate)
           if (timeToWaitForGetState > Duration.ZERO) {
             // add here a fixed 10 sec delay to avoid condition when event is visible in queue
             // some millis before the effective ttl set here
             val visibilityTimeout = timeToWaitForGetState + Duration.ofSeconds(10)
-            logger.debug(
-              "Transaction: [{}] postpone authorization requested event  with visibility timeout: [{}]",
-              tx.transactionId.value(),
-              visibilityTimeout)
+            if (logger.isDebugEnabled) {
+              LogTracingUtils.withContextDetailsMdc(
+                mapOf("visibility_timeout" to visibilityTimeout.toString())) {
+                logger.debug("Authorization requested event postponed")
+              }
+            }
             val binaryData =
               BinaryData.fromObject(parsedEvent, strictSerializerProviderV2.createInstance())
             authRequestedQueueAsyncClient.sendMessageWithResponse(
@@ -230,13 +232,6 @@ class AuthorizationRequestedHelper(
             transactionStatus == TransactionStatusDto.AUTHORIZATION_REQUESTED && gatewayNpg
           val performOnlyPatch = !performGetState && authorizationCompleted
 
-          logger.info(
-            "Transaction [{}] status: [{}], gateway: [{}] - Perform GET state -> [{}] - Perform PATCH auth-requests -> [{}]",
-            transactionId,
-            transactionStatus,
-            gateway,
-            performGetState,
-            performOnlyPatch)
           performGetState || performOnlyPatch
         }
         .flatMap { tx -> updateTransactionStatus(tx, tracingInfo, retryCount) }
@@ -262,8 +257,6 @@ class AuthorizationRequestedHelper(
             TransactionAuthorizationRequestData.PaymentGateway.NPG
       }
       .flatMap { tx ->
-        logger.info(
-          "Handling GET state request for transaction with id ${tx.transactionId.value()} in status ${tx.status.value}")
         handleGetStateByPatchTransactionService(
           tx = tx,
           authorizationStateRetrieverRetryService = authorizationStateRetrieverRetryService,
@@ -275,8 +268,6 @@ class AuthorizationRequestedHelper(
       .switchIfEmpty {
         mono { tx }
           .flatMap { tx ->
-            logger.info(
-              "Handling PATCH auth request for transaction with id ${tx.transactionId.value()} in status ${tx.status.value}")
             handlePatchTransactionServiceByAuthData(
               tx = tx,
               authorizationStateRetrieverRetryService = authorizationStateRetrieverRetryService,
