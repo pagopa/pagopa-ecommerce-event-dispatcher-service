@@ -18,7 +18,7 @@ permissions:
 jobs:
   openapi_quality:
     runs-on: ubuntu-latest
-    name: OpenAPI lint
+    name: OpenAPI lint ${{ matrix.spec.version }}
     strategy:
       # one failing spec must not cancel the others
       fail-fast: false
@@ -31,7 +31,7 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       # blocks on errors; warnings stay visible until the spec is clean
-      - name: OpenAPI lint - ${{ matrix.spec.version }}
+      - name: Lint ${{ matrix.spec.path }}
         uses: ./.github/actions/openapi-lint
         with:
           spec_path: ${{ matrix.spec.path }}
