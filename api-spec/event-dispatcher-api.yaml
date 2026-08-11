@@ -20,6 +20,7 @@ externalDocs:
   description: Design review
 servers:
   - url: https://${host}
+    x-internal: true
     variables:
       host:
           description: The hostname of the API server
