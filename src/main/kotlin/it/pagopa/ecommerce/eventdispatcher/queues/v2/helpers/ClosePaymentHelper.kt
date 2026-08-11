@@ -13,6 +13,8 @@ import it.pagopa.ecommerce.commons.domain.v2.pojos.*
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.mdcutilities.LogTracingUtils
+import it.pagopa.ecommerce.commons.mdcutilities.LogTracingUtils.MONGO_DEPENDENCY
+import it.pagopa.ecommerce.commons.mdcutilities.LogTracingUtils.REDIS_DEPENDENCY
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingInfo
@@ -185,13 +187,10 @@ class ClosePaymentHelper(
       events
         .collectList()
         .doOnNext {
-          LogTracingUtils.withContextDetailsMdc(
-            mapOf(
-              LogTracingUtils.TracingEntry.DEPENDENCY.key to LogTracingUtils.MONGO_DEPENDENCY_KEY),
-            mapOf(LogTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success"),
-          ) {
-            logger.info("Successfully retrieved events for closePayment")
-          }
+          LogTracingUtils.loggerTracingUtils()
+            .dependency(MONGO_DEPENDENCY)
+            .success()
+            .logInfo(logger, "Successfully retrieved events for closePayment")
         }
         .filterWhen { eventList -> mono { !(eventList.any { it is BaseTransactionClosureEvent }) } }
         .flatMap { baseTransaction }
@@ -232,18 +231,16 @@ class ClosePaymentHelper(
                     reactivePaymentRequestInfoRedisTemplateWrapper
                       .deleteById(el.rptId().value())
                       .doOnNext {
-                        LogTracingUtils.withContextDetailsMdc(
-                          mapOf(
-                            LogTracingUtils.TracingEntry.DEPENDENCY.key to
-                              LogTracingUtils.REDIS_DEPENDENCY_KEY),
-                          mapOf(
-                            LogTracingUtils.TracingEntry.CTX_TRANSACTION_ID.key to
-                              tx.transactionId.value(),
-                            LogTracingUtils.TracingEntry.EVENT_ACTION.key to "CLOSE_PAYMENT",
-                            LogTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success",
-                            LogTracingUtils.TracingEntry.CTX_RPT_IDS.key to el.rptId().value())) {
-                          logger.info("Deleted payment request info cache")
-                        }
+                        LogTracingUtils.loggerTracingUtils()
+                          .success()
+                          .dependency(REDIS_DEPENDENCY)
+                          .attributes(
+                            mapOf(
+                              LogTracingUtils.AttributeKeys.CTX_TRANSACTION_ID to
+                                tx.transactionId.value(),
+                              LogTracingUtils.AttributeKeys.EVENT_ACTION to "CLOSE_PAYMENT",
+                              LogTracingUtils.AttributeKeys.CTX_RPT_IDS to el.rptId().value()))
+                          .logInfo(logger, "Deleted payment request info cache")
                       }
                       .map { Pair(it, el) }
                       .onErrorMap {
@@ -263,14 +260,11 @@ class ClosePaymentHelper(
                   events = events)
                 .doOnNext { closePaymentOutcomeEvent ->
                   val eventCode = closePaymentOutcomeEvent.fold({ it.eventCode }, { it.eventCode })
-                  LogTracingUtils.withContextDetailsMdc(
-                    mapOf(
-                      "event_code" to eventCode,
-                      LogTracingUtils.TracingEntry.DEPENDENCY.key to
-                        LogTracingUtils.MONGO_DEPENDENCY_KEY),
-                    mapOf(LogTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success")) {
-                    logger.info("Saved domain event")
-                  }
+                  LogTracingUtils.loggerTracingUtils()
+                    .success()
+                    .dependency(MONGO_DEPENDENCY)
+                    .attributes(mapOf(LogTracingUtils.AttributeKeys.CTX_EVENT_CODE to eventCode))
+                    .logInfo(logger, "Saved domain event")
                 }
             }
             /*
@@ -376,8 +370,14 @@ class ClosePaymentHelper(
         tracingInfo = tracingInfo,
         throwable = exception)
       .publishOn(Schedulers.boundedElastic())
-      .doOnError(NoRetryAttemptsLeftException::class.java) {
-        logger.error("No more attempts left for closure retry")
+      .doOnError(NoRetryAttemptsLeftException::class.java) { error ->
+        LogTracingUtils.loggerTracingUtils()
+          .failure()
+          .attributes(
+            mapOf(
+              LogTracingUtils.AttributeKeys.CTX_TRANSACTION_ID to
+                baseTransaction.transactionId.value()))
+          .logError(logger, error, "No more attempts left for closure retry")
       }
 
   private fun updateTransactionToClosureError(
@@ -404,13 +404,11 @@ class ClosePaymentHelper(
           })
       }
       .doOnSuccess {
-        LogTracingUtils.withContextDetailsMdc(
-          mapOf(
-            "event_code" to event.eventCode,
-            LogTracingUtils.TracingEntry.DEPENDENCY.key to LogTracingUtils.MONGO_DEPENDENCY_KEY),
-          mapOf(LogTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success")) {
-          logger.info("Saved domain event ")
-        }
+        LogTracingUtils.loggerTracingUtils()
+          .attributes(mapOf(LogTracingUtils.AttributeKeys.CTX_EVENT_CODE to event.eventCode))
+          .success()
+          .dependency(MONGO_DEPENDENCY)
+          .logInfo(logger, "Saved domain event ")
       }
       .thenReturn(
         (baseTransaction as it.pagopa.ecommerce.commons.domain.v2.Transaction).applyEvent(event)
@@ -681,13 +679,13 @@ class ClosePaymentHelper(
     return Mono.just(transactionWithCompletedAuthorization)
       .doOnNext {
         if (logger.isDebugEnabled) {
-          LogTracingUtils.withContextDetailsMdc(
-            mapOf(
-              "closure_outcome" to closureOutcome.toString(),
-              "was_authorized" to wasAuthorized.toString(),
-              "to_be_refunded" to toBeRefunded.toString())) {
-            logger.debug("ClosePayment refund decision computed")
-          }
+          LogTracingUtils.loggerTracingUtils()
+            .details(
+              mapOf(
+                "closure_outcome" to closureOutcome.toString(),
+                "was_authorized" to wasAuthorized.toString(),
+                "to_be_refunded" to toBeRefunded.toString()))
+            .logDebug(logger, "ClosePayment refund decision computed")
         }
       }
       .filter { toBeRefunded }

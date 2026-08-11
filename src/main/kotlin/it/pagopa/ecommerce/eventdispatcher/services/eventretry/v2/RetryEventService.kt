@@ -68,16 +68,22 @@ abstract class RetryEventService<E>(
       }
       .flatMap { storeEventAndUpdateView(it, newTransactionStatus()) }
       .doOnNext { storedEvent ->
-        LogTracingUtils.withContextDetailsMdc(
-          mapOf(
-            "event_code" to storedEvent.eventCode,
-            LogTracingUtils.TracingEntry.DEPENDENCY.key to "eCommerce-mongodb"),
-          mapOf(LogTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success")) {
-          logger.info("Saved domain event")
-        }
+        LogTracingUtils.loggerTracingUtils()
+          .success()
+          .attributes(
+            mapOf(
+              LogTracingUtils.AttributeKeys.CTX_EVENT_CODE to storedEvent.eventCode,
+            ))
+          .dependency(MONGO_DEPENDENCY)
+          .logInfo(logger, "Saved domain event")
       }
       .flatMap { enqueueMessage(it, visibilityTimeout, tracingInfo) }
-      .doOnError { logger.error("Error processing retry event", it) }
+      .doOnError {
+        LogTracingUtils.loggerTracingUtils()
+          .failure()
+          .dependency(MONGO_DEPENDENCY)
+          .logError(logger, it, "Error processing retry event")
+      }
   }
 
   abstract fun buildRetryEvent(
@@ -123,13 +129,14 @@ abstract class RetryEventService<E>(
         Duration.ofSeconds(transientQueuesTTLSeconds.toLong()), // timeToLive
       )
       .doOnNext {
-        LogTracingUtils.withContextDetailsMdc(
-          mapOf(
-            "event_code" to event.eventCode,
-            "visibility_timeout" to it.value.timeNextVisible,
-            "queue_name" to queueAsyncClient.queueName)) {
-          logger.info("Retry event successfully sent to queue")
-        }
+        LogTracingUtils.loggerTracingUtils()
+          .details(
+            mapOf(
+              "event_code" to event.eventCode,
+              "visibility_timeout" to it.value.timeNextVisible.toString(),
+              "queue_name" to queueAsyncClient.queueName))
+          .success()
+          .logInfo(logger, "Retry event successfully sent to queue")
       }
       .then()
       .doOnError { exception -> logger.error("Error sending event", exception) }

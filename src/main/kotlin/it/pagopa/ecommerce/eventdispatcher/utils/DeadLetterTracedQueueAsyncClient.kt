@@ -70,18 +70,20 @@ class DeadLetterTracedQueueAsyncClient(
             Duration.ofSeconds(deadLetterTTLSeconds.toLong()), // timeToLive
           )
           .doOnSuccess { queueResponse ->
-            LogTracingUtils.withContextDetailsMdc(
-              mapOf(
-                "binary_data" to binaryData.toString(),
-                "time_next_visible" to queueResponse.value.timeNextVisible,
-                "queue_name" to deadLetterQueueAsyncClient.queueName)) {
-              logger.info("Event successfully sent to dead letter queue")
-            }
+            LogTracingUtils.loggerTracingUtils()
+              .details(
+                mapOf(
+                  "binary_data" to binaryData.toString(),
+                  "time_next_visible" to queueResponse.value.timeNextVisible.toString(),
+                  "queue_name" to deadLetterQueueAsyncClient.queueName))
+              .success()
+              .logInfo(logger, "Event successfully sent to dead letter queue")
           }
           .doOnError { exception ->
-            LogTracingUtils.withContextDetailsMdc(mapOf("binary_data" to binaryData.toString())) {
-              logger.error("Error sending event to dead letter queue.", exception)
-            }
+            LogTracingUtils.loggerTracingUtils()
+              .failure()
+              .details(mapOf("binary_data" to binaryData.toString()))
+              .logError(logger, exception, "Error sending event to dead letter queue.")
           }
           .then(mono {})
       },

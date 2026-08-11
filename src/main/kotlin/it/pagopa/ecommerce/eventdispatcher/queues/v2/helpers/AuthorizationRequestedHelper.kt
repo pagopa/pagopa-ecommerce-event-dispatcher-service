@@ -131,9 +131,8 @@ class AuthorizationRequestedHelper(
                 buildUserLastPaymentMethodData(
                   baseTransactionWithRequestedAuthorization, authorizationRequestedDate))
               .onErrorResume { error ->
-                LogTracingUtils.withErrorMdc(error) {
-                  logger.error("Exception while saving last payment method used", error)
-                }
+                LogTracingUtils.loggerTracingUtils()
+                  .logError(logger, error, "Exception while saving last payment method used")
                 mono {}
               }
               .thenReturn(baseTransactionWithRequestedAuthorization)
@@ -155,15 +154,15 @@ class AuthorizationRequestedHelper(
           val performGetState =
             (transactionStatus == TransactionStatusDto.AUTHORIZATION_REQUESTED && gatewayNpg)
           val performOnlyPatch = !performGetState && authorizationCompleted
-          LogTracingUtils.withContextDetailsMdc(
-            mapOf(
-              "status" to transactionStatus,
-              "gateway" to gateway,
-              "perform_get_state" to performGetState,
-              "perform_patch_auth_requests" to performOnlyPatch),
-          ) {
-            logger.info("Authorization requested operations evaluated")
-          }
+          LogTracingUtils.loggerTracingUtils()
+            .details(
+              mapOf(
+                "status" to transactionStatus.value,
+                "gateway" to gateway.toString(),
+                "perform_get_state" to performGetState.toString(),
+                "perform_patch_auth_requests" to performOnlyPatch.toString()),
+            )
+            .logInfo(logger, "Authorization requested operations evaluated")
 
           performGetState || performOnlyPatch
         }
@@ -173,10 +172,9 @@ class AuthorizationRequestedHelper(
             // some millis before the effective ttl set here
             val visibilityTimeout = timeToWaitForGetState + Duration.ofSeconds(10)
             if (logger.isDebugEnabled) {
-              LogTracingUtils.withContextDetailsMdc(
-                mapOf("visibility_timeout" to visibilityTimeout.toString())) {
-                logger.debug("Authorization requested event postponed")
-              }
+              LogTracingUtils.loggerTracingUtils()
+                .details(mapOf("visibility_timeout" to visibilityTimeout.toString()))
+                .logDebug(logger, "Authorization requested event postponed")
             }
             val binaryData =
               BinaryData.fromObject(parsedEvent, strictSerializerProviderV2.createInstance())
