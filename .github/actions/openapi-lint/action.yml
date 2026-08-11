@@ -14,16 +14,13 @@ inputs:
     default: "warn"
     description: >
       Lowest severity that fails the job: error, warn or info. Findings below it are
-      reported but never block. A rule too noisy to block on is downgraded by name in
-      the ruleset, where the exception is visible in review, rather than absorbed by a
-      numeric budget that hides findings by count and only ever grows.
+      reported but never block. Downgrade a noisy rule by name in the ruleset, not here.
   fail_on_violation:
     required: false
     default: "true"
     description: >
-      Fail the job when a threshold is exceeded. Set to false to run in report-only mode.
-      A lint that cannot run at all fails the job regardless, since it is a configuration
-      error rather than a finding.
+      Fail the job on blocking findings. Set to false for report-only. A lint that cannot
+      run fails regardless: that is a configuration error, not a finding.
   spectral_version:
     required: false
     default: "6.16.3"
@@ -43,9 +40,8 @@ runs:
         SPECTRAL_VERSION: ${{ inputs.spectral_version }}
         OWASP_RULESET_VERSION: ${{ inputs.owasp_ruleset_version }}
       run: |
-        # Spectral resolves the npm packages a ruleset extends from the directory of the
-        # ruleset file itself, and these repositories have no package.json, so the
-        # packages are installed there rather than in the working directory.
+        # Spectral resolves a ruleset's npm packages from the ruleset's own directory, and
+        # these repos have no package.json, so install there.
         npm install --no-save --no-package-lock --prefix "$(dirname "$RULESET")" \
           "@stoplight/spectral-cli@${SPECTRAL_VERSION}" \
           "@stoplight/spectral-owasp-ruleset@${OWASP_RULESET_VERSION}"
@@ -53,8 +49,7 @@ runs:
     - name: Lint ${{ inputs.spec_path }}
       shell: bash
       env:
-        # Every value reaches the script as an environment variable and none is
-        # interpolated into the script itself, so nothing can be spliced into the shell.
+        # Values reach the script as env vars, never interpolated into the run block.
         ACTION_PATH: ${{ github.action_path }}
         SPEC_PATH: ${{ inputs.spec_path }}
         RULESET: ${{ inputs.ruleset }}
