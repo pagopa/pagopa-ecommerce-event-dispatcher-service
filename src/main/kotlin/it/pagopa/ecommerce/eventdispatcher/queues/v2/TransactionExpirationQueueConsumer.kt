@@ -97,8 +97,15 @@ class TransactionExpirationQueueConsumer(
                 Duration.ofSeconds(sendPaymentResultTimeoutOffsetSeconds.toLong())
               val expired = timeLeft < sendPaymentResultOffset
               if (expired) {
-                logger.error(
-                  "Transaction ${it.transactionId.value()} - No send payment result received on time! Transaction will be expired.")
+                LogTracingUtils.loggerTracingUtils()
+                  .failure()
+                  .attributes(
+                    mapOf(
+                      LogTracingUtils.AttributeKeys.CTX_TRANSACTION_ID to it.transactionId.value()))
+                  .logError(
+                    logger,
+                    null,
+                    "No send payment result received on time! Transaction will be expired")
                 deadLetterTracedQueueAsyncClient
                   .sendAndTraceDeadLetterQueueEvent(
                     binaryData,

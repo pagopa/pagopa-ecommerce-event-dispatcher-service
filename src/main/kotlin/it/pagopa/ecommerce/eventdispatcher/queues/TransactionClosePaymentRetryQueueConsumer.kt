@@ -11,6 +11,7 @@ import it.pagopa.ecommerce.commons.documents.v1.TransactionClosureRetriedEvent a
 import it.pagopa.ecommerce.commons.documents.v2.TransactionClosureErrorEvent as TransactionClosureErrorEventV2
 import it.pagopa.ecommerce.commons.documents.v2.TransactionClosureRetriedEvent as TransactionClosureRetriedEventV2
 import it.pagopa.ecommerce.commons.domain.v1.EmptyTransaction
+import it.pagopa.ecommerce.commons.mdcutilities.LogTracingUtils
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingInfo
@@ -137,16 +138,20 @@ class TransactionClosePaymentRetryQueueConsumer(
             queueConsumerV2.messageReceiver(Either.left(QueueEvent(e, tracingInfo)), checkPointer)
           }
           else -> {
-            logger.error(
-              "Event {} with tracing info {} cannot be dispatched to any know handler",
-              e,
-              tracingInfo)
+            LogTracingUtils.loggerTracingUtils()
+              .failure()
+              .details(
+                mapOf(
+                  "event" to e.toString(),
+                  "tracing_info" to tracingInfo.toString(),
+                ))
+              .logError(logger, null, "Event cannot be dispatched to any known handler")
             Mono.error(InvalidEventException(payload, null))
           }
         }
       }
       .onErrorResume(InvalidEventException::class.java) {
-        logger.error("Invalid input event", it)
+        LogTracingUtils.loggerTracingUtils().failure().logError(logger, it, "Invalid input event")
         writeEventToDeadLetterQueue(
           checkPointer,
           payload,

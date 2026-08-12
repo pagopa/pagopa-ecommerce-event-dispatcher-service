@@ -5,6 +5,7 @@ import com.azure.core.util.serializer.TypeReference
 import com.azure.spring.messaging.AzureHeaders
 import com.azure.spring.messaging.checkpoint.Checkpointer
 import it.pagopa.ecommerce.commons.documents.v2.TransactionAuthorizationRequestedEvent as TransactionAuthorizationRequestedEventV2
+import it.pagopa.ecommerce.commons.mdcutilities.LogTracingUtils
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.eventdispatcher.exceptions.InvalidEventException
@@ -69,16 +70,20 @@ class TransactionAuthorizationRequestedQueueConsumer(
             queueConsumerV2.messageReceiver(e, checkPointer)
           }
           else -> {
-            logger.error(
-              "Event {} with tracing info {} cannot be dispatched to any know handler",
-              e.event,
-              e.tracingInfo)
+            LogTracingUtils.loggerTracingUtils()
+              .failure()
+              .details(
+                mapOf(
+                  "event" to e.event.toString(),
+                  "tracing_info" to e.tracingInfo.toString(),
+                ))
+              .logError(logger, null, "Event cannot be dispatched to any known handler")
             Mono.error(InvalidEventException(payload, null))
           }
         }
       }
       .onErrorResume(InvalidEventException::class.java) {
-        logger.error("Invalid input event", it)
+        LogTracingUtils.loggerTracingUtils().failure().logError(logger, it, "Invalid input event")
         writeEventToDeadLetterQueue(
           checkPointer,
           payload,

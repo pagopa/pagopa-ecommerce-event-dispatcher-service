@@ -85,7 +85,9 @@ fun updateTransactionToExpired(
           })
         .thenReturn(updatedTransaction)
     }
-    .doOnSuccess { logger.info("Transaction expired") }
+    .doOnSuccess {
+      LogTracingUtils.loggerTracingUtils().success().logInfo(logger, "Transaction expired")
+    }
     .doOnError { error ->
       LogTracingUtils.loggerTracingUtils()
         .attributes(
@@ -678,10 +680,12 @@ private fun appendNpgRefundRequestedEventIfNeeded(
   return getAuthorizationCompletedData(transaction, npgService)
     .map { Optional.of(it) }
     .onErrorResume { error ->
-      logger.error(
-        "Error performing GET orders with NPG for transaction: [%s]".format(
-          transaction.transactionId.value()),
-        error)
+      LogTracingUtils.loggerTracingUtils()
+        .failure()
+        .attributes(
+          mapOf(
+            LogTracingUtils.AttributeKeys.CTX_TRANSACTION_ID to transaction.transactionId.value()))
+        .logError(logger, error, "Error performing GET orders with NPG")
       when (error) {
         // in case of 4xx NPG errors or invalid response (missing mandatory data such as
         // operationId) write event to dead letter
@@ -696,9 +700,13 @@ private fun appendNpgRefundRequestedEventIfNeeded(
         // in this case operation result already refunded by NPG but no attempt have already being
         // done by eCommerce -> write event to dead letter
         is InvalidNpgOrderStateException.OrderAlreadyRefunded -> {
-          logger.error(
-            "Unexpected error, transaction : [{}] already refunded by NPG!",
-            transaction.transactionId.value())
+          LogTracingUtils.loggerTracingUtils()
+            .failure()
+            .attributes(
+              mapOf(
+                LogTracingUtils.AttributeKeys.CTX_TRANSACTION_ID to
+                  transaction.transactionId.value()))
+            .logError(logger, error, "Unexpected error, transaction already refunded by NPG!")
           // write refund requested event and refund error event into events and return error in
           // order to make transaction being written into dead letter for further investigations
           appendRefundRequestedEventIfNeeded(
@@ -763,9 +771,13 @@ private fun refundTransactionNPG(
           // operationId) write event to dead letter
           is NpgBadRequestException,
           is InvalidNPGResponseException -> {
-            logger.error(
-              "Unexpected error, transaction : [{}] already refunded by NPG! ",
-              transaction.transactionId.value())
+            LogTracingUtils.loggerTracingUtils()
+              .failure()
+              .attributes(
+                mapOf(
+                  LogTracingUtils.AttributeKeys.CTX_TRANSACTION_ID to
+                    transaction.transactionId.value()))
+              .logError(logger, error, "Unexpected error, transaction already refunded by NPG!")
             Mono.error(
               RefundNotAllowedException(
                 transaction.transactionId, "Unrecoverable error performing GET orders", error))
