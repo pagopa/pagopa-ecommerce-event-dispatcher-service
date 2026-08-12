@@ -101,7 +101,7 @@ class TransactionRefundRetryQueueConsumer(
               .failure()
               .details(
                 mapOf(
-                  "event" to e.toString(),
+                  "event" to e?.toString(),
                   "tracing_info" to tracingInfo.toString(),
                 ))
               .logError(logger, null, "Event cannot be dispatched to any known handler")
