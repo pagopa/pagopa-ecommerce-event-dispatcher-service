@@ -74,14 +74,14 @@ abstract class RetryEventService<E>(
             mapOf(
               LogTracingUtils.AttributeKeys.CTX_EVENT_CODE to storedEvent.eventCode,
             ))
-          .dependency(MONGO_DEPENDENCY)
+          .dependency(LogTracingUtils.MONGO_DEPENDENCY)
           .logInfo(logger, "Saved domain event")
       }
       .flatMap { enqueueMessage(it, visibilityTimeout, tracingInfo) }
       .doOnError {
         LogTracingUtils.loggerTracingUtils()
           .failure()
-          .dependency(MONGO_DEPENDENCY)
+          .dependency(LogTracingUtils.MONGO_DEPENDENCY)
           .logError(logger, it, "Error processing retry event")
       }
   }
