@@ -1749,6 +1749,20 @@
       "groupId": "org.jetbrains.kotlin",
       "version": "2.1.21",
       "sha256": "VKheGOKljOXORRcRHRkB7zCDVJSkIfn1e-5f6OR56lo="
+    },
+    {
+      "id": "io.micrometer:context-propagation:jar:1.2.1",
+      "artifactId": "context-propagation",
+      "groupId": "io.micrometer",
+      "version": "1.2.1",
+      "sha256": "W2niEAZAh5zPSyBnPO2G3lYLjiF7VVQvhaU9NWO3Kqo="
+    },
+    {
+      "id": "org.jspecify:jspecify:jar:1.0.0",
+      "artifactId": "jspecify",
+      "groupId": "org.jspecify",
+      "version": "1.0.0",
+      "sha256": "H61ua-dVd4Hk0zcp1Jrhzcj92m_kd7sMxozjUer9-6s="
     }
   ]
 }
