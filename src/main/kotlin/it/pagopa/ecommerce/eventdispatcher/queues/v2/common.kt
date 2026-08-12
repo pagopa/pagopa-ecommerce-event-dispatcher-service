@@ -488,7 +488,7 @@ fun patchAuthRequestByState(
           LogTracingUtils.loggerTracingUtils()
             .attributes(
               mapOf(LogTracingUtils.AttributeKeys.CTX_TRANSACTION_ID to tx.transactionId.value()))
-            .details(mapOf("new_status" to patchResponse.status.value))
+            .details(mapOf("new_status" to (patchResponse.status?.value ?: "N/A")))
             .logInfo(logger, "Transactions service PATCH authRequest processed successfully")
         }
     }
