@@ -74,13 +74,10 @@ class TransactionExpirationQueueConsumer(
         }
         .cache()
         .doOnComplete {
-          LogTracingUtils.withContextDetailsMdc(
-            mapOf(
-              LogTracingUtils.TracingEntry.DEPENDENCY.key to LogTracingUtils.MONGO_DEPENDENCY_KEY),
-            mapOf(LogTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success"),
-          ) {
-            logger.info("Successfully retrieved events for transaction expiration")
-          }
+          LogTracingUtils.loggerTracingUtils()
+            .success()
+            .dependency(LogTracingUtils.MONGO_DEPENDENCY)
+            .logInfo(logger, "Successfully retrieved events for transaction expiration")
         }
     val baseTransaction = reduceEvents(events)
     val refundPipeline =
@@ -132,14 +129,11 @@ class TransactionExpirationQueueConsumer(
                 tx, transactionsExpiredEventStoreRepository, transactionsViewRepository)
               .doOnSuccess {
                 transactionTracing.addSpanAttributesExpiredFlowFromTransaction(it, events)
-                LogTracingUtils.withContextDetailsMdc(
-                  mapOf(
-                    "updated_status" to it.status,
-                    LogTracingUtils.TracingEntry.DEPENDENCY.key to
-                      LogTracingUtils.MONGO_DEPENDENCY_KEY),
-                  mapOf(LogTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success")) {
-                  logger.info("Transaction expired status updated successfully")
-                }
+                LogTracingUtils.loggerTracingUtils()
+                  .success()
+                  .details(mapOf("updated_status" to it.status.toString()))
+                  .dependency(LogTracingUtils.MONGO_DEPENDENCY)
+                  .logInfo(logger, "Transaction expired status updated successfully")
               }
           } else {
             Mono.just(tx)
@@ -149,13 +143,14 @@ class TransactionExpirationQueueConsumer(
           val refundableCheckRequired = isRefundableCheckRequired(it)
           val refundable = isTransactionRefundable(it)
           val refundableWithoutCheck = refundable && !refundableCheckRequired
-          LogTracingUtils.withContextDetailsMdc(
-            mapOf(
-              "status" to it.status,
-              "refundable" to refundable.toString(),
-              "without_check" to refundableWithoutCheck.toString())) {
-            logger.info("Transaction refund check completed")
-          }
+          LogTracingUtils.loggerTracingUtils()
+            .success()
+            .details(
+              mapOf(
+                "status" to it.status.toString(),
+                "refundable" to refundable.toString(),
+                "without_check" to refundableWithoutCheck.toString()))
+            .logInfo(logger, "Transaction refund check completed")
           if (refundable && refundableCheckRequired) {
             val binaryData =
               BinaryData.fromObject(event, strictSerializerProviderV2.createInstance())
@@ -193,10 +188,10 @@ class TransactionExpirationQueueConsumer(
                 refundRequestedAsyncClient,
                 Duration.ofSeconds(transientQueueTTLSeconds.toLong()))
             } else {
-              LogTracingUtils.withContextDetailsMdc(
-                mapOf("delay_seconds" to timeout.seconds.toString())) {
-                logger.info("Refund processing postponed")
-              }
+              LogTracingUtils.loggerTracingUtils()
+                .success()
+                .details(mapOf("delay_seconds" to timeout.seconds.toString()))
+                .logInfo(logger, "Refund processing postponed")
               expirationQueueAsyncClient
                 .sendMessageWithResponse(
                   binaryData,
@@ -219,10 +214,10 @@ class TransactionExpirationQueueConsumer(
       .contextWrite { context ->
         LogTracingUtils.enrichContextForEvent(
           mapOf(
-            LogTracingUtils.TracingEntry.CTX_TRANSACTION_ID to event.event.transactionId,
-            LogTracingUtils.TracingEntry.CTX_EVENT_CODE to event.event.eventCode,
-            LogTracingUtils.TracingEntry.CTX_EVENT_ID to event.event.id,
-            LogTracingUtils.TracingEntry.EVENT_ACTION to "EXPIRATION_QUEUE"),
+            LogTracingUtils.AttributeKeys.CTX_TRANSACTION_ID to event.event.transactionId,
+            LogTracingUtils.AttributeKeys.CTX_EVENT_CODE to event.event.eventCode,
+            LogTracingUtils.AttributeKeys.CTX_EVENT_ID to event.event.id,
+            LogTracingUtils.AttributeKeys.EVENT_ACTION to "EXPIRATION_QUEUE"),
           context)
       }
   }

@@ -12,10 +12,10 @@ class LogTracingUtilsConfig {
   fun initializeMdcContextLifter(): MDCContextLifterConfiguration {
     LogTracingUtils.setContextBounded(
       setOf(
-        LogTracingUtils.TracingEntry.CTX_TRANSACTION_ID,
-        LogTracingUtils.TracingEntry.CTX_EVENT_CODE,
-        LogTracingUtils.TracingEntry.CTX_EVENT_ID,
-        LogTracingUtils.TracingEntry.EVENT_ACTION,
+        LogTracingUtils.AttributeKeys.CTX_TRANSACTION_ID,
+        LogTracingUtils.AttributeKeys.CTX_EVENT_CODE,
+        LogTracingUtils.AttributeKeys.CTX_EVENT_ID,
+        LogTracingUtils.AttributeKeys.EVENT_ACTION,
       ))
     return MDCContextLifterConfiguration()
   }

@@ -62,13 +62,10 @@ class TransactionRefundRetryQueueConsumer(
         .findByTransactionIdOrderByCreationDateAsc(event.transactionId)
         .cache()
         .doOnComplete {
-          LogTracingUtils.withContextDetailsMdc(
-            mapOf(
-              LogTracingUtils.TracingEntry.DEPENDENCY.key to LogTracingUtils.MONGO_DEPENDENCY_KEY),
-            mapOf(LogTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success"),
-          ) {
-            logger.info("Successfully retrieved events for transaction refund retry")
-          }
+          LogTracingUtils.loggerTracingUtils()
+            .success()
+            .dependency(LogTracingUtils.MONGO_DEPENDENCY)
+            .logInfo(logger, "Successfully retrieved events for transaction refund retry")
         }
 
     val baseTransaction =
@@ -113,10 +110,10 @@ class TransactionRefundRetryQueueConsumer(
       .contextWrite { context ->
         LogTracingUtils.enrichContextForEvent(
           mapOf(
-            LogTracingUtils.TracingEntry.CTX_TRANSACTION_ID to event.transactionId,
-            LogTracingUtils.TracingEntry.CTX_EVENT_CODE to event.eventCode,
-            LogTracingUtils.TracingEntry.CTX_EVENT_ID to event.id,
-            LogTracingUtils.TracingEntry.EVENT_ACTION to "REFUND_RETRY"),
+            LogTracingUtils.AttributeKeys.CTX_TRANSACTION_ID to event.transactionId,
+            LogTracingUtils.AttributeKeys.CTX_EVENT_CODE to event.eventCode,
+            LogTracingUtils.AttributeKeys.CTX_EVENT_ID to event.id,
+            LogTracingUtils.AttributeKeys.EVENT_ACTION to "REFUND_RETRY"),
           context)
       }
   }

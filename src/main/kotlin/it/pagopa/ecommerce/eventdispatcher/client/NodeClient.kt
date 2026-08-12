@@ -59,25 +59,33 @@ class NodeClient(
         })
       .bodyToMono(ClosePaymentResponseDto::class.java)
       .doOnSuccess { _ ->
-        LogTracingUtils.withContextDetailsMdc(
-          null,
-          mapOf(
-            LogTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success",
-            LogTracingUtils.TracingEntry.CTX_PAYMENT_TOKENS.key to paymentTokens)) {
-          logger.info("Received closePaymentV2 Response")
-        }
+        LogTracingUtils.loggerTracingUtils()
+          .success()
+          .attributes(
+            mapOf(LogTracingUtils.AttributeKeys.CTX_PAYMENT_TOKENS to paymentTokens.toString()))
+          .dependency("nodo")
+          .logInfo(logger, "Received closePaymentV2 Response")
       }
       .onErrorMap { exception ->
-        LogTracingUtils.withErrorMdc(
-          exception, mapOf(LogTracingUtils.TracingEntry.EVENT_OUTCOME.key to "error")) {
-          logger.error("Received closePaymentV2 Response Status Error", exception)
-        }
+        LogTracingUtils.loggerTracingUtils()
+          .failure()
+          .attributes(
+            mapOf(LogTracingUtils.AttributeKeys.CTX_PAYMENT_TOKENS to paymentTokens.toString()))
+          .dependency("nodo")
+          .logError(logger, exception, "Received closePaymentV2 Response Status Error")
         if (exception is ResponseStatusException) {
           ClosePaymentErrorResponseException(
             exception.statusCode,
             runCatching { objectMapper.readValue(exception.reason, ErrorDto::class.java) }
               .onFailure {
-                logger.error("Error parsing Nodo close payment error response body", it)
+                LogTracingUtils.loggerTracingUtils()
+                  .failure()
+                  .attributes(
+                    mapOf(
+                      LogTracingUtils.AttributeKeys.CTX_PAYMENT_TOKENS to paymentTokens.toString()))
+                  .dependency("nodo")
+                  .logErrorWithStackTrace(
+                    logger, it, "Error parsing Nodo close payment error response body")
               }
               .getOrNull())
         } else {

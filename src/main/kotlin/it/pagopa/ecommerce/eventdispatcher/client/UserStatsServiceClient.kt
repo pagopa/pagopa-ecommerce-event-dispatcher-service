@@ -32,16 +32,26 @@ class UserStatsServiceClient(
       .saveLastPaymentMethodUsed(
         UserLastPaymentMethodRequest().userId(userId).details(userLastPaymentMethodDataDto))
       .doOnSuccess {
-        LogTracingUtils.withContextDetailsMdc(
-          mapOf("user_id" to userId, "last_used_method" to userLastPaymentMethodDataDto)) {
-          logger.info("Saved last method used for user")
-        }
+        LogTracingUtils.loggerTracingUtils()
+          .success()
+          .details(
+            mapOf(
+              "user_id" to userId.toString(),
+              "last_used_method" to userLastPaymentMethodDataDto.toString()))
+          .dependency("user-stats-service")
+          .logInfo(logger, "Saved last method used for user")
       }
       .onErrorMap(WebClientResponseException::class.java) { exception: WebClientResponseException ->
-        LogTracingUtils.withErrorMdc(
-          exception, mapOf(LogTracingUtils.TracingEntry.EVENT_OUTCOME.key to "failure")) {
-          logger.error("Failed to save last method used for user")
-        }
+        LogTracingUtils.loggerTracingUtils()
+          .failure()
+          .details(
+            mapOf(
+              "user_id" to userId.toString(),
+              "last_used_method" to userLastPaymentMethodDataDto.toString(),
+              "http_status" to exception.statusCode.toString(),
+              "response_body" to exception.responseBodyAsString))
+          .dependency("user-stats-service")
+          .logError(logger, exception, "Failed to save last method used for user")
         when (exception.statusCode) {
           HttpStatus.BAD_REQUEST ->
             RuntimeException(

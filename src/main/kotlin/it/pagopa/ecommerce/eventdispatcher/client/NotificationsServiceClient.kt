@@ -25,6 +25,9 @@ class NotificationsServiceClient(
 ) {
 
   val logger: Logger = LoggerFactory.getLogger(NotificationsServiceClient::class.java)
+  companion object {
+    const val DEPENDENCY = "notifications-service"
+  }
 
   fun sendNotificationEmail(
     notificationEmailRequestDto: NotificationEmailRequestDto
@@ -38,18 +41,19 @@ class NotificationsServiceClient(
           .exchangeToMono { response ->
             when (response.statusCode()) {
               HttpStatus.OK -> {
-                LogTracingUtils.withContextDetailsMdc(
-                  null, mapOf(LogTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success")) {
-                  logger.info("Mail sent successfully")
-                }
+                LogTracingUtils.loggerTracingUtils()
+                  .success()
+                  .dependency(DEPENDENCY)
+                  .logInfo(logger, "Mail sent successfully")
                 response.bodyToMono(NotificationEmailResponseDto::class.java)
               }
               HttpStatus.ACCEPTED -> {
-                LogTracingUtils.withContextDetailsMdc(
-                  null, mapOf(LogTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success")) {
-                  logger.info(
+                LogTracingUtils.loggerTracingUtils()
+                  .success()
+                  .dependency(DEPENDENCY)
+                  .logInfo(
+                    logger,
                     "Mail sending accepted, retries will be attempted by notifications-service module")
-                }
                 response.toBodilessEntity().flatMap {
                   Mono.just(NotificationEmailResponseDto().apply { outcome = "OK" })
                 }
@@ -59,17 +63,19 @@ class NotificationsServiceClient(
           }
       }
       .doOnError(WebClientResponseException::class.java) { e: WebClientResponseException ->
-        LogTracingUtils.withContextDetailsMdc(
-          mapOf("http_status" to e.statusCode, "response_body" to e.responseBodyAsString),
-          mapOf(LogTracingUtils.TracingEntry.EVENT_OUTCOME.key to "failure")) {
-          logger.error("Error sending email. Got bad response from notifications-service")
-        }
+        LogTracingUtils.loggerTracingUtils()
+          .failure()
+          .dependency(DEPENDENCY)
+          .details(
+            mapOf(
+              "http_status" to e.statusCode.toString(), "response_body" to e.responseBodyAsString))
+          .logError(logger, e, "Error sending email. Got bad response from notifications-service")
       }
       .doOnError { e: Throwable ->
-        LogTracingUtils.withErrorMdc(
-          e, mapOf(LogTracingUtils.TracingEntry.EVENT_OUTCOME.key to "failure")) {
-          logger.error("Error sending email", e)
-        }
+        LogTracingUtils.loggerTracingUtils()
+          .failure()
+          .dependency(DEPENDENCY)
+          .logErrorWithStackTrace(logger, e, "Error sending email. Got unexpected error")
       }
   }
 

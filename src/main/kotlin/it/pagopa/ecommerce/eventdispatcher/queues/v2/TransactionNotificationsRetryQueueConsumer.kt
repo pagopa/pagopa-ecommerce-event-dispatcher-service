@@ -109,13 +109,10 @@ class TransactionNotificationsRetryQueueConsumer(
         .map { it as TransactionEvent<Any> }
         .cache()
         .doOnComplete {
-          LogTracingUtils.withContextDetailsMdc(
-            mapOf(
-              LogTracingUtils.TracingEntry.DEPENDENCY.key to LogTracingUtils.MONGO_DEPENDENCY_KEY),
-            mapOf(LogTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success"),
-          ) {
-            logger.info("Successfully retrieved events for transaction notifications retry")
-          }
+          LogTracingUtils.loggerTracingUtils()
+            .success()
+            .dependency(LogTracingUtils.MONGO_DEPENDENCY)
+            .logInfo(logger, "Successfully retrieved events for transaction notifications retry")
         }
 
     val baseTransaction = reduceEvents(events, EmptyTransaction())
@@ -123,9 +120,10 @@ class TransactionNotificationsRetryQueueConsumer(
     val notificationResendPipeline =
       baseTransaction
         .doOnNext {
-          LogTracingUtils.withContextDetailsMdc(mapOf("status" to it.status)) {
-            logger.info("Retrieved transaction status")
-          }
+          LogTracingUtils.loggerTracingUtils()
+            .success()
+            .details(mapOf("status" to it.status.toString()))
+            .logInfo(logger, "Retrieved transaction status")
         }
         .flatMap { getTransactionWithUserReceiptErrorForRetry(it) }
         .flatMap { tx ->
@@ -136,14 +134,11 @@ class TransactionNotificationsRetryQueueConsumer(
                   tx, transactionsViewRepository, transactionUserReceiptRepository)
                 .doOnSuccess {
                   transactionTracing.addSpanAttributesNotificationsFlowFromTransaction(it, events)
-                  LogTracingUtils.withContextDetailsMdc(
-                    mapOf(
-                      "updated_status" to it.status,
-                      LogTracingUtils.TracingEntry.DEPENDENCY.key to
-                        LogTracingUtils.MONGO_DEPENDENCY_KEY),
-                    mapOf(LogTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success")) {
-                    logger.info("Notification status updated successfully")
-                  }
+                  LogTracingUtils.loggerTracingUtils()
+                    .success()
+                    .dependency(LogTracingUtils.MONGO_DEPENDENCY)
+                    .details(mapOf("updated_status" to it.status.toString()))
+                    .logInfo(logger, "Notification status updated successfully")
                 }
                 .flatMap {
                   notificationRefundTransactionPipeline(
@@ -158,14 +153,16 @@ class TransactionNotificationsRetryQueueConsumer(
             }
             .then()
             .onErrorResume { exception ->
-              LogTracingUtils.withErrorMdc(exception) {
-                logger.error("Got exception while retrying user receipt mail sending!", exception)
-              }
+              LogTracingUtils.loggerTracingUtils()
+                .failure()
+                .logErrorWithStackTrace(
+                  logger, exception, "Got exception while retrying user receipt mail sending!")
               val v = notificationRetryService.enqueueRetryEvent(tx, retryCount, tracingInfo)
               v.onErrorResume(NoRetryAttemptsLeftException::class.java) { enqueueException ->
-                  LogTracingUtils.withErrorMdc(enqueueException) {
-                    logger.error("No more attempts left for user receipt send retry")
-                  }
+                  LogTracingUtils.loggerTracingUtils()
+                    .failure()
+                    .logError(
+                      logger, enqueueException, "No more attempts left for user receipt send retry")
                   BinaryData.fromObjectAsync(
                       queueEvent, strictSerializerProviderV2.createInstance())
                     .flatMap {
@@ -178,9 +175,10 @@ class TransactionNotificationsRetryQueueConsumer(
                             .RETRY_EVENT_NO_ATTEMPTS_LEFT))
                     }
                     .onErrorResume { exception ->
-                      LogTracingUtils.withErrorMdc(exception) {
-                        logger.error("Error writing event to dead letter queue", exception)
-                      }
+                      LogTracingUtils.loggerTracingUtils()
+                        .failure()
+                        .logErrorWithStackTrace(
+                          logger, exception, "Error writing event to dead letter queue")
                       Mono.empty()
                     }
                     .then(
@@ -209,10 +207,10 @@ class TransactionNotificationsRetryQueueConsumer(
       .contextWrite { context ->
         LogTracingUtils.enrichContextForEvent(
           mapOf(
-            LogTracingUtils.TracingEntry.CTX_TRANSACTION_ID to queueEvent.event.transactionId,
-            LogTracingUtils.TracingEntry.CTX_EVENT_CODE to queueEvent.event.eventCode,
-            LogTracingUtils.TracingEntry.CTX_EVENT_ID to queueEvent.event.id,
-            LogTracingUtils.TracingEntry.EVENT_ACTION to "NOTIFICATION_RETRY"),
+            LogTracingUtils.AttributeKeys.CTX_TRANSACTION_ID to queueEvent.event.transactionId,
+            LogTracingUtils.AttributeKeys.CTX_EVENT_CODE to queueEvent.event.eventCode,
+            LogTracingUtils.AttributeKeys.CTX_EVENT_ID to queueEvent.event.id,
+            LogTracingUtils.AttributeKeys.EVENT_ACTION to "NOTIFICATION_RETRY"),
           context)
       }
   }

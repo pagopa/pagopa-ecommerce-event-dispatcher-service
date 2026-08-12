@@ -42,10 +42,10 @@ class TransactionClosePaymentRetryQueueConsumer(
       .contextWrite { context ->
         LogTracingUtils.enrichContextForEvent(
           mapOf(
-            LogTracingUtils.TracingEntry.CTX_TRANSACTION_ID to event.transactionId,
-            LogTracingUtils.TracingEntry.CTX_EVENT_CODE to event.eventCode,
-            LogTracingUtils.TracingEntry.CTX_EVENT_ID to event.id,
-            LogTracingUtils.TracingEntry.EVENT_ACTION to "CLOSE_PAYMENT_RETRY"),
+            LogTracingUtils.AttributeKeys.CTX_TRANSACTION_ID to event.transactionId,
+            LogTracingUtils.AttributeKeys.CTX_EVENT_CODE to event.eventCode,
+            LogTracingUtils.AttributeKeys.CTX_EVENT_ID to event.id,
+            LogTracingUtils.AttributeKeys.EVENT_ACTION to "CLOSE_PAYMENT_RETRY"),
           context)
       }
   }

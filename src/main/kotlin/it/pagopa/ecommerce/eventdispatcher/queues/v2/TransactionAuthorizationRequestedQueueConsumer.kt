@@ -27,10 +27,10 @@ class TransactionAuthorizationRequestedQueueConsumer(
       .contextWrite { context ->
         LogTracingUtils.enrichContextForEvent(
           mapOf(
-            LogTracingUtils.TracingEntry.CTX_TRANSACTION_ID to parsedEvent.event.transactionId,
-            LogTracingUtils.TracingEntry.CTX_EVENT_CODE to parsedEvent.event.eventCode,
-            LogTracingUtils.TracingEntry.CTX_EVENT_ID to parsedEvent.event.id,
-            LogTracingUtils.TracingEntry.EVENT_ACTION to "AUTHORIZATION_REQUESTED"),
+            LogTracingUtils.AttributeKeys.CTX_TRANSACTION_ID to parsedEvent.event.transactionId,
+            LogTracingUtils.AttributeKeys.CTX_EVENT_CODE to parsedEvent.event.eventCode,
+            LogTracingUtils.AttributeKeys.CTX_EVENT_ID to parsedEvent.event.id,
+            LogTracingUtils.AttributeKeys.EVENT_ACTION to "AUTHORIZATION_REQUESTED"),
           context)
       }
   }

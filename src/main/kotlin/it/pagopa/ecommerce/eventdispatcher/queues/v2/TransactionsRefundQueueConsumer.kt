@@ -72,13 +72,10 @@ class TransactionsRefundQueueConsumer(
         .findByTransactionIdOrderByCreationDateAsc(transactionId)
         .cache()
         .doOnComplete {
-          LogTracingUtils.withContextDetailsMdc(
-            mapOf(
-              LogTracingUtils.TracingEntry.DEPENDENCY.key to LogTracingUtils.MONGO_DEPENDENCY_KEY),
-            mapOf(LogTracingUtils.TracingEntry.EVENT_OUTCOME.key to "success"),
-          ) {
-            logger.info("Successfully retrieved events for transaction refund")
-          }
+          LogTracingUtils.loggerTracingUtils()
+            .success()
+            .dependency(LogTracingUtils.MONGO_DEPENDENCY)
+            .logInfo(logger, "Successfully retrieved events for transaction refund")
         }
 
     val refundPipeline =
@@ -115,10 +112,10 @@ class TransactionsRefundQueueConsumer(
       .contextWrite { context ->
         LogTracingUtils.enrichContextForEvent(
           mapOf(
-            LogTracingUtils.TracingEntry.CTX_TRANSACTION_ID to e.event.transactionId,
-            LogTracingUtils.TracingEntry.CTX_EVENT_CODE to e.event.eventCode,
-            LogTracingUtils.TracingEntry.CTX_EVENT_ID to e.event.id,
-            LogTracingUtils.TracingEntry.EVENT_ACTION to "REFUND"),
+            LogTracingUtils.AttributeKeys.CTX_TRANSACTION_ID to e.event.transactionId,
+            LogTracingUtils.AttributeKeys.CTX_EVENT_CODE to e.event.eventCode,
+            LogTracingUtils.AttributeKeys.CTX_EVENT_ID to e.event.id,
+            LogTracingUtils.AttributeKeys.EVENT_ACTION to "REFUND"),
           context)
       }
   }
