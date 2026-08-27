@@ -889,7 +889,7 @@ fun isTransactionRefundable(tx: BaseTransaction): Pair<Boolean, String> {
         wasClosePaymentResponseOutcomeKO to "close_payment_response_outcome_ko"
       is TransactionWithClosureError -> isTransactionRefundable(tx.transactionAtPreviousState)
       is BaseTransactionWithCompletedAuthorization ->
-        wasAuthorizationDenied to "authorization_denied"
+        !wasAuthorizationDenied to "authorization_denied"
       is BaseTransactionExpired -> isTransactionRefundable(tx.transactionAtPreviousState)
       else -> wasAuthorizationRequested to "authorization_requested"
     }
