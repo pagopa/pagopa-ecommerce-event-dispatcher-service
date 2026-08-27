@@ -72,13 +72,13 @@ class TransactionExpirationQueueConsumer(
             .findByTransactionIdOrderByCreationDateAsc(transactionId)
             .map { it as TransactionEvent<Any> }
         }
-        .cache()
         .doOnComplete {
           LogTracingUtils.loggerTracingUtils()
             .success()
             .dependency(LogTracingUtils.MONGO_DEPENDENCY)
             .logInfo(logger, "Successfully retrieved events for transaction expiration")
         }
+        .cache()
     val baseTransaction = reduceEvents(events)
     val refundPipeline =
       baseTransaction
@@ -97,15 +97,6 @@ class TransactionExpirationQueueConsumer(
                 Duration.ofSeconds(sendPaymentResultTimeoutOffsetSeconds.toLong())
               val expired = timeLeft < sendPaymentResultOffset
               if (expired) {
-                LogTracingUtils.loggerTracingUtils()
-                  .failure()
-                  .attributes(
-                    mapOf(
-                      LogTracingUtils.AttributeKeys.CTX_TRANSACTION_ID to it.transactionId.value()))
-                  .logError(
-                    logger,
-                    null,
-                    "No send payment result received on time! Transaction will be expired")
                 deadLetterTracedQueueAsyncClient
                   .sendAndTraceDeadLetterQueueEvent(
                     binaryData,
@@ -124,6 +115,17 @@ class TransactionExpirationQueueConsumer(
                     timeLeft,
                     Duration.ofSeconds(transientQueueTTLSeconds.toLong()),
                   )
+                  .doOnSuccess {
+                    LogTracingUtils.loggerTracingUtils()
+                      .details(
+                        mapOf(
+                          "binary_data" to binaryData.toString(),
+                          "time_next_visible" to timeLeft.toString(),
+                          "queue_name" to expirationQueueAsyncClient.queueName,
+                          "send_reason" to "waiting for sendPaymentResult outcome"))
+                      .success()
+                      .logInfo(logger, "Event successfully sent to queue")
+                  }
                   .thenReturn(false)
               }
             }
@@ -136,11 +138,6 @@ class TransactionExpirationQueueConsumer(
                 tx, transactionsExpiredEventStoreRepository, transactionsViewRepository)
               .doOnSuccess {
                 transactionTracing.addSpanAttributesExpiredFlowFromTransaction(it, events)
-                LogTracingUtils.loggerTracingUtils()
-                  .success()
-                  .details(mapOf("updated_status" to it.status.toString()))
-                  .dependency(LogTracingUtils.MONGO_DEPENDENCY)
-                  .logInfo(logger, "Transaction expired status updated successfully")
               }
           } else {
             Mono.just(tx)
@@ -195,16 +192,38 @@ class TransactionExpirationQueueConsumer(
                 refundRequestedAsyncClient,
                 Duration.ofSeconds(transientQueueTTLSeconds.toLong()))
             } else {
-              LogTracingUtils.loggerTracingUtils()
-                .success()
-                .details(mapOf("delay_seconds" to timeout.seconds.toString()))
-                .logInfo(logger, "Refund processing postponed")
               expirationQueueAsyncClient
                 .sendMessageWithResponse(
                   binaryData,
                   timeout + Duration.ofSeconds(npgService.eventProcessingDelaySeconds),
                   Duration.ofSeconds(transientQueueTTLSeconds.toLong()),
                 )
+                .doOnSuccess {
+                  LogTracingUtils.loggerTracingUtils()
+                    .success()
+                    .details(
+                      mapOf(
+                        "delay_seconds" to timeout.seconds.toString(),
+                        "visibility_timeout" to
+                          (timeout + Duration.ofSeconds(npgService.eventProcessingDelaySeconds))
+                            .toString(),
+                        "time_to_live" to transientQueueTTLSeconds.toString(),
+                        "queue_name" to expirationQueueAsyncClient.queueName))
+                    .logInfo(logger, "Refund processing postponed")
+                }
+                .doOnError {
+                  LogTracingUtils.loggerTracingUtils()
+                    .failure()
+                    .details(
+                      mapOf(
+                        "delay_seconds" to timeout.seconds.toString(),
+                        "visibility_timeout" to
+                          (timeout + Duration.ofSeconds(npgService.eventProcessingDelaySeconds))
+                            .toString(),
+                        "time_to_live" to transientQueueTTLSeconds.toString(),
+                        "queue_name" to expirationQueueAsyncClient.queueName))
+                    .logError(logger, it, "Error postponing refund processing")
+                }
                 .thenReturn(false)
             }
           }

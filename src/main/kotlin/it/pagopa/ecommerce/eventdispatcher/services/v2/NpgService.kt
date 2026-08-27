@@ -77,9 +77,13 @@ class NpgService(
               orderStatus.refundOperation, orderStatus.authorization?.toAuthorizationData()))
         }
         is NgpOrderPendingStatus -> {
-          logger.warn(
-            "Received authorization PENDING status from NPG get order for transaction: [{}]",
-            transaction.transactionId.value())
+          LogTracingUtils.loggerTracingUtils()
+            .success()
+            .attributes(
+              mapOf(
+                LogTracingUtils.AttributeKeys.CTX_TRANSACTION_ID to
+                  transaction.transactionId.value()))
+            .logWarn(logger, "Received authorization PENDING status from NPG get order")
           Mono.error(InvalidNpgOrderStateException.OrderPendingStatus(orderStatus.operation))
         }
         is UnknownNpgOrderStatus -> {

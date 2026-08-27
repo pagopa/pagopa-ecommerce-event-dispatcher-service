@@ -66,6 +66,13 @@ fun updateTransactionToExpired(
     .insert(
       TransactionExpiredEvent(
         transaction.transactionId.value(), TransactionExpiredData(transaction.status)))
+    .doOnSuccess {
+      LogTracingUtils.loggerTracingUtils()
+        .success()
+        .details(mapOf("event_name" to it.eventCode))
+        .dependency(MONGO_DEPENDENCY)
+        .logInfo(logger, "Saved domain event")
+    }
     .map { ev ->
       Pair(
         ((transaction as it.pagopa.ecommerce.commons.domain.v2.Transaction).applyEvent(ev)
@@ -84,9 +91,6 @@ fun updateTransactionToExpired(
             }
           })
         .thenReturn(updatedTransaction)
-    }
-    .doOnSuccess {
-      LogTracingUtils.loggerTracingUtils().success().logInfo(logger, "Transaction expired")
     }
     .doOnError { error ->
       LogTracingUtils.loggerTracingUtils()
@@ -198,6 +202,13 @@ fun updateTransactionWithRefundEvent(
 ): Mono<BaseTransaction> {
   return transactionsRefundedEventStoreRepository
     .insert(event)
+    .doOnSuccess {
+      LogTracingUtils.loggerTracingUtils()
+        .details(mapOf("event_name" to it.eventCode))
+        .dependency(MONGO_DEPENDENCY)
+        .success()
+        .logInfo(logger, "Saved domain event")
+    }
     .then(
       TransactionsViewProjectionHandler.updateTransactionView(
         transactionId = transaction.transactionId,
@@ -209,13 +220,6 @@ fun updateTransactionWithRefundEvent(
               ZonedDateTime.parse(event.creationDate).toInstant().toEpochMilli()
           }
         }))
-    .doOnSuccess {
-      LogTracingUtils.loggerTracingUtils()
-        .details(mapOf("status" to status.value))
-        .dependency(MONGO_DEPENDENCY)
-        .success()
-        .logInfo(logger, "Updated event for transaction")
-    }
     .thenReturn(transaction)
 }
 
@@ -680,12 +684,6 @@ private fun appendNpgRefundRequestedEventIfNeeded(
   return getAuthorizationCompletedData(transaction, npgService)
     .map { Optional.of(it) }
     .onErrorResume { error ->
-      LogTracingUtils.loggerTracingUtils()
-        .failure()
-        .attributes(
-          mapOf(
-            LogTracingUtils.AttributeKeys.CTX_TRANSACTION_ID to transaction.transactionId.value()))
-        .logError(logger, error, "Error performing GET orders with NPG")
       when (error) {
         // in case of 4xx NPG errors or invalid response (missing mandatory data such as
         // operationId) write event to dead letter
@@ -700,13 +698,6 @@ private fun appendNpgRefundRequestedEventIfNeeded(
         // in this case operation result already refunded by NPG but no attempt have already being
         // done by eCommerce -> write event to dead letter
         is InvalidNpgOrderStateException.OrderAlreadyRefunded -> {
-          LogTracingUtils.loggerTracingUtils()
-            .failure()
-            .attributes(
-              mapOf(
-                LogTracingUtils.AttributeKeys.CTX_TRANSACTION_ID to
-                  transaction.transactionId.value()))
-            .logError(logger, error, "Unexpected error, transaction already refunded by NPG!")
           // write refund requested event and refund error event into events and return error in
           // order to make transaction being written into dead letter for further investigations
           appendRefundRequestedEventIfNeeded(

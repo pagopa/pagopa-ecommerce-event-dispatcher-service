@@ -75,15 +75,20 @@ class DeadLetterTracedQueueAsyncClient(
                 mapOf(
                   "binary_data" to binaryData.toString(),
                   "time_next_visible" to queueResponse.value.timeNextVisible.toString(),
-                  "queue_name" to deadLetterQueueAsyncClient.queueName))
+                  "queue_name" to deadLetterQueueAsyncClient.queueName,
+                  "send_reason" to errorContext.errorCategory.toString()))
               .success()
-              .logInfo(logger, "Event successfully sent to dead letter queue")
+              .logInfo(logger, "Event successfully sent queue")
           }
           .doOnError { exception ->
             LogTracingUtils.loggerTracingUtils()
               .failure()
-              .details(mapOf("binary_data" to binaryData.toString()))
-              .logError(logger, exception, "Error sending event to dead letter queue.")
+              .details(
+                mapOf(
+                  "binary_data" to binaryData.toString(),
+                  "queue_name" to deadLetterQueueAsyncClient.queueName,
+                  "send_reason" to errorContext.errorCategory.toString()))
+              .logError(logger, exception, "Error sending event to queue.")
           }
           .then(mono {})
       },
