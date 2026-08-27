@@ -78,7 +78,7 @@ class DeadLetterTracedQueueAsyncClient(
                   "queue_name" to deadLetterQueueAsyncClient.queueName,
                   "send_reason" to errorContext.errorCategory.toString()))
               .success()
-              .logInfo(logger, "Event successfully sent queue")
+              .logInfo(logger, "Event successfully sent to queue")
           }
           .doOnError { exception ->
             LogTracingUtils.loggerTracingUtils()
@@ -88,7 +88,7 @@ class DeadLetterTracedQueueAsyncClient(
                   "binary_data" to binaryData.toString(),
                   "queue_name" to deadLetterQueueAsyncClient.queueName,
                   "send_reason" to errorContext.errorCategory.toString()))
-              .logError(logger, exception, "Error sending event to queue.")
+              .logError(logger, exception, "Error sending event to queue")
           }
           .then(mono {})
       },
