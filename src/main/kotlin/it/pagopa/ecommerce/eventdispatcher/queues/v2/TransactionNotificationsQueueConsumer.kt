@@ -73,13 +73,13 @@ class TransactionNotificationsQueueConsumer(
       transactionsEventStoreRepository
         .findByTransactionIdOrderByCreationDateAsc(transactionId)
         .map { it as TransactionEvent<Any> }
-        .cache()
         .doOnComplete {
           LogTracingUtils.loggerTracingUtils()
             .success()
             .dependency(LogTracingUtils.MONGO_DEPENDENCY)
             .logInfo(logger, "Successfully retrieved events for transaction notifications")
         }
+        .cache()
 
     val baseTransaction = reduceEvents(events, EmptyTransaction())
 
