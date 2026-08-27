@@ -59,21 +59,35 @@ class RefundService(
             amount,
             apiKey,
             "Refund request for transactionId $idempotenceKey and operationId $operationId")
-          .onErrorMap(NpgResponseException::class.java) { exception: NpgResponseException ->
+          .doOnSuccess {
             LogTracingUtils.loggerTracingUtils()
-              .failure()
+              .success()
+              .dependency("npg")
               .details(
                 mapOf(
                   "payment_method" to paymentMethod.toString(),
                   "operation_id" to operationId,
                   "amount" to amount.toString(),
                   "psp_id" to pspId,
-                  "correlation_id" to correlationId))
+                  "correlation_id" to correlationId,
+                  "idempotence_key" to idempotenceKey.toString()))
               .attributes(mapOf(LogTracingUtils.AttributeKeys.CORRELATION_ID to correlationId))
-              .logError(
-                logger,
-                exception,
-                "Exception performing NPG refund for transactionId: [$idempotenceKey] and operationId: [$operationId]")
+              .logInfo(logger, "Requested refund")
+          }
+          .onErrorMap(NpgResponseException::class.java) { exception: NpgResponseException ->
+            LogTracingUtils.loggerTracingUtils()
+              .failure()
+              .dependency("npg")
+              .details(
+                mapOf(
+                  "payment_method" to paymentMethod.toString(),
+                  "operation_id" to operationId,
+                  "amount" to amount.toString(),
+                  "psp_id" to pspId,
+                  "correlation_id" to correlationId,
+                  "idempotence_key" to idempotenceKey.toString()))
+              .attributes(mapOf(LogTracingUtils.AttributeKeys.CORRELATION_ID to correlationId))
+              .logError(logger, exception, "Exception performing NPG refund")
             val responseStatusCode = exception.statusCode
             responseStatusCode
               .map {
@@ -119,6 +133,16 @@ class RefundService(
               URI.create("${urlConfig.url()}/refunds"),
               transactionId.value(),
               RedirectRefundResponseDto::class.java)
+            .doOnSuccess {
+              LogTracingUtils.loggerTracingUtils()
+                .success()
+                .details(
+                  mapOf(
+                    "psp_id" to pspId,
+                    "psp_transaction_id" to pspTransactionId,
+                    "payment_type_code" to paymentTypeCode))
+                .logInfo(logger, "Requested Redirect refund")
+            }
             .onErrorMap(NodeForwarderClientException::class.java) { exception ->
               val errorCause = exception.cause
               val httpErrorCode: Optional<HttpStatusCode> =
@@ -131,19 +155,14 @@ class RefundService(
                 }
               LogTracingUtils.loggerTracingUtils()
                 .failure()
-                .attributes(
-                  mapOf(LogTracingUtils.AttributeKeys.CTX_TRANSACTION_ID to transactionId.value()))
                 .details(
                   mapOf(
-                    "pspId" to pspId,
-                    "pspTransactionId" to pspTransactionId,
-                    "paymentTypeCode" to paymentTypeCode))
+                    "psp_id" to pspId,
+                    "psp_transaction_id" to pspTransactionId,
+                    "payment_type_code" to paymentTypeCode,
+                    "http_error_code" to httpErrorCode.map { it.toString() }.orElse("N/A")))
                 .logError(
-                  logger,
-                  exception,
-                  "Error performing Redirect refund operation for transaction with id: [${transactionId.value()}]. psp id: [$pspId], pspTransactionId: [$pspTransactionId], paymentTypeCode: [$paymentTypeCode], received HTTP response error code: [${
-                        httpErrorCode.map { it.toString() }.orElse("N/A")
-                    }]")
+                  logger, exception, "Error performing Redirect refund operation for transaction")
               httpErrorCode
                 .map {
                   val errorCodeReason =

@@ -60,13 +60,13 @@ class TransactionRefundRetryQueueConsumer(
     val events =
       transactionsEventStoreRepository
         .findByTransactionIdOrderByCreationDateAsc(event.transactionId)
-        .cache()
         .doOnComplete {
           LogTracingUtils.loggerTracingUtils()
             .success()
             .dependency(LogTracingUtils.MONGO_DEPENDENCY)
             .logInfo(logger, "Successfully retrieved events for transaction refund retry")
         }
+        .cache()
 
     val baseTransaction =
       events.reduce(EmptyTransaction(), Transaction::applyEvent).cast(BaseTransaction::class.java)

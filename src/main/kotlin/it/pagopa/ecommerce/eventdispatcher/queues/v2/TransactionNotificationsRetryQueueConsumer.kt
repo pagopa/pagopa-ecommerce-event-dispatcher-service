@@ -119,12 +119,6 @@ class TransactionNotificationsRetryQueueConsumer(
 
     val notificationResendPipeline =
       baseTransaction
-        .doOnNext {
-          LogTracingUtils.loggerTracingUtils()
-            .success()
-            .details(mapOf("status" to it.status.toString()))
-            .logInfo(logger, "Retrieved transaction status")
-        }
         .flatMap { getTransactionWithUserReceiptErrorForRetry(it) }
         .flatMap { tx ->
           mono { userReceiptMailBuilder.buildNotificationEmailRequestDto(tx) }
@@ -134,11 +128,6 @@ class TransactionNotificationsRetryQueueConsumer(
                   tx, transactionsViewRepository, transactionUserReceiptRepository)
                 .doOnSuccess {
                   transactionTracing.addSpanAttributesNotificationsFlowFromTransaction(it, events)
-                  LogTracingUtils.loggerTracingUtils()
-                    .success()
-                    .dependency(LogTracingUtils.MONGO_DEPENDENCY)
-                    .details(mapOf("updated_status" to it.status.toString()))
-                    .logInfo(logger, "Notification status updated successfully")
                 }
                 .flatMap {
                   notificationRefundTransactionPipeline(

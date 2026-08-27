@@ -55,10 +55,6 @@ class NpgService(
         is NgpOrderNotAuthorized -> {
           LogTracingUtils.loggerTracingUtils()
             .success()
-            .attributes(
-              mapOf(
-                LogTracingUtils.AttributeKeys.CTX_TRANSACTION_ID to
-                  transaction.transactionId.value()))
             .logInfo(logger, "Transaction not authorized, doing nothing")
           Mono.empty()
         }
@@ -67,10 +63,6 @@ class NpgService(
         is NpgOrderRefunded -> {
           LogTracingUtils.loggerTracingUtils()
             .failure()
-            .attributes(
-              mapOf(
-                LogTracingUtils.AttributeKeys.CTX_TRANSACTION_ID to
-                  transaction.transactionId.value()))
             .logError(logger, null, "Unexpected order refunded for transaction")
           Mono.error(
             InvalidNpgOrderStateException.OrderAlreadyRefunded(
@@ -79,20 +71,12 @@ class NpgService(
         is NgpOrderPendingStatus -> {
           LogTracingUtils.loggerTracingUtils()
             .success()
-            .attributes(
-              mapOf(
-                LogTracingUtils.AttributeKeys.CTX_TRANSACTION_ID to
-                  transaction.transactionId.value()))
             .logWarn(logger, "Received authorization PENDING status from NPG get order")
           Mono.error(InvalidNpgOrderStateException.OrderPendingStatus(orderStatus.operation))
         }
         is UnknownNpgOrderStatus -> {
           LogTracingUtils.loggerTracingUtils()
             .failure()
-            .attributes(
-              mapOf(
-                LogTracingUtils.AttributeKeys.CTX_TRANSACTION_ID to
-                  transaction.transactionId.value()))
             .logError(logger, null, "Cannot establish Npg Order status for transaction")
           Mono.error(InvalidNpgOrderStateException.UnknownOrderStatus(orderStatus.order))
         }
@@ -108,10 +92,7 @@ class NpgService(
       .doOnNext { order ->
         LogTracingUtils.loggerTracingUtils()
           .success()
-          .attributes(
-            mapOf(
-              LogTracingUtils.AttributeKeys.CTX_TRANSACTION_ID to
-                transaction.transactionId.value()))
+          .dependency("npg")
           .details(
             mapOf(
               "last_operation_type" to order.orderStatus?.lastOperationType.toString(),

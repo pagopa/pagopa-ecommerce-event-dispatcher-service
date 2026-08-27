@@ -70,13 +70,13 @@ class TransactionsRefundQueueConsumer(
     val events =
       transactionsEventStoreRepository
         .findByTransactionIdOrderByCreationDateAsc(transactionId)
-        .cache()
         .doOnComplete {
           LogTracingUtils.loggerTracingUtils()
             .success()
             .dependency(LogTracingUtils.MONGO_DEPENDENCY)
             .logInfo(logger, "Successfully retrieved events for transaction refund")
         }
+        .cache()
 
     val refundPipeline =
       events

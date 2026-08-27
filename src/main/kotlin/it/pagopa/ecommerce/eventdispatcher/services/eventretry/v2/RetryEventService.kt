@@ -70,20 +70,17 @@ abstract class RetryEventService<E>(
       .doOnNext { storedEvent ->
         LogTracingUtils.loggerTracingUtils()
           .success()
-          .attributes(
-            mapOf(
-              LogTracingUtils.AttributeKeys.CTX_EVENT_CODE to storedEvent.eventCode,
-            ))
+          .details(mapOf("event_name" to storedEvent.eventCode))
           .dependency(LogTracingUtils.MONGO_DEPENDENCY)
           .logInfo(logger, "Saved domain event")
       }
-      .flatMap { enqueueMessage(it, visibilityTimeout, tracingInfo) }
       .doOnError {
         LogTracingUtils.loggerTracingUtils()
           .failure()
           .dependency(LogTracingUtils.MONGO_DEPENDENCY)
           .logError(logger, it, "Error processing retry event")
       }
+      .flatMap { enqueueMessage(it, visibilityTimeout, tracingInfo) }
   }
 
   abstract fun buildRetryEvent(
@@ -134,9 +131,10 @@ abstract class RetryEventService<E>(
             mapOf(
               "event_code" to event.eventCode,
               "visibility_timeout" to it.value.timeNextVisible.toString(),
-              "queue_name" to queueAsyncClient.queueName))
+              "queue_name" to queueAsyncClient.queueName,
+              "send_reason" to "Retry event"))
           .success()
-          .logInfo(logger, "Retry event successfully sent to queue")
+          .logInfo(logger, "Event sent to queue successfully")
       }
       .then()
       .doOnError { exception -> logger.error("Error sending event", exception) }

@@ -106,11 +106,6 @@ class TransactionNotificationsQueueConsumer(
             }
             .doOnSuccess {
               transactionTracing.addSpanAttributesNotificationsFlowFromTransaction(it, events)
-              LogTracingUtils.loggerTracingUtils()
-                .success()
-                .details(mapOf("updated_status" to it.status.toString()))
-                .dependency(LogTracingUtils.MONGO_DEPENDENCY)
-                .logInfo(logger, "Notification status updated successfully")
             }
             .flatMap {
               notificationRefundTransactionPipeline(
@@ -127,7 +122,7 @@ class TransactionNotificationsQueueConsumer(
               LogTracingUtils.loggerTracingUtils()
                 .failure()
                 .logErrorWithStackTrace(
-                  logger, exception, "Got exception while retrying user receipt mail sending!")
+                  logger, exception, "Got exception while send user receipt mail!")
               updateNotificationErrorTransactionStatus(
                   tx, transactionsViewRepository, transactionUserReceiptRepository)
                 .doOnNext { errorEvent ->
@@ -135,7 +130,7 @@ class TransactionNotificationsQueueConsumer(
                     .success()
                     .details(
                       mapOf(
-                        "event_code" to errorEvent.eventCode.toString(),
+                        "event_name" to errorEvent.eventCode.toString(),
                         "updated_status" to TransactionStatusDto.NOTIFICATION_ERROR.value))
                     .dependency(LogTracingUtils.MONGO_DEPENDENCY)
                     .logInfo(logger, "Notification error status updated successfully")

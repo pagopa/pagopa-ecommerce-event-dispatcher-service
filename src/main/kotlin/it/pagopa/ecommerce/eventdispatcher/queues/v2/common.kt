@@ -551,9 +551,12 @@ fun requestRefundTransaction(
           LogTracingUtils.loggerTracingUtils()
             .success()
             .dependency("storage-queue")
-            .attributes(
-              mapOf(LogTracingUtils.AttributeKeys.CTX_EVENT_CODE to refundRequestedEvent.eventCode))
-            .logInfo(logger, "Requested refund")
+            .details(
+              mapOf(
+                "queue_name" to refundRequestedAsyncClient.queueName,
+                "event_name" to refundRequestedEvent.eventCode.toString(),
+                "send_reason" to "Requested refund"))
+            .logInfo(logger, "Event successfully sent to queue")
         }
         .thenReturn(tx)
     }
@@ -757,10 +760,6 @@ private fun refundTransactionNPG(
           is InvalidNPGResponseException -> {
             LogTracingUtils.loggerTracingUtils()
               .failure()
-              .attributes(
-                mapOf(
-                  LogTracingUtils.AttributeKeys.CTX_TRANSACTION_ID to
-                    transaction.transactionId.value()))
               .logError(logger, error, "Unexpected error, transaction already refunded by NPG!")
             Mono.error(
               RefundNotAllowedException(
@@ -804,9 +803,6 @@ private fun refundTransactionNPG(
             transaction.transactionAuthorizationRequestData.paymentTypeCode))
       .map { refundResponse -> Pair(refundResponse, transaction) }
       .onErrorMap({ e -> e is BadGatewayException || e is NpgResponseException }) { e ->
-        LogTracingUtils.loggerTracingUtils()
-          .logError(logger, e, "Error performing GET orders with NPG")
-
         RefundError.RefundFailed(
           transactionId = transaction.transactionId,
           authorizationData = authData,
@@ -822,11 +818,6 @@ fun handleNpgRefundResponse(
   transactionsEventStoreRepository: TransactionsEventStoreRepository<BaseTransactionRefundedData>,
   transactionsViewRepository: TransactionsViewRepository
 ): Mono<BaseTransaction> {
-  LogTracingUtils.loggerTracingUtils()
-    .attributes(
-      mapOf(LogTracingUtils.AttributeKeys.CTX_TRANSACTION_ID to transaction.transactionId.value()))
-    .details(mapOf("operation_id" to (refundResponse.operationId ?: "N/A")))
-    .logInfo(logger, "Refund for transaction processed successfully")
   return updateTransactionToRefunded(
     transaction,
     transactionsEventStoreRepository,
@@ -841,16 +832,7 @@ fun handleRedirectRefundResponse(
   transactionsEventStoreRepository: TransactionsEventStoreRepository<BaseTransactionRefundedData>,
   transactionsViewRepository: TransactionsViewRepository
 ): Mono<BaseTransaction> {
-  val refundOutcome = refundResponse.outcome
-  LogTracingUtils.loggerTracingUtils()
-    .attributes(
-      mapOf(LogTracingUtils.AttributeKeys.CTX_TRANSACTION_ID to transaction.transactionId.value()))
-    .details(
-      mapOf(
-        "psp_id" to transactionAuthorizationRequestData.pspId,
-        "outcome" to refundOutcome.toString()))
-    .logInfo(logger, "Refund for redirect transaction processed successfully")
-  return when (refundOutcome) {
+  return when (val refundOutcome = refundResponse.outcome) {
     RefundOutcomeDto.OK,
     RefundOutcomeDto.CANCELED ->
       updateTransactionToRefunded(
@@ -1069,7 +1051,14 @@ private fun updateNotifiedTransactionStatus(
           lastProcessedEventAt = ZonedDateTime.parse(event.creationDate).toInstant().toEpochMilli()
         }
       })
-    .then(transactionUserReceiptRepository.insert(event))
+    .then(
+      transactionUserReceiptRepository.insert(event).doOnSuccess {
+        LogTracingUtils.loggerTracingUtils()
+          .success()
+          .details(mapOf("event_name" to it.eventCode))
+          .dependency(MONGO_DEPENDENCY)
+          .logInfo(logger, "Saved domain event")
+      })
 }
 
 /*
