@@ -875,42 +875,26 @@ fun handleRedirectRefundResponse(
   }
 }
 
-fun isTransactionRefundable(tx: BaseTransaction): Boolean {
+fun isTransactionRefundable(tx: BaseTransaction): Pair<Boolean, String> {
   val wasAuthorizationRequested = wasAuthorizationRequested(tx)
   val wasSendPaymentResultOutcomeKO = wasSendPaymentResultOutcomeKO(tx)
   val wasAuthorizationDenied = wasAuthorizationDenied(tx)
   val wasClosePaymentResponseOutcomeKO = wasClosePaymentResponseOutcomeKo(tx)
 
-  val isTransactionRefundable =
+  val (isRefundable, reason) =
     when (tx) {
-      // transaction for which a send payment result was received --> refund =
-      // sendPaymentResultOutcome == KO
-      is BaseTransactionWithRequestedUserReceipt -> wasSendPaymentResultOutcomeKO
-      // transaction stuck after closePayment --> refund = closePaymentResponseOutcome == KO
-      is BaseTransactionClosed -> wasClosePaymentResponseOutcomeKO
-      // transaction stuck at closure error (no close payment vs Nodo) --> refund =
-      // check previous transaction status
+      is BaseTransactionWithRequestedUserReceipt ->
+        wasSendPaymentResultOutcomeKO to "send_payment_result_outcome_ko"
+      is BaseTransactionClosed ->
+        wasClosePaymentResponseOutcomeKO to "close_payment_response_outcome_ko"
       is TransactionWithClosureError -> isTransactionRefundable(tx.transactionAtPreviousState)
-      // transaction stuck at authorization completed status --> refund = PGS auth outcome != KO
-      is BaseTransactionWithCompletedAuthorization -> !wasAuthorizationDenied
-      // transaction in expired status (expiration event sent by batch) --> refund =
-      // check previous transaction status
+      is BaseTransactionWithCompletedAuthorization ->
+        wasAuthorizationDenied to "authorization_denied"
       is BaseTransactionExpired -> isTransactionRefundable(tx.transactionAtPreviousState)
-      // transaction stuck at previous steps (authorization requested, activation...) --> refund =
-      // authorization was requested to PGS
-      else -> wasAuthorizationRequested
+      else -> wasAuthorizationRequested to "authorization_requested"
     }
-  LogTracingUtils.loggerTracingUtils()
-    .details(
-      mapOf(
-        "authorization_requested" to wasAuthorizationRequested.toString(),
-        "authorization_denied" to wasAuthorizationDenied.toString(),
-        "close_payment_response_outcome_ko" to wasClosePaymentResponseOutcomeKO.toString(),
-        "send_payment_result_outcome_ko" to wasSendPaymentResultOutcomeKO.toString(),
-        "is_transaction_refundable" to isTransactionRefundable.toString()),
-    )
-    .logInfo(logger, "Transaction refundability evaluated")
-  return isTransactionRefundable
+
+  return isRefundable to reason
 }
 
 fun wasSendPaymentResultOutcomeKO(tx: BaseTransaction): Boolean =

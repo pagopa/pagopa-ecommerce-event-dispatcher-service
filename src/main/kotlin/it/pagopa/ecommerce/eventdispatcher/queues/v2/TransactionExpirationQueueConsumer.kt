@@ -145,7 +145,9 @@ class TransactionExpirationQueueConsumer(
         }
         .filterWhen {
           val refundableCheckRequired = isRefundableCheckRequired(it)
-          val refundable = isTransactionRefundable(it)
+          val refundableCheck = isTransactionRefundable(it)
+          val refundReason = refundableCheck.second
+          val refundable = refundableCheck.first
           val refundableWithoutCheck = refundable && !refundableCheckRequired
           LogTracingUtils.loggerTracingUtils()
             .success()
@@ -153,7 +155,8 @@ class TransactionExpirationQueueConsumer(
               mapOf(
                 "status" to it.status.toString(),
                 "refundable" to refundable.toString(),
-                "without_check" to refundableWithoutCheck.toString()))
+                "without_check" to refundableWithoutCheck.toString(),
+                "refund_reason" to refundReason))
             .logInfo(logger, "Transaction refund check completed")
           if (refundable && refundableCheckRequired) {
             val binaryData =

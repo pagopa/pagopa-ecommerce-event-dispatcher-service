@@ -44,7 +44,7 @@ class CommonTests {
   @Test
   fun `Should calculate refund flags correctly for transaction in ACTIVATED status`() {
     val baseTransaction = reduceEventsAndMarkTestedStatus(transactionActivateEvent())
-    assertFalse(isTransactionRefundable(baseTransaction))
+    assertFalse(isTransactionRefundable(baseTransaction).first)
     assertFalse(isRefundableCheckRequired(baseTransaction))
     assertEquals(TransactionStatusDto.ACTIVATED, baseTransaction.status)
   }
@@ -53,7 +53,7 @@ class CommonTests {
   fun `Should calculate refund flags correctly for transaction in CANCELLATION_REQUESTED status`() {
     val baseTransaction =
       reduceEventsAndMarkTestedStatus(transactionActivateEvent(), transactionUserCanceledEvent())
-    assertFalse(isTransactionRefundable(baseTransaction))
+    assertFalse(isTransactionRefundable(baseTransaction).first)
     assertFalse(isRefundableCheckRequired(baseTransaction))
     assertEquals(TransactionStatusDto.CANCELLATION_REQUESTED, baseTransaction.status)
   }
@@ -66,7 +66,7 @@ class CommonTests {
         transactionUserCanceledEvent(),
         transactionClosureErrorEvent(),
       )
-    assertFalse(isTransactionRefundable(baseTransaction))
+    assertFalse(isTransactionRefundable(baseTransaction).first)
     assertFalse(isRefundableCheckRequired(baseTransaction))
     assertEquals(TransactionStatusDto.CLOSURE_ERROR, baseTransaction.status)
   }
@@ -76,8 +76,8 @@ class CommonTests {
     val (baseTransaction, baseTransactionExpired) =
       reduceEventsAndExpireTransaction(
         transactionActivateEvent(), transactionAuthorizationRequestedEvent())
-    assertTrue(isTransactionRefundable(baseTransaction))
-    assertTrue(isTransactionRefundable(baseTransactionExpired))
+    assertTrue(isTransactionRefundable(baseTransaction).first)
+    assertTrue(isTransactionRefundable(baseTransactionExpired).first)
     assertFalse(isRefundableCheckRequired(baseTransaction))
     assertFalse(isRefundableCheckRequired(baseTransactionExpired))
     assertEquals(TransactionStatusDto.AUTHORIZATION_REQUESTED, baseTransaction.status)
@@ -94,8 +94,8 @@ class CommonTests {
         transactionAuthorizationCompletedEvent(
           redirectTransactionGatewayAuthorizationData(
             RedirectTransactionGatewayAuthorizationData.Outcome.OK, null)))
-    assertTrue(isTransactionRefundable(baseTransaction))
-    assertTrue(isTransactionRefundable(baseTransactionExpired))
+    assertTrue(isTransactionRefundable(baseTransaction).first)
+    assertTrue(isTransactionRefundable(baseTransactionExpired).first)
     assertTrue(isRefundableCheckRequired(baseTransaction))
     assertTrue(isRefundableCheckRequired(baseTransactionExpired))
     assertEquals(TransactionStatusDto.AUTHORIZATION_COMPLETED, baseTransaction.status)
@@ -112,8 +112,8 @@ class CommonTests {
         transactionAuthorizationCompletedEvent(
           redirectTransactionGatewayAuthorizationData(
             RedirectTransactionGatewayAuthorizationData.Outcome.KO, null)))
-    assertFalse(isTransactionRefundable(baseTransaction))
-    assertFalse(isTransactionRefundable(baseTransactionExpired))
+    assertFalse(isTransactionRefundable(baseTransaction).first)
+    assertFalse(isTransactionRefundable(baseTransactionExpired).first)
     assertFalse(isRefundableCheckRequired(baseTransaction))
     assertFalse(isRefundableCheckRequired(baseTransactionExpired))
     assertEquals(TransactionStatusDto.AUTHORIZATION_COMPLETED, baseTransaction.status)
@@ -132,8 +132,8 @@ class CommonTests {
             RedirectTransactionGatewayAuthorizationData.Outcome.OK, null)),
         transactionClosureRequestedEvent(),
       )
-    assertTrue(isTransactionRefundable(baseTransaction))
-    assertTrue(isTransactionRefundable(baseTransactionExpired))
+    assertTrue(isTransactionRefundable(baseTransaction).first)
+    assertTrue(isTransactionRefundable(baseTransactionExpired).first)
     assertTrue(isRefundableCheckRequired(baseTransaction))
     assertTrue(isRefundableCheckRequired(baseTransactionExpired))
     assertEquals(TransactionStatusDto.CLOSURE_REQUESTED, baseTransaction.status)
@@ -152,8 +152,8 @@ class CommonTests {
             RedirectTransactionGatewayAuthorizationData.Outcome.KO, null)),
         transactionClosureRequestedEvent(),
       )
-    assertFalse(isTransactionRefundable(baseTransaction))
-    assertFalse(isTransactionRefundable(baseTransactionExpired))
+    assertFalse(isTransactionRefundable(baseTransaction).first)
+    assertFalse(isTransactionRefundable(baseTransactionExpired).first)
     assertFalse(isRefundableCheckRequired(baseTransaction))
     assertFalse(isRefundableCheckRequired(baseTransactionExpired))
     assertEquals(TransactionStatusDto.CLOSURE_REQUESTED, baseTransaction.status)
@@ -172,8 +172,8 @@ class CommonTests {
             RedirectTransactionGatewayAuthorizationData.Outcome.OK, null)),
         transactionClosureRequestedEvent(),
         transactionClosureErrorEvent())
-    assertTrue(isTransactionRefundable(baseTransaction))
-    assertTrue(isTransactionRefundable(baseTransactionExpired))
+    assertTrue(isTransactionRefundable(baseTransaction).first)
+    assertTrue(isTransactionRefundable(baseTransactionExpired).first)
     assertTrue(isRefundableCheckRequired(baseTransaction))
     assertTrue(isRefundableCheckRequired(baseTransactionExpired))
     assertEquals(TransactionStatusDto.CLOSURE_ERROR, baseTransaction.status)
@@ -192,8 +192,8 @@ class CommonTests {
             RedirectTransactionGatewayAuthorizationData.Outcome.KO, null)),
         transactionClosureRequestedEvent(),
         transactionClosureErrorEvent())
-    assertFalse(isTransactionRefundable(baseTransaction))
-    assertFalse(isTransactionRefundable(baseTransactionExpired))
+    assertFalse(isTransactionRefundable(baseTransaction).first)
+    assertFalse(isTransactionRefundable(baseTransactionExpired).first)
     assertFalse(isRefundableCheckRequired(baseTransaction))
     assertFalse(isRefundableCheckRequired(baseTransactionExpired))
     assertEquals(TransactionStatusDto.CLOSURE_ERROR, baseTransaction.status)
@@ -212,8 +212,8 @@ class CommonTests {
             RedirectTransactionGatewayAuthorizationData.Outcome.OK, null)),
         transactionClosureRequestedEvent(),
         transactionClosedEvent(TransactionClosureData.Outcome.OK))
-    assertFalse(isTransactionRefundable(baseTransaction))
-    assertFalse(isTransactionRefundable(baseTransactionExpired))
+    assertFalse(isTransactionRefundable(baseTransaction).first)
+    assertFalse(isTransactionRefundable(baseTransactionExpired).first)
     assertFalse(isRefundableCheckRequired(baseTransaction))
     assertFalse(isRefundableCheckRequired(baseTransactionExpired))
     assertEquals(TransactionStatusDto.CLOSED, baseTransaction.status)
@@ -232,8 +232,8 @@ class CommonTests {
             RedirectTransactionGatewayAuthorizationData.Outcome.OK, null)),
         transactionClosureRequestedEvent(),
         transactionClosedEvent(TransactionClosureData.Outcome.KO))
-    assertTrue(isTransactionRefundable(baseTransaction))
-    assertTrue(isTransactionRefundable(baseTransactionExpired))
+    assertTrue(isTransactionRefundable(baseTransaction).first)
+    assertTrue(isTransactionRefundable(baseTransactionExpired).first)
     assertFalse(isRefundableCheckRequired(baseTransaction))
     assertFalse(isRefundableCheckRequired(baseTransactionExpired))
     assertEquals(TransactionStatusDto.CLOSED, baseTransaction.status)
@@ -253,8 +253,8 @@ class CommonTests {
         transactionClosureRequestedEvent(),
         transactionClosureErrorEvent(),
         transactionClosedEvent(TransactionClosureData.Outcome.OK))
-    assertFalse(isTransactionRefundable(baseTransaction))
-    assertFalse(isTransactionRefundable(baseTransactionExpired))
+    assertFalse(isTransactionRefundable(baseTransaction).first)
+    assertFalse(isTransactionRefundable(baseTransactionExpired).first)
     assertFalse(isRefundableCheckRequired(baseTransaction))
     assertFalse(isRefundableCheckRequired(baseTransactionExpired))
     assertEquals(TransactionStatusDto.CLOSED, baseTransaction.status)
@@ -275,8 +275,8 @@ class CommonTests {
         transactionClosureRequestedEvent(),
         transactionClosureErrorEvent(),
         transactionClosedEvent(TransactionClosureData.Outcome.KO))
-    assertTrue(isTransactionRefundable(baseTransaction))
-    assertTrue(isTransactionRefundable(baseTransactionExpired))
+    assertTrue(isTransactionRefundable(baseTransaction).first)
+    assertTrue(isTransactionRefundable(baseTransactionExpired).first)
     assertFalse(isRefundableCheckRequired(baseTransaction))
     assertFalse(isRefundableCheckRequired(baseTransactionExpired))
     assertEquals(TransactionStatusDto.CLOSED, baseTransaction.status)
@@ -298,8 +298,8 @@ class CommonTests {
         transactionClosedEvent(TransactionClosureData.Outcome.OK),
         transactionUserReceiptRequestedEvent(
           transactionUserReceiptData(TransactionUserReceiptData.Outcome.OK)))
-    assertFalse(isTransactionRefundable(baseTransaction))
-    assertFalse(isTransactionRefundable(baseTransactionExpired))
+    assertFalse(isTransactionRefundable(baseTransaction).first)
+    assertFalse(isTransactionRefundable(baseTransactionExpired).first)
     assertFalse(isRefundableCheckRequired(baseTransaction))
     assertFalse(isRefundableCheckRequired(baseTransactionExpired))
     assertEquals(TransactionStatusDto.NOTIFICATION_REQUESTED, baseTransaction.status)
@@ -323,8 +323,8 @@ class CommonTests {
           transactionUserReceiptData(TransactionUserReceiptData.Outcome.OK)),
         transactionUserReceiptAddErrorEvent(
           transactionUserReceiptData(TransactionUserReceiptData.Outcome.OK)))
-    assertFalse(isTransactionRefundable(baseTransaction))
-    assertFalse(isTransactionRefundable(baseTransactionExpired))
+    assertFalse(isTransactionRefundable(baseTransaction).first)
+    assertFalse(isTransactionRefundable(baseTransactionExpired).first)
     assertFalse(isRefundableCheckRequired(baseTransaction))
     assertFalse(isRefundableCheckRequired(baseTransactionExpired))
     assertEquals(TransactionStatusDto.NOTIFICATION_ERROR, baseTransaction.status)
@@ -346,8 +346,8 @@ class CommonTests {
         transactionClosedEvent(TransactionClosureData.Outcome.OK),
         transactionUserReceiptRequestedEvent(
           transactionUserReceiptData(TransactionUserReceiptData.Outcome.KO)))
-    assertTrue(isTransactionRefundable(baseTransaction))
-    assertTrue(isTransactionRefundable(baseTransactionExpired))
+    assertTrue(isTransactionRefundable(baseTransaction).first)
+    assertTrue(isTransactionRefundable(baseTransactionExpired).first)
     assertFalse(isRefundableCheckRequired(baseTransaction))
     assertFalse(isRefundableCheckRequired(baseTransactionExpired))
     assertEquals(TransactionStatusDto.NOTIFICATION_REQUESTED, baseTransaction.status)
@@ -371,8 +371,8 @@ class CommonTests {
           transactionUserReceiptData(TransactionUserReceiptData.Outcome.KO)),
         transactionUserReceiptAddErrorEvent(
           transactionUserReceiptData(TransactionUserReceiptData.Outcome.KO)))
-    assertTrue(isTransactionRefundable(baseTransaction))
-    assertTrue(isTransactionRefundable(baseTransactionExpired))
+    assertTrue(isTransactionRefundable(baseTransaction).first)
+    assertTrue(isTransactionRefundable(baseTransactionExpired).first)
     assertFalse(isRefundableCheckRequired(baseTransaction))
     assertFalse(isRefundableCheckRequired(baseTransactionExpired))
     assertEquals(TransactionStatusDto.NOTIFICATION_ERROR, baseTransaction.status)
@@ -398,8 +398,8 @@ class CommonTests {
           transactionUserReceiptData(TransactionUserReceiptData.Outcome.KO)),
         transactionUserReceiptAddedEvent(
           transactionUserReceiptData(TransactionUserReceiptData.Outcome.KO)))
-    assertTrue(isTransactionRefundable(baseTransaction))
-    assertTrue(isTransactionRefundable(baseTransactionExpired))
+    assertTrue(isTransactionRefundable(baseTransaction).first)
+    assertTrue(isTransactionRefundable(baseTransactionExpired).first)
     assertFalse(isRefundableCheckRequired(baseTransaction))
     assertFalse(isRefundableCheckRequired(baseTransactionExpired))
     assertEquals(TransactionStatusDto.NOTIFIED_KO, baseTransaction.status)
