@@ -108,6 +108,12 @@ class AuthorizationRequestedHelper(
     val transaction =
       transactionsEventStoreRepository
         .findByTransactionIdOrderByCreationDateAsc(transactionId)
+        .doOnComplete {
+          LogTracingUtils.loggerTracingUtils()
+            .success()
+            .dependency(LogTracingUtils.MONGO_DEPENDENCY)
+            .logInfo(logger, "Successfully retrieved events")
+        }
         .reduce(EmptyTransaction(), Transaction::applyEvent)
         .filter { it is BaseTransactionWithRequestedAuthorization }
         .cast(BaseTransactionWithRequestedAuthorization::class.java)
@@ -130,11 +136,7 @@ class AuthorizationRequestedHelper(
                   baseTransactionWithRequestedAuthorization.transactionActivatedData.userId!!),
                 buildUserLastPaymentMethodData(
                   baseTransactionWithRequestedAuthorization, authorizationRequestedDate))
-              .onErrorResume { error ->
-                LogTracingUtils.loggerTracingUtils()
-                  .logError(logger, error, "Exception while saving last payment method used")
-                mono {}
-              }
+              .onErrorResume { mono {} }
               .thenReturn(baseTransactionWithRequestedAuthorization)
           } else {
             mono { baseTransactionWithRequestedAuthorization }
@@ -171,18 +173,25 @@ class AuthorizationRequestedHelper(
             // add here a fixed 10 sec delay to avoid condition when event is visible in queue
             // some millis before the effective ttl set here
             val visibilityTimeout = timeToWaitForGetState + Duration.ofSeconds(10)
-            if (logger.isDebugEnabled) {
-              LogTracingUtils.loggerTracingUtils()
-                .details(mapOf("visibility_timeout" to visibilityTimeout.toString()))
-                .logDebug(logger, "Authorization requested event postponed")
-            }
             val binaryData =
               BinaryData.fromObject(parsedEvent, strictSerializerProviderV2.createInstance())
-            authRequestedQueueAsyncClient.sendMessageWithResponse(
-              binaryData,
-              visibilityTimeout, // visibility timeout
-              Duration.ofSeconds(transientQueueTTLSeconds.toLong()), // ttl
-            )
+            authRequestedQueueAsyncClient
+              .sendMessageWithResponse(
+                binaryData,
+                visibilityTimeout, // visibility timeout
+                Duration.ofSeconds(transientQueueTTLSeconds.toLong()), // ttl
+              )
+              .doOnSuccess {
+                LogTracingUtils.loggerTracingUtils()
+                  .dependency("storage-queue")
+                  .details(
+                    mapOf(
+                      "visibility_timeout" to visibilityTimeout.toString(),
+                      "send_reason" to "Authorization requested event postponed",
+                      "queue_name" to authRequestedQueueAsyncClient.queueName))
+                  .success()
+                  .logInfo(logger, "Authorization requested event postponed")
+              }
           } else {
             updateTransactionStatus(tx, tracingInfo, 0)
           }
@@ -208,6 +217,12 @@ class AuthorizationRequestedHelper(
     val transaction =
       transactionsEventStoreRepository
         .findByTransactionIdOrderByCreationDateAsc(transactionId)
+        .doOnComplete {
+          LogTracingUtils.loggerTracingUtils()
+            .success()
+            .dependency(LogTracingUtils.MONGO_DEPENDENCY)
+            .logInfo(logger, "Successfully retrieved events")
+        }
         .reduce(EmptyTransaction(), Transaction::applyEvent)
         .filter { it is BaseTransactionWithRequestedAuthorization }
         .cast(BaseTransactionWithRequestedAuthorization::class.java)
