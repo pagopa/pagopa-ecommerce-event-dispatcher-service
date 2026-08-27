@@ -39,3 +39,14 @@ Two cases need more than the exit code, since Spectral reports them as ordinary 
 **Only errors and warnings are annotated on the pull request.** GitHub renders at most 10 annotations per type per step, so annotating info findings as well would push the actionable ones out of the view. Info findings are reported as counts, broken down by rule, in the job summary.
 
 **The npm packages are installed next to the ruleset.** Spectral resolves the packages a ruleset extends starting from the directory of the ruleset file, and these repositories have no `package.json`. The install therefore targets `dirname(ruleset)` and creates only a `node_modules` directory, which is already ignored by git.
+
+`openapi-lint.sh` installs the packages itself and reads the binary back from the same directory, so the path is derived in exactly one place. That is also why the action is a single step: handing an input-derived path between two steps means writing it to `GITHUB_ENV`, which CodeQL flags as environment variable injection, since a ruleset path containing a newline would let a caller inject arbitrary variables into the job.
+
+The install runs every time and is never skipped on an existing `node_modules`: skipping would lint with whatever version happened to be there rather than the pinned one, so a local run could disagree with CI. It costs about 2 seconds once the packages are cached, and a CI checkout is always cold anyway. To run the script outside Actions:
+
+```bash
+SPEC_PATH=api-spec/event-dispatcher-api.yaml RULESET=.spectral.yaml \
+  FAIL_SEVERITY=warn FAIL_ON_VIOLATION=true \
+  SPECTRAL_VERSION=6.16.3 OWASP_RULESET_VERSION=2.0.1 \
+  bash .github/actions/openapi-lint/openapi-lint.sh
+```

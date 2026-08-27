@@ -7,6 +7,8 @@ set -euo pipefail
 : "${RULESET:?RULESET is required}"
 : "${FAIL_SEVERITY:?FAIL_SEVERITY is required}"
 : "${FAIL_ON_VIOLATION:?FAIL_ON_VIOLATION is required}"
+: "${SPECTRAL_VERSION:?SPECTRAL_VERSION is required}"
+: "${OWASP_RULESET_VERSION:?OWASP_RULESET_VERSION is required}"
 
 # Spectral's own severity numbering, as it appears in the JSON report.
 case "$FAIL_SEVERITY" in
@@ -19,14 +21,25 @@ case "$FAIL_SEVERITY" in
     ;;
 esac
 
-SPECTRAL_BIN="${SPECTRAL_BIN:-$(dirname "$RULESET")/node_modules/.bin/spectral}"
-
 if [ ! -f "$SPEC_PATH" ]; then
   echo "::error::OpenAPI spec not found: ${SPEC_PATH}"
   exit 1
 fi
 if [ ! -f "$RULESET" ]; then
   echo "::error::Spectral ruleset not found: ${RULESET}"
+  exit 1
+fi
+
+# Spectral resolves a ruleset's npm packages from the ruleset's own directory and these
+# repos have no package.json, so install there and read the binary back from the same path.
+# Never skipped on an existing node_modules: that would lint with an unpinned version.
+PREFIX="$(dirname "$RULESET")"
+SPECTRAL_BIN="${PREFIX}/node_modules/.bin/spectral"
+npm install --no-save --no-package-lock --prefix "$PREFIX" \
+  "@stoplight/spectral-cli@${SPECTRAL_VERSION}" \
+  "@stoplight/spectral-owasp-ruleset@${OWASP_RULESET_VERSION}"
+if [ ! -x "$SPECTRAL_BIN" ]; then
+  echo "::error::Spectral not found at ${SPECTRAL_BIN} after installing it there."
   exit 1
 fi
 
@@ -57,8 +70,9 @@ fi
 count_severity() {
   jq --argjson s "$1" '[.[] | select(.severity == $s)] | length' "$OUT"
 }
+# Report-only blocks nothing at any severity, so the summary must not claim otherwise.
 blocking() {
-  if [ "$1" -le "$FAIL_LEVEL" ]; then echo "yes"; else echo "no"; fi
+  if [ "$FAIL_ON_VIOLATION" = "true" ] && [ "$1" -le "$FAIL_LEVEL" ]; then echo "yes"; else echo "no"; fi
 }
 ERRORS=$(count_severity 0)
 WARNINGS=$(count_severity 1)
@@ -87,6 +101,10 @@ if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
     echo "| Error | ${ERRORS} | $(blocking 0) |"
     echo "| Warning | ${WARNINGS} | $(blocking 1) |"
     echo "| Info | ${INFOS} | $(blocking 2) |"
+    if [ "$FAIL_ON_VIOLATION" != "true" ]; then
+      echo ""
+      echo "Report-only: \`fail_on_violation\` is false, so nothing blocks this job."
+    fi
     if [ "$INFOS" -gt 0 ]; then
       echo ""
       echo "<details><summary>Info findings by rule</summary>"
