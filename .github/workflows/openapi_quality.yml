@@ -1,10 +1,8 @@
 name: OpenAPI Quality Check
 
-# runs when the specs, the ruleset or the check itself change
+# runs when the specs, the ruleset or the check itself change, on any base branch
 on:
   pull_request:
-    branches:
-      - main
     paths:
       - 'api-spec/**/*.yaml'
       - 'api-spec/**/*.yml'
