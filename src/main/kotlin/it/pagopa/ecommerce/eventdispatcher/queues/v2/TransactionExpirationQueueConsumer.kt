@@ -164,7 +164,7 @@ class TransactionExpirationQueueConsumer(
                 "status" to it.status.toString(),
                 "refundable" to refundable.toString(),
                 "without_check" to refundableWithoutCheck.toString(),
-                "refund_reason" to refundReason))
+                "refundable_reason" to refundReason))
             .logInfo(logger, "Transaction refund check completed")
           if (refundable && refundableCheckRequired) {
             val binaryData =

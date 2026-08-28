@@ -850,27 +850,28 @@ fun handleRedirectRefundResponse(
   }
 }
 
-fun isTransactionRefundable(tx: BaseTransaction): Pair<Boolean, String> {
-  val wasAuthorizationRequested = wasAuthorizationRequested(tx)
-  val wasSendPaymentResultOutcomeKO = wasSendPaymentResultOutcomeKO(tx)
-  val wasAuthorizationDenied = wasAuthorizationDenied(tx)
-  val wasClosePaymentResponseOutcomeKO = wasClosePaymentResponseOutcomeKo(tx)
-
-  val (isRefundable, reason) =
-    when (tx) {
-      is BaseTransactionWithRequestedUserReceipt ->
-        wasSendPaymentResultOutcomeKO to "send_payment_result_outcome_ko"
-      is BaseTransactionClosed ->
-        wasClosePaymentResponseOutcomeKO to "close_payment_response_outcome_ko"
-      is TransactionWithClosureError -> isTransactionRefundable(tx.transactionAtPreviousState)
-      is BaseTransactionWithCompletedAuthorization ->
-        !wasAuthorizationDenied to "authorization_denied"
-      is BaseTransactionExpired -> isTransactionRefundable(tx.transactionAtPreviousState)
-      else -> wasAuthorizationRequested to "authorization_requested"
+fun isTransactionRefundable(tx: BaseTransaction): Pair<Boolean, String> =
+  when (tx) {
+    is BaseTransactionWithRequestedUserReceipt -> {
+      val isKo = wasSendPaymentResultOutcomeKO(tx)
+      isKo to if (isKo) "send_payment_result_outcome_ko" else "send_payment_result_outcome_not_ko"
     }
-
-  return isRefundable to reason
-}
+    is BaseTransactionClosed -> {
+      val isKo = wasClosePaymentResponseOutcomeKo(tx)
+      isKo to
+        if (isKo) "close_payment_response_outcome_ko" else "close_payment_response_outcome_not_ko"
+    }
+    is TransactionWithClosureError -> isTransactionRefundable(tx.transactionAtPreviousState)
+    is BaseTransactionWithCompletedAuthorization -> {
+      val isDenied = wasAuthorizationDenied(tx)
+      !isDenied to if (!isDenied) "authorization_not_denied" else "authorization_denied"
+    }
+    is BaseTransactionExpired -> isTransactionRefundable(tx.transactionAtPreviousState)
+    else -> {
+      val isRequested = wasAuthorizationRequested(tx)
+      isRequested to if (isRequested) "authorization_requested" else "authorization_not_requested"
+    }
+  }
 
 fun wasSendPaymentResultOutcomeKO(tx: BaseTransaction): Boolean =
   when (tx) {
