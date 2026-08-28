@@ -1085,13 +1085,6 @@ fun notificationRefundTransactionPipeline(
   val toBeRefunded = userReceiptOutcome == TransactionUserReceiptData.Outcome.KO
   return Mono.just(transaction)
     .filter { toBeRefunded }
-    .switchIfEmpty(
-      Mono.fromRunnable {
-        LogTracingUtils.loggerTracingUtils()
-          .success()
-          .details(mapOf("reason" to "Transaction user receipt data response is not KO"))
-          .logInfo(logger, "No further processing needed")
-      })
     .flatMap {
       requestRefundTransaction(
         transaction,

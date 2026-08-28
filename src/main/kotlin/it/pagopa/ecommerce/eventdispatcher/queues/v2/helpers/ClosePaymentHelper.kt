@@ -263,7 +263,7 @@ class ClosePaymentHelper(
                   LogTracingUtils.loggerTracingUtils()
                     .success()
                     .dependency(MONGO_DEPENDENCY)
-                    .attributes(mapOf(LogTracingUtils.AttributeKeys.CTX_EVENT_CODE to eventCode))
+                    .details(mapOf("event_name" to eventCode))
                     .logInfo(logger, "Saved domain event")
                 }
             }
@@ -405,9 +405,9 @@ class ClosePaymentHelper(
       }
       .doOnSuccess {
         LogTracingUtils.loggerTracingUtils()
-          .attributes(mapOf(LogTracingUtils.AttributeKeys.CTX_EVENT_CODE to event.eventCode))
           .success()
           .dependency(MONGO_DEPENDENCY)
+          .details(mapOf("event_name" to event.eventCode))
           .logInfo(logger, "Saved domain event ")
       }
       .thenReturn(
