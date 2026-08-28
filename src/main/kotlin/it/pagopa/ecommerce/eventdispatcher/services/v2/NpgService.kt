@@ -92,7 +92,7 @@ class NpgService(
       .doOnNext { order ->
         LogTracingUtils.loggerTracingUtils()
           .success()
-          .dependency("npg")
+          .dependency(LogTracingUtils.NPG_DEPENDENCY)
           .details(
             mapOf(
               "last_operation_type" to order.orderStatus?.lastOperationType.toString(),

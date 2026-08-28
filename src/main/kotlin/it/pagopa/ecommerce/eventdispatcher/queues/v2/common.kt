@@ -312,7 +312,7 @@ fun retrieveAuthorizationState(
         .doOnSuccess {
           LogTracingUtils.loggerTracingUtils()
             .success()
-            .dependency("npg")
+            .dependency(LogTracingUtils.NPG_DEPENDENCY)
             .details(mapOf("state" to it.state?.value))
             .logInfo(logger, "Successfully retrieved NPG state")
         }
@@ -550,7 +550,7 @@ fun requestRefundTransaction(
         .doOnNext {
           LogTracingUtils.loggerTracingUtils()
             .success()
-            .dependency("storage-queue")
+            .dependency(LogTracingUtils.STORAGE_QUEUE_DEPENDENCY)
             .details(
               mapOf(
                 "queue_name" to refundRequestedAsyncClient.queueName,
@@ -1085,6 +1085,13 @@ fun notificationRefundTransactionPipeline(
   val toBeRefunded = userReceiptOutcome == TransactionUserReceiptData.Outcome.KO
   return Mono.just(transaction)
     .filter { toBeRefunded }
+    .switchIfEmpty(
+      Mono.fromRunnable {
+        LogTracingUtils.loggerTracingUtils()
+          .success()
+          .details(mapOf("reason" to "Transaction user receipt data response is not KO"))
+          .logInfo(logger, "No further processing needed")
+      })
     .flatMap {
       requestRefundTransaction(
         transaction,
@@ -1171,13 +1178,6 @@ fun <T> timeLeftForSendPaymentResult(
         val closePaymentDate = ZonedDateTime.parse(it.creationDate)
         val now = ZonedDateTime.now()
         val timeLeft = Duration.between(now, closePaymentDate.plus(timeout))
-        LogTracingUtils.loggerTracingUtils()
-          .success()
-          .details(
-            mapOf(
-              "close_payment_date" to closePaymentDate.toString(),
-              "time_left" to timeLeft.toString()))
-          .logInfo(logger, "Transaction close payment processed")
         return@map timeLeft
       }
   } else {

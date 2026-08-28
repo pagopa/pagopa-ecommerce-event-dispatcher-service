@@ -39,6 +39,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import reactor.core.publisher.Mono
+import reactor.kotlin.core.publisher.doOnError
 import reactor.kotlin.core.publisher.switchIfEmpty
 
 /**
@@ -116,6 +117,14 @@ class AuthorizationRequestedHelper(
         }
         .reduce(EmptyTransaction(), Transaction::applyEvent)
         .filter { it is BaseTransactionWithRequestedAuthorization }
+        .switchIfEmpty(
+          Mono.fromRunnable {
+            LogTracingUtils.loggerTracingUtils()
+              .success()
+              .details(
+                mapOf("reason" to "Transaction is not BaseTransactionWithRequestedAuthorization"))
+              .logInfo(logger, "No further processing needed")
+          })
         .cast(BaseTransactionWithRequestedAuthorization::class.java)
         .cache()
     val getStateThresholdDate =
@@ -156,18 +165,19 @@ class AuthorizationRequestedHelper(
           val performGetState =
             (transactionStatus == TransactionStatusDto.AUTHORIZATION_REQUESTED && gatewayNpg)
           val performOnlyPatch = !performGetState && authorizationCompleted
-          LogTracingUtils.loggerTracingUtils()
-            .details(
-              mapOf(
-                "status" to transactionStatus.value,
-                "gateway" to gateway.toString(),
-                "perform_get_state" to performGetState.toString(),
-                "perform_patch_auth_requests" to performOnlyPatch.toString()),
-            )
-            .logInfo(logger, "Authorization requested operations evaluated")
 
           performGetState || performOnlyPatch
         }
+        .switchIfEmpty(
+          Mono.fromRunnable {
+            LogTracingUtils.loggerTracingUtils()
+              .details(
+                mapOf(
+                  "reason" to
+                    "Transaction status is not AUTHORIZATION_REQUESTED or AUTHORIZATION_COMPLETED or CLOSURE_REQUESTED, or gateway is not NPG"))
+              .success()
+              .logInfo(logger, "No further processing needed")
+          })
         .flatMap { tx ->
           if (timeToWaitForGetState > Duration.ZERO) {
             // add here a fixed 10 sec delay to avoid condition when event is visible in queue
@@ -183,14 +193,20 @@ class AuthorizationRequestedHelper(
               )
               .doOnSuccess {
                 LogTracingUtils.loggerTracingUtils()
-                  .dependency("storage-queue")
+                  .dependency(LogTracingUtils.STORAGE_QUEUE_DEPENDENCY)
                   .details(
                     mapOf(
                       "visibility_timeout" to visibilityTimeout.toString(),
                       "send_reason" to "Authorization requested event postponed",
                       "queue_name" to authRequestedQueueAsyncClient.queueName))
                   .success()
-                  .logInfo(logger, "Authorization requested event postponed")
+                  .logInfo(logger, "Event successfully sent to queue")
+              }
+              .doOnError { e ->
+                LogTracingUtils.loggerTracingUtils()
+                  .dependency(LogTracingUtils.STORAGE_QUEUE_DEPENDENCY)
+                  .failure()
+                  .logError(logger, e, "Error postponing authorization requested event")
               }
           } else {
             updateTransactionStatus(tx, tracingInfo, 0)
@@ -225,6 +241,14 @@ class AuthorizationRequestedHelper(
         }
         .reduce(EmptyTransaction(), Transaction::applyEvent)
         .filter { it is BaseTransactionWithRequestedAuthorization }
+        .switchIfEmpty(
+          Mono.fromRunnable {
+            LogTracingUtils.loggerTracingUtils()
+              .success()
+              .details(
+                mapOf("reason" to "Transaction is not BaseTransactionWithRequestedAuthorization"))
+              .logInfo(logger, "No further processing needed")
+          })
         .cast(BaseTransactionWithRequestedAuthorization::class.java)
         .cache()
 
@@ -247,6 +271,16 @@ class AuthorizationRequestedHelper(
 
           performGetState || performOnlyPatch
         }
+        .switchIfEmpty(
+          Mono.fromRunnable {
+            LogTracingUtils.loggerTracingUtils()
+              .details(
+                mapOf(
+                  "reason" to
+                    "Transaction status is not AUTHORIZATION_REQUESTED or AUTHORIZATION_COMPLETED or CLOSURE_REQUESTED, or gateway is not NPG"))
+              .success()
+              .logInfo(logger, "No further processing needed")
+          })
         .flatMap { tx -> updateTransactionStatus(tx, tracingInfo, retryCount) }
     return runTracedPipelineWithDeadLetterQueue(
       checkPointer,

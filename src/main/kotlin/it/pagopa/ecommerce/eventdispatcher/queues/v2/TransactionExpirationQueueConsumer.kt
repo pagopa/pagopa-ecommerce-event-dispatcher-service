@@ -86,6 +86,13 @@ class TransactionExpirationQueueConsumer(
           val isTransient = transactionUtils.isTransientStatus(it.status)
           isTransient
         }
+        .switchIfEmpty(
+          Mono.fromRunnable {
+            LogTracingUtils.loggerTracingUtils()
+              .success()
+              .details(mapOf("reason" to "Transaction status is not transient"))
+              .logInfo(logger, "No further processing needed")
+          })
         .filterWhen {
           val sendPaymentResultTimeLeft =
             timeLeftForSendPaymentResult(it, sendPaymentResultTimeoutSeconds, events)
@@ -121,6 +128,7 @@ class TransactionExpirationQueueConsumer(
                         mapOf(
                           "binary_data" to binaryData.toString(),
                           "time_next_visible" to timeLeft.toString(),
+                          "time_left" to timeLeft.toString(),
                           "queue_name" to expirationQueueAsyncClient.queueName,
                           "send_reason" to "waiting for sendPaymentResult outcome"))
                       .success()
@@ -211,8 +219,9 @@ class TransactionExpirationQueueConsumer(
                           (timeout + Duration.ofSeconds(npgService.eventProcessingDelaySeconds))
                             .toString(),
                         "time_to_live" to transientQueueTTLSeconds.toString(),
+                        "send_reason" to "refund processing postponed",
                         "queue_name" to expirationQueueAsyncClient.queueName))
-                    .logInfo(logger, "Refund processing postponed")
+                    .logInfo(logger, "Event successfully sent to queue")
                 }
                 .doOnError {
                   LogTracingUtils.loggerTracingUtils()
@@ -224,8 +233,9 @@ class TransactionExpirationQueueConsumer(
                           (timeout + Duration.ofSeconds(npgService.eventProcessingDelaySeconds))
                             .toString(),
                         "time_to_live" to transientQueueTTLSeconds.toString(),
+                        "send_reason" to "refund processing postponed",
                         "queue_name" to expirationQueueAsyncClient.queueName))
-                    .logError(logger, it, "Error postponing refund processing")
+                    .logError(logger, it, "Error sending event to queue")
                 }
                 .thenReturn(false)
             }

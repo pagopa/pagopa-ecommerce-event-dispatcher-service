@@ -83,6 +83,13 @@ class TransactionsRefundQueueConsumer(
         .reduce(EmptyTransaction(), Transaction::applyEvent)
         .cast(BaseTransaction::class.java)
         .filter { it.status == TransactionStatusDto.REFUND_REQUESTED }
+        .switchIfEmpty(
+          Mono.fromRunnable {
+            LogTracingUtils.loggerTracingUtils()
+              .success()
+              .details(mapOf("reason" to "Transaction status is not REFUND_REQUESTED"))
+              .logInfo(logger, "No further processing needed")
+          })
         .cast(BaseTransactionWithRefundRequested::class.java)
         .flatMap { tx ->
           refundTransaction(

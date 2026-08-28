@@ -62,7 +62,7 @@ class RefundService(
           .doOnSuccess {
             LogTracingUtils.loggerTracingUtils()
               .success()
-              .dependency("npg")
+              .dependency(LogTracingUtils.NPG_DEPENDENCY)
               .details(
                 mapOf(
                   "payment_method" to paymentMethod.toString(),
@@ -77,7 +77,7 @@ class RefundService(
           .onErrorMap(NpgResponseException::class.java) { exception: NpgResponseException ->
             LogTracingUtils.loggerTracingUtils()
               .failure()
-              .dependency("npg")
+              .dependency(LogTracingUtils.NPG_DEPENDENCY)
               .details(
                 mapOf(
                   "payment_method" to paymentMethod.toString(),
