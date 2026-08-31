@@ -2,6 +2,7 @@ package it.pagopa.ecommerce.eventdispatcher.client
 
 import it.pagopa.ecommerce.commons.mdcutilities.LogTracingUtils
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadGatewayException
+import it.pagopa.ecommerce.eventdispatcher.utils.LogTracingKeys
 import it.pagopa.generated.ecommerce.userstats.api.UserStatsApi
 import it.pagopa.generated.ecommerce.userstats.dto.UserLastPaymentMethodData
 import it.pagopa.generated.ecommerce.userstats.dto.UserLastPaymentMethodRequest
@@ -38,7 +39,7 @@ class UserStatsServiceClient(
             mapOf(
               "user_id" to userId.toString(),
               "last_used_method" to userLastPaymentMethodDataDto.toString()))
-          .dependency("user-stats-service")
+          .dependency(LogTracingKeys.USER_STATS_SERVICE_DEPENDENCY)
           .logInfo(logger, "Saved last method used for user")
       }
       .onErrorMap(WebClientResponseException::class.java) { exception: WebClientResponseException ->
@@ -50,7 +51,7 @@ class UserStatsServiceClient(
               "last_used_method" to userLastPaymentMethodDataDto.toString(),
               "http_status" to exception.statusCode.toString(),
               "response_body" to exception.responseBodyAsString))
-          .dependency("user-stats-service")
+          .dependency(LogTracingKeys.USER_STATS_SERVICE_DEPENDENCY)
           .logError(logger, exception, "Failed to save last method used for user")
         when (exception.statusCode) {
           HttpStatus.BAD_REQUEST ->

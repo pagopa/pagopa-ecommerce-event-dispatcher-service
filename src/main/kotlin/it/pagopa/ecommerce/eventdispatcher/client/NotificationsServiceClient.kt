@@ -1,6 +1,7 @@
 package it.pagopa.ecommerce.eventdispatcher.client
 
 import it.pagopa.ecommerce.commons.mdcutilities.LogTracingUtils
+import it.pagopa.ecommerce.eventdispatcher.utils.LogTracingKeys
 import it.pagopa.generated.notifications.templates.ko.KoTemplate
 import it.pagopa.generated.notifications.templates.success.SuccessTemplate
 import it.pagopa.generated.notifications.v1.api.DefaultApi
@@ -25,9 +26,6 @@ class NotificationsServiceClient(
 ) {
 
   val logger: Logger = LoggerFactory.getLogger(NotificationsServiceClient::class.java)
-  companion object {
-    const val DEPENDENCY = "notifications-service"
-  }
 
   fun sendNotificationEmail(
     notificationEmailRequestDto: NotificationEmailRequestDto
@@ -43,14 +41,14 @@ class NotificationsServiceClient(
               HttpStatus.OK -> {
                 LogTracingUtils.loggerTracingUtils()
                   .success()
-                  .dependency(DEPENDENCY)
+                  .dependency(LogTracingKeys.NOTIFICATIONS_SERVICE_DEPENDENCY)
                   .logInfo(logger, "Mail sent successfully")
                 response.bodyToMono(NotificationEmailResponseDto::class.java)
               }
               HttpStatus.ACCEPTED -> {
                 LogTracingUtils.loggerTracingUtils()
                   .success()
-                  .dependency(DEPENDENCY)
+                  .dependency(LogTracingKeys.NOTIFICATIONS_SERVICE_DEPENDENCY)
                   .logInfo(
                     logger,
                     "Mail sending accepted, retries will be attempted by notifications-service module")
@@ -65,7 +63,7 @@ class NotificationsServiceClient(
       .doOnError(WebClientResponseException::class.java) { e: WebClientResponseException ->
         LogTracingUtils.loggerTracingUtils()
           .failure()
-          .dependency(DEPENDENCY)
+          .dependency(LogTracingKeys.NOTIFICATIONS_SERVICE_DEPENDENCY)
           .details(
             mapOf(
               "http_status" to e.statusCode.toString(), "response_body" to e.responseBodyAsString))
@@ -74,7 +72,7 @@ class NotificationsServiceClient(
       .doOnError { e: Throwable ->
         LogTracingUtils.loggerTracingUtils()
           .failure()
-          .dependency(DEPENDENCY)
+          .dependency(LogTracingKeys.NOTIFICATIONS_SERVICE_DEPENDENCY)
           .logErrorWithStackTrace(logger, e, "Error sending email. Got unexpected error")
       }
   }
