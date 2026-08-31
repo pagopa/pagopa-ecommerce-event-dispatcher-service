@@ -63,7 +63,7 @@ class NodeClient(
           .success()
           .attributes(
             mapOf(LogTracingUtils.AttributeKeys.CTX_PAYMENT_TOKENS to paymentTokens.toString()))
-          .dependency("nodo")
+          .dependency(LogTracingUtils.NODO_DEPENDENCY)
           .logInfo(logger, "Received closePaymentV2 Response")
       }
       .onErrorMap { exception ->
@@ -71,7 +71,7 @@ class NodeClient(
           .failure()
           .attributes(
             mapOf(LogTracingUtils.AttributeKeys.CTX_PAYMENT_TOKENS to paymentTokens.toString()))
-          .dependency("nodo")
+          .dependency(LogTracingUtils.NODO_DEPENDENCY)
           .logError(logger, exception, "Received closePaymentV2 Response Status Error")
         if (exception is ResponseStatusException) {
           ClosePaymentErrorResponseException(
@@ -83,7 +83,7 @@ class NodeClient(
                   .attributes(
                     mapOf(
                       LogTracingUtils.AttributeKeys.CTX_PAYMENT_TOKENS to paymentTokens.toString()))
-                  .dependency("nodo")
+                  .dependency(LogTracingUtils.NODO_DEPENDENCY)
                   .logErrorWithStackTrace(
                     logger, it, "Error parsing Nodo close payment error response body")
               }
