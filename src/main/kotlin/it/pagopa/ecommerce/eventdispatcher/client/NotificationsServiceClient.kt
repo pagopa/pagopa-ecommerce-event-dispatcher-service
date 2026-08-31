@@ -60,20 +60,26 @@ class NotificationsServiceClient(
             }
           }
       }
-      .doOnError(WebClientResponseException::class.java) { e: WebClientResponseException ->
-        LogTracingUtils.loggerTracingUtils()
-          .failure()
-          .dependency(LogTracingKeys.NOTIFICATIONS_SERVICE_DEPENDENCY)
-          .details(
-            mapOf(
-              "http_status" to e.statusCode.toString(), "response_body" to e.responseBodyAsString))
-          .logError(logger, e, "Error sending email. Got bad response from notifications-service")
-      }
       .doOnError { e: Throwable ->
-        LogTracingUtils.loggerTracingUtils()
-          .failure()
-          .dependency(LogTracingKeys.NOTIFICATIONS_SERVICE_DEPENDENCY)
-          .logErrorWithStackTrace(logger, e, "Error sending email. Got unexpected error")
+        when (e) {
+          is WebClientResponseException -> {
+            LogTracingUtils.loggerTracingUtils()
+              .failure()
+              .dependency(LogTracingKeys.NOTIFICATIONS_SERVICE_DEPENDENCY)
+              .details(
+                mapOf(
+                  "http_status" to e.statusCode.toString(),
+                  "response_body" to e.responseBodyAsString))
+              .logError(
+                logger, e, "Error sending email. Got bad response from notifications-service")
+          }
+          else -> {
+            LogTracingUtils.loggerTracingUtils()
+              .failure()
+              .dependency(LogTracingKeys.NOTIFICATIONS_SERVICE_DEPENDENCY)
+              .logErrorWithStackTrace(logger, e, "Error sending email. Got unexpected error")
+          }
+        }
       }
   }
 
