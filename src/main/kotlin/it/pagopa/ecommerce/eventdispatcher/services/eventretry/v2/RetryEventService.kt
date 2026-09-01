@@ -10,6 +10,7 @@ import it.pagopa.ecommerce.commons.documents.v2.authorization.TransactionGateway
 import it.pagopa.ecommerce.commons.domain.v2.TransactionId
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
+import it.pagopa.ecommerce.commons.mdcutilities.LogTracingUtils
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.TracingInfo
 import it.pagopa.ecommerce.eventdispatcher.exceptions.NoRetryAttemptsLeftException
@@ -66,11 +67,20 @@ abstract class RetryEventService<E>(
             visibilityTimeout = Instant.now().plus(visibilityTimeout)))
       }
       .flatMap { storeEventAndUpdateView(it, newTransactionStatus()) }
-      .flatMap { enqueueMessage(it, visibilityTimeout, tracingInfo) }
-      .doOnError {
-        logger.error(
-          "Error processing retry event for transaction with id: [${retryEvent.transactionId}]", it)
+      .doOnNext { storedEvent ->
+        LogTracingUtils.loggerTracingUtils()
+          .success()
+          .details(mapOf("event_name" to storedEvent.eventCode))
+          .dependency(LogTracingUtils.MONGO_DEPENDENCY)
+          .logInfo(logger, "Saved domain event")
       }
+      .doOnError {
+        LogTracingUtils.loggerTracingUtils()
+          .failure()
+          .dependency(LogTracingUtils.MONGO_DEPENDENCY)
+          .logError(logger, it, "Error processing retry event")
+      }
+      .flatMap { enqueueMessage(it, visibilityTimeout, tracingInfo) }
   }
 
   abstract fun buildRetryEvent(
@@ -116,11 +126,18 @@ abstract class RetryEventService<E>(
         Duration.ofSeconds(transientQueuesTTLSeconds.toLong()), // timeToLive
       )
       .doOnNext {
-        logger.info(
-          "Event: [$event] successfully sent with visibility timeout: [${it.value.timeNextVisible}] ms to queue: [${queueAsyncClient.queueName}]")
+        LogTracingUtils.loggerTracingUtils()
+          .details(
+            mapOf(
+              "event_code" to event.eventCode,
+              "visibility_timeout" to it.value.timeNextVisible.toString(),
+              "queue_name" to queueAsyncClient.queueName,
+              "send_reason" to "Retry event"))
+          .success()
+          .logInfo(logger, "Event sent to queue successfully")
       }
       .then()
-      .doOnError { exception -> logger.error("Error sending event: [${event}].", exception) }
+      .doOnError { exception -> logger.error("Error sending event", exception) }
 
   private fun queuePayload(event: E, tracingInfo: TracingInfo?): BinaryData {
     return if (tracingInfo != null) {

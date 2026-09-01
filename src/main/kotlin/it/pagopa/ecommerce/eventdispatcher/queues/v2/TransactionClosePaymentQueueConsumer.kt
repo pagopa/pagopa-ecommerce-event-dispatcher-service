@@ -4,11 +4,10 @@ import com.azure.spring.messaging.checkpoint.Checkpointer
 import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
+import it.pagopa.ecommerce.commons.mdcutilities.LogTracingUtils
 import it.pagopa.ecommerce.commons.queues.QueueEvent
-import it.pagopa.ecommerce.eventdispatcher.exceptions.*
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.ClosePaymentEvent
 import it.pagopa.ecommerce.eventdispatcher.queues.v2.helpers.ClosePaymentHelper
-import java.util.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -37,7 +36,18 @@ class TransactionClosePaymentQueueConsumer(
   ): Mono<Unit> {
     val closePaymentEvent =
       parsedEvent.fold({ ClosePaymentEvent.canceled(it) }, { ClosePaymentEvent.requested(it) })
+    val event = parsedEvent.fold({ it.event }, { it.event })
 
-    return closePaymentHelper.closePayment(closePaymentEvent, checkPointer, emptyTransaction)
+    return closePaymentHelper
+      .closePayment(closePaymentEvent, checkPointer, emptyTransaction)
+      .contextWrite { context ->
+        LogTracingUtils.enrichContextForEvent(
+          mapOf(
+            LogTracingUtils.AttributeKeys.CTX_TRANSACTION_ID to event.transactionId,
+            LogTracingUtils.AttributeKeys.CTX_EVENT_CODE to event.eventCode,
+            LogTracingUtils.AttributeKeys.CTX_EVENT_ID to event.id,
+            LogTracingUtils.AttributeKeys.EVENT_ACTION to "CLOSE_PAYMENT"),
+          context)
+      }
   }
 }

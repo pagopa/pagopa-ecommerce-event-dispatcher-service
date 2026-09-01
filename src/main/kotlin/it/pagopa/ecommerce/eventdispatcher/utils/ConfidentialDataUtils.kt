@@ -2,6 +2,7 @@ package it.pagopa.ecommerce.eventdispatcher.utils
 
 import it.pagopa.ecommerce.commons.domain.Confidential
 import it.pagopa.ecommerce.commons.domain.v2.Email
+import it.pagopa.ecommerce.commons.mdcutilities.LogTracingUtils
 import it.pagopa.ecommerce.commons.utils.ConfidentialDataManager
 import java.util.function.Function
 import kotlinx.coroutines.reactor.awaitSingle
@@ -37,7 +38,9 @@ class ConfidentialDataUtils(
     constructor: Function<String, T>
   ): Mono<T> =
     eCommerceConfidentialDataManager.decrypt(encrypted, constructor).doOnError {
-      logger.error("Exception decrypting confidential data", it)
+      LogTracingUtils.loggerTracingUtils()
+        .failure()
+        .logErrorWithStackTrace(logger, it, "Exception decrypting confidential data")
     }
 
   fun <T : ConfidentialDataManager.ConfidentialData> walletSessionDecrypt(
@@ -45,7 +48,9 @@ class ConfidentialDataUtils(
     constructor: Function<String, T>
   ): Mono<T> =
     walletSessionConfidentialDataManager.decrypt(encrypted, constructor).doOnError {
-      logger.error("Exception decrypting confidential data", it)
+      LogTracingUtils.loggerTracingUtils()
+        .failure()
+        .logErrorWithStackTrace(logger, it, "Exception decrypting confidential data")
     }
 
   data class StringConfidentialData(val clearValue: String) :

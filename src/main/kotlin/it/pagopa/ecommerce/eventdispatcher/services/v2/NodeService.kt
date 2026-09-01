@@ -174,12 +174,6 @@ class NodeService(
           .stream()
           .mapToLong { el -> el.transactionAmount.value }
           .sum())
-    logger.info(
-      "Building close payment for cancellation transactionId: [{}], effective clientId: [{}], activation client: [{}]",
-      transactionId.value(),
-      transactionWithCancellation.clientId.effectiveClient.name,
-      transactionWithCancellation.clientId.name,
-    )
     // In case of cancellation we only populate the fields shared by both
     // `CardClosePaymentRequestV2Dto` and `RedirectClosePaymentRequestV2Dto`,
     // so either implementation is fine.
@@ -242,11 +236,6 @@ class NodeService(
         else -> Triple(null, null, null)
       }
 
-    logger.info(
-      "Building close payment for completed transactionId: [{}], effective clientId: [{}], activation client: [{}]",
-      transactionId.value(),
-      authCompleted.transactionActivatedData.clientId.effectiveClient.name,
-      authCompleted.transactionActivatedData.clientId.name)
     val closePaymentTransactionDetails =
       TransactionDetailsDto().apply {
         transaction =

@@ -7,6 +7,7 @@ import it.pagopa.ecommerce.commons.domain.v2.TransactionId
 import it.pagopa.ecommerce.commons.exceptions.NodeForwarderClientException
 import it.pagopa.ecommerce.commons.exceptions.NpgResponseException
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.RefundResponseDto
+import it.pagopa.ecommerce.commons.mdcutilities.LogTracingUtils
 import it.pagopa.ecommerce.commons.utils.NpgApiKeyConfiguration
 import it.pagopa.ecommerce.commons.utils.RedirectUrlMappingConf
 import it.pagopa.ecommerce.commons.utils.bean.redirect.configuration.RedirectUrlMappingCriteria
@@ -50,14 +51,6 @@ class RefundService(
     return npgApiKeyConfiguration[paymentMethod, pspId].fold(
       { ex -> Mono.error(ex) },
       { apiKey ->
-        logger.info(
-          "Performing NPG refund for transaction with id: [{}] and paymentMethod: [{}]. OperationId: [{}], amount: [{}], pspId: [{}], correlationId: [{}]",
-          idempotenceKey,
-          paymentMethod,
-          operationId,
-          amount,
-          pspId,
-          correlationId)
         npgClient
           .refundPayment(
             UUID.fromString(correlationId),
@@ -66,10 +59,35 @@ class RefundService(
             amount,
             apiKey,
             "Refund request for transactionId $idempotenceKey and operationId $operationId")
+          .doOnSuccess {
+            LogTracingUtils.loggerTracingUtils()
+              .success()
+              .dependency(LogTracingUtils.NPG_DEPENDENCY)
+              .details(
+                mapOf(
+                  "payment_method" to paymentMethod.toString(),
+                  "operation_id" to operationId,
+                  "amount" to amount.toString(),
+                  "psp_id" to pspId,
+                  "correlation_id" to correlationId,
+                  "idempotence_key" to idempotenceKey.toString()))
+              .attributes(mapOf(LogTracingUtils.AttributeKeys.CORRELATION_ID to correlationId))
+              .logInfo(logger, "Requested refund")
+          }
           .onErrorMap(NpgResponseException::class.java) { exception: NpgResponseException ->
-            logger.error(
-              "Exception performing NPG refund for transactionId: [$idempotenceKey] and operationId: [$operationId]",
-              exception)
+            LogTracingUtils.loggerTracingUtils()
+              .failure()
+              .dependency(LogTracingUtils.NPG_DEPENDENCY)
+              .details(
+                mapOf(
+                  "payment_method" to paymentMethod.toString(),
+                  "operation_id" to operationId,
+                  "amount" to amount.toString(),
+                  "psp_id" to pspId,
+                  "correlation_id" to correlationId,
+                  "idempotence_key" to idempotenceKey.toString()))
+              .attributes(mapOf(LogTracingUtils.AttributeKeys.CORRELATION_ID to correlationId))
+              .logError(logger, exception, "Exception performing NPG refund")
             val responseStatusCode = exception.statusCode
             responseStatusCode
               .map {
@@ -105,13 +123,6 @@ class RefundService(
       .fold(
         { Mono.error(it) },
         { urlConfig ->
-          logger.info(
-            "Processing Redirect transaction refund. TransactionId: [{}], pspTransactionId: [{}], payment type code: [{}], pspId: [{}], touchpoint: [{}]",
-            transactionId.value(),
-            pspTransactionId,
-            paymentTypeCode,
-            pspId,
-            touchpoint)
           nodeForwarderRedirectApiClient
             .proxyRequest(
               RedirectRefundRequestDto()
@@ -122,6 +133,16 @@ class RefundService(
               URI.create("${urlConfig.url()}/refunds"),
               transactionId.value(),
               RedirectRefundResponseDto::class.java)
+            .doOnSuccess {
+              LogTracingUtils.loggerTracingUtils()
+                .success()
+                .details(
+                  mapOf(
+                    "psp_id" to pspId,
+                    "psp_transaction_id" to pspTransactionId,
+                    "payment_type_code" to paymentTypeCode))
+                .logInfo(logger, "Requested Redirect refund")
+            }
             .onErrorMap(NodeForwarderClientException::class.java) { exception ->
               val errorCause = exception.cause
               val httpErrorCode: Optional<HttpStatusCode> =
@@ -132,11 +153,16 @@ class RefundService(
                     null
                   }
                 }
-              logger.error(
-                "Error performing Redirect refund operation for transaction with id: [${transactionId.value()}]. psp id: [$pspId], pspTransactionId: [$pspTransactionId], paymentTypeCode: [$paymentTypeCode], received HTTP response error code: [${
-                                    httpErrorCode.map { it.toString() }.orElse("N/A")
-                                }]",
-                exception)
+              LogTracingUtils.loggerTracingUtils()
+                .failure()
+                .details(
+                  mapOf(
+                    "psp_id" to pspId,
+                    "psp_transaction_id" to pspTransactionId,
+                    "payment_type_code" to paymentTypeCode,
+                    "http_error_code" to httpErrorCode.map { it.toString() }.orElse("N/A")))
+                .logError(
+                  logger, exception, "Error performing Redirect refund operation for transaction")
               httpErrorCode
                 .map {
                   val errorCodeReason =

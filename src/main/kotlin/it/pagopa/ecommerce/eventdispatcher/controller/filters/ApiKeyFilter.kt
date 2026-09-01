@@ -1,5 +1,6 @@
 package it.pagopa.ecommerce.eventdispatcher.controller.filters
 
+import it.pagopa.ecommerce.commons.mdcutilities.LogTracingUtils
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpStatus
@@ -47,9 +48,12 @@ class ApiKeyFilter(
           false
         }
       if (!isAuthorized) {
-        logger.error(
-          "Unauthorized request for path: [{}], missing or invalid input [\"x-api-key\"] header",
-          requestPath)
+        LogTracingUtils.loggerTracingUtils()
+          .failure()
+          .details(mapOf("path" to requestPath))
+          .logWarn(
+            logger,
+            "Unauthorized request for path, missing or invalid input [\"x-api-key\"] header")
         exchange.response.statusCode = HttpStatus.UNAUTHORIZED
         return exchange.response.setComplete()
       }

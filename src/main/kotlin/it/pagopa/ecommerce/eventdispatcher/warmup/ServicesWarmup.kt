@@ -1,5 +1,6 @@
 package it.pagopa.ecommerce.eventdispatcher.warmup
 
+import it.pagopa.ecommerce.commons.mdcutilities.LogTracingUtils
 import it.pagopa.ecommerce.eventdispatcher.services.InboundChannelAdapterLifecycleHandlerService
 import it.pagopa.ecommerce.eventdispatcher.warmup.annotations.WarmupFunction
 import kotlin.reflect.full.declaredMemberFunctions
@@ -32,12 +33,17 @@ class ServicesWarmup(
             it.hasAnnotation<WarmupFunction>()
           }
         }
-    logger.info("Found services: [{}]", eventReceiverServices.size)
+    LogTracingUtils.loggerTracingUtils()
+      .success()
+      .details(mapOf("services_count" to eventReceiverServices.size.toString()))
+      .logInfo(logger, "Found services with warm-up functions")
 
     try {
       eventReceiverServices.forEach(this::warmUpService)
     } catch (e: Exception) {
-      logger.error("Exception during service warm-up", e)
+      LogTracingUtils.loggerTracingUtils()
+        .failure()
+        .logErrorWithStackTrace(logger, e, "Exception during service warm-up")
     } finally {
       inboundChannelAdapterLifecycleHandlerService.invokeCommandForAllEndpoints("start")
     }
@@ -54,24 +60,31 @@ class ServicesWarmup(
               warmUpMethods++
               val result: Result<*>
               val intertime = measureTimeMillis {
-                result = runCatching {
-                  logger.info("Invoking function: [{}]", it.toString())
-                  it.call(serviceToWarmUpInstance)
-                }
+                result = runCatching { it.call(serviceToWarmUpInstance) }
               }
-              logger.info(
-                "Warmup function: [{}] -> elapsed time: [{}]. Is ok: [{}] ",
-                it.toString(),
-                intertime,
-                result)
+              LogTracingUtils.loggerTracingUtils()
+                .success()
+                .details(
+                  mapOf(
+                    "function" to it.toString(),
+                    "elapsed_time_ms" to intertime.toString(),
+                    "result" to result.toString()))
+                .logInfo(logger, "Warmup function executed")
             }
         }
-        .getOrElse { logger.error("Exception performing service warm up ", it) }
+        .getOrElse {
+          LogTracingUtils.loggerTracingUtils()
+            .failure()
+            .logErrorWithStackTrace(logger, it, "Exception performing service warm up")
+        }
     }
-    logger.info(
-      "service: [{}] warm-up executed functions: [{}], elapsed time: [{}] ms",
-      serviceToWarmUpKClass,
-      warmUpMethods,
-      elapsedTime)
+    LogTracingUtils.loggerTracingUtils()
+      .success()
+      .details(
+        mapOf(
+          "service" to serviceToWarmUpKClass.toString(),
+          "warmup_methods_count" to warmUpMethods.toString(),
+          "elapsed_time_ms" to elapsedTime.toString()))
+      .logInfo(logger, "Service warm-up completed")
   }
 }

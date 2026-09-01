@@ -1,6 +1,7 @@
 package it.pagopa.ecommerce.eventdispatcher.client
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import it.pagopa.ecommerce.commons.mdcutilities.LogTracingUtils
 import it.pagopa.ecommerce.eventdispatcher.exceptions.ClosePaymentErrorResponseException
 import it.pagopa.generated.ecommerce.nodo.v2.dto.*
 import org.slf4j.LoggerFactory
@@ -24,20 +25,6 @@ class NodeClient(
   private val logger = LoggerFactory.getLogger(javaClass)
 
   fun closePayment(closePaymentRequest: ClosePaymentRequestV2Dto): Mono<ClosePaymentResponseDto> {
-    val transactionId =
-      when (closePaymentRequest) {
-        is CardClosePaymentRequestV2Dto -> closePaymentRequest.transactionId
-        is RedirectClosePaymentRequestV2Dto -> closePaymentRequest.transactionId
-        is BancomatPayClosePaymentRequestV2Dto -> closePaymentRequest.transactionId
-        is MyBankClosePaymentRequestV2Dto -> closePaymentRequest.transactionId
-        is PayPalClosePaymentRequestV2Dto -> closePaymentRequest.transactionId
-        is SatispayClosePaymentRequestV2Dto -> closePaymentRequest.transactionId
-        is ApplePayClosePaymentRequestV2Dto -> closePaymentRequest.transactionId
-        is GooglePayClosePaymentRequestV2Dto -> closePaymentRequest.transactionId
-        else ->
-          throw IllegalArgumentException(
-            "Unhandled `ClosePaymentRequestV2Dto` implementation: ${closePaymentRequest.javaClass}")
-      }
 
     val paymentTokens =
       when (closePaymentRequest) {
@@ -71,23 +58,34 @@ class NodeClient(
           }
         })
       .bodyToMono(ClosePaymentResponseDto::class.java)
-      .doOnSuccess { closePaymentResponse: ClosePaymentResponseDto ->
-        logger.info(
-          "Received closePaymentV2 response for transactionId [{}]: paymentTokens {} - outcome: {}",
-          transactionId,
-          paymentTokens,
-          closePaymentResponse.outcome)
+      .doOnSuccess { _ ->
+        LogTracingUtils.loggerTracingUtils()
+          .success()
+          .attributes(
+            mapOf(LogTracingUtils.AttributeKeys.CTX_PAYMENT_TOKENS to paymentTokens.toString()))
+          .dependency(LogTracingUtils.NODO_DEPENDENCY)
+          .logInfo(logger, "Received closePaymentV2 Response")
       }
       .onErrorMap { exception ->
-        logger.error(
-          "Received closePaymentV2 Response Status Error for transactionId [$transactionId]",
-          exception)
+        LogTracingUtils.loggerTracingUtils()
+          .failure()
+          .attributes(
+            mapOf(LogTracingUtils.AttributeKeys.CTX_PAYMENT_TOKENS to paymentTokens.toString()))
+          .dependency(LogTracingUtils.NODO_DEPENDENCY)
+          .logError(logger, exception, "Received closePaymentV2 Response Status Error")
         if (exception is ResponseStatusException) {
           ClosePaymentErrorResponseException(
             exception.statusCode,
             runCatching { objectMapper.readValue(exception.reason, ErrorDto::class.java) }
               .onFailure {
-                logger.error("Error parsing Nodo close payment error response body", it)
+                LogTracingUtils.loggerTracingUtils()
+                  .failure()
+                  .attributes(
+                    mapOf(
+                      LogTracingUtils.AttributeKeys.CTX_PAYMENT_TOKENS to paymentTokens.toString()))
+                  .dependency(LogTracingUtils.NODO_DEPENDENCY)
+                  .logErrorWithStackTrace(
+                    logger, it, "Error parsing Nodo close payment error response body")
               }
               .getOrNull())
         } else {
