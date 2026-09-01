@@ -9,6 +9,7 @@ import it.pagopa.ecommerce.commons.documents.v2.TransactionUserReceiptRequestedE
 import it.pagopa.ecommerce.commons.domain.v2.EmptyTransaction
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithRequestedUserReceipt
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
+import it.pagopa.ecommerce.commons.mdcutilities.LogTracingUtils
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingUtils
@@ -72,6 +73,12 @@ class TransactionNotificationsQueueConsumer(
       transactionsEventStoreRepository
         .findByTransactionIdOrderByCreationDateAsc(transactionId)
         .map { it as TransactionEvent<Any> }
+        .doOnComplete {
+          LogTracingUtils.loggerTracingUtils()
+            .success()
+            .dependency(LogTracingUtils.MONGO_DEPENDENCY)
+            .logInfo(logger, "Successfully retrieved events for transaction notifications")
+        }
         .cache()
 
     val baseTransaction = reduceEvents(events, EmptyTransaction())
@@ -79,8 +86,6 @@ class TransactionNotificationsQueueConsumer(
     val notificationResendPipeline =
       baseTransaction
         .flatMap {
-          logger.info("Status for transaction ${it.transactionId.value()}: ${it.status}")
-
           if (it.status != TransactionStatusDto.NOTIFICATION_REQUESTED) {
             Mono.error(
               BadTransactionStatusException(
@@ -114,15 +119,31 @@ class TransactionNotificationsQueueConsumer(
             }
             .then()
             .onErrorResume { exception ->
-              logger.error(
-                "Got exception while retrying user receipt mail sending for transaction with id ${tx.transactionId}!",
-                exception)
+              LogTracingUtils.loggerTracingUtils()
+                .failure()
+                .logErrorWithStackTrace(
+                  logger, exception, "Got exception while send user receipt mail!")
               updateNotificationErrorTransactionStatus(
                   tx, transactionsViewRepository, transactionUserReceiptRepository)
+                .doOnNext { errorEvent ->
+                  LogTracingUtils.loggerTracingUtils()
+                    .success()
+                    .details(
+                      mapOf(
+                        "event_name" to errorEvent.eventCode.toString(),
+                        "updated_status" to TransactionStatusDto.NOTIFICATION_ERROR.value))
+                    .dependency(LogTracingUtils.MONGO_DEPENDENCY)
+                    .logInfo(logger, "Notification error status updated successfully")
+                }
                 .flatMap {
                   notificationRetryService.enqueueRetryEvent(tx, 0, tracingInfo).doOnError {
                     retryException ->
-                    logger.error("Exception enqueueing notification retry event", retryException)
+                    LogTracingUtils.loggerTracingUtils()
+                      .failure()
+                      .logErrorWithStackTrace(
+                        logger,
+                        retryException,
+                        "Got exception while enqueueing notification retry event")
                   }
                 }
                 .then()
@@ -130,12 +151,21 @@ class TransactionNotificationsQueueConsumer(
         }
 
     return runTracedPipelineWithDeadLetterQueue(
-      checkPointer,
-      notificationResendPipeline,
-      QueueEvent(event, tracingInfo),
-      deadLetterTracedQueueAsyncClient,
-      tracingUtils,
-      this::class.simpleName!!,
-      strictSerializerProviderV2)
+        checkPointer,
+        notificationResendPipeline,
+        QueueEvent(event, tracingInfo),
+        deadLetterTracedQueueAsyncClient,
+        tracingUtils,
+        this::class.simpleName!!,
+        strictSerializerProviderV2)
+      .contextWrite { context ->
+        LogTracingUtils.enrichContextForEvent(
+          mapOf(
+            LogTracingUtils.AttributeKeys.CTX_TRANSACTION_ID to event.transactionId,
+            LogTracingUtils.AttributeKeys.CTX_EVENT_CODE to event.eventCode,
+            LogTracingUtils.AttributeKeys.CTX_EVENT_ID to event.id,
+            LogTracingUtils.AttributeKeys.EVENT_ACTION to "NOTIFICATION_QUEUE"),
+          context)
+      }
   }
 }

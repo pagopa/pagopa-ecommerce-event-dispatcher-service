@@ -8,6 +8,7 @@ import it.pagopa.ecommerce.commons.domain.v2.Transaction
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithRefundRequested
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
+import it.pagopa.ecommerce.commons.mdcutilities.LogTracingUtils
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingUtils
@@ -59,6 +60,12 @@ class TransactionRefundRetryQueueConsumer(
     val events =
       transactionsEventStoreRepository
         .findByTransactionIdOrderByCreationDateAsc(event.transactionId)
+        .doOnComplete {
+          LogTracingUtils.loggerTracingUtils()
+            .success()
+            .dependency(LogTracingUtils.MONGO_DEPENDENCY)
+            .logInfo(logger, "Successfully retrieved events for transaction refund retry")
+        }
         .cache()
 
     val baseTransaction =
@@ -66,8 +73,6 @@ class TransactionRefundRetryQueueConsumer(
     val refundPipeline =
       baseTransaction
         .flatMap {
-          logger.info("Status for transaction ${it.transactionId.value()}: ${it.status}")
-
           if (it.status != TransactionStatusDto.REFUND_ERROR) {
             Mono.error(
               BadTransactionStatusException(
@@ -95,12 +100,21 @@ class TransactionRefundRetryQueueConsumer(
             }
         }
     return runTracedPipelineWithDeadLetterQueue(
-      checkPointer,
-      refundPipeline,
-      QueueEvent(event, tracingInfo),
-      deadLetterTracedQueueAsyncClient,
-      tracingUtils,
-      this::class.simpleName!!,
-      strictSerializerProviderV2)
+        checkPointer,
+        refundPipeline,
+        QueueEvent(event, tracingInfo),
+        deadLetterTracedQueueAsyncClient,
+        tracingUtils,
+        this::class.simpleName!!,
+        strictSerializerProviderV2)
+      .contextWrite { context ->
+        LogTracingUtils.enrichContextForEvent(
+          mapOf(
+            LogTracingUtils.AttributeKeys.CTX_TRANSACTION_ID to event.transactionId,
+            LogTracingUtils.AttributeKeys.CTX_EVENT_CODE to event.eventCode,
+            LogTracingUtils.AttributeKeys.CTX_EVENT_ID to event.id,
+            LogTracingUtils.AttributeKeys.EVENT_ACTION to "REFUND_RETRY"),
+          context)
+      }
   }
 }

@@ -10,6 +10,7 @@ import it.pagopa.ecommerce.commons.domain.v2.Transaction
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransaction
 import it.pagopa.ecommerce.commons.domain.v2.pojos.BaseTransactionWithRefundRequested
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
+import it.pagopa.ecommerce.commons.mdcutilities.LogTracingUtils
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingUtils
@@ -26,7 +27,6 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
-import reactor.kotlin.core.publisher.switchIfEmpty
 
 /**
  * Event consumer for transactions to refund. These events are input in the event queue only when a
@@ -70,6 +70,12 @@ class TransactionsRefundQueueConsumer(
     val events =
       transactionsEventStoreRepository
         .findByTransactionIdOrderByCreationDateAsc(transactionId)
+        .doOnComplete {
+          LogTracingUtils.loggerTracingUtils()
+            .success()
+            .dependency(LogTracingUtils.MONGO_DEPENDENCY)
+            .logInfo(logger, "Successfully retrieved events for transaction refund")
+        }
         .cache()
 
     val refundPipeline =
@@ -77,13 +83,13 @@ class TransactionsRefundQueueConsumer(
         .reduce(EmptyTransaction(), Transaction::applyEvent)
         .cast(BaseTransaction::class.java)
         .filter { it.status == TransactionStatusDto.REFUND_REQUESTED }
-        .switchIfEmpty {
-          logger.info("Transaction $transactionId was not previously authorized. No refund needed")
-          Mono.empty()
-        }
-        .doOnNext {
-          logger.info("Handling refund request for transaction with id ${it.transactionId.value()}")
-        }
+        .switchIfEmpty(
+          Mono.fromRunnable {
+            LogTracingUtils.loggerTracingUtils()
+              .success()
+              .details(mapOf("reason" to "Transaction status is not REFUND_REQUESTED"))
+              .logInfo(logger, "No further processing needed")
+          })
         .cast(BaseTransactionWithRefundRequested::class.java)
         .flatMap { tx ->
           refundTransaction(
@@ -103,12 +109,21 @@ class TransactionsRefundQueueConsumer(
         }
     val e = event.fold({ QueueEvent(it, tracingInfo) }, { QueueEvent(it, tracingInfo) })
     return runTracedPipelineWithDeadLetterQueue(
-      checkPointer,
-      refundPipeline,
-      e,
-      deadLetterTracedQueueAsyncClient,
-      tracingUtils,
-      this::class.simpleName!!,
-      strictSerializerProviderV2)
+        checkPointer,
+        refundPipeline,
+        e,
+        deadLetterTracedQueueAsyncClient,
+        tracingUtils,
+        this::class.simpleName!!,
+        strictSerializerProviderV2)
+      .contextWrite { context ->
+        LogTracingUtils.enrichContextForEvent(
+          mapOf(
+            LogTracingUtils.AttributeKeys.CTX_TRANSACTION_ID to e.event.transactionId,
+            LogTracingUtils.AttributeKeys.CTX_EVENT_CODE to e.event.eventCode,
+            LogTracingUtils.AttributeKeys.CTX_EVENT_ID to e.event.id,
+            LogTracingUtils.AttributeKeys.EVENT_ACTION to "REFUND"),
+          context)
+      }
   }
 }

@@ -1,6 +1,8 @@
 package it.pagopa.ecommerce.eventdispatcher.client
 
+import it.pagopa.ecommerce.commons.mdcutilities.LogTracingUtils
 import it.pagopa.ecommerce.eventdispatcher.exceptions.BadGatewayException
+import it.pagopa.ecommerce.eventdispatcher.utils.LogTracingKeys
 import it.pagopa.generated.ecommerce.userstats.api.UserStatsApi
 import it.pagopa.generated.ecommerce.userstats.dto.UserLastPaymentMethodData
 import it.pagopa.generated.ecommerce.userstats.dto.UserLastPaymentMethodRequest
@@ -26,15 +28,31 @@ class UserStatsServiceClient(
     userId: UUID,
     userLastPaymentMethodDataDto: UserLastPaymentMethodData
   ): Mono<Unit> {
-    logger.info(
-      "Saving last method used for user with id: [{}], last used method: [{}]",
-      userId,
-      userLastPaymentMethodDataDto)
+
     return userStatsServiceApi
       .saveLastPaymentMethodUsed(
         UserLastPaymentMethodRequest().userId(userId).details(userLastPaymentMethodDataDto))
+      .doOnSuccess {
+        LogTracingUtils.loggerTracingUtils()
+          .success()
+          .details(
+            mapOf(
+              "user_id" to userId.toString(),
+              "last_used_method" to userLastPaymentMethodDataDto.toString()))
+          .dependency(LogTracingKeys.USER_STATS_SERVICE_DEPENDENCY)
+          .logInfo(logger, "Saved last method used for user")
+      }
       .onErrorMap(WebClientResponseException::class.java) { exception: WebClientResponseException ->
-        logger.error("Error [${exception.statusCode}] for saveLastPaymentMethodUsed")
+        LogTracingUtils.loggerTracingUtils()
+          .failure()
+          .details(
+            mapOf(
+              "user_id" to userId.toString(),
+              "last_used_method" to userLastPaymentMethodDataDto.toString(),
+              "http_status" to exception.statusCode.toString(),
+              "response_body" to exception.responseBodyAsString))
+          .dependency(LogTracingKeys.USER_STATS_SERVICE_DEPENDENCY)
+          .logError(logger, exception, "Failed to save last method used for user")
         when (exception.statusCode) {
           HttpStatus.BAD_REQUEST ->
             RuntimeException(

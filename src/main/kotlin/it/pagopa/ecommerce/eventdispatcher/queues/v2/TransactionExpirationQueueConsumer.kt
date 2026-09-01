@@ -6,6 +6,7 @@ import com.azure.storage.queue.QueueAsyncClient
 import io.vavr.control.Either
 import it.pagopa.ecommerce.commons.documents.v2.*
 import it.pagopa.ecommerce.commons.domain.v2.TransactionId
+import it.pagopa.ecommerce.commons.mdcutilities.LogTracingUtils
 import it.pagopa.ecommerce.commons.queues.QueueEvent
 import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.commons.queues.TracingUtils
@@ -71,16 +72,27 @@ class TransactionExpirationQueueConsumer(
             .findByTransactionIdOrderByCreationDateAsc(transactionId)
             .map { it as TransactionEvent<Any> }
         }
+        .doOnComplete {
+          LogTracingUtils.loggerTracingUtils()
+            .success()
+            .dependency(LogTracingUtils.MONGO_DEPENDENCY)
+            .logInfo(logger, "Successfully retrieved events for transaction expiration")
+        }
         .cache()
     val baseTransaction = reduceEvents(events)
     val refundPipeline =
       baseTransaction
         .filter {
           val isTransient = transactionUtils.isTransientStatus(it.status)
-          logger.info(
-            "Transaction ${it.transactionId.value()} in status ${it.status}, is transient: $isTransient")
           isTransient
         }
+        .switchIfEmpty(
+          Mono.fromRunnable {
+            LogTracingUtils.loggerTracingUtils()
+              .success()
+              .details(mapOf("reason" to "Transaction status is not transient"))
+              .logInfo(logger, "No further processing needed")
+          })
         .filterWhen {
           val sendPaymentResultTimeLeft =
             timeLeftForSendPaymentResult(it, sendPaymentResultTimeoutSeconds, events)
@@ -91,11 +103,7 @@ class TransactionExpirationQueueConsumer(
               val sendPaymentResultOffset =
                 Duration.ofSeconds(sendPaymentResultTimeoutOffsetSeconds.toLong())
               val expired = timeLeft < sendPaymentResultOffset
-              logger.info(
-                "Transaction ${it.transactionId.value()} - Time left for send payment result: $timeLeft, timeout offset: $sendPaymentResultOffset  --> expired: $expired")
               if (expired) {
-                logger.error(
-                  "Transaction ${it.transactionId.value()} - No send payment result received on time! Transaction will be expired.")
                 deadLetterTracedQueueAsyncClient
                   .sendAndTraceDeadLetterQueueEvent(
                     binaryData,
@@ -108,14 +116,24 @@ class TransactionExpirationQueueConsumer(
                   )
                   .thenReturn(true)
               } else {
-                logger.info(
-                  "Transaction ${it.transactionId.value()} still waiting for sendPaymentResult outcome, expiration event sent with visibility timeout: $timeLeft")
                 expirationQueueAsyncClient
                   .sendMessageWithResponse(
                     binaryData,
                     timeLeft,
                     Duration.ofSeconds(transientQueueTTLSeconds.toLong()),
                   )
+                  .doOnSuccess {
+                    LogTracingUtils.loggerTracingUtils()
+                      .details(
+                        mapOf(
+                          "binary_data" to binaryData.toString(),
+                          "time_next_visible" to timeLeft.toString(),
+                          "time_left" to timeLeft.toString(),
+                          "queue_name" to expirationQueueAsyncClient.queueName,
+                          "send_reason" to "waiting for sendPaymentResult outcome"))
+                      .success()
+                      .logInfo(logger, "Event successfully sent to queue")
+                  }
                   .thenReturn(false)
               }
             }
@@ -123,7 +141,6 @@ class TransactionExpirationQueueConsumer(
         }
         .flatMap { tx ->
           val isTransactionExpired = isTransactionExpired(tx)
-          logger.info("Transaction ${tx.transactionId.value()} is expired: $isTransactionExpired")
           if (!isTransactionExpired) {
             updateTransactionToExpired(
                 tx, transactionsExpiredEventStoreRepository, transactionsViewRepository)
@@ -136,10 +153,19 @@ class TransactionExpirationQueueConsumer(
         }
         .filterWhen {
           val refundableCheckRequired = isRefundableCheckRequired(it)
-          val refundable = isTransactionRefundable(it)
+          val refundableCheck = isTransactionRefundable(it)
+          val refundReason = refundableCheck.second
+          val refundable = refundableCheck.first
           val refundableWithoutCheck = refundable && !refundableCheckRequired
-          logger.info(
-            "Transaction ${it.transactionId.value()} in status ${it.status}, refundable : $refundable, without check : $refundableWithoutCheck")
+          LogTracingUtils.loggerTracingUtils()
+            .success()
+            .details(
+              mapOf(
+                "status" to it.status.toString(),
+                "refundable" to refundable.toString(),
+                "without_check" to refundableWithoutCheck.toString(),
+                "refundable_reason" to refundReason))
+            .logInfo(logger, "Transaction refund check completed")
           if (refundable && refundableCheckRequired) {
             val binaryData =
               BinaryData.fromObject(event, strictSerializerProviderV2.createInstance())
@@ -177,26 +203,61 @@ class TransactionExpirationQueueConsumer(
                 refundRequestedAsyncClient,
                 Duration.ofSeconds(transientQueueTTLSeconds.toLong()))
             } else {
-              logger.info(
-                "Transaction ${tx.transactionId.value()} not received authorization outcome yet, postpone refund processing for: $timeout")
               expirationQueueAsyncClient
                 .sendMessageWithResponse(
                   binaryData,
                   timeout + Duration.ofSeconds(npgService.eventProcessingDelaySeconds),
                   Duration.ofSeconds(transientQueueTTLSeconds.toLong()),
                 )
+                .doOnSuccess {
+                  LogTracingUtils.loggerTracingUtils()
+                    .success()
+                    .details(
+                      mapOf(
+                        "delay_seconds" to timeout.seconds.toString(),
+                        "visibility_timeout" to
+                          (timeout + Duration.ofSeconds(npgService.eventProcessingDelaySeconds))
+                            .toString(),
+                        "time_to_live" to transientQueueTTLSeconds.toString(),
+                        "send_reason" to "refund processing postponed",
+                        "queue_name" to expirationQueueAsyncClient.queueName))
+                    .logInfo(logger, "Event successfully sent to queue")
+                }
+                .doOnError {
+                  LogTracingUtils.loggerTracingUtils()
+                    .failure()
+                    .details(
+                      mapOf(
+                        "delay_seconds" to timeout.seconds.toString(),
+                        "visibility_timeout" to
+                          (timeout + Duration.ofSeconds(npgService.eventProcessingDelaySeconds))
+                            .toString(),
+                        "time_to_live" to transientQueueTTLSeconds.toString(),
+                        "send_reason" to "refund processing postponed",
+                        "queue_name" to expirationQueueAsyncClient.queueName))
+                    .logError(logger, it, "Error sending event to queue")
+                }
                 .thenReturn(false)
             }
           }
         }
 
     return runTracedPipelineWithDeadLetterQueue(
-      checkPointer,
-      refundPipeline,
-      QueueEvent(event.event, event.tracingInfo),
-      deadLetterTracedQueueAsyncClient,
-      tracingUtils,
-      this::class.simpleName!!,
-      strictSerializerProviderV2)
+        checkPointer,
+        refundPipeline,
+        QueueEvent(event.event, event.tracingInfo),
+        deadLetterTracedQueueAsyncClient,
+        tracingUtils,
+        this::class.simpleName!!,
+        strictSerializerProviderV2)
+      .contextWrite { context ->
+        LogTracingUtils.enrichContextForEvent(
+          mapOf(
+            LogTracingUtils.AttributeKeys.CTX_TRANSACTION_ID to event.event.transactionId,
+            LogTracingUtils.AttributeKeys.CTX_EVENT_CODE to event.event.eventCode,
+            LogTracingUtils.AttributeKeys.CTX_EVENT_ID to event.event.id,
+            LogTracingUtils.AttributeKeys.EVENT_ACTION to "EXPIRATION_QUEUE"),
+          context)
+      }
   }
 }

@@ -1,5 +1,6 @@
 package it.pagopa.ecommerce.eventdispatcher.services
 
+import it.pagopa.ecommerce.commons.mdcutilities.LogTracingUtils
 import it.pagopa.ecommerce.eventdispatcher.config.RedisStreamEventControllerConfigs
 import it.pagopa.ecommerce.eventdispatcher.config.redis.EventDispatcherReceiverStatusTemplateWrapper
 import it.pagopa.ecommerce.eventdispatcher.config.redis.bean.ReceiversStatus
@@ -34,7 +35,9 @@ class EventReceiverStatusPoller(
 
   @Scheduled(cron = "\${eventController.status.pollingChron}")
   suspend fun eventReceiverStatusPoller() {
-    logger.info("Polling event receiver statuses")
+    LogTracingUtils.loggerTracingUtils()
+      .success()
+      .logInfo(logger, "Starting event receiver status polling")
     val statuses = inboundChannelAdapterLifecycleHandlerService.getAllChannelStatus()
     val instanceId = redisStreamEventControllerConfigs.instanceId
     val queriedAt = OffsetDateTime.now().toString()

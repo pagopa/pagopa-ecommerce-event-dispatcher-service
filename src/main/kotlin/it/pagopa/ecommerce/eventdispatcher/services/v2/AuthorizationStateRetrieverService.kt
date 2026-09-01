@@ -64,12 +64,7 @@ class AuthorizationStateRetrieverService(
         transaction.transactionAuthorizationRequestData.paymentGateway ==
           TransactionAuthorizationRequestData.PaymentGateway.NPG
       }
-      .switchIfEmpty {
-        logger.info(
-          "Trying get order for invalid payment gateway: [{}]",
-          trx.transactionAuthorizationRequestData.paymentGateway.name)
-        Mono.error(InvalidNPGPaymentGatewayException(trx.transactionId))
-      }
+      .switchIfEmpty { Mono.error(InvalidNPGPaymentGatewayException(trx.transactionId)) }
       .flatMap { transaction ->
         val orderId = transaction.transactionAuthorizationRequestData.authorizationRequestId
         val correlationId =
@@ -94,14 +89,6 @@ class AuthorizationStateRetrieverService(
     correlationId: String,
     paymentMethod: PaymentMethod
   ): Mono<OrderResponseDto> {
-    logger.info(
-      "Performing get order for transaction with id: [{}], orderId [{}], pspId: [{}], correlationId: [{}], paymentMethod: [{}]",
-      transactionId.value(),
-      orderId,
-      pspId,
-      correlationId,
-      paymentMethod.serviceName,
-    )
     return npgApiKeyConfiguration[paymentMethod, pspId].fold(
       { ex -> Mono.error(ex) },
       { apiKey ->

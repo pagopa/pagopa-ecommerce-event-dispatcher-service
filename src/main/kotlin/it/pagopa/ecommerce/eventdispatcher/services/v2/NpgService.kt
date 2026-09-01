@@ -7,6 +7,7 @@ import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationDto
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationTypeDto
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OrderResponseDto
+import it.pagopa.ecommerce.commons.mdcutilities.LogTracingUtils
 import it.pagopa.ecommerce.eventdispatcher.exceptions.InvalidNPGResponseException
 import it.pagopa.ecommerce.eventdispatcher.exceptions.InvalidNpgOrderStateException
 import org.slf4j.Logger
@@ -52,30 +53,31 @@ class NpgService(
     return getNpgOrderStatus(transaction).flatMap { orderStatus ->
       when (orderStatus) {
         is NgpOrderNotAuthorized -> {
-          logger.info(
-            "Transaction with id [{}] not authorized, doing nothing",
-            transaction.transactionId.value())
+          LogTracingUtils.loggerTracingUtils()
+            .success()
+            .logInfo(logger, "Transaction not authorized, doing nothing")
           Mono.empty()
         }
         is NgpOrderAuthorized -> orderStatus.authorization.toAuthorizationData()?.toMono()
             ?: Mono.error(InvalidNPGResponseException("Missing mandatory operationId"))
         is NpgOrderRefunded -> {
-          logger.error(
-            "Unexpected order refunded for transaction: [{}]", transaction.transactionId.value())
+          LogTracingUtils.loggerTracingUtils()
+            .failure()
+            .logError(logger, null, "Unexpected order refunded for transaction")
           Mono.error(
             InvalidNpgOrderStateException.OrderAlreadyRefunded(
               orderStatus.refundOperation, orderStatus.authorization?.toAuthorizationData()))
         }
         is NgpOrderPendingStatus -> {
-          logger.warn(
-            "Received authorization PENDING status from NPG get order for transaction: [{}]",
-            transaction.transactionId.value())
+          LogTracingUtils.loggerTracingUtils()
+            .success()
+            .logWarn(logger, "Received authorization PENDING status from NPG get order")
           Mono.error(InvalidNpgOrderStateException.OrderPendingStatus(orderStatus.operation))
         }
         is UnknownNpgOrderStatus -> {
-          logger.error(
-            "Cannot establish Npg Order status for transaction: [{}]",
-            transaction.transactionId.value())
+          LogTracingUtils.loggerTracingUtils()
+            .failure()
+            .logError(logger, null, "Cannot establish Npg Order status for transaction")
           Mono.error(InvalidNpgOrderStateException.UnknownOrderStatus(orderStatus.order))
         }
       }
@@ -88,12 +90,15 @@ class NpgService(
     return authorizationStateRetrieverService
       .performGetOrder(transaction)
       .doOnNext { order ->
-        logger.info(
-          "Performed get order for transaction with id: [{}], last operation result: [{}], operations: [{}]",
-          transaction.transactionId.value(),
-          order.orderStatus?.lastOperationType,
-          order.operations?.joinToString { "${it.operationType}-${it.operationResult}" },
-        )
+        LogTracingUtils.loggerTracingUtils()
+          .success()
+          .dependency(LogTracingUtils.NPG_DEPENDENCY)
+          .details(
+            mapOf(
+              "last_operation_type" to order.orderStatus?.lastOperationType.toString(),
+              "operations" to
+                order.operations?.joinToString { "${it.operationType}-${it.operationResult}" }))
+          .logInfo(logger, "Performed get order for transaction")
       }
       .flatMap { orderResponse ->
         orderResponse.operations

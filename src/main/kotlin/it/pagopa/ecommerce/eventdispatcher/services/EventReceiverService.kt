@@ -1,5 +1,6 @@
 package it.pagopa.ecommerce.eventdispatcher.services
 
+import it.pagopa.ecommerce.commons.mdcutilities.LogTracingUtils
 import it.pagopa.ecommerce.eventdispatcher.config.RedisStreamEventControllerConfigs
 import it.pagopa.ecommerce.eventdispatcher.config.redis.EventDispatcherCommandsTemplateWrapper
 import it.pagopa.ecommerce.eventdispatcher.config.redis.EventDispatcherReceiverStatusTemplateWrapper
@@ -32,7 +33,6 @@ class EventReceiverService(
         EventReceiverCommandRequestDto.Command.STOP ->
           EventDispatcherReceiverCommand.ReceiverCommand.STOP
       }
-    logger.info("Received event receiver command request, command: {}", commandToSend)
     // trim all events before adding new event to be processed
     val recordId =
       eventDispatcherCommandsTemplateWrapper
@@ -43,8 +43,14 @@ class EventReceiverService(
             version = eventReceiverCommandRequestDto.deploymentVersion),
           0)
         .awaitSingle()
-
-    logger.info("Sent new event to Redis stream with id: [{}]", recordId)
+    LogTracingUtils.loggerTracingUtils()
+      .success()
+      .details(
+        mapOf(
+          "command" to commandToSend.toString(),
+          "record_id" to recordId.toString(),
+        ))
+      .logInfo(logger, "Sent new event to Redis stream")
   }
 
   suspend fun getReceiversStatus(

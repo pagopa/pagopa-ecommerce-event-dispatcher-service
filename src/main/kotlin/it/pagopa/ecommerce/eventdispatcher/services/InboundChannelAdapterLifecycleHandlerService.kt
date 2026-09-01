@@ -1,5 +1,6 @@
 package it.pagopa.ecommerce.eventdispatcher.services
 
+import it.pagopa.ecommerce.commons.mdcutilities.LogTracingUtils
 import it.pagopa.ecommerce.eventdispatcher.config.redis.bean.ReceiverStatus
 import it.pagopa.ecommerce.eventdispatcher.config.redis.bean.Status
 import org.slf4j.LoggerFactory
@@ -26,7 +27,10 @@ class InboundChannelAdapterLifecycleHandlerService(
    * Invoke input command for all endpoints sending a message to the SpEL control bus input channel.
    */
   fun invokeCommandForAllEndpoints(command: String) {
-    logger.info("Invoking command [{}] for all eligible endpoints", command)
+    LogTracingUtils.loggerTracingUtils()
+      .success()
+      .details(mapOf("command" to command))
+      .logInfo(logger, "Invoking command for all eligible endpoints")
     findInboundChannelAdapterBeans().forEach {
       val controllerBusMessage =
         MessageBuilder.createMessage("@${it}Endpoint.$command()", MessageHeaders(mapOf()))
