@@ -1,13 +1,11 @@
 name: OpenAPI Quality Check
 
-# runs when the specs, the ruleset or the check itself change, on any base branch
+# runs when the specs or the check itself change, on any base branch
 on:
   pull_request:
     paths:
       - 'api-spec/**/*.yaml'
       - 'api-spec/**/*.yml'
-      - '.spectral.yaml'
-      - '.github/actions/openapi-lint/**'
       - '.github/workflows/openapi_quality.yml'
 
 permissions:
@@ -18,7 +16,6 @@ jobs:
     runs-on: ubuntu-latest
     name: Lint ${{ matrix.spec.version }}
     strategy:
-      # one failing spec must not cancel the others
       fail-fast: false
       matrix:
         spec:
@@ -30,7 +27,8 @@ jobs:
 
       # blocks on errors; warnings stay visible until the spec is clean
       - name: Lint ${{ matrix.spec.path }}
-        uses: ./.github/actions/openapi-lint
+        # note: ruleset bundled with the shared action, can be overridden if needed
+        uses: pagopa/github-actions-template/openapi-lint@b96101a679da51806f2fcb734bbf4035c97ed73a
         with:
           spec_path: ${{ matrix.spec.path }}
           fail_severity: error
