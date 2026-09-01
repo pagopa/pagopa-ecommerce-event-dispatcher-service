@@ -28,7 +28,7 @@ jobs:
       # blocks on errors; warnings stay visible until the spec is clean
       - name: Lint ${{ matrix.spec.path }}
         # note: ruleset bundled with the shared action, can be overridden if needed
-        uses: pagopa/github-actions-template/openapi-lint@b96101a679da51806f2fcb734bbf4035c97ed73a
+        uses: pagopa/github-actions-template/openapi-lint@bfb849a1e43acbc9347afae2428a799e0d2efe88
         with:
           spec_path: ${{ matrix.spec.path }}
           fail_severity: error
