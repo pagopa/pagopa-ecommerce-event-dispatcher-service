@@ -1331,11 +1331,11 @@
       "sha256": "Hh5CfDb_Y8RP0w7yktnnc-oxVEYKtiZdP-1-b1vFD7k="
     },
     {
-      "id": "it.pagopa:pagopa-ecommerce-commons:jar:3.10.1-CHK-4872-OER-logging-builder-SNAPSHOT-f1d9f08",
+      "id": "it.pagopa:pagopa-ecommerce-commons:jar:3.11.0",
       "artifactId": "pagopa-ecommerce-commons",
       "groupId": "it.pagopa",
-      "version": "3.10.1-CHK-4872-OER-logging-builder-SNAPSHOT-f1d9f08",
-      "sha256": "cn8BYzRuYS_gswa6gSoJBrmDOE3H4p8Qw_hRhqiKIa4="
+      "version": "3.11.0",
+      "sha256": "keP_IycuRhRv9EuictsajI-ecL_ngP2u9KqfMdZT2j8="
     },
     {
       "id": "org.springframework.boot:spring-boot-starter-web-services:jar:3.4.5",
@@ -1513,11 +1513,11 @@
       "sha256": "AkrT4OPFxXXeSRjo0CCtSv9NtDVjRcDXULlAC5irzZE="
     },
     {
-      "id": "it.pagopa:pagopa-ecommerce-commons:test-jar:tests:3.10.1-CHK-4872-OER-logging-builder-SNAPSHOT-f1d9f08",
+      "id": "it.pagopa:pagopa-ecommerce-commons:test-jar:tests:3.11.0",
       "artifactId": "pagopa-ecommerce-commons",
       "groupId": "it.pagopa",
-      "version": "3.10.1-CHK-4872-OER-logging-builder-SNAPSHOT-f1d9f08",
-      "sha256": "LhYA1fKGNLOnTTOELV-V3NvhwhirzmEgb5iVU7JTXFc="
+      "version": "3.11.0",
+      "sha256": "lBOqR8Ojt8UOBsLY6XOg2AY-DLeZGuxf6EpV61010_Y="
     },
     {
       "id": "com.squareup.okhttp3:okhttp:jar:5.3.2",
