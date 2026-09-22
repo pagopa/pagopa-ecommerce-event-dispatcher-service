@@ -77,7 +77,7 @@ pool:
 # --- START Deploy DEV --- #
 stages:
   - # --- START Deploy DEV --- #
-  - stage: 'test_fake_buil_and_deploy'
+  - stage: 'test_fake_build_and_deploy'
     displayName: 'Fake build and deploy for DEV deployment'
     condition: and(succeeded(), eq(${{parameters.DEV_DEPLOY}}, true))
     jobs:
@@ -85,6 +85,11 @@ stages:
         displayName: 'Fake build and deploy for DEV deployment'
         steps:
           - task: Bash@3
+            displayName: "Fake build and deploy for DEV deployment"
+            inputs:
+              targetType: "inline"
+              script: |
+                echo "Fake stage of build and deploy in DEV"
 
 
   - stage: 'Build_for_DEV'
@@ -181,7 +186,7 @@ stages:
               testRunTitle: "DEV integration tests"
 
   - stage: TAS_tests_DEV
-    dependsOn: test_fake_buil_and_deploy
+    dependsOn: test_fake_build_and_deploy
     pool:
       vmImage: 'ubuntu-latest'
     jobs:
@@ -204,7 +209,7 @@ stages:
               # GitHub PAT forwarded to the orchestrator as GITHUB_TOKEN. Source it
               # from a SECRET pipeline variable (here 'INTEGRATION_TEST_PAT') so it is
               # masked in the logs — do not paste the raw token into this file.
-              githubToken: $(CHECKOUT_TAS_GITHUB_TOKEN)
+              githubToken: $(TO_DO_ADD_NEW_TOKEN)
               # Optional overrides — exposed inline because they are typically
               # set-once-and-forget (not toggled from the portal at run-time):
               # pythonVersion: "3.11"
@@ -235,7 +240,7 @@ stages:
               # GitHub PAT forwarded to the orchestrator as GITHUB_TOKEN. Source it
               # from a SECRET pipeline variable (here 'INTEGRATION_TEST_PAT') so it is
               # masked in the logs — do not paste the raw token into this file.
-              githubToken: $(CHECKOUT_TAS_GITHUB_TOKEN)
+              githubToken: $(TO_DO_ADD_NEW_TOKEN)
               # Optional overrides — exposed inline because they are typically
               # set-once-and-forget (not toggled from the portal at run-time):
               # pythonVersion: "3.11"
@@ -499,7 +504,7 @@ stages:
               # GitHub PAT forwarded to the orchestrator as GITHUB_TOKEN. Source it
               # from a SECRET pipeline variable (here 'INTEGRATION_TEST_PAT') so it is
               # masked in the logs — do not paste the raw token into this file.
-              githubToken: $(CHECKOUT_TAS_GITHUB_TOKEN)
+              githubToken: $(TO_DO_ADD_NEW_TOKEN)
               # Optional overrides — exposed inline because they are typically
               # set-once-and-forget (not toggled from the portal at run-time):
               # pythonVersion: "3.11"
@@ -530,7 +535,7 @@ stages:
               # GitHub PAT forwarded to the orchestrator as GITHUB_TOKEN. Source it
               # from a SECRET pipeline variable (here 'INTEGRATION_TEST_PAT') so it is
               # masked in the logs — do not paste the raw token into this file.
-              githubToken: $(CHECKOUT_TAS_GITHUB_TOKEN)
+              githubToken: $(TO_DO_ADD_NEW_TOKEN)
               # Optional overrides — exposed inline because they are typically
               # set-once-and-forget (not toggled from the portal at run-time):
               # pythonVersion: "3.11"
