@@ -48,7 +48,7 @@ parameters:
       - False
       - True
   # Required for TAS tests
-  - name: ref
+  - name: tas_ref
     displayName: "TAS repo branch/tag"
     type: string
     default: main
@@ -81,7 +81,7 @@ stages:
     displayName: 'Fake build and deploy for DEV deployment'
     condition: and(succeeded(), eq(${{parameters.DEV_DEPLOY}}, true))
     jobs:
-      - job: test_fake_buil_and_deploy
+      - job: test_fake_build_and_deploy
         displayName: 'Fake build and deploy for DEV deployment'
         steps:
           - task: Bash@3
@@ -198,7 +198,7 @@ stages:
               suite: checkout
               environment: dev
               mode: async
-              ref: ${{ parameters.ref }}
+              ref: ${{ parameters.tas_ref }}
               verifyOrchestrator: true
               publishTests: true
               stepName: TAS_E2E_dev
@@ -229,7 +229,7 @@ stages:
               suite: tas_pass
               environment: dev
               mode: async
-              ref: ${{ parameters.ref }}
+              ref: ${{ parameters.tas_ref }}
               verifyOrchestrator: true
               publishTests: true
               stepName: TAS_INTEGRATION_dev
@@ -493,7 +493,7 @@ stages:
               suite: checkout
               environment: uat
               mode: async
-              ref: ${{ parameters.ref }}
+              ref: ${{ parameters.tas_ref }}
               verifyOrchestrator: true
               publishTests: true
               stepName: TAS_E2E_uat
@@ -524,7 +524,7 @@ stages:
               suite: tas_pass
               environment: uat
               mode: async
-              ref: ${{ parameters.ref }}
+              ref: ${{ parameters.tas_ref }}
               verifyOrchestrator: true
               publishTests: true
               stepName: TAS_INTEGRATION_uat
