@@ -77,26 +77,9 @@ pool:
 # --- START Deploy DEV --- #
 stages:
 
-  # --- START Deploy DEV --- #
-  - stage: 'test_fake_build_and_deploy'
-    displayName: 'Fake build and deploy for DEV deployment'
-    condition: and(succeeded(), eq(${{parameters.DEV_DEPLOY}}, true))
-    jobs:
-      - job: test_fake_build_and_deploy
-        displayName: 'Fake build and deploy for DEV deployment'
-        steps:
-          - task: Bash@3
-            displayName: "Fake build and deploy for DEV deployment"
-            inputs:
-              targetType: "inline"
-              script: |
-                echo "Fake stage of build and deploy in DEV"
-
-
   - stage: 'Build_for_DEV'
     displayName: 'Build for DEV'
-    condition: false
-    #condition: and(succeeded(), not(${{ parameters.SKIP_BUILD }}), eq(${{parameters.DEV_DEPLOY}}, true))
+    condition: and(succeeded(), not(${{ parameters.SKIP_BUILD }}), eq(${{parameters.DEV_DEPLOY}}, true))
     jobs:
       - job: Build_docker
         displayName: Build docker with Build.SourceVersion as TAG
@@ -148,6 +131,7 @@ stages:
                     VALUE_FILE: "helm/values-dev.yaml"
                     GREEN_VERSION: $(Build.SourceVersion)
                     BLUE_VERSION: $(Build.SourceVersion)
+
   - stage: IntegrationTestDev
     displayName: "Integration test for DEV environment"
     dependsOn:
@@ -187,7 +171,7 @@ stages:
               testRunTitle: "DEV integration tests"
 
   - stage: TAS_tests_DEV
-    dependsOn: test_fake_build_and_deploy
+    dependsOn: Deploy_for_DEV
     pool:
       vmImage: 'ubuntu-latest'
     jobs:
