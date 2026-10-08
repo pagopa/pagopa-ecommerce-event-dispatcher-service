@@ -58,7 +58,7 @@ class NodeClient(
           }
         })
       .bodyToMono(ClosePaymentResponseDto::class.java)
-      .doOnSuccess { _ ->
+      .doOnNext { _ ->
         LogTracingUtils.loggerTracingUtils()
           .success()
           .attributes(

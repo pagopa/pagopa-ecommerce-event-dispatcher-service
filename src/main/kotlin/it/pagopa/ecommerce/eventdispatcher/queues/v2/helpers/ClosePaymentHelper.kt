@@ -403,7 +403,7 @@ class ClosePaymentHelper(
             }
           })
       }
-      .doOnSuccess {
+      .doOnNext {
         LogTracingUtils.loggerTracingUtils()
           .success()
           .dependency(MONGO_DEPENDENCY)
@@ -507,7 +507,7 @@ class ClosePaymentHelper(
       .fold<Mono<Either<TransactionClosureFailedEvent, TransactionClosedEvent>>>(
         { it.map { closureFailed -> Either.left(closureFailed) } },
         { it.map { closed -> Either.right(closed) } })
-      .doOnSuccess { result ->
+      .doOnNext { result ->
         traceClosePaymentUpdateStatus(
           baseTransaction = transaction,
           closePaymentTransactionData = closePaymentTransactionData,

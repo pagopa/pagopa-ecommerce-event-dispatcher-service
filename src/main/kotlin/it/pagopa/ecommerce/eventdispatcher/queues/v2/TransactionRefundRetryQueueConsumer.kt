@@ -95,7 +95,7 @@ class TransactionRefundRetryQueueConsumer(
               tracingInfo,
               event.data.retryCount,
             )
-            .doOnSuccess {
+            .doOnNext {
               transactionTracing.addSpanAttributesRefundedFlowFromTransaction(it, events)
             }
         }

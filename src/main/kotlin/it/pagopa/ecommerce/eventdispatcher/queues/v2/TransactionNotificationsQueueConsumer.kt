@@ -104,7 +104,7 @@ class TransactionNotificationsQueueConsumer(
               updateNotifiedTransactionStatus(
                 tx, transactionsViewRepository, transactionUserReceiptRepository)
             }
-            .doOnSuccess {
+            .doOnNext {
               transactionTracing.addSpanAttributesNotificationsFlowFromTransaction(it, events)
             }
             .flatMap {

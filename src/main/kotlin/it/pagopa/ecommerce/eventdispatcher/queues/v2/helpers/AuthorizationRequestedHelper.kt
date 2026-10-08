@@ -39,7 +39,6 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import reactor.core.publisher.Mono
-import reactor.kotlin.core.publisher.doOnError
 import reactor.kotlin.core.publisher.switchIfEmpty
 
 /**
@@ -191,7 +190,7 @@ class AuthorizationRequestedHelper(
                 visibilityTimeout, // visibility timeout
                 Duration.ofSeconds(transientQueueTTLSeconds.toLong()), // ttl
               )
-              .doOnSuccess {
+              .doOnNext {
                 LogTracingUtils.loggerTracingUtils()
                   .dependency(LogTracingUtils.STORAGE_QUEUE_DEPENDENCY)
                   .details(
