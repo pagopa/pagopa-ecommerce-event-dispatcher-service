@@ -101,10 +101,8 @@ class TransactionsRefundQueueConsumer(
               npgService,
               tracingInfo,
             )
-            .doOnSuccess {
-              if (it != null) {
-                transactionTracing.addSpanAttributesRefundedFlowFromTransaction(it, events)
-              }
+            .doOnNext {
+              transactionTracing.addSpanAttributesRefundedFlowFromTransaction(it, events)
             }
         }
     val e = event.fold({ QueueEvent(it, tracingInfo) }, { QueueEvent(it, tracingInfo) })

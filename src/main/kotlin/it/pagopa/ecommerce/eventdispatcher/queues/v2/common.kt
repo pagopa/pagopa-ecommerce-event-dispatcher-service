@@ -66,7 +66,7 @@ fun updateTransactionToExpired(
     .insert(
       TransactionExpiredEvent(
         transaction.transactionId.value(), TransactionExpiredData(transaction.status)))
-    .doOnSuccess {
+    .doOnNext {
       LogTracingUtils.loggerTracingUtils()
         .success()
         .details(mapOf("event_name" to it.eventCode))
@@ -202,7 +202,7 @@ fun updateTransactionWithRefundEvent(
 ): Mono<BaseTransaction> {
   return transactionsRefundedEventStoreRepository
     .insert(event)
-    .doOnSuccess {
+    .doOnNext {
       LogTracingUtils.loggerTracingUtils()
         .details(mapOf("event_name" to it.eventCode))
         .dependency(MONGO_DEPENDENCY)
@@ -309,7 +309,7 @@ fun retrieveAuthorizationState(
           paymentMethod =
             NpgClient.PaymentMethod.fromMethodTypeCode(
               transaction.transactionAuthorizationRequestData.paymentTypeCode))
-        .doOnSuccess {
+        .doOnNext {
           LogTracingUtils.loggerTracingUtils()
             .success()
             .dependency(LogTracingUtils.NPG_DEPENDENCY)
@@ -1053,7 +1053,7 @@ private fun updateNotifiedTransactionStatus(
         }
       })
     .then(
-      transactionUserReceiptRepository.insert(event).doOnSuccess {
+      transactionUserReceiptRepository.insert(event).doOnNext {
         LogTracingUtils.loggerTracingUtils()
           .success()
           .details(mapOf("event_name" to it.eventCode))

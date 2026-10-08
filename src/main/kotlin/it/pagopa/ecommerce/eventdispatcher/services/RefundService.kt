@@ -59,7 +59,7 @@ class RefundService(
             amount,
             apiKey,
             "Refund request for transactionId $idempotenceKey and operationId $operationId")
-          .doOnSuccess {
+          .doOnNext {
             LogTracingUtils.loggerTracingUtils()
               .success()
               .dependency(LogTracingUtils.NPG_DEPENDENCY)
@@ -133,7 +133,7 @@ class RefundService(
               URI.create("${urlConfig.url()}/refunds"),
               transactionId.value(),
               RedirectRefundResponseDto::class.java)
-            .doOnSuccess {
+            .doOnNext {
               LogTracingUtils.loggerTracingUtils()
                 .success()
                 .details(

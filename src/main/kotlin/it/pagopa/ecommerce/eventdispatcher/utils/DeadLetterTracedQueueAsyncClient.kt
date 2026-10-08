@@ -69,7 +69,7 @@ class DeadLetterTracedQueueAsyncClient(
             Duration.ZERO,
             Duration.ofSeconds(deadLetterTTLSeconds.toLong()), // timeToLive
           )
-          .doOnSuccess { queueResponse ->
+          .doOnNext { queueResponse ->
             LogTracingUtils.loggerTracingUtils()
               .details(
                 mapOf(

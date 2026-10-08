@@ -122,7 +122,7 @@ class TransactionExpirationQueueConsumer(
                     timeLeft,
                     Duration.ofSeconds(transientQueueTTLSeconds.toLong()),
                   )
-                  .doOnSuccess {
+                  .doOnNext {
                     LogTracingUtils.loggerTracingUtils()
                       .details(
                         mapOf(
@@ -144,7 +144,7 @@ class TransactionExpirationQueueConsumer(
           if (!isTransactionExpired) {
             updateTransactionToExpired(
                 tx, transactionsExpiredEventStoreRepository, transactionsViewRepository)
-              .doOnSuccess {
+              .doOnNext {
                 transactionTracing.addSpanAttributesExpiredFlowFromTransaction(it, events)
               }
           } else {
@@ -209,7 +209,7 @@ class TransactionExpirationQueueConsumer(
                   timeout + Duration.ofSeconds(npgService.eventProcessingDelaySeconds),
                   Duration.ofSeconds(transientQueueTTLSeconds.toLong()),
                 )
-                .doOnSuccess {
+                .doOnNext {
                   LogTracingUtils.loggerTracingUtils()
                     .success()
                     .details(

@@ -390,6 +390,13 @@ class ClosePaymentHelper(
 
     return transactionClosureErrorEventStoreRepository
       .insert(event)
+      .doOnNext {
+        LogTracingUtils.loggerTracingUtils()
+          .success()
+          .dependency(MONGO_DEPENDENCY)
+          .details(mapOf("event_name" to event.eventCode))
+          .logInfo(logger, "Saved domain event ")
+      }
       .flatMap {
         TransactionsViewProjectionHandler.updateTransactionView(
           transactionId = baseTransaction.transactionId,
@@ -402,13 +409,6 @@ class ClosePaymentHelper(
                 ZonedDateTime.parse(event.creationDate).toInstant().toEpochMilli()
             }
           })
-      }
-      .doOnSuccess {
-        LogTracingUtils.loggerTracingUtils()
-          .success()
-          .dependency(MONGO_DEPENDENCY)
-          .details(mapOf("event_name" to event.eventCode))
-          .logInfo(logger, "Saved domain event ")
       }
       .thenReturn(
         (baseTransaction as it.pagopa.ecommerce.commons.domain.v2.Transaction).applyEvent(event)
@@ -507,7 +507,7 @@ class ClosePaymentHelper(
       .fold<Mono<Either<TransactionClosureFailedEvent, TransactionClosedEvent>>>(
         { it.map { closureFailed -> Either.left(closureFailed) } },
         { it.map { closed -> Either.right(closed) } })
-      .doOnSuccess { result ->
+      .doOnNext { result ->
         traceClosePaymentUpdateStatus(
           baseTransaction = transaction,
           closePaymentTransactionData = closePaymentTransactionData,
