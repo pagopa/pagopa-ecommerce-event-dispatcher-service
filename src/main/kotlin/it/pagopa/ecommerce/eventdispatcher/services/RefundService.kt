@@ -22,7 +22,6 @@ import java.util.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.http.HttpStatusCode
 import org.springframework.stereotype.Component
 import org.springframework.web.reactive.function.client.WebClientResponseException
 import reactor.core.publisher.Mono
@@ -145,14 +144,17 @@ class RefundService(
             }
             .onErrorMap(NodeForwarderClientException::class.java) { exception ->
               val errorCause = exception.cause
-              val httpErrorCode: Optional<HttpStatusCode> =
-                Optional.ofNullable(errorCause).map {
-                  if (it is WebClientResponseException) {
-                    it.statusCode
-                  } else {
-                    null
+              val (httpErrorCode, responseBody) =
+                Optional.ofNullable(errorCause)
+                  .map {
+                    if (it is WebClientResponseException) {
+                      Pair(Optional.of(it.statusCode), Optional.ofNullable(it.responseBodyAsString))
+                    } else {
+                      Pair(Optional.empty(), Optional.empty())
+                    }
                   }
-                }
+                  .orElse(Pair(Optional.empty(), Optional.empty()))
+
               LogTracingUtils.loggerTracingUtils()
                 .failure()
                 .details(
@@ -160,7 +162,8 @@ class RefundService(
                     "psp_id" to pspId,
                     "psp_transaction_id" to pspTransactionId,
                     "payment_type_code" to paymentTypeCode,
-                    "http_error_code" to httpErrorCode.map { it.toString() }.orElse("N/A")))
+                    "http_error_code" to httpErrorCode.map { it.toString() }.orElse("N/A"),
+                    "http_error_body" to responseBody.orElse("N/A")))
                 .logError(
                   logger, exception, "Error performing Redirect refund operation for transaction")
               httpErrorCode
