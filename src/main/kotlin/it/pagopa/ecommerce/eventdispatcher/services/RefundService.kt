@@ -145,14 +145,17 @@ class RefundService(
             }
             .onErrorMap(NodeForwarderClientException::class.java) { exception ->
               val errorCause = exception.cause
-              val httpErrorCode: Optional<HttpStatusCode> =
-                Optional.ofNullable(errorCause).map {
-                  if (it is WebClientResponseException) {
-                    it.statusCode
-                  } else {
-                    null
+              val httpErrorDetails: Pair<Optional<HttpStatusCode>, Optional<String>> =
+                Optional.ofNullable(errorCause)
+                  .map {
+                    if (it is WebClientResponseException) {
+                      Pair(Optional.of(it.statusCode), Optional.ofNullable(it.responseBodyAsString))
+                    } else {
+                      Pair(Optional.empty(), Optional.empty())
+                    }
                   }
-                }
+                  .orElse(Pair(Optional.empty(), Optional.empty()))
+
               LogTracingUtils.loggerTracingUtils()
                 .failure()
                 .details(
@@ -160,10 +163,13 @@ class RefundService(
                     "psp_id" to pspId,
                     "psp_transaction_id" to pspTransactionId,
                     "payment_type_code" to paymentTypeCode,
-                    "http_error_code" to httpErrorCode.map { it.toString() }.orElse("N/A")))
+                    "http_error_code" to
+                      httpErrorDetails.component1().map { it.toString() }.orElse("N/A"),
+                    "http_error_body" to httpErrorDetails.component2().orElse("N/A")))
                 .logError(
                   logger, exception, "Error performing Redirect refund operation for transaction")
-              httpErrorCode
+              httpErrorDetails
+                .component1()
                 .map {
                   val errorCodeReason =
                     "Error performing refund for Redirect transaction with id: [${transactionId.value()}] and payment type code: [$paymentTypeCode], HTTP error code: [$it]"
