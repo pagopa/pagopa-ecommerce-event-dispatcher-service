@@ -246,12 +246,12 @@ stages:
     dependsOn: [ ]
     condition:
       and(
-        succeeded(),
-        eq(${{parameters.UAT_PROD_DEPLOY}}, true),
-        or(
-         eq(variables['Build.SourceBranch'], 'refs/heads/main'),
-         startsWith(variables['Build.SourceBranch'], 'refs/tags')
-         )
+      succeeded(),
+      eq(${{parameters.UAT_PROD_DEPLOY}}, true),
+      or(
+      eq(variables['Build.SourceBranch'], 'refs/heads/main'),
+      startsWith(variables['Build.SourceBranch'], 'refs/tags')
+      )
       )
     jobs:
       - job: "build"
@@ -277,12 +277,11 @@ stages:
   - stage: "Deploy_UAT_Blue"
     displayName: 'UAT blue deployment'
     dependsOn: Build_release_candidate
-    #condition:
-    #  and(
-    #  succeeded(),
-    #  eq(${{parameters.UAT_SKIP_BLUE_DEPLOYMENT}}, False)
-    #  )
-    condition: false
+    condition:
+      and(
+      succeeded(),
+      eq(${{parameters.UAT_SKIP_BLUE_DEPLOYMENT}}, False)
+      )
     variables:
       green_app_version: $[ stageDependencies.Build_release_candidate.build.outputs['chart_current_version.appVersion'] ]
     jobs:
@@ -340,8 +339,7 @@ stages:
   - stage: "Get_Release_Version"
     displayName: "Get the app version to deploy"
     dependsOn: Build_release_candidate
-    #condition: in(dependencies.Build_release_candidate.result, 'Succeeded', 'Skipped')
-    condition: false
+    condition: in(dependencies.Build_release_candidate.result, 'Succeeded', 'Skipped')
     jobs:
       - job: "get_version"
         steps:
