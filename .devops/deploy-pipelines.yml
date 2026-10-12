@@ -462,9 +462,9 @@ stages:
 
   - stage: TAS_tests_UAT
     dependsOn:
-      # TO-CHANGE with:
-      #- Deploy_UAT_Green
-      - Build_release_candidate #test value
+      - Deploy_UAT_Green
+    condition: |
+      eq(dependencies.Deploy_UAT_Green.result, 'Succeeded')
     pool:
       vmImage: 'ubuntu-latest'
     jobs:
