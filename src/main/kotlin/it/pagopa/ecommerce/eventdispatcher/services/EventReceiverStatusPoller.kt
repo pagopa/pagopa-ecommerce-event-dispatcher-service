@@ -35,9 +35,11 @@ class EventReceiverStatusPoller(
 
   @Scheduled(cron = "\${eventController.status.pollingChron}")
   suspend fun eventReceiverStatusPoller() {
-    LogTracingUtils.loggerTracingUtils()
-      .success()
-      .logInfo(logger, "Starting event receiver status polling")
+    if (logger.isDebugEnabled) {
+      LogTracingUtils.loggerTracingUtils()
+        .success()
+        .logDebug(logger, "Starting event receiver status polling")
+    }
     val statuses = inboundChannelAdapterLifecycleHandlerService.getAllChannelStatus()
     val instanceId = redisStreamEventControllerConfigs.instanceId
     val queriedAt = OffsetDateTime.now().toString()
