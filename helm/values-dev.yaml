@@ -29,7 +29,7 @@ microservice-chart:
       OTEL_RESOURCE_ATTRIBUTES: "service.name=pagopa-ecommerce-event-dispatcher-service-blue,deployment.environment=dev"
       ECS_SERVICE_NAME: pagopa-ecommerce-event-dispatcher-service-blue
       NODO_URI: https://api.dev.platform.pagopa.it/nodo-auth/node-for-ecommerce/v2
-    envSecret: { }
+    envSecret: {}
   image:
     repository: pagopadcommonacr.azurecr.io/pagopaecommerceeventdispatcherservice
     tag: "3.19.6"
@@ -62,9 +62,9 @@ microservice-chart:
     servicePort: 9000
   serviceAccount:
     create: false
-    annotations: { }
+    annotations: {}
     name: "ecommerce-workload-identity"
-  podAnnotations: { }
+  podAnnotations: {}
   podSecurityContext:
     seccompProfile:
       type: RuntimeDefault
@@ -210,8 +210,8 @@ microservice-chart:
   keyvault:
     name: "pagopa-d-ecommerce-kv"
     tenantId: "7788edaf-0346-4068-9d79-c868aed15b3d"
-  nodeSelector: { }
-  tolerations: [ ]
+  nodeSelector: {}
+  tolerations: []
   affinity:
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
