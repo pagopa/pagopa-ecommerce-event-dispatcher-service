@@ -1,11 +1,11 @@
 package it.pagopa.ecommerce.eventdispatcher.warmup.utils;
+
 import it.pagopa.ecommerce.commons.documents.v2.*;
 import it.pagopa.ecommerce.commons.documents.v2.authorization.NpgTransactionGatewayAuthorizationRequestedData;
 import it.pagopa.ecommerce.commons.domain.v2.TransactionEventCode;
 import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto;
-import it.pagopa.ecommerce.commons.queues.TracingInfo;
-import it.pagopa.ecommerce.commons.queues.TracingUtils;
 import org.springframework.http.HttpStatus;
+
 import java.net.URI;
 
 public class EventsUtil {
@@ -125,7 +125,7 @@ public class EventsUtil {
         ClosureErrorData data = new ClosureErrorData();
         data.setHttpErrorCode(HttpStatus.INTERNAL_SERVER_ERROR);  // Set the HTTP error code
         data.setErrorDescription("Sample error message");  // Set the error description
-        data.setErrorType(ClosureErrorData.ErrorType.KO_RESPONSE_RECEIVED);  // Set the error type
+        data.setErrorType(ErrorType.KO_RESPONSE_RECEIVED);  // Set the error type
 
         // Set the data object in the event
         event.setData(data);

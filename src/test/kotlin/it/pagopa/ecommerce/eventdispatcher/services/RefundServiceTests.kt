@@ -8,11 +8,13 @@ import io.opentelemetry.api.trace.SpanBuilder
 import io.opentelemetry.api.trace.Tracer
 import it.pagopa.ecommerce.commons.client.NodeForwarderClient
 import it.pagopa.ecommerce.commons.client.NpgClient
+import it.pagopa.ecommerce.commons.documents.v2.ErrorType
 import it.pagopa.ecommerce.commons.domain.v2.TransactionId
 import it.pagopa.ecommerce.commons.exceptions.NodeForwarderClientException
 import it.pagopa.ecommerce.commons.exceptions.NpgApiKeyConfigurationException
 import it.pagopa.ecommerce.commons.exceptions.NpgResponseException
 import it.pagopa.ecommerce.commons.exceptions.RedirectConfigurationException
+import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.utils.NpgApiKeyConfiguration
 import it.pagopa.ecommerce.commons.utils.RedirectUrlMappingConf
 import it.pagopa.ecommerce.commons.utils.bean.redirect.configuration.RedirectUrlMappingCriteria
@@ -28,13 +30,13 @@ import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundRequestDto as Redirec
 import it.pagopa.generated.ecommerce.redirect.v1.dto.RefundResponseDto as RedirectRefundResponseDto
 import java.math.BigDecimal
 import java.net.URI
+import java.nio.charset.StandardCharsets
 import java.util.*
 import java.util.stream.Stream
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
@@ -53,7 +55,6 @@ import reactor.test.StepVerifier
 @SpringBootTest
 @TestPropertySource(locations = ["classpath:application.test.properties"])
 class RefundServiceTests {
-  private val paymentGatewayClient: PaymentGatewayClient = mock()
   private val tracer: Tracer = mock()
   private val span: Span = mock()
   private val spanBuilder: SpanBuilder = mock()
@@ -98,7 +99,6 @@ class RefundServiceTests {
       jacksonObjectMapper().writeValueAsString(expectedMatchingCriteria))
   private val refundService: RefundService =
     RefundService(
-      paymentGatewayClient = paymentGatewayClient,
       npgClient = npgClient,
       npgApiKeyConfiguration = npgApiKeyConfiguration,
       nodeForwarderRedirectApiClient = nodeForwarderRedirectApiClient,
@@ -145,7 +145,7 @@ class RefundServiceTests {
 
     @JvmStatic
     private fun redirectRetrieveUrlPaymentMethodsTestSearch(): Stream<Arguments> {
-      return Stream.of<Arguments>(
+      return Stream.of(
         Arguments.of(
           "CHECKOUT",
           "psp1",
@@ -165,6 +165,58 @@ class RefundServiceTests {
     @JvmStatic
     private fun touchpoints(): Stream<Arguments> =
       Stream.of(Arguments.of("CHECKOUT"), Arguments.of("CHECKOUT_CART"), Arguments.of("IO"))
+
+    @JvmStatic
+    fun npgResponseExceptionsWithEncapsulationMethodSource(): Stream<Arguments> {
+      val errorCodes = listOf("NPG_ERROR_CODE_1", "NPG_ERROR_CODE_2")
+      val npgResponseException =
+        NpgResponseException(
+          "NPG error",
+          errorCodes,
+          Optional.of(HttpStatus.BAD_REQUEST),
+          RuntimeException("NPG error"))
+      val npgResponseExceptionWithNoErrorCodes =
+        NpgResponseException(
+          "NPG error", listOf(), Optional.of(HttpStatus.BAD_REQUEST), RuntimeException("NPG error"))
+
+      return Stream.of(
+        Arguments.of(
+          npgResponseExceptionWithNoErrorCodes, HttpStatus.BAD_REQUEST, listOf<String>()),
+        Arguments.of(npgResponseException, HttpStatus.BAD_REQUEST, errorCodes),
+        Arguments.of(
+          RuntimeException("error", npgResponseException), HttpStatus.BAD_REQUEST, errorCodes),
+        Arguments.of(
+          RuntimeException("error", RuntimeException("error", npgResponseException)),
+          HttpStatus.BAD_REQUEST,
+          errorCodes))
+    }
+
+    @JvmStatic
+    fun webclientResponseExceptionsWithEncapsulationMethodSource(): Stream<Arguments> {
+      val errorResponseBody = "{\"cause\": \"error\"}"
+      val webClientResponseException =
+        WebClientResponseException.create(
+          HttpStatus.BAD_REQUEST.value(),
+          HttpStatus.BAD_REQUEST.reasonPhrase,
+          HttpHeaders.EMPTY,
+          errorResponseBody.encodeToByteArray(),
+          StandardCharsets.UTF_8)
+      return Stream.of(
+        Arguments.of(webClientResponseException, HttpStatus.BAD_REQUEST, errorResponseBody),
+        Arguments.of(
+          NodeForwarderClientException("error", webClientResponseException),
+          HttpStatus.BAD_REQUEST,
+          errorResponseBody),
+        Arguments.of(
+          RuntimeException("error", webClientResponseException),
+          HttpStatus.BAD_REQUEST,
+          errorResponseBody),
+        Arguments.of(
+          RuntimeException(
+            "error", NodeForwarderClientException("error", webClientResponseException)),
+          HttpStatus.BAD_REQUEST,
+          errorResponseBody))
+    }
   }
 
   @Test
@@ -287,7 +339,6 @@ class RefundServiceTests {
     val npgClient: NpgClient = mock()
     val refundService =
       RefundService(
-        paymentGatewayClient = paymentGatewayClient,
         npgClient = npgClient,
         npgApiKeyConfiguration = npgApiKeyConfiguration,
         nodeForwarderRedirectApiClient = nodeForwarderRedirectApiClient,
@@ -324,7 +375,6 @@ class RefundServiceTests {
     val npgClient: NpgClient = mock()
     val refundService =
       RefundService(
-        paymentGatewayClient = paymentGatewayClient,
         npgClient = npgClient,
         npgApiKeyConfiguration = npgApiKeyConfiguration,
         nodeForwarderRedirectApiClient = nodeForwarderRedirectApiClient,
@@ -511,7 +561,6 @@ class RefundServiceTests {
 
     val refundServiceTest =
       RefundService(
-        paymentGatewayClient = paymentGatewayClient,
         npgClient = npgClient,
         npgApiKeyConfiguration = npgApiKeyConfiguration,
         nodeForwarderRedirectApiClient = nodeForwarderRedirectApiClient,
@@ -582,7 +631,6 @@ class RefundServiceTests {
 
     val refundServiceTest =
       RefundService(
-        paymentGatewayClient = paymentGatewayClient,
         npgClient = npgClient,
         npgApiKeyConfiguration = npgApiKeyConfiguration,
         nodeForwarderRedirectApiClient = nodeForwarderRedirectApiClient,
@@ -611,5 +659,74 @@ class RefundServiceTests {
           it.message)
       }
       .verify()
+  }
+
+  @ParameterizedTest
+  @MethodSource("npgResponseExceptionsWithEncapsulationMethodSource")
+  fun `Should handle NpgResponseException retrieving TransactionRefundErrorData`(
+    exception: Exception,
+    errorStatusCode: HttpStatus,
+    npgErrorCodes: List<String>,
+  ) {
+    // pre-requisites
+
+    val expectedTransactionBeforeStatus = TransactionStatusDto.EXPIRED
+    val expectedErrorDescription =
+      if (npgErrorCodes.isEmpty()) {
+        "No NPG error code detected in response body: -"
+      } else {
+        "NPG error codes: $npgErrorCodes"
+      }
+    // test
+    val transactionRefundErrorData =
+      RefundService.exceptionToRefundErrorData(
+        transactionStatusDto = expectedTransactionBeforeStatus, throwable = exception)
+    assertNotNull(transactionRefundErrorData)
+    assertEquals(expectedTransactionBeforeStatus, transactionRefundErrorData!!.statusBeforeRefunded)
+    assertEquals(errorStatusCode, transactionRefundErrorData.httpErrorCode)
+    assertEquals(expectedErrorDescription, transactionRefundErrorData.errorDescription)
+    assertEquals(ErrorType.KO_RESPONSE_RECEIVED, transactionRefundErrorData.errorType)
+  }
+
+  @ParameterizedTest
+  @MethodSource("webclientResponseExceptionsWithEncapsulationMethodSource")
+  fun `Should handle WebClientResponseException retrieving TransactionRefundErrorData`(
+    exception: Exception,
+    errorStatusCode: HttpStatus,
+    errorResponse: String
+  ) {
+    // pre-requisites
+
+    val expectedTransactionBeforeStatus = TransactionStatusDto.EXPIRED
+
+    // test
+    val transactionRefundErrorData =
+      RefundService.exceptionToRefundErrorData(
+        transactionStatusDto = expectedTransactionBeforeStatus, throwable = exception)
+    assertNotNull(transactionRefundErrorData)
+    assertEquals(expectedTransactionBeforeStatus, transactionRefundErrorData!!.statusBeforeRefunded)
+    assertEquals(errorStatusCode, transactionRefundErrorData.httpErrorCode)
+    assertEquals(
+      "Gateway response body: [$errorResponse]", transactionRefundErrorData.errorDescription)
+    assertEquals(ErrorType.KO_RESPONSE_RECEIVED, transactionRefundErrorData.errorType)
+  }
+
+  @Test
+  fun `Should handle generic exception retrieving TransactionRefundErrorData with communication error type`() {
+    // pre-requisites
+
+    val expectedTransactionBeforeStatus = TransactionStatusDto.EXPIRED
+    val exception = RuntimeException("Generic error")
+    // test
+    val transactionRefundErrorData =
+      RefundService.exceptionToRefundErrorData(
+        transactionStatusDto = expectedTransactionBeforeStatus, throwable = exception)
+    assertNotNull(transactionRefundErrorData)
+    assertEquals(expectedTransactionBeforeStatus, transactionRefundErrorData!!.statusBeforeRefunded)
+    assertNull(transactionRefundErrorData.httpErrorCode)
+    assertEquals(
+      "Error performing refund operation: Generic error",
+      transactionRefundErrorData.errorDescription)
+    assertEquals(ErrorType.COMMUNICATION_ERROR, transactionRefundErrorData.errorType)
   }
 }

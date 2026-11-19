@@ -155,11 +155,14 @@ fun updateTransactionToRefundError(
   transaction: BaseTransaction,
   transactionsRefundedEventStoreRepository:
     TransactionsEventStoreRepository<BaseTransactionRefundedData>,
-  transactionsViewRepository: TransactionsViewRepository
+  transactionsViewRepository: TransactionsViewRepository,
+  exception: Exception? = null
 ): Mono<BaseTransaction> {
   val event =
     TransactionRefundErrorEvent(
-      transaction.transactionId.value(), TransactionRefundErrorData(transaction.status))
+      transaction.transactionId.value(),
+      RefundService.exceptionToRefundErrorData(
+        transactionStatusDto = transaction.status, throwable = exception))
 
   return updateTransactionWithRefundEvent(
     transaction,

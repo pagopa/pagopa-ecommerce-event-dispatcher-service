@@ -9,6 +9,7 @@ import it.pagopa.ecommerce.commons.generated.server.model.TransactionStatusDto
 import it.pagopa.ecommerce.commons.queues.StrictJsonSerializerProvider
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsEventStoreRepository
 import it.pagopa.ecommerce.eventdispatcher.repositories.TransactionsViewRepository
+import it.pagopa.ecommerce.eventdispatcher.services.RefundService
 import java.time.Duration
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
@@ -48,7 +49,10 @@ class RefundRetryService(
     TransactionRefundRetriedEvent(
       transactionId.value(),
       TransactionRefundRetriedData(
-        transactionGatewayAuthorizationData, transactionRetriedData.retryCount))
+        transactionGatewayAuthorizationData,
+        RefundService.exceptionToRefundErrorData(
+          transactionStatusDto = newTransactionStatus(), throwable = throwable),
+        transactionRetriedData.retryCount))
       as TransactionEvent<BaseTransactionRetriedData>
 
   override fun newTransactionStatus(): TransactionStatusDto = TransactionStatusDto.REFUND_ERROR
