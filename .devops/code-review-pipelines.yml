@@ -3,9 +3,9 @@ variables:
   MAVEN_OPTS: '-Dmaven.repo.local=$(MAVEN_CACHE_FOLDER)'
   BRANCH_NAME: $[ replace(variables['System.PullRequest.SourceBranch'], 'refs/heads/', '') ]
 trigger:
- branches:
-  include:
-    - main
+  branches:
+    include:
+      - main
 
 pool:
   vmImage: ubuntu-latest
@@ -101,7 +101,7 @@ stages:
             displayName: 'Publish Code Coverage on Azure Devops'
 
   - stage: IntegrationTest
-    dependsOn: []
+    dependsOn: [ ]
     jobs:
       - job: make_integration_test
         steps:
@@ -111,6 +111,10 @@ stages:
               sed -i "s|^ECOMMERCE_EVENT_DISPATCHER_COMMIT_SHA=.*$|ECOMMERCE_EVENT_DISPATCHER_COMMIT_SHA=$branch_escaped|" .env
             displayName: 'Change dispatcher branch name ecommerce-local .env'
             workingDirectory: pagopa-ecommerce-local
+          - script: |
+              docker system prune -af --volumes
+              df -h
+            displayName: 'Free disk space'
           - script: docker compose up pagopa-ecommerce-transactions-service pagopa-ecommerce-payment-methods-service pagopa-ecommerce-event-dispatcher-service mongo redis storage pagopa-pdv-mock pagopa-gec-mock pagopa-npg-mock pagopa-node-mock traefik azurite-init pagopa-psp-mock pagopa-notifications-service pagopa-jwt-issuer-mock pagopa-ecommerce-transactions-scheduler-service -d
             displayName: 'Run app with docker-compose'
             workingDirectory: pagopa-ecommerce-local
