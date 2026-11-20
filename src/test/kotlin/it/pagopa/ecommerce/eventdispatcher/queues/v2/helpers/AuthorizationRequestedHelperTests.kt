@@ -13,6 +13,7 @@ import it.pagopa.ecommerce.commons.documents.v2.authorization.WalletInfo
 import it.pagopa.ecommerce.commons.domain.v2.TransactionId
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationDto
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationResultDto
+import it.pagopa.ecommerce.commons.generated.npg.v1.dto.OperationTypeDto
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.StateResponseDto
 import it.pagopa.ecommerce.commons.generated.npg.v1.dto.WorkflowStateDto
 import it.pagopa.ecommerce.commons.queues.QueueEvent
@@ -189,6 +190,7 @@ class AuthorizationRequestedHelperTests {
             .operationId(operationId)
             .orderId(orderId)
             .operationResult(OperationResultDto.EXECUTED)
+            .operationType(OperationTypeDto.AUTHORIZATION)
             .paymentEndToEndId(paymentEndToEndId)
             .operationTime(receivedOperationTime)
             .additionalData(mapOf("authorizationCode" to authorizationCode, "rrn" to rrn)))
@@ -201,6 +203,7 @@ class AuthorizationRequestedHelperTests {
             this.operationResult = OutcomeNpgGatewayDto.OperationResultEnum.EXECUTED
             this.orderId = orderId
             this.operationId = operationId
+            this.operationType = OperationTypeDto.AUTHORIZATION.value
             this.authorizationCode = authorizationCode
             this.paymentEndToEndId = paymentEndToEndId
             this.rrn = rrn

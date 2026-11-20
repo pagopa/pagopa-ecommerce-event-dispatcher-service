@@ -470,6 +470,7 @@ fun patchAuthRequestByState(
                     stateResponseDto.operation!!.operationResult!!.value)
                 orderId = stateResponseDto.operation!!.orderId
                 operationId = stateResponseDto.operation!!.operationId
+                operationType = stateResponseDto.operation!!.operationType?.value
                 if (stateResponseDto.operation!!.additionalData != null) {
                   authorizationCode =
                     stateResponseDto.operation!!.additionalData!!["authorizationCode"] as String?
