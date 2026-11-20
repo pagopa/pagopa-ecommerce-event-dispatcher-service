@@ -9,6 +9,7 @@ import io.opentelemetry.api.trace.Tracer
 import it.pagopa.ecommerce.commons.client.NodeForwarderClient
 import it.pagopa.ecommerce.commons.client.NpgClient
 import it.pagopa.ecommerce.commons.documents.v2.ErrorType
+import it.pagopa.ecommerce.commons.documents.v2.TransactionRefundErrorData
 import it.pagopa.ecommerce.commons.domain.v2.TransactionId
 import it.pagopa.ecommerce.commons.exceptions.NodeForwarderClientException
 import it.pagopa.ecommerce.commons.exceptions.NpgApiKeyConfigurationException
@@ -726,6 +727,116 @@ class RefundServiceTests {
     assertNull(transactionRefundErrorData.httpErrorCode)
     assertEquals(
       "Error performing refund operation. Error message: Generic error",
+      transactionRefundErrorData.errorDescription)
+    assertEquals(ErrorType.COMMUNICATION_ERROR, transactionRefundErrorData.errorType)
+  }
+
+  @Test
+  fun `Should handle NpgResponseException without http status retrieving TransactionRefundErrorData with communication error type`() {
+    // pre-requisites
+
+    val expectedTransactionBeforeStatus = TransactionStatusDto.EXPIRED
+    val exception =
+      NpgResponseException("NPG error", listOf(), Optional.empty(), RuntimeException("NPG error"))
+    // test
+    val transactionRefundErrorData =
+      RefundService.exceptionToRefundErrorData(
+        transactionStatusDto = expectedTransactionBeforeStatus, throwable = exception)
+    assertNotNull(transactionRefundErrorData)
+    assertEquals(expectedTransactionBeforeStatus, transactionRefundErrorData!!.statusBeforeRefunded)
+    assertNull(transactionRefundErrorData.httpErrorCode)
+    assertEquals(
+      "No NPG error code detected in response body: -", transactionRefundErrorData.errorDescription)
+    assertEquals(ErrorType.COMMUNICATION_ERROR, transactionRefundErrorData.errorType)
+  }
+
+  @Test
+  fun `Should handle WebClientResponseException with non standard http status retrieving TransactionRefundErrorData`() {
+    // pre-requisites
+
+    val expectedTransactionBeforeStatus = TransactionStatusDto.EXPIRED
+    val errorResponseBody = "{\"cause\": \"error\"}"
+    val exception =
+      WebClientResponseException.create(
+        599,
+        "Custom status",
+        HttpHeaders.EMPTY,
+        errorResponseBody.encodeToByteArray(),
+        StandardCharsets.UTF_8)
+    // test
+    val transactionRefundErrorData =
+      RefundService.exceptionToRefundErrorData(
+        transactionStatusDto = expectedTransactionBeforeStatus, throwable = exception)
+    assertNotNull(transactionRefundErrorData)
+    assertEquals(expectedTransactionBeforeStatus, transactionRefundErrorData!!.statusBeforeRefunded)
+    assertNull(transactionRefundErrorData.httpErrorCode)
+    assertEquals(
+      "Gateway response body: [$errorResponseBody]", transactionRefundErrorData.errorDescription)
+    assertEquals(ErrorType.KO_RESPONSE_RECEIVED, transactionRefundErrorData.errorType)
+  }
+
+  @Test
+  fun `Should return embedded TransactionRefundErrorData handling RefundNotAllowedException`() {
+    // pre-requisites
+
+    val expectedTransactionBeforeStatus = TransactionStatusDto.EXPIRED
+    val embeddedErrorData =
+      TransactionRefundErrorData(
+        TransactionStatusDto.CLOSED,
+        HttpStatus.OK,
+        "Expected outcome: [OK] or [CANCELED], received: [KO]",
+        ErrorType.KO_RESPONSE_RECEIVED)
+    val exception =
+      RefundNotAllowedException(
+        TransactionId(TransactionTestUtils.TRANSACTION_ID),
+        "error",
+        RuntimeException("generic cause"),
+        embeddedErrorData)
+    // test
+    val transactionRefundErrorData =
+      RefundService.exceptionToRefundErrorData(
+        transactionStatusDto = expectedTransactionBeforeStatus, throwable = exception)
+    assertSame(embeddedErrorData, transactionRefundErrorData)
+  }
+
+  @Test
+  fun `Should resolve cause handling RefundNotAllowedException without embedded TransactionRefundErrorData`() {
+    // pre-requisites
+
+    val expectedTransactionBeforeStatus = TransactionStatusDto.EXPIRED
+    val errorResponseBody = "{\"cause\": \"error\"}"
+    val cause =
+      WebClientResponseException.create(
+        HttpStatus.BAD_REQUEST.value(),
+        HttpStatus.BAD_REQUEST.reasonPhrase,
+        HttpHeaders.EMPTY,
+        errorResponseBody.encodeToByteArray(),
+        StandardCharsets.UTF_8)
+    val exception =
+      RefundNotAllowedException(TransactionId(TransactionTestUtils.TRANSACTION_ID), "error", cause)
+    // test
+    val transactionRefundErrorData =
+      RefundService.exceptionToRefundErrorData(
+        transactionStatusDto = expectedTransactionBeforeStatus, throwable = exception)
+    assertNotNull(transactionRefundErrorData)
+    assertEquals(expectedTransactionBeforeStatus, transactionRefundErrorData!!.statusBeforeRefunded)
+    assertEquals(HttpStatus.BAD_REQUEST, transactionRefundErrorData.httpErrorCode)
+    assertEquals(
+      "Gateway response body: [$errorResponseBody]", transactionRefundErrorData.errorDescription)
+    assertEquals(ErrorType.KO_RESPONSE_RECEIVED, transactionRefundErrorData.errorType)
+  }
+
+  @Test
+  fun `Should fallback to communication error handling RefundNotAllowedException without embedded data and cause`() {
+    val exception =
+      RefundNotAllowedException(TransactionId(TransactionTestUtils.TRANSACTION_ID), "error")
+    val transactionRefundErrorData =
+      RefundService.exceptionToRefundErrorData(
+        transactionStatusDto = TransactionStatusDto.EXPIRED, throwable = exception)
+    assertNotNull(transactionRefundErrorData)
+    assertNull(transactionRefundErrorData!!.httpErrorCode)
+    assertEquals(
+      "Error performing refund operation. Error message: N/A",
       transactionRefundErrorData.errorDescription)
     assertEquals(ErrorType.COMMUNICATION_ERROR, transactionRefundErrorData.errorType)
   }

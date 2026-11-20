@@ -48,6 +48,7 @@ import java.time.*
 import java.util.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import org.springframework.http.HttpStatus
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toMono
@@ -855,7 +856,13 @@ fun handleRedirectRefundResponse(
         RefundNotAllowedException(
           transactionID = transaction.transactionId,
           errorMessage =
-            "Error processing refund for psp: [${transactionAuthorizationRequestData.pspId}] with id: [${transaction.transactionId.value()}]. Received outcome: [${refundOutcome}]")
+            "Error processing refund for psp: [${transactionAuthorizationRequestData.pspId}] with id: [${transaction.transactionId.value()}]. Received outcome: [${refundOutcome}]",
+          transactionRefundErrorData =
+            TransactionRefundErrorData(
+              transaction.status,
+              HttpStatus.OK,
+              "Expected outcome: [OK] or [CANCELED], received: [${refundOutcome}]",
+              ErrorType.KO_RESPONSE_RECEIVED))
       updateTransactionToRefundError(
           transaction, transactionsEventStoreRepository, transactionsViewRepository, exception)
         .flatMap { Mono.error(exception) }

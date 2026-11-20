@@ -55,19 +55,25 @@ class RefundService(
             } else {
               "No NPG error code detected in response body: $responseBody"
             }
+          val httpStatus = throwable.statusCode
           TransactionRefundErrorData(
             transactionStatusDto,
-            throwable.statusCode.orElse(null),
+            httpStatus.orElse(null),
             errorDescription,
-            ErrorType.KO_RESPONSE_RECEIVED)
+            httpStatus.map { ErrorType.KO_RESPONSE_RECEIVED }.orElse(ErrorType.COMMUNICATION_ERROR))
         }
         // generic http error response exception
         is WebClientResponseException -> {
           TransactionRefundErrorData(
             transactionStatusDto,
-            HttpStatus.valueOf(throwable.statusCode.value()),
+            HttpStatus.resolve(throwable.statusCode.value()),
             "Gateway response body: [${throwable.responseBodyAsString}]",
             ErrorType.KO_RESPONSE_RECEIVED)
+        }
+        is RefundNotAllowedException -> {
+          throwable.transactionRefundErrorData
+            ?: exceptionToRefundErrorData(
+              transactionStatusDto = transactionStatusDto, throwable = throwable.cause)
         }
         else -> {
           // try to resolve to a specific exception in the exception chain (see above)
