@@ -725,7 +725,7 @@ class RefundServiceTests {
     assertEquals(expectedTransactionBeforeStatus, transactionRefundErrorData!!.statusBeforeRefunded)
     assertNull(transactionRefundErrorData.httpErrorCode)
     assertEquals(
-      "Error performing refund operation: Generic error",
+      "Error performing refund operation. Error message: Generic error",
       transactionRefundErrorData.errorDescription)
     assertEquals(ErrorType.COMMUNICATION_ERROR, transactionRefundErrorData.errorType)
   }

@@ -156,7 +156,7 @@ fun updateTransactionToRefundError(
   transactionsRefundedEventStoreRepository:
     TransactionsEventStoreRepository<BaseTransactionRefundedData>,
   transactionsViewRepository: TransactionsViewRepository,
-  exception: Exception? = null
+  exception: Throwable? = null
 ): Mono<BaseTransaction> {
   val event =
     TransactionRefundErrorEvent(
@@ -655,7 +655,7 @@ fun refundTransaction(
       if (retryCount == 0) {
           // refund error event written only the first time
           updateTransactionToRefundError(
-            tx, transactionsEventStoreRepository, transactionsViewRepository)
+            tx, transactionsEventStoreRepository, transactionsViewRepository, exception)
         } else {
           Mono.just(tx)
         }
@@ -666,8 +666,17 @@ fun refundTransaction(
             is RefundError.UnexpectedPaymentGatewayResponse -> Mono.error(exception)
             is RefundError.RefundFailed ->
               refundRetryService.enqueueRetryEvent(
-                it, retryCount, tracingInfo, exception.authorizationData)
-            else -> refundRetryService.enqueueRetryEvent(it, retryCount, tracingInfo)
+                baseTransaction = it,
+                retriedCount = retryCount,
+                tracingInfo = tracingInfo,
+                transactionGatewayAuthorizationData = exception.authorizationData,
+                throwable = exception)
+            else ->
+              refundRetryService.enqueueRetryEvent(
+                baseTransaction = it,
+                retriedCount = retryCount,
+                tracingInfo = tracingInfo,
+                throwable = exception)
           }
         }
         .thenReturn(tx)
@@ -708,7 +717,8 @@ private fun appendNpgRefundRequestedEventIfNeeded(
               updateTransactionToRefundError(
                 transaction = tx,
                 transactionsRefundedEventStoreRepository = transactionsEventStoreRepository,
-                transactionsViewRepository = transactionsViewRepository)
+                transactionsViewRepository = transactionsViewRepository,
+                exception = error)
             }
             .then(
               Mono.error(
@@ -840,16 +850,16 @@ fun handleRedirectRefundResponse(
     RefundOutcomeDto.CANCELED ->
       updateTransactionToRefunded(
         transaction, transactionsEventStoreRepository, transactionsViewRepository)
-    RefundOutcomeDto.KO ->
+    RefundOutcomeDto.KO -> {
+      val exception =
+        RefundNotAllowedException(
+          transactionID = transaction.transactionId,
+          errorMessage =
+            "Error processing refund for psp: [${transactionAuthorizationRequestData.pspId}] with id: [${transaction.transactionId.value()}]. Received outcome: [${refundOutcome}]")
       updateTransactionToRefundError(
-          transaction, transactionsEventStoreRepository, transactionsViewRepository)
-        .flatMap {
-          Mono.error(
-            RefundNotAllowedException(
-              transactionID = transaction.transactionId,
-              errorMessage =
-                "Error processing refund for psp: [${transactionAuthorizationRequestData.pspId}] with id: [${transaction.transactionId.value()}]. Received outcome: [${refundOutcome}]"))
-        }
+          transaction, transactionsEventStoreRepository, transactionsViewRepository, exception)
+        .flatMap { Mono.error(exception) }
+    }
   }
 }
 

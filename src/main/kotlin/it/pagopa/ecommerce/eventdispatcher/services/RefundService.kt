@@ -79,7 +79,7 @@ class RefundService(
             TransactionRefundErrorData(
               transactionStatusDto,
               null,
-              "Error performing refund operation: ${throwable?.message}",
+              "Error performing refund operation. Error message: ${throwable?.message ?: "N/A"}",
               ErrorType.COMMUNICATION_ERROR)
           }
         }
