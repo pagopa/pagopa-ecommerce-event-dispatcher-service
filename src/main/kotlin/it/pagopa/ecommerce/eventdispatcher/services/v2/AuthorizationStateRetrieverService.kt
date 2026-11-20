@@ -46,9 +46,9 @@ class AuthorizationStateRetrieverService(
             .map {
               val errorCodeReason = "Received HTTP error code from NPG: $it"
               if (it.is5xxServerError) {
-                NpgServerErrorException(errorCodeReason)
+                NpgServerErrorException(errorCodeReason, exception)
               } else {
-                NpgBadRequestException(transactionId, errorCodeReason)
+                NpgBadRequestException(transactionId, errorCodeReason, exception)
               }
             }
             .orElse(exception)
@@ -99,9 +99,9 @@ class AuthorizationStateRetrieverService(
             .map {
               val errorCodeReason = "Received HTTP error code from NPG: $it"
               if (it.is5xxServerError) {
-                NpgServerErrorException(errorCodeReason)
+                NpgServerErrorException(errorCodeReason, exception)
               } else {
-                NpgBadRequestException(transactionId, errorCodeReason)
+                NpgBadRequestException(transactionId, errorCodeReason, exception)
               }
             }
             .orElse(exception)
