@@ -115,7 +115,7 @@ stages:
               docker system prune -af --volumes
               df -h
             displayName: 'Free disk space'
-          - script: docker compose up pagopa-ecommerce-transactions-service pagopa-ecommerce-payment-methods-service pagopa-ecommerce-event-dispatcher-service mongo redis storage pagopa-pdv-mock pagopa-gec-mock pagopa-npg-mock pagopa-node-mock traefik azurite-init pagopa-psp-mock pagopa-notifications-service pagopa-jwt-issuer-mock pagopa-ecommerce-transactions-scheduler-service -d
+          - script: docker compose up pagopa-ecommerce-transactions-service pagopa-ecommerce-payment-methods-service pagopa-ecommerce-event-dispatcher-service mongo redis storage pagopa-pdv-mock pagopa-gec-mock pagopa-npg-mock pagopa-node-mock traefik azurite-init pagopa-psp-mock pagopa-jwt-issuer-mock pagopa-ecommerce-transactions-scheduler-service -d
             displayName: 'Run app with docker-compose'
             workingDirectory: pagopa-ecommerce-local
             env:
