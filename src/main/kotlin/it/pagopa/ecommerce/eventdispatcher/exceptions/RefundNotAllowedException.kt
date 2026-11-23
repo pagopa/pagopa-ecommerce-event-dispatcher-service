@@ -1,5 +1,6 @@
 package it.pagopa.ecommerce.eventdispatcher.exceptions
 
+import it.pagopa.ecommerce.commons.documents.v2.TransactionRefundErrorData
 import it.pagopa.ecommerce.commons.domain.v2.TransactionId
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.ResponseStatus
@@ -8,7 +9,8 @@ import org.springframework.web.bind.annotation.ResponseStatus
 class RefundNotAllowedException(
   transactionID: TransactionId,
   errorMessage: String = "N/A",
-  cause: Throwable? = null
+  cause: Throwable? = null,
+  val transactionRefundErrorData: TransactionRefundErrorData? = null
 ) :
   RuntimeException(
     "Transaction with id ${transactionID.value()} cannot be refunded. Reason: $errorMessage",
