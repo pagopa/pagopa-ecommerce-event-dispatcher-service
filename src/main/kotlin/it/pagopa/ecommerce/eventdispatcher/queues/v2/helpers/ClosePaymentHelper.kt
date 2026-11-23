@@ -313,6 +313,13 @@ class ClosePaymentHelper(
     closePaymentTransactionData: ClosePaymentTransactionData
   ) =
     baseTransaction
+      .doOnNext {
+        LogTracingUtils.loggerTracingUtils()
+          .failure()
+          .attributes(
+            mapOf(LogTracingUtils.AttributeKeys.CTX_TRANSACTION_ID to it.transactionId.value()))
+          .logError(logger, exception, "Exception during Nodo closePaymentV2 call")
+      }
       .publishOn(Schedulers.boundedElastic())
       .flatMap { tx -> updateTransactionToClosureError(tx, exception) }
       .flatMap { tx ->
