@@ -48,6 +48,7 @@ import java.time.*
 import java.util.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import org.springframework.http.HttpStatus
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toMono
@@ -155,11 +156,14 @@ fun updateTransactionToRefundError(
   transaction: BaseTransaction,
   transactionsRefundedEventStoreRepository:
     TransactionsEventStoreRepository<BaseTransactionRefundedData>,
-  transactionsViewRepository: TransactionsViewRepository
+  transactionsViewRepository: TransactionsViewRepository,
+  exception: Throwable? = null
 ): Mono<BaseTransaction> {
   val event =
     TransactionRefundErrorEvent(
-      transaction.transactionId.value(), TransactionRefundErrorData(transaction.status))
+      transaction.transactionId.value(),
+      RefundService.exceptionToRefundErrorData(
+        transactionStatusDto = transaction.status, throwable = exception))
 
   return updateTransactionWithRefundEvent(
     transaction,
@@ -653,7 +657,7 @@ fun refundTransaction(
       if (retryCount == 0) {
           // refund error event written only the first time
           updateTransactionToRefundError(
-            tx, transactionsEventStoreRepository, transactionsViewRepository)
+            tx, transactionsEventStoreRepository, transactionsViewRepository, exception)
         } else {
           Mono.just(tx)
         }
@@ -664,8 +668,17 @@ fun refundTransaction(
             is RefundError.UnexpectedPaymentGatewayResponse -> Mono.error(exception)
             is RefundError.RefundFailed ->
               refundRetryService.enqueueRetryEvent(
-                it, retryCount, tracingInfo, exception.authorizationData)
-            else -> refundRetryService.enqueueRetryEvent(it, retryCount, tracingInfo)
+                baseTransaction = it,
+                retriedCount = retryCount,
+                tracingInfo = tracingInfo,
+                transactionGatewayAuthorizationData = exception.authorizationData,
+                throwable = exception)
+            else ->
+              refundRetryService.enqueueRetryEvent(
+                baseTransaction = it,
+                retriedCount = retryCount,
+                tracingInfo = tracingInfo,
+                throwable = exception)
           }
         }
         .thenReturn(tx)
@@ -706,7 +719,8 @@ private fun appendNpgRefundRequestedEventIfNeeded(
               updateTransactionToRefundError(
                 transaction = tx,
                 transactionsRefundedEventStoreRepository = transactionsEventStoreRepository,
-                transactionsViewRepository = transactionsViewRepository)
+                transactionsViewRepository = transactionsViewRepository,
+                exception = error)
             }
             .then(
               Mono.error(
@@ -838,16 +852,22 @@ fun handleRedirectRefundResponse(
     RefundOutcomeDto.CANCELED ->
       updateTransactionToRefunded(
         transaction, transactionsEventStoreRepository, transactionsViewRepository)
-    RefundOutcomeDto.KO ->
+    RefundOutcomeDto.KO -> {
+      val exception =
+        RefundNotAllowedException(
+          transactionID = transaction.transactionId,
+          errorMessage =
+            "Error processing refund for psp: [${transactionAuthorizationRequestData.pspId}] with id: [${transaction.transactionId.value()}]. Received outcome: [${refundOutcome}]",
+          transactionRefundErrorData =
+            TransactionRefundErrorData(
+              transaction.status,
+              HttpStatus.OK,
+              "Expected outcome: [OK] or [CANCELED], received: [${refundOutcome}]",
+              ErrorType.KO_RESPONSE_RECEIVED))
       updateTransactionToRefundError(
-          transaction, transactionsEventStoreRepository, transactionsViewRepository)
-        .flatMap {
-          Mono.error(
-            RefundNotAllowedException(
-              transactionID = transaction.transactionId,
-              errorMessage =
-                "Error processing refund for psp: [${transactionAuthorizationRequestData.pspId}] with id: [${transaction.transactionId.value()}]. Received outcome: [${refundOutcome}]"))
-        }
+          transaction, transactionsEventStoreRepository, transactionsViewRepository, exception)
+        .flatMap { Mono.error(exception) }
+    }
   }
 }
 

@@ -92,12 +92,12 @@ data class ClosePaymentEvent(
           httpStatus,
           exception.errorResponse?.description,
           if (exception.statusCode != null) {
-            ClosureErrorData.ErrorType.KO_RESPONSE_RECEIVED
+            ErrorType.KO_RESPONSE_RECEIVED
           } else {
-            ClosureErrorData.ErrorType.COMMUNICATION_ERROR
+            ErrorType.COMMUNICATION_ERROR
           })
       } else {
-        ClosureErrorData(null, null, ClosureErrorData.ErrorType.COMMUNICATION_ERROR)
+        ClosureErrorData(null, null, ErrorType.COMMUNICATION_ERROR)
       }
   }
 
@@ -313,6 +313,13 @@ class ClosePaymentHelper(
     closePaymentTransactionData: ClosePaymentTransactionData
   ) =
     baseTransaction
+      .doOnNext {
+        LogTracingUtils.loggerTracingUtils()
+          .failure()
+          .attributes(
+            mapOf(LogTracingUtils.AttributeKeys.CTX_TRANSACTION_ID to it.transactionId.value()))
+          .logError(logger, exception, "Exception during Nodo closePaymentV2 call")
+      }
       .publishOn(Schedulers.boundedElastic())
       .flatMap { tx -> updateTransactionToClosureError(tx, exception) }
       .flatMap { tx ->
